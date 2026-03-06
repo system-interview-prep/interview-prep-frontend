@@ -1,137 +1,70 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
-import ReactMarkdown from "react-markdown";
-import { Message } from "../types/message";
-import { sendChatMessage } from "../lib/aiService";
-
+import React from "react";
+import { useChat } from "../hooks/useChat";
+import { ChatHeader } from "./component/ChatHeader";
+import { ChatMessages } from "./component/ChatMessages";
+import { ChatInput } from "./component/ChatInput";
+import { Sidebar } from "./component/Sidebar";
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    { id: 1, text: "Xin chào! Tôi là AI, bạn cần luyện phỏng vấn lĩnh vực nào?", sender: "ai" },
-  ]);
-  const [input, setInput] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const {
+    messages,
+    sessionId,
+    language,
+    sessions,
+    isLoading,
+    setLanguage,
+    startNewSession,
+    loadSession,
+    sendMessage, // Use the sendMessage from hook which takes input string
+  } = useChat();
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  const [input, setInput] = React.useState("");
 
-  const sendMessage = async () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
-    const userMsg: Message = {
-      id: messages.length + 1,
-      text: input,
-      sender: "user",
-    };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-
-    // Hiển thị trạng thái đang xử lý
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: prev.length + 1,
-        text: "AI đang xử lý...",
-        sender: "ai",
-      },
-    ]);
-
-    try {
-      const data = await sendChatMessage({ prompt: input });
-      setMessages((prev) => {
-        // Xóa trạng thái đang xử lý
-        const filtered = prev.filter((m) => m.text !== "AI đang xử lý...");
-        return [
-          ...filtered,
-          {
-            id: filtered.length + 1,
-            text: data.reply || "Không nhận được phản hồi từ AI.",
-            sender: "ai",
-          },
-        ];
-      });
-    } catch (err) {
-      setMessages((prev) => {
-        const filtered = prev.filter((m) => m.text !== "AI đang xử lý...");
-        return [
-          ...filtered,
-          {
-            id: filtered.length + 1,
-            text: "Lỗi kết nối đến AI.",
-            sender: "ai",
-          },
-        ];
-      });
-    }
+    const currentInput = input;
+    setInput(""); // Clear immediately
+    await sendMessage(currentInput);
   };
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-gradient-to-br from-zinc-100 to-zinc-300 dark:from-black dark:to-zinc-900">
-      <header className="px-6 py-4 bg-white dark:bg-zinc-900 shadow flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-300">AI Interview Chat</h1>
-        <span className="text-sm text-zinc-500 dark:text-zinc-400">Luyện phỏng vấn cùng AI</span>
-      </header>
-      <main className="flex-1 overflow-y-auto px-0 sm:px-24 py-6">
-        <div className="flex flex-col gap-4 max-w-2xl mx-auto">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-            >
-              {msg.sender === "ai" && (
-                <div className="flex items-end mr-2">
-                  <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold">AI</div>
-                </div>
-              )}
-              <div
-                className={`max-w-xl px-5 py-3 rounded-2xl text-base shadow ${
-                  msg.sender === "user"
-                    ? "bg-blue-500 text-white rounded-br-none"
-                    : "bg-zinc-200 text-black rounded-bl-none dark:bg-zinc-800 dark:text-zinc-100"
-                }`}
-              >
-                {msg.sender === "ai" ? (
-                  <div className="prose prose-sm dark:prose-invert">
-                    <ReactMarkdown>{msg.text}</ReactMarkdown>
-                  </div>
-                ) : (
-                  msg.text
-                )}
-              </div>
-              {msg.sender === "user" && (
-                <div className="flex items-end ml-2">
-                  <div className="w-8 h-8 bg-zinc-400 text-white rounded-full flex items-center justify-center font-bold">U</div>
-                </div>
-              )}
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
+    <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950 overflow-hidden font-sans text-zinc-900 dark:text-zinc-100 selection:bg-blue-100 selection:text-blue-900 dark:selection:bg-blue-900 dark:selection:text-blue-100">
+      {/* Sidebar */}
+      <div className="hidden md:block h-full border-r border-zinc-200/50 dark:border-zinc-800/50">
+        <Sidebar
+          sessions={sessions}
+          currentSessionId={sessionId}
+          onSelectSession={loadSession}
+          onNewSession={() => startNewSession(language)}
+        />
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col h-full bg-white/50 dark:bg-zinc-900/50 backdrop-blur-3xl relative">
+        {/* Decorative background elements */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-30 dark:opacity-20 pointer-events-none">
+          <div className="absolute -top-[20%] -right-[10%] w-[70vw] h-[70vw] bg-purple-200 dark:bg-purple-900/40 rounded-full blur-3xl filter opacity-60 mix-blend-multiply dark:mix-blend-normal animate-blob"></div>
+          <div className="absolute top-[20%] -left-[10%] w-[50vw] h-[50vw] bg-blue-200 dark:bg-blue-900/40 rounded-full blur-3xl filter opacity-60 mix-blend-multiply dark:mix-blend-normal animate-blob animation-delay-2000"></div>
+          <div className="absolute -bottom-[20%] left-[20%] w-[60vw] h-[60vw] bg-pink-200 dark:bg-pink-900/40 rounded-full blur-3xl filter opacity-60 mix-blend-multiply dark:mix-blend-normal animate-blob animation-delay-4000"></div>
         </div>
-      </main>
-      <footer className="px-6 py-4 bg-white dark:bg-zinc-900 shadow flex items-center">
-        <form
-          className="flex w-full gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            sendMessage();
-          }}
-        >
-          <input
-            className="flex-1 rounded-lg border border-zinc-300 dark:border-zinc-700 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-zinc-800 dark:text-zinc-100"
-            type="text"
-            placeholder="Nhập tin nhắn..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            autoFocus
-          />
-          <button
-            type="submit"
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-          >
-            Gửi
-          </button>
-        </form>
-      </footer>
+
+        <ChatHeader
+          language={language}
+          setLanguage={setLanguage}
+          onNewSession={() => startNewSession()}
+        />
+
+        <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 scroll-smooth">
+          <div className="max-w-4xl mx-auto flex flex-col min-h-0">
+            <ChatMessages messages={messages} isLoading={isLoading} />
+          </div>
+        </main>
+
+        <div className="flex-shrink-0 w-full z-20 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-t border-zinc-200/50 dark:border-zinc-800/50">
+          <ChatInput input={input} setInput={setInput} onSend={handleSend} />
+        </div>
+      </div>
     </div>
   );
 }
