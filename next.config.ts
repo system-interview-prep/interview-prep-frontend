@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   reactCompiler: true,
+  reactStrictMode: false, // Disable double-invoke in dev (Socket.IO join/leave noise)
 };
 
 export default nextConfig;
