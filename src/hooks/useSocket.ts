@@ -21,10 +21,17 @@ export function useSocket(roomId: string) {
       console.error('[AI Error]', message);
     });
 
+    // Bắt thêm luồng âm thanh PCM Base64 gửi qua socket
+    chatService.on('ai-audio', ({ audioBase64 }: { audioBase64: string }) => {
+      // Trigger event DOM, SimliAvatar sẽ bắt sự kiện này để convert sang Uint8Array
+      window.dispatchEvent(new CustomEvent('onSimliAudio', { detail: audioBase64 }));
+    });
+
     return () => {
       chatService.emit('leave-room', { roomId, userName: 'Me' });
       chatService.off('message');
       chatService.off('ai-error');
+      chatService.off('ai-audio');
     };
   }, [roomId]);
 

@@ -5,9 +5,18 @@ interface Props {
   onToggleCamera: () => void;
   onHangUp: () => void;
   isConnected: boolean;
+  isRecording?: boolean;
+  onToggleRecording?: () => void;
 }
 
-export default function ControlBar({ onToggleMic, onToggleCamera, onHangUp, isConnected }: Props) {
+export default function ControlBar({ 
+  onToggleMic, 
+  onToggleCamera, 
+  onHangUp, 
+  isConnected,
+  isRecording,
+  onToggleRecording
+}: Props) {
   return (
     <div className="flex items-center justify-center gap-4 py-3 bg-gray-800 rounded-xl">
       <button
@@ -16,6 +25,17 @@ export default function ControlBar({ onToggleMic, onToggleCamera, onHangUp, isCo
       >
         🎙️ Toggle Mic
       </button>
+
+      {onToggleRecording && (
+        <button
+          onClick={onToggleRecording}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${
+            isRecording ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'
+          }`}
+        >
+          {isRecording ? '⏹️ Stop Dictation' : '💬 Start Dictation'}
+        </button>
+      )}
 
       <button
         onClick={onToggleCamera}
