@@ -26,6 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+<<<<<<< HEAD
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
@@ -45,6 +46,12 @@ export default function RootLayout({
 .glass-card {background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);}`}</style>
       </head>
       <body className={`bg-surface font-body text-on-surface ${geistSans.variable} ${geistMono.variable} antialiased`}>
+=======
+    <html lang="en" className="h-full">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}
+      >
+>>>>>>> b56a6a5ecf81d1c7578aa5e274636ceeb835a34a
         {children}
       </body>
     </html>
