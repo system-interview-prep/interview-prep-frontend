@@ -27,10 +27,17 @@ export default function AdminPage() {
           <nav className="flex-1 space-y-2">
             <Link
               className="flex items-center gap-3 rounded-md bg-surface-container-lowest px-4 py-3 font-semibold text-primary shadow-sm transition-transform duration-200 hover:translate-x-1"
-              href="/admin"
+              href="/admin-dashboard"
             >
               <span className="material-symbols-outlined">dashboard</span>
               <span className="text-sm font-medium">Dashboard</span>
+            </Link>
+            <Link
+              className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
+              href="/admin-dashboard"
+            >
+              <span className="material-symbols-outlined">psychology</span>
+              <span className="text-sm font-medium">AI Insights</span>
             </Link>
             <Link
               className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
