@@ -13,6 +13,201 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
   const modeParam = resolvedSearchParams?.mode;
   const mode = Array.isArray(modeParam) ? modeParam[0] : modeParam;
   const isVoiceMode = mode === "voice";
+  const isVideoMode = mode === "video";
+
+  if (isVideoMode) {
+    return (
+      <div className="flex h-screen flex-col overflow-hidden bg-background font-body text-on-surface antialiased">
+        <header className="z-10 flex w-full items-center justify-between bg-surface px-12 py-4">
+          <div className="flex items-center gap-8">
+            <span className="font-headline text-2xl font-black tracking-tight text-on-surface">
+              Curator AI
+            </span>
+            <nav className="hidden gap-6 md:flex">
+              <Link
+                className="border-b-2 border-primary pb-1 font-headline font-bold tracking-tight text-primary"
+                href="/interview?mode=video"
+              >
+                Platform
+              </Link>
+              <Link
+                className="font-headline font-bold tracking-tight text-on-surface-variant transition-colors hover:text-primary-container"
+                href="#"
+              >
+                Solutions
+              </Link>
+              <Link
+                className="font-headline font-bold tracking-tight text-on-surface-variant transition-colors hover:text-primary-container"
+                href="#"
+              >
+                Pricing
+              </Link>
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button className="rounded-lg px-4 py-2 font-bold text-on-surface-variant transition-all hover:bg-surface-variant">
+              VN/EN
+            </button>
+            <div className="flex gap-2">
+              <span className="material-symbols-outlined cursor-pointer rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-variant">
+                language
+              </span>
+              <span className="material-symbols-outlined cursor-pointer rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-variant">
+                notifications
+              </span>
+              <span className="material-symbols-outlined cursor-pointer rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-variant">
+                account_circle
+              </span>
+            </div>
+            <button className="rounded-xl bg-primary px-6 py-2 font-bold text-on-primary shadow-sm transition-all hover:bg-primary-container">
+              Get Started
+            </button>
+          </div>
+        </header>
+
+        <main className="flex flex-1 overflow-hidden gap-6 p-6">
+          <section className="group relative flex-1 overflow-hidden rounded-3xl bg-surface-container-high shadow-sm">
+            <img
+              alt="AI Interviewer"
+              className="h-full w-full object-cover"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbrvg58oKV3STUTihd2m_q5APrjWbT4eLA3nvQS5JP9f9RMzbjl1NDRCtwHLuXPVo7sHDpk8wVMT1q6M6UMAVWwDKcPo06QZCay4y2v4ryK9rlVDVrSSVt5jlHmoOZSlfPqI8zSwhijEF-fxuljINR50AFgTdi-0utPUKx0QcE77vxpbHJpFLXNDrL1gqBwLck3TuWrJwDiXa3kRZeIvmbVObGNuqkHugi7Gs0HOf9s9wBbbHY_OTHtmtQUbsGc0gHrTmYOAA5KUpU"
+            />
+
+            <div className="absolute left-8 top-8 flex items-center gap-3 rounded-full border border-white/10 bg-black/20 px-4 py-2 backdrop-blur-md">
+              <span className="pulse-dot h-3 w-3 rounded-full bg-tertiary" />
+              <span className="text-sm font-bold uppercase tracking-wide text-white">
+                AI Analyst Active
+              </span>
+            </div>
+
+            <div className="absolute bottom-8 right-8 aspect-video w-64 overflow-hidden rounded-2xl border-2 border-white/20 shadow-2xl">
+              <img
+                alt="User Candidate"
+                className="h-full w-full object-cover"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLGDJ9Y6A9aMnB6aLya0pl-KAIJUpBIV54FqMX8T_ZVLG-DREEp1GLjmO02PHyxIty6GygF-x8imwkQisf_3rIsEjyAQBDwgff8rBREyJ_iaHWOVGEtsLx6b6zmhNYnRgwzrpejZR6f9WwTRZfG3pKTPIDkKtlt42k5X_0CKvucBlVMGE0r3V_W6enthaylXRr1XeXDlzjxDLiEtOlxJEl0dIcFP55dZtyFQWbuYuxBupF4tcjjA181FbudO5MxhmLSlW_dAav4D5G"
+              />
+              <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-md bg-black/40 px-2 py-1 backdrop-blur-sm">
+                <span className="material-symbols-outlined text-xs text-white">person</span>
+                <span className="text-[10px] font-bold uppercase text-white">
+                  Candidate (You)
+                </span>
+              </div>
+            </div>
+
+            <div className="absolute right-8 top-8 max-w-[280px] rounded-2xl border border-outline-variant/20 bg-white/90 p-4 shadow-lg backdrop-blur-xl">
+              <div className="mb-2 flex items-center gap-3">
+                <span className="material-symbols-outlined text-tertiary">psychology</span>
+                <span className="text-xs font-bold text-on-surface">AI Real-time Sentiment</span>
+              </div>
+              <div className="h-1 w-full overflow-hidden rounded-full bg-surface-container">
+                <div className="h-full w-3/4 bg-tertiary" />
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-on-surface-variant">
+                Candidate displays high confidence and clear articulation of technical concepts.
+              </p>
+            </div>
+          </section>
+
+          <aside className="flex w-96 flex-col overflow-hidden rounded-3xl bg-surface-container-low shadow-sm">
+            <div className="flex items-center justify-between bg-white p-6">
+              <div>
+                <h2 className="font-headline text-lg font-extrabold text-on-surface">Live Transcript</h2>
+                <p className="text-xs text-on-surface-variant">Session ID: #CUR-8829</p>
+              </div>
+              <button className="rounded-full p-2 transition-colors hover:bg-surface-container">
+                <span className="material-symbols-outlined text-outline">more_horiz</span>
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-6 overflow-y-auto bg-surface-container-low p-6">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-tighter text-tertiary">AI Interviewer</span>
+                  <span className="text-[10px] text-outline">10:42 AM</span>
+                </div>
+                <div className="rounded-2xl rounded-tl-none border border-tertiary/5 bg-tertiary/10 p-4">
+                  <p className="text-sm leading-relaxed text-on-surface">
+                    That is a great approach to distributed systems. How do you typically handle data consistency in such a high-availability environment?
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-end gap-2">
+                  <span className="text-[10px] text-outline">10:43 AM</span>
+                  <span className="text-[10px] font-black uppercase tracking-tighter text-primary">You</span>
+                </div>
+                <div className="rounded-2xl rounded-tr-none border border-outline-variant/10 bg-white p-4 shadow-sm">
+                  <p className="text-sm leading-relaxed text-on-surface-variant">
+                    I usually opt for eventual consistency models using a combination of message queues and idempotent workers to ensure the state stabilizes...
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-tighter text-tertiary">AI Interviewer</span>
+                  <div className="ml-2 flex gap-1">
+                    <span className="pulse-dot h-1 w-1 rounded-full bg-tertiary" />
+                    <span className="pulse-dot h-1 w-1 rounded-full bg-tertiary [animation-delay:0.2s]" />
+                    <span className="pulse-dot h-1 w-1 rounded-full bg-tertiary [animation-delay:0.4s]" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-outline-variant/10 bg-white p-6">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-xs font-bold text-on-surface">Competency Mapping</span>
+                <span className="text-xs font-bold text-primary">82%</span>
+              </div>
+              <div className="flex gap-1">
+                <div className="h-1.5 flex-1 rounded-full bg-primary" />
+                <div className="h-1.5 flex-1 rounded-full bg-primary" />
+                <div className="h-1.5 flex-1 rounded-full bg-primary" />
+                <div className="h-1.5 flex-1 rounded-full bg-surface-container" />
+              </div>
+            </div>
+          </aside>
+        </main>
+
+        <footer className="fixed bottom-8 left-1/2 z-50 mb-8 flex w-[600px] -translate-x-1/2 justify-center gap-8 rounded-t-3xl bg-white/85 px-8 py-4 shadow-[0px_40px_60px_rgba(25,28,30,0.04)] backdrop-blur-xl">
+          <button className="group flex flex-col items-center gap-1">
+            <div className="flex items-center justify-center rounded-full p-4 text-on-surface-variant transition-all hover:bg-surface-container-low">
+              <span className="material-symbols-outlined">mic</span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Mic</span>
+          </button>
+
+          <button className="group flex flex-col items-center gap-1">
+            <div className="flex items-center justify-center rounded-full p-4 text-on-surface-variant transition-all hover:bg-surface-container-low">
+              <span className="material-symbols-outlined">videocam</span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Camera</span>
+          </button>
+
+          <button className="group flex flex-col items-center gap-1">
+            <div className="flex scale-110 items-center justify-center rounded-full bg-tertiary p-4 text-white shadow-lg shadow-tertiary/20">
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
+                description
+              </span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-tertiary">Transcript</span>
+          </button>
+
+          <button className="group flex flex-col items-center gap-1">
+            <div className="flex items-center justify-center rounded-full p-4 text-error transition-all hover:bg-error-container">
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
+                call_end
+              </span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-error">End Call</span>
+          </button>
+        </footer>
+      </div>
+    );
+  }
 
   if (isVoiceMode) {
     return (
@@ -29,6 +224,9 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               <span className="cursor-default border-b-2 border-primary pb-1 text-primary">
                 Live Transcription
               </span>
+              <Link className="text-on-surface-variant transition-colors hover:text-on-surface" href="/interview?mode=video">
+                Video Call
+              </Link>
             </div>
           </div>
           <div className="flex items-center gap-6">
@@ -369,6 +567,9 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               </span>
               <Link className="cursor-pointer text-on-surface-variant transition-colors hover:text-on-surface" href="/interview?mode=voice">
                 Live Transcription
+              </Link>
+              <Link className="cursor-pointer text-on-surface-variant transition-colors hover:text-on-surface" href="/interview?mode=video">
+                Video Call
               </Link>
             </div>
           </div>
