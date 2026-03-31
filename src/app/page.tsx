@@ -3,81 +3,6 @@ import Link from "next/link";
 export default function LandingPage() {
   return (
     <>
-      <Head>
-        <title>Curator AI | Master Your Next Interview</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&family=Inter:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-          rel="stylesheet"
-        />
-        <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-        <script id="tailwind-config">{`tailwind.config = {
-  darkMode: "class",
-  theme: {
-    extend: {
-      colors: {
-        "error-container": "#ffdad6",
-        "secondary-container": "#d5e3fc",
-        "surface-container-highest": "#e0e3e5",
-        "inverse-on-surface": "#eff1f3",
-        "on-primary": "#ffffff",
-        "on-surface-variant": "#434654",
-        "primary": "#003d9b",
-        "surface-dim": "#d8dadc",
-        "on-error-container": "#93000a",
-        "secondary-fixed-dim": "#b9c7df",
-        "on-tertiary-fixed-variant": "#5a00c6",
-        "on-tertiary": "#ffffff",
-        "surface": "#f7f9fb",
-        "surface-container-high": "#e6e8ea",
-        "tertiary-container": "#7029e1",
-        "primary-fixed": "#dae2ff",
-        "on-primary-fixed-variant": "#0040a2",
-        "tertiary": "#5600be",
-        "on-background": "#191c1e",
-        "on-secondary-fixed": "#0d1c2e",
-        "on-primary-container": "#c4d2ff",
-        "secondary": "#515f74",
-        "surface-container": "#eceef0",
-        "surface-container-low": "#f2f4f6",
-        "primary-fixed-dim": "#b2c5ff",
-        "tertiary-fixed": "#eaddff",
-        "surface-bright": "#f7f9fb",
-        "on-tertiary-fixed": "#25005a",
-        "on-secondary-fixed-variant": "#3a485b",
-        "on-secondary": "#ffffff",
-        "primary-container": "#0052cc",
-        "outline": "#737685",
-        "secondary-fixed": "#d5e3fc",
-        "tertiary-fixed-dim": "#d2bbff",
-        "outline-variant": "#c3c6d6",
-        "on-primary-fixed": "#001848",
-        "inverse-surface": "#2d3133",
-        "surface-variant": "#e0e3e5",
-        "on-secondary-container": "#57657a",
-        "error": "#ba1a1a",
-        "background": "#f7f9fb",
-        "on-error": "#ffffff",
-        "on-tertiary-container": "#decbff",
-        "on-surface": "#191c1e",
-        "surface-tint": "#0c56d0",
-        "surface-container-lowest": "#ffffff",
-        "inverse-primary": "#b2c5ff"
-      },
-      fontFamily: {
-        headline: ["Manrope"],
-        body: ["Inter"],
-        label: ["Inter"]
-      },
-      borderRadius: { DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px" }
-    }
-  }
-}`}</script>
-      </Head>
       <nav className="bg-[#f7f9fb] dark:bg-slate-900 sticky top-0 z-50 transition-colors duration-200">
         <div className="flex justify-between items-center w-full px-12 py-4 mx-auto max-w-7xl">
           <div className="text-2xl font-black text-[#191c1e] dark:text-white tracking-tighter font-headline">Curator AI</div>
@@ -97,6 +22,7 @@ export default function LandingPage() {
           </div>
         </div>
       </nav>
+
       <main className="bg-surface font-body text-on-surface">
         {/* Hero Section */}
         <section className="relative pt-24 pb-32 px-12 max-w-7xl mx-auto overflow-hidden">
@@ -112,10 +38,10 @@ export default function LandingPage() {
                 Practice with Curator AI. Realistic interview simulations across Chat, Voice, and Video to sharpen your performance with instant editorial feedback.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/signup" className="bg-gradient-to-r from-primary to-tertiary text-white px-8 py-4 rounded-xl font-bold text-lg shadow-xl shadow-primary/20 active:scale-95 transition-transform inline-block">
+                <Link href="/signup" className="bg-gradient-to-r from-primary to-tertiary text-white px-8 py-4 rounded-xl font-bold text-lg shadow-xl shadow-primary/20 active:scale-95 transition-transform text-center cursor-pointer">
                   Start Your Free Session
                 </Link>
-                <Link href="/demo" className="flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-bold text-lg text-primary border border-outline-variant/20 hover:bg-surface-container transition-colors inline-block">
+                <Link href="/demo" className="flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-bold text-lg text-primary border border-outline-variant/20 hover:bg-surface-container transition-colors cursor-pointer">
                   <span className="material-symbols-outlined">play_circle</span>
                   Watch Demo
                 </Link>
