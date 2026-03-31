@@ -20,9 +20,9 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
       <div className="flex h-screen flex-col overflow-hidden bg-background font-body text-on-surface antialiased">
         <header className="z-10 flex w-full items-center justify-between bg-surface px-12 py-4">
           <div className="flex items-center gap-8">
-            <span className="font-headline text-2xl font-black tracking-tight text-on-surface">
+            <Link className="font-headline text-2xl font-black tracking-tight text-on-surface" href="/interview-summary">
               Curator AI
-            </span>
+            </Link>
             <nav className="hidden gap-6 md:flex">
               <Link
                 className="border-b-2 border-primary pb-1 font-headline font-bold tracking-tight text-primary"
@@ -214,9 +214,9 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
       <div className="min-h-screen overflow-hidden bg-surface font-body text-on-surface">
         <header className="sticky top-0 z-50 flex w-full items-center justify-between bg-surface px-12 py-4">
           <div className="flex items-center gap-8">
-            <div className="font-headline text-2xl font-black tracking-tighter text-on-surface">
+            <Link className="font-headline text-2xl font-black tracking-tighter text-on-surface" href="/interview-summary">
               Curator AI
-            </div>
+            </Link>
             <div className="hidden items-center gap-6 font-headline text-lg font-bold tracking-tight md:flex">
               <Link className="text-on-surface-variant transition-colors hover:text-on-surface" href="/interview">
                 Interview Mode
@@ -226,6 +226,9 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               </span>
               <Link className="text-on-surface-variant transition-colors hover:text-on-surface" href="/interview?mode=video">
                 Video Call
+              </Link>
+              <Link className="text-on-surface-variant transition-colors hover:text-on-surface" href="/interview-summary">
+                Interview Summary
               </Link>
             </div>
           </div>
@@ -558,9 +561,9 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
       <main className="ml-64 flex h-full flex-1 flex-col bg-surface">
         <header className="sticky top-0 z-50 flex w-full items-center justify-between bg-surface px-12 py-4">
           <div className="flex items-center gap-8">
-            <span className="font-headline text-2xl font-black tracking-tighter text-on-surface">
+            <Link className="font-headline text-2xl font-black tracking-tighter text-on-surface" href="/interview-summary">
               Curator AI
-            </span>
+            </Link>
             <div className="hidden items-center gap-6 font-headline text-lg font-bold tracking-tight md:flex">
               <span className="cursor-default border-b-2 border-primary pb-1 text-primary">
                 Interview Mode
@@ -570,6 +573,9 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               </Link>
               <Link className="cursor-pointer text-on-surface-variant transition-colors hover:text-on-surface" href="/interview?mode=video">
                 Video Call
+              </Link>
+              <Link className="cursor-pointer text-on-surface-variant transition-colors hover:text-on-surface" href="/interview-summary">
+                Interview Summary
               </Link>
             </div>
           </div>
