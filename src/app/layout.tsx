@@ -26,8 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-<<<<<<< HEAD
-    <html lang="en">
+    <html lang="en" className="h-full">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -45,13 +44,9 @@ export default function RootLayout({
 .ai-pulse::after {content: ''; position: absolute; width: 8px; height: 8px; background-color: #7029e1; border-radius: 50%; top: -2px; right: -2px;}
 .glass-card {background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);}`}</style>
       </head>
-      <body className={`bg-surface font-body text-on-surface ${geistSans.variable} ${geistMono.variable} antialiased`}>
-=======
-    <html lang="en" className="h-full">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}
+        className={`bg-surface font-body text-on-surface ${geistSans.variable} ${geistMono.variable} antialiased h-full`}
       >
->>>>>>> b56a6a5ecf81d1c7578aa5e274636ceeb835a34a
         {children}
       </body>
     </html>
