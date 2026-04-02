@@ -1,9 +1,131 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import LanguageToggleButton from "../src/components/LanguageToggleButton";
+import { useLanguage } from "../src/i18n/LanguageProvider";
+import { useGoogleLogin } from "@react-oauth/google";
 
 export default function Authentication({ defaultMode = "login" }: { defaultMode?: "login" | "signup" }) {
+  const { t, lang } = useLanguage();
   const isLogin = defaultMode === "login";
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const googleConfigured = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
+  const nextUrl = useMemo(() => {
+    const next = searchParams.get("next");
+    if (!next) return null;
+    return next.startsWith("/") ? next : `/${next}`;
+  }, [searchParams]);
+
+  const ADMIN_EMAIL = "admin@curator.ai";
+  const ADMIN_PASSWORD = "Admin@123";
+
+  function getCookie(name: string) {
+    if (typeof document === "undefined") return null;
+    const m = document.cookie.match(new RegExp(`(?:^|; )${name.replace(/[-[\]/{}()*+?.\\^$|]/g, "\\$&")}=([^;]*)`));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  function setRoleCookie(role: "admin" | "user") {
+    // Frontend-only demo auth: set cookie for middleware checks.
+    // NOTE: in production, role should come from backend/session.
+    document.cookie = `role=${role}; Path=/; SameSite=Lax; Max-Age=31536000`;
+  }
+
+  useEffect(() => {
+    const role = getCookie("role");
+    if (role === "admin") {
+      router.replace(nextUrl ?? "/admin/dashboard");
+      return;
+    }
+    if (role === "user") {
+      router.replace(nextUrl ?? "/dashboard");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const startGoogleLogin = useGoogleLogin({
+    flow: "implicit",
+    onSuccess: async (tokenResponse) => {
+      try {
+        setGoogleError(null);
+        setGoogleLoading(true);
+
+        const r = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        });
+        if (!r.ok) throw new Error(`userinfo_failed_${r.status}`);
+        const profile = (await r.json()) as { email?: string; name?: string; picture?: string };
+
+        localStorage.setItem(
+          "auth.googleProfile",
+          JSON.stringify({
+            email: profile.email ?? null,
+            name: profile.name ?? null,
+            picture: profile.picture ?? null,
+          }),
+        );
+
+        setRoleCookie("user");
+        router.replace(nextUrl ?? "/dashboard");
+      } catch {
+        setGoogleError(t("auth.error.googleFailed"));
+      } finally {
+        setGoogleLoading(false);
+      }
+    },
+    onError: () => {
+      setGoogleError(t("auth.error.googleFailed"));
+      setGoogleLoading(false);
+    },
+  });
+
+  function onGoogleClick() {
+    if (!googleConfigured) {
+      setGoogleError(t("auth.error.googleNotConfigured"));
+      return;
+    }
+    setGoogleError(null);
+    setGoogleLoading(true);
+    startGoogleLogin();
+  }
+
+  async function onLoginSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoginError(null);
+    setLoginLoading(true);
+
+    try {
+      const email = loginEmail.trim().toLowerCase();
+      const password = loginPassword;
+
+      if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+        setRoleCookie("admin");
+        router.replace(nextUrl ?? "/admin/dashboard");
+        return;
+      }
+
+      if (!email || !password) {
+        setLoginError(t("auth.error.requiredEmailPassword"));
+        return;
+      }
+
+      setRoleCookie("user");
+      router.replace(nextUrl ?? "/dashboard");
+    } finally {
+      setLoginLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-surface font-body text-on-surface antialiased overflow-x-hidden">
@@ -25,21 +147,19 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
             </h1>
           </Link>
           <p className="text-on-primary-container/80 mt-2 font-medium tracking-wide">
-            Editorial Intelligence for HR.
+            {t("auth.brandTagline")}
           </p>
         </div>
         <div className="relative z-10 max-w-lg">
           <div className="mb-8">
             <span className="inline-block w-12 h-1 bg-tertiary-fixed mb-6"></span>
             <h2 className="font-headline font-extrabold text-white text-5xl leading-tight tracking-tight">
-              Transforming <br />
-              the talent <br />
-              landscape.
+              {t("auth.heroTitle.line1")} <br />
+              {t("auth.heroTitle.line2")} <br />
+              {t("auth.heroTitle.line3")}
             </h2>
             <p className="text-white/70 mt-6 text-lg leading-relaxed">
-              Join the next generation of recruitment. Our AI-driven platform
-              helps you identify, curate, and hire the world's best talent with
-              editorial precision.
+              {t("auth.heroDesc")}
             </p>
           </div>
           {/* Bento-style feature highlight */}
@@ -51,9 +171,9 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
               >
                 psychology
               </span>
-              <p className="text-white font-bold text-sm">AI Insights</p>
+              <p className="text-white font-bold text-sm">{t("auth.feature.aiInsights.title")}</p>
               <p className="text-white/60 text-xs mt-1">
-                Deep behavioral analysis
+                {t("auth.feature.aiInsights.desc")}
               </p>
             </div>
             <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl border border-outline-variant/10">
@@ -63,13 +183,13 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
               >
                 database
               </span>
-              <p className="text-white font-bold text-sm">Smart Curation</p>
-              <p className="text-white/60 text-xs mt-1">Dynamic talent pools</p>
+              <p className="text-white font-bold text-sm">{t("auth.feature.smartCuration.title")}</p>
+              <p className="text-white/60 text-xs mt-1">{t("auth.feature.smartCuration.desc")}</p>
             </div>
           </div>
         </div>
         <div className="relative z-10 text-white/40 text-xs">
-          © 2024 Curator AI Platform. All rights reserved.
+          {t("auth.rights")}
         </div>
       </section>
 
@@ -86,7 +206,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                   : "text-on-surface-variant font-medium hover:text-on-surface transition-colors"
               }`}
             >
-              Login
+              {t("auth.tab.login")}
             </Link>
             <Link
               href="/signup"
@@ -96,8 +216,11 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                   : "text-on-surface-variant font-medium hover:text-on-surface transition-colors"
               }`}
             >
-              Sign Up
+              {t("auth.tab.signup")}
             </Link>
+            <div className="ml-auto pb-3">
+              <LanguageToggleButton />
+            </div>
           </div>
 
           {/* Login Form Section */}
@@ -105,26 +228,36 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
             <div className="space-y-8 animate-in fade-in" id="login-section">
               <div>
                 <h3 className="text-2xl font-headline font-extrabold text-on-surface tracking-tight">
-                  Welcome back
+                  {t("auth.welcomeBack")}
                 </h3>
                 <p className="text-on-surface-variant text-sm mt-1">
-                  Please enter your details to sign in to your account.
+                  {t("auth.welcomeBack.subtitle")}
                 </p>
+                <div className="mt-4 rounded-xl border border-outline-variant/20 bg-surface-container-lowest px-4 py-3 text-xs text-on-surface-variant">
+                  <p className="font-bold text-on-surface">{t("auth.adminPreset")}</p>
+                  <p className="mt-1">
+                    Email: <span className="font-mono text-on-surface">{ADMIN_EMAIL}</span>
+                    {" • "}
+                    Password: <span className="font-mono text-on-surface">{ADMIN_PASSWORD}</span>
+                  </p>
+                </div>
               </div>
-              <form className="space-y-6">
+              <form className="space-y-6" onSubmit={onLoginSubmit}>
                 <div className="space-y-4">
                   <div className="group">
                     <label
                       className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 ml-1"
                       htmlFor="login-email"
                     >
-                      Email
+                      {t("auth.email")}
                     </label>
                     <input
                       className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none"
                       id="login-email"
                       placeholder="name@company.com"
                       type="email"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
                     />
                   </div>
                   <div className="group">
@@ -133,13 +266,13 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                         className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest ml-1"
                         htmlFor="login-password"
                       >
-                        Password
+                        {t("auth.password")}
                       </label>
                       <Link
                         className="text-xs font-semibold text-primary hover:underline"
                         href="#"
                       >
-                        Forgot Password?
+                        {t("auth.forgotPassword")}
                       </Link>
                     </div>
                     <input
@@ -147,25 +280,40 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                       id="login-password"
                       placeholder="••••••••"
                       type="password"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
                     />
                   </div>
                 </div>
+                {loginError ? (
+                  <div className="rounded-xl border border-error/20 bg-error-container/20 px-4 py-3 text-sm text-error">
+                    {loginError}
+                  </div>
+                ) : null}
+                {googleError ? (
+                  <div className="rounded-xl border border-error/20 bg-error-container/20 px-4 py-3 text-sm text-error">
+                    {googleError}
+                  </div>
+                ) : null}
                 <button
                   className="w-full py-4 bg-primary text-white font-bold rounded-xl hover:bg-primary-container active:scale-[0.98] transition-all shadow-lg shadow-primary/10"
                   type="submit"
+                  disabled={loginLoading}
                 >
-                  Sign In
+                  {loginLoading ? t("auth.signingIn") : t("auth.signIn")}
                 </button>
                 <div className="relative flex items-center py-2">
                   <div className="flex-grow border-t border-outline-variant/30"></div>
                   <span className="flex-shrink mx-4 text-xs font-bold text-outline uppercase tracking-tighter">
-                    or continue with
+                    {t("auth.orContinueWith")}
                   </span>
                   <div className="flex-grow border-t border-outline-variant/30"></div>
                 </div>
                 <button
                   className="w-full py-4 flex items-center justify-center gap-3 bg-surface-container-lowest border border-outline-variant/30 text-on-surface font-semibold rounded-xl hover:bg-surface-container-low active:scale-[0.98] transition-all"
                   type="button"
+                  onClick={onGoogleClick}
+                  disabled={googleLoading}
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path
@@ -185,7 +333,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                       fill="#EA4335"
                     ></path>
                   </svg>
-                  Login with Google
+                  {googleLoading ? t("auth.signingInWithGoogle") : t("auth.loginWithGoogle")}
                 </button>
               </form>
             </div>
@@ -199,10 +347,10 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
             >
               <div>
                 <h3 className="text-2xl font-headline font-extrabold text-on-surface tracking-tight">
-                  Create an account
+                  {t("auth.createAccount")}
                 </h3>
                 <p className="text-on-surface-variant text-sm mt-1">
-                  Start your journey with Curator AI intelligence.
+                  {t("auth.createAccount.subtitle")}
                 </p>
               </div>
               <form className="space-y-6">
@@ -212,7 +360,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                       className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 ml-1"
                       htmlFor="signup-name"
                     >
-                      Full Name
+                      {t("auth.fullName")}
                     </label>
                     <input
                       className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none"
@@ -226,7 +374,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                       className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 ml-1"
                       htmlFor="signup-email"
                     >
-                      Email
+                      {t("auth.email")}
                     </label>
                     <input
                       className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none"
@@ -243,7 +391,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                       className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 ml-1"
                       htmlFor="signup-dob"
                     >
-                      Date of Birth
+                      {t("auth.dateOfBirth")}
                     </label>
                     <input
                       className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none"
@@ -256,7 +404,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                       className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 ml-1"
                       htmlFor="signup-type"
                     >
-                      User Type
+                      {t("auth.userType")}
                     </label>
                     <select
                       className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none appearance-none cursor-pointer"
@@ -264,11 +412,11 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                       defaultValue=""
                     >
                       <option disabled value="">
-                        Select type...
+                        {t("auth.userType.placeholder")}
                       </option>
-                      <option value="student">Student</option>
-                      <option value="candidate">Candidate</option>
-                      <option value="employed">Employed</option>
+                      <option value="student">{t("auth.userType.student")}</option>
+                      <option value="candidate">{t("auth.userType.candidate")}</option>
+                      <option value="employed">{t("auth.userType.employed")}</option>
                     </select>
                   </div>
                 </div>
@@ -278,12 +426,12 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                     className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 ml-1"
                     htmlFor="signup-password"
                   >
-                    Password
+                    {t("auth.password")}
                   </label>
                   <input
                     className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none"
                     id="signup-password"
-                    placeholder="Minimum 8 characters"
+                    placeholder={t("auth.passwordHint")}
                     type="password"
                   />
                 </div>
@@ -291,20 +439,27 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                   className="w-full py-4 bg-tertiary text-white font-bold rounded-xl hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-tertiary/10"
                   type="submit"
                 >
-                  Create Account
+                  {t("auth.createAccount.cta")}
                 </button>
 
                 <div className="relative flex items-center py-2">
                   <div className="flex-grow border-t border-outline-variant/30"></div>
                   <span className="flex-shrink mx-4 text-xs font-bold text-outline uppercase tracking-tighter">
-                    or continue with
+                    {t("auth.orContinueWith")}
                   </span>
                   <div className="flex-grow border-t border-outline-variant/30"></div>
                 </div>
+                {googleError ? (
+                  <div className="rounded-xl border border-error/20 bg-error-container/20 px-4 py-3 text-sm text-error">
+                    {googleError}
+                  </div>
+                ) : null}
 
                 <button
                   className="w-full py-4 flex items-center justify-center gap-3 bg-surface-container-lowest border border-outline-variant/30 text-on-surface font-semibold rounded-xl hover:bg-surface-container-low active:scale-[0.98] transition-all"
                   type="button"
+                  onClick={onGoogleClick}
+                  disabled={googleLoading}
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path
@@ -324,7 +479,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                       fill="#EA4335"
                     ></path>
                   </svg>
-                  Sign up with Google
+                  {googleLoading ? t("auth.signingInWithGoogle") : t("auth.signUpWithGoogle")}
                 </button>
               </form>
             </div>
@@ -333,19 +488,19 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
           {/* Subtle Help Footer */}
           <div className="text-center">
             <p className="text-xs text-on-surface-variant">
-              By continuing, you agree to our{" "}
+              {t("auth.byContinuing")}{" "}
               <Link
                 href="#"
                 className="text-primary font-semibold hover:underline"
               >
-                Terms of Service
+                {t("footer.terms")}
               </Link>{" "}
               and{" "}
               <Link
                 href="#"
                 className="text-primary font-semibold hover:underline"
               >
-                Privacy Policy
+                {t("footer.privacy")}
               </Link>
               .
             </p>

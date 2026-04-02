@@ -1,10 +1,10 @@
 "use client";
 import React from "react";
-import { useChat } from "../hooks/useChat";
-import { ChatHeader } from "./component/ChatHeader";
-import { ChatMessages } from "./component/ChatMessages";
-import { ChatInput } from "./component/ChatInput";
-import { Sidebar } from "./component/Sidebar";
+import { useChat } from "../../hooks/useChat";
+import { ChatHeader } from "../component/ChatHeader";
+import { ChatMessages } from "../component/ChatMessages";
+import { ChatInput } from "../component/ChatInput";
+import { Sidebar } from "../component/Sidebar";
 
 export default function ChatPage() {
   const {

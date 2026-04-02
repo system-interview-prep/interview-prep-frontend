@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { useLanguage } from '../../i18n/LanguageProvider';
 
 export default function RegisterPage() {
+  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,10 +22,10 @@ export default function RegisterPage() {
   return (
     <main className="min-h-screen flex items-center justify-center">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 w-80">
-        <h1 className="text-2xl font-bold">Create Account</h1>
+        <h1 className="text-2xl font-bold">{t('register.title')}</h1>
         <input
           type="text"
-          placeholder="Full name"
+          placeholder={t('register.fullName')}
           value={name}
           onChange={e => setName(e.target.value)}
           required
@@ -31,7 +33,7 @@ export default function RegisterPage() {
         />
         <input
           type="email"
-          placeholder="Email"
+          placeholder={t('register.email')}
           value={email}
           onChange={e => setEmail(e.target.value)}
           required
@@ -39,7 +41,7 @@ export default function RegisterPage() {
         />
         <input
           type="password"
-          placeholder="Password"
+          placeholder={t('register.password')}
           value={password}
           onChange={e => setPassword(e.target.value)}
           required
@@ -50,12 +52,12 @@ export default function RegisterPage() {
           disabled={loading}
           className="bg-green-600 text-white rounded py-2 font-semibold disabled:opacity-50"
         >
-          {loading ? 'Creating account…' : 'Register'}
+          {loading ? t('register.creating') : t('register.register')}
         </button>
         <p className="text-sm text-center">
-          Already have an account?{' '}
+          {t('register.haveAccount')}{' '}
           <Link href="/login" className="text-blue-600 underline">
-            Sign In
+            {t('register.signIn')}
           </Link>
         </p>
       </form>

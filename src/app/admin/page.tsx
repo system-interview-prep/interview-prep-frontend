@@ -1,88 +1,83 @@
 import Link from "next/link";
+import AdminButton from "../../../components/admin/AdminButton";
+import AdminSidebarBrand from "../../../components/admin/AdminSidebarBrand";
+import { cookies } from "next/headers";
+import { getDictionary, normalizeLang } from "../../i18n/i18n";
 
-export default function AdminPage() {
+export default async function AdminPage() {
+  const cookieStore = await cookies();
+  const lang = normalizeLang(cookieStore.get("lang")?.value);
+  const t = (key: string) => getDictionary(lang)[key] ?? key;
+
   return (
     <div className="bg-surface font-body text-on-surface">
       <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col bg-surface-container-low md:flex">
         <div className="flex h-full flex-col space-y-8 p-6">
-          <div className="flex items-center gap-3 px-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">
-              <span className="material-symbols-outlined text-sm">psychology</span>
-            </div>
-            <div>
-              <h1 className="font-headline text-lg font-extrabold leading-none text-on-surface">
-                Admin Console
-              </h1>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">
-                AI Data Management
-              </p>
-            </div>
-          </div>
+          <AdminSidebarBrand />
 
-          <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-on-primary shadow-sm transition-all hover:bg-primary-container active:scale-95">
-            <span className="material-symbols-outlined text-lg">add</span>
-            New Interview
-          </button>
+          <AdminButton variant="gradient" size="md" icon="add" iconFill className="w-full">
+            {t("admin.newInterview")}
+          </AdminButton>
 
           <nav className="flex-1 space-y-2">
             <Link
               className="flex items-center gap-3 rounded-md bg-surface-container-lowest px-4 py-3 font-semibold text-primary shadow-sm transition-transform duration-200 hover:translate-x-1"
-              href="/admin-dashboard"
+              href="/admin/dashboard"
             >
               <span className="material-symbols-outlined">dashboard</span>
-              <span className="text-sm font-medium">Dashboard</span>
+              <span className="text-sm font-medium">{t("common.dashboard")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
-              href="/admin-dashboard"
+              href="/admin/insights"
             >
               <span className="material-symbols-outlined">psychology</span>
-              <span className="text-sm font-medium">AI Insights</span>
+              <span className="text-sm font-medium">{t("admin.aiInsights")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
-              href="#"
+              href="/admin/interviews"
             >
               <span className="material-symbols-outlined">forum</span>
-              <span className="text-sm font-medium">Interviews</span>
+              <span className="text-sm font-medium">{t("admin.interviews")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
-              href="#"
+              href="/admin/practice"
             >
               <span className="material-symbols-outlined">school</span>
-              <span className="text-sm font-medium">Practice</span>
+              <span className="text-sm font-medium">{t("admin.practice")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
-              href="#"
+              href="/admin/profile"
             >
               <span className="material-symbols-outlined">person</span>
-              <span className="text-sm font-medium">My Profile</span>
+              <span className="text-sm font-medium">{t("admin.myProfile")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
-              href="#"
+              href="/admin/settings"
             >
               <span className="material-symbols-outlined">settings</span>
-              <span className="text-sm font-medium">Settings</span>
+              <span className="text-sm font-medium">{t("common.settings")}</span>
             </Link>
           </nav>
 
           <div className="space-y-2 border-t border-outline-variant/20 pt-6">
             <Link
               className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
-              href="#"
+              href="/admin/help"
             >
               <span className="material-symbols-outlined">help</span>
-              <span className="text-sm font-medium">Help Center</span>
+              <span className="text-sm font-medium">{t("common.helpCenter")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 rounded-md px-4 py-3 text-error transition-transform duration-200 hover:translate-x-1 hover:bg-error-container/20"
-              href="#"
+              href="/logout"
             >
               <span className="material-symbols-outlined">logout</span>
-              <span className="text-sm font-medium">Logout</span>
+              <span className="text-sm font-medium">{t("common.logout")}</span>
             </Link>
           </div>
         </div>
@@ -92,10 +87,10 @@ export default function AdminPage() {
         <header className="mb-12 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
             <h2 className="font-headline text-3xl font-extrabold tracking-tighter text-on-surface md:text-4xl">
-              Welcome back, Curator.
+              {t("admin.welcomeBack")}
             </h2>
             <p className="mt-2 text-base text-on-surface-variant md:text-lg">
-              Your editorial intelligence dashboard is ready.
+              {t("admin.welcomeBack.subtitle")}
             </p>
           </div>
           <div className="flex items-center gap-4 self-start md:self-auto">
@@ -105,11 +100,13 @@ export default function AdminPage() {
                 Lead Recruiter
               </p>
             </div>
-            <img
-              alt="User profile"
-              className="h-12 w-12 rounded-full object-cover ring-2 ring-primary/10"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzi0EF24onj7ulkPE9xajVM8aWx_ckiJvXew0uj4s4Ye87TnQP_Y1AFeyWUv0u4PA_0nalmHrRQsyKGtXgYFsK_-ZEXZ-ACnfjVAYfuLp69oJHxZb9LaZ1aL0cWn_tp9Y-uIPy2RlrX1NjG5WYyn1GbX8ViwxR_NmahBsArCfUU6d3EZbCdAB8SnPd2h6F6lj2QCTJqZvMI37Z0e34TobZFRR62TLiuz2Qr1SXFIRAkW8b1RSM78l8vPktnhSrKOf3UDUEJ1HSC9lE"
-            />
+            <Link href="/admin/profile" aria-label="Open profile settings">
+              <img
+                alt="User profile"
+                className="h-12 w-12 rounded-full object-cover ring-2 ring-primary/10"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzi0EF24onj7ulkPE9xajVM8aWx_ckiJvXew0uj4s4Ye87TnQP_Y1AFeyWUv0u4PA_0nalmHrRQsyKGtXgYFsK_-ZEXZ-ACnfjVAYfuLp69oJHxZb9LaZ1aL0cWn_tp9Y-uIPy2RlrX1NjG5WYyn1GbX8ViwxR_NmahBsArCfUU6d3EZbCdAB8SnPd2h6F6lj2QCTJqZvMI37Z0e34TobZFRR62TLiuz2Qr1SXFIRAkW8b1RSM78l8vPktnhSrKOf3UDUEJ1HSC9lE"
+              />
+            </Link>
           </div>
         </header>
 
@@ -177,9 +174,9 @@ export default function AdminPage() {
 
         <section className="mb-16">
           <div className="mb-8 flex items-center justify-between">
-            <h3 className="font-headline text-2xl font-bold">Interview History</h3>
+            <h3 className="font-headline text-2xl font-bold">{t("admin.home.interviewHistory")}</h3>
             <button className="flex items-center gap-1 text-sm font-bold text-primary hover:underline">
-              View Full Archive
+              {t("admin.home.viewFullArchive")}
               <span className="material-symbols-outlined text-sm">open_in_new</span>
             </button>
           </div>
@@ -301,7 +298,7 @@ export default function AdminPage() {
         <section className="grid grid-cols-1 items-stretch gap-8 lg:grid-cols-2">
           <div className="flex flex-col justify-center rounded-xl bg-surface-container p-8">
             <span className="mb-4 text-[10px] font-bold uppercase tracking-widest text-tertiary">
-              Training Module
+              {t("admin.home.trainingModule")}
             </span>
             <h3 className="mb-4 font-headline text-3xl font-extrabold leading-tight">
               Master the Curator Protocol.
@@ -321,11 +318,11 @@ export default function AdminPage() {
 
           <div className="flex items-center gap-8 rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-8">
             <div className="flex-1">
-              <h4 className="mb-2 font-headline text-xl font-bold">Practice Progress</h4>
+              <h4 className="mb-2 font-headline text-xl font-bold">{t("admin.home.practiceProgress")}</h4>
               <div className="space-y-4">
                 <div>
                   <div className="mb-1 flex justify-between text-xs font-bold uppercase tracking-tighter text-on-surface-variant">
-                    <span>Bias Neutrality</span>
+                    <span>{t("admin.home.biasNeutrality")}</span>
                     <span>88%</span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container">
@@ -334,7 +331,7 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <div className="mb-1 flex justify-between text-xs font-bold uppercase tracking-tighter text-on-surface-variant">
-                    <span>Semantic Accuracy</span>
+                    <span>{t("admin.home.semanticAccuracy")}</span>
                     <span>65%</span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container">
@@ -371,7 +368,7 @@ export default function AdminPage() {
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-2xl font-black">75%</span>
                   <span className="text-[8px] font-bold uppercase tracking-widest text-on-surface-variant">
-                    Global Mastery
+                    {t("admin.home.globalMastery")}
                   </span>
                 </div>
               </div>
@@ -388,17 +385,17 @@ export default function AdminPage() {
               </span>
             </div>
             <div className="flex flex-wrap justify-center gap-6 md:gap-8">
-              <Link className="text-xs text-on-surface-variant transition-colors hover:underline" href="#">
-                Privacy Policy
+              <Link className="text-xs text-on-surface-variant transition-colors hover:underline" href="/admin/settings">
+                {t("footer.privacy")}
               </Link>
-              <Link className="text-xs text-on-surface-variant transition-colors hover:underline" href="#">
-                Terms of Service
+              <Link className="text-xs text-on-surface-variant transition-colors hover:underline" href="/admin/settings">
+                {t("footer.terms")}
               </Link>
-              <Link className="text-xs text-on-surface-variant transition-colors hover:underline" href="#">
-                Cookie Policy
+              <Link className="text-xs text-on-surface-variant transition-colors hover:underline" href="/admin/settings">
+                {t("footer.cookies")}
               </Link>
-              <Link className="text-xs text-on-surface-variant transition-colors hover:underline" href="#">
-                Security
+              <Link className="text-xs text-on-surface-variant transition-colors hover:underline" href="/admin/settings">
+                {t("footer.security")}
               </Link>
             </div>
           </div>
@@ -407,14 +404,14 @@ export default function AdminPage() {
         <section className="mb-24 space-y-2 border-t border-outline-variant/20 pt-6 md:hidden">
           <Link
             className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-colors hover:bg-surface-variant"
-            href="#"
+            href="/admin/help"
           >
             <span className="material-symbols-outlined">help</span>
             <span className="text-sm font-medium">Help Center</span>
           </Link>
           <Link
             className="flex items-center gap-3 rounded-md px-4 py-3 text-error transition-colors hover:bg-error-container/20"
-            href="#"
+            href="/logout"
           >
             <span className="material-symbols-outlined">logout</span>
             <span className="text-sm font-medium">Logout</span>

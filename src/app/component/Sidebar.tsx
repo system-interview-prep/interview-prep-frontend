@@ -1,4 +1,5 @@
 import React from "react";
+import { useLanguage } from "../../i18n/LanguageProvider";
 
 type SidebarProps = {
     sessions: string[];
@@ -13,6 +14,8 @@ export function Sidebar({
     onSelectSession,
     onNewSession,
 }: SidebarProps) {
+    const { t } = useLanguage();
+
     return (
         <aside className="w-80 h-full flex flex-col bg-white/50 dark:bg-zinc-900/50 border-r border-zinc-200/50 dark:border-zinc-800/50 backdrop-blur-xl">
             <div className="p-6 border-b border-zinc-200/50 dark:border-zinc-800/50">
@@ -20,16 +23,16 @@ export function Sidebar({
                     onClick={onNewSession}
                     className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-lg shadow-blue-500/20 font-medium transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                 >
-                    + New Interview Session
+                    {t("chat.newSession")}
                 </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 <h3 className="px-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
-                    History
+                    {t("chat.history")}
                 </h3>
                 {sessions.length === 0 && (
-                    <div className="px-2 text-sm text-zinc-500 italic">No history yet</div>
+                    <div className="px-2 text-sm text-zinc-500 italic">{t("chat.noHistoryYet")}</div>
                 )}
                 {sessions.map((sid) => (
                     <button
@@ -49,8 +52,8 @@ export function Sidebar({
                 <div className="flex items-center gap-3 px-2">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500"></div>
                     <div className="flex flex-col">
-                        <span className="text-sm font-semibold">User Account</span>
-                        <span className="text-xs text-zinc-500">Free Plan</span>
+                        <span className="text-sm font-semibold">{t("chat.userAccount")}</span>
+                        <span className="text-xs text-zinc-500">{t("chat.freePlan")}</span>
                     </div>
                 </div>
             </div>

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import React from "react";
+import LanguageToggleButton from "../../components/LanguageToggleButton";
+import { useLanguage } from "../../i18n/LanguageProvider";
 
 export function ChatHeader({
   language,
@@ -10,6 +12,8 @@ export function ChatHeader({
   setLanguage: (lang: string) => void;
   onNewSession: () => void;
 }) {
+  const { t } = useLanguage();
+
   return (
     <header className="px-8 py-5 flex items-center justify-between border-b border-zinc-200/50 dark:border-zinc-800/50 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md sticky top-0 z-10 transition-colors duration-300">
       <div className="flex items-center gap-4">
@@ -17,9 +21,9 @@ export function ChatHeader({
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
         </div>
         <div>
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">AI Interview Coach</h1>
+          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">{t("chat.title")}</h1>
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
-            {language === "vietnamese" ? "Luyện Phỏng Vấn" : "Interview Practice"}
+            {language === "vietnamese" ? t("chat.subtitle.practiceVi") : t("chat.subtitle.practice")}
           </span>
         </div>
       </div>
@@ -28,7 +32,7 @@ export function ChatHeader({
           href="/voice"
           className="hidden lg:inline-flex items-center gap-2 rounded-xl border border-transparent bg-gradient-to-r from-blue-600 to-indigo-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-white shadow-lg shadow-blue-500/20 transition hover:from-blue-700 hover:to-indigo-600"
         >
-          Voice Mode
+          {t("chat.voiceMode")}
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="16"
@@ -46,6 +50,7 @@ export function ChatHeader({
             <path d="M19 22v-2" />
           </svg>
         </Link>
+        <LanguageToggleButton className="material-symbols-outlined cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 p-2 rounded-full transition-colors" />
         <div className="relative">
           <select
             className="appearance-none pl-4 pr-10 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/80"

@@ -1,4 +1,7 @@
 import Link from "next/link";
+import LanguageToggleButton from "../../components/LanguageToggleButton";
+import { cookies } from "next/headers";
+import { getDictionary, normalizeLang } from "../../i18n/i18n";
 
 type InterviewPageProps = {
   searchParams?:
@@ -7,6 +10,10 @@ type InterviewPageProps = {
 };
 
 export default async function InterviewPage({ searchParams }: InterviewPageProps) {
+  const cookieStore = await cookies();
+  const lang = normalizeLang(cookieStore.get("lang")?.value);
+  const t = (key: string) => getDictionary(lang)[key] ?? key;
+
   const resolvedSearchParams = searchParams
     ? await Promise.resolve(searchParams)
     : undefined;
@@ -28,31 +35,27 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
                 className="border-b-2 border-primary pb-1 font-headline font-bold tracking-tight text-primary"
                 href="/interview?mode=video"
               >
-                Platform
+                {t("interview.platform")}
               </Link>
               <Link
                 className="font-headline font-bold tracking-tight text-on-surface-variant transition-colors hover:text-primary-container"
                 href="#"
               >
-                Solutions
+                {t("interview.solutions")}
               </Link>
               <Link
                 className="font-headline font-bold tracking-tight text-on-surface-variant transition-colors hover:text-primary-container"
                 href="#"
               >
-                Pricing
+                {t("interview.pricing")}
               </Link>
             </nav>
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="rounded-lg px-4 py-2 font-bold text-on-surface-variant transition-all hover:bg-surface-variant">
-              VN/EN
-            </button>
+            <LanguageToggleButton showLabel />
             <div className="flex gap-2">
-              <span className="material-symbols-outlined cursor-pointer rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-variant">
-                language
-              </span>
+              <LanguageToggleButton className="material-symbols-outlined cursor-pointer rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-variant" />
               <span className="material-symbols-outlined cursor-pointer rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-variant">
                 notifications
               </span>
@@ -61,7 +64,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               </span>
             </div>
             <button className="rounded-xl bg-primary px-6 py-2 font-bold text-on-primary shadow-sm transition-all hover:bg-primary-container">
-              Get Started
+              {t("interview.getStarted")}
             </button>
           </div>
         </header>
@@ -77,7 +80,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
             <div className="absolute left-8 top-8 flex items-center gap-3 rounded-full border border-white/10 bg-black/20 px-4 py-2 backdrop-blur-md">
               <span className="pulse-dot h-3 w-3 rounded-full bg-tertiary" />
               <span className="text-sm font-bold uppercase tracking-wide text-white">
-                AI Analyst Active
+                {t("interview.aiAnalystActive")}
               </span>
             </div>
 
@@ -90,7 +93,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-md bg-black/40 px-2 py-1 backdrop-blur-sm">
                 <span className="material-symbols-outlined text-xs text-white">person</span>
                 <span className="text-[10px] font-bold uppercase text-white">
-                  Candidate (You)
+                  {t("interview.candidateYou")}
                 </span>
               </div>
             </div>
@@ -98,13 +101,13 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
             <div className="absolute right-8 top-8 max-w-[280px] rounded-2xl border border-outline-variant/20 bg-white/90 p-4 shadow-lg backdrop-blur-xl">
               <div className="mb-2 flex items-center gap-3">
                 <span className="material-symbols-outlined text-tertiary">psychology</span>
-                <span className="text-xs font-bold text-on-surface">AI Real-time Sentiment</span>
+                <span className="text-xs font-bold text-on-surface">{t("interview.aiRealtimeSentiment")}</span>
               </div>
               <div className="h-1 w-full overflow-hidden rounded-full bg-surface-container">
                 <div className="h-full w-3/4 bg-tertiary" />
               </div>
               <p className="mt-2 text-[11px] leading-relaxed text-on-surface-variant">
-                Candidate displays high confidence and clear articulation of technical concepts.
+                {t("interview.aiRealtimeSentiment.desc")}
               </p>
             </div>
           </section>
@@ -112,8 +115,10 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
           <aside className="flex w-96 flex-col overflow-hidden rounded-3xl bg-surface-container-low shadow-sm">
             <div className="flex items-center justify-between bg-white p-6">
               <div>
-                <h2 className="font-headline text-lg font-extrabold text-on-surface">Live Transcript</h2>
-                <p className="text-xs text-on-surface-variant">Session ID: #CUR-8829</p>
+                <h2 className="font-headline text-lg font-extrabold text-on-surface">{t("interview.liveTranscript")}</h2>
+                <p className="text-xs text-on-surface-variant">
+                  {t("interview.sessionIdLabel")} #CUR-8829
+                </p>
               </div>
               <button className="rounded-full p-2 transition-colors hover:bg-surface-container">
                 <span className="material-symbols-outlined text-outline">more_horiz</span>
@@ -123,7 +128,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
             <div className="flex-1 space-y-6 overflow-y-auto bg-surface-container-low p-6">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-tighter text-tertiary">AI Interviewer</span>
+                  <span className="text-[10px] font-black uppercase tracking-tighter text-tertiary">{t("interview.aiInterviewer")}</span>
                   <span className="text-[10px] text-outline">10:42 AM</span>
                 </div>
                 <div className="rounded-2xl rounded-tl-none border border-tertiary/5 bg-tertiary/10 p-4">
@@ -136,7 +141,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               <div className="space-y-2">
                 <div className="flex items-center justify-end gap-2">
                   <span className="text-[10px] text-outline">10:43 AM</span>
-                  <span className="text-[10px] font-black uppercase tracking-tighter text-primary">You</span>
+                  <span className="text-[10px] font-black uppercase tracking-tighter text-primary">{t("interview.youLabel")}</span>
                 </div>
                 <div className="rounded-2xl rounded-tr-none border border-outline-variant/10 bg-white p-4 shadow-sm">
                   <p className="text-sm leading-relaxed text-on-surface-variant">
@@ -147,7 +152,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
 
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-tighter text-tertiary">AI Interviewer</span>
+                  <span className="text-[10px] font-black uppercase tracking-tighter text-tertiary">{t("interview.aiInterviewer")}</span>
                   <div className="ml-2 flex gap-1">
                     <span className="pulse-dot h-1 w-1 rounded-full bg-tertiary" />
                     <span className="pulse-dot h-1 w-1 rounded-full bg-tertiary [animation-delay:0.2s]" />
@@ -159,7 +164,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
 
             <div className="border-t border-outline-variant/10 bg-white p-6">
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-xs font-bold text-on-surface">Competency Mapping</span>
+                <span className="text-xs font-bold text-on-surface">{t("interview.competencyMapping")}</span>
                 <span className="text-xs font-bold text-primary">82%</span>
               </div>
               <div className="flex gap-1">
@@ -177,14 +182,14 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
             <div className="flex items-center justify-center rounded-full p-4 text-on-surface-variant transition-all hover:bg-surface-container-low">
               <span className="material-symbols-outlined">mic</span>
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Mic</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{t("interview.mic")}</span>
           </button>
 
           <button className="group flex flex-col items-center gap-1">
             <div className="flex items-center justify-center rounded-full p-4 text-on-surface-variant transition-all hover:bg-surface-container-low">
               <span className="material-symbols-outlined">videocam</span>
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Camera</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{t("interview.camera")}</span>
           </button>
 
           <button className="group flex flex-col items-center gap-1">
@@ -193,7 +198,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
                 description
               </span>
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-tertiary">Transcript</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-tertiary">{t("interview.transcript")}</span>
           </button>
 
           <button className="group flex flex-col items-center gap-1">
@@ -202,7 +207,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
                 call_end
               </span>
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-error">End Call</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-error">{t("interview.endCall")}</span>
           </button>
         </footer>
       </div>
@@ -219,25 +224,25 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
             </Link>
             <div className="hidden items-center gap-6 font-headline text-lg font-bold tracking-tight md:flex">
               <Link className="text-on-surface-variant transition-colors hover:text-on-surface" href="/interview">
-                Interview Mode
+                {t("interview.interviewMode")}
               </Link>
               <span className="cursor-default border-b-2 border-primary pb-1 text-primary">
-                Live Transcription
+                {t("interview.liveTranscription")}
               </span>
               <Link className="text-on-surface-variant transition-colors hover:text-on-surface" href="/interview?mode=video">
-                Video Call
+                {t("interview.videoCall")}
               </Link>
               <Link className="text-on-surface-variant transition-colors hover:text-on-surface" href="/interview-summary">
-                Interview Summary
+                {t("interview.interviewSummary")}
               </Link>
             </div>
           </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2 rounded-full bg-surface-container px-4 py-1.5 text-sm font-medium">
-              <span className="text-primary">EN</span>
+              <span className="text-primary">{t("interview.lang.enShort")}</span>
               <span className="text-outline-variant">|</span>
               <span className="cursor-pointer text-on-surface-variant hover:text-on-surface">
-                VN
+                {t("interview.lang.vnShort")}
               </span>
             </div>
             <div className="flex items-center gap-4">
@@ -268,10 +273,10 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               </div>
               <div>
                 <p className="font-headline text-sm font-extrabold leading-tight text-on-surface">
-                  Admin Console
+                  {t("interview.sidebar.adminConsole")}
                 </p>
                 <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">
-                  AI Data Management
+                  {t("interview.sidebar.aiDataManagement")}
                 </p>
               </div>
             </div>
@@ -282,21 +287,21 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
                 href="/interview?mode=voice"
               >
                 <span className="material-symbols-outlined">forum</span>
-                <span className="text-sm">Interviews</span>
+                <span className="text-sm">{t("common.interviews")}</span>
               </Link>
               <Link
                 className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
                 href="#"
               >
                 <span className="material-symbols-outlined">school</span>
-                <span className="text-sm">Practice</span>
+                <span className="text-sm">{t("common.practice")}</span>
               </Link>
               <Link
                 className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
                 href="#"
               >
                 <span className="material-symbols-outlined">person</span>
-                <span className="text-sm">My Profile</span>
+                <span className="text-sm">{t("common.myProfile")}</span>
               </Link>
             </nav>
 
@@ -306,14 +311,14 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
                 href="#"
               >
                 <span className="material-symbols-outlined">help</span>
-                <span className="text-sm">Help Center</span>
+                <span className="text-sm">{t("common.helpCenter")}</span>
               </Link>
               <Link
                 className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
                 href="#"
               >
                 <span className="material-symbols-outlined">logout</span>
-                <span className="text-sm">Logout</span>
+                <span className="text-sm">{t("common.logout")}</span>
               </Link>
             </div>
           </aside>
@@ -322,7 +327,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
             <div className="absolute left-1/2 top-12 flex -translate-x-1/2 items-center gap-2 rounded-full border border-outline-variant/10 bg-surface-container-lowest px-4 py-2 shadow-sm">
               <div className="h-2 w-2 animate-pulse rounded-full bg-tertiary" />
               <span className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant">
-                Live Analysis Active
+                {t("interview.liveAnalysisActive")}
               </span>
             </div>
 
@@ -338,7 +343,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
                     />
                   </div>
                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-tertiary px-4 py-1 text-[10px] font-bold uppercase tracking-tighter text-white shadow-lg">
-                    AI INTERVIEWER
+                    {t("interview.aiInterviewer")}
                   </div>
                 </div>
               </div>
@@ -376,18 +381,18 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
             <div className="flex items-center justify-between border-b border-outline-variant/10 bg-surface-container-lowest/70 p-6">
               <div className="space-y-2">
                 <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-primary">
-                  Voice Call Interview
+                  {t("interview.voiceCallInterview")}
                 </span>
-                <h2 className="font-headline text-xl font-bold text-on-surface">Live Transcript</h2>
+                <h2 className="font-headline text-xl font-bold text-on-surface">{t("interview.liveTranscript")}</h2>
               </div>
               <span className="rounded bg-secondary-container px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-on-secondary-container">
-                Real-time
+                {t("interview.realtime")}
               </span>
             </div>
             <div className="flex-1 space-y-6 overflow-y-auto p-6">
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase text-tertiary">Curator AI</span>
+                  <span className="text-[10px] font-bold uppercase text-tertiary">{t("interview.curatorAi")}</span>
                   <span className="text-[10px] text-on-surface-variant">10:42 AM</span>
                 </div>
                 <div className="rounded-xl rounded-tl-none bg-tertiary-fixed p-4 text-sm font-medium leading-relaxed text-on-tertiary-fixed">
@@ -398,7 +403,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-end gap-2">
                   <span className="text-[10px] text-on-surface-variant">10:43 AM</span>
-                  <span className="text-[10px] font-bold uppercase text-primary">You</span>
+                  <span className="text-[10px] font-bold uppercase text-primary">{t("interview.youLabel")}</span>
                 </div>
                 <div className="rounded-xl rounded-tr-none border border-outline-variant/10 bg-surface-container-lowest p-4 text-sm leading-relaxed text-on-surface shadow-sm">
                   Certainly. In my last project, we were migrating a monolithic system to microservices while maintaining 99.9% uptime. I spearheaded the transition...
@@ -407,8 +412,8 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase text-tertiary">Curator AI</span>
-                  <span className="text-[10px] italic text-on-surface-variant">Transcribing...</span>
+                  <span className="text-[10px] font-bold uppercase text-tertiary">{t("interview.curatorAi")}</span>
+                  <span className="text-[10px] italic text-on-surface-variant">{t("interview.transcribing")}</span>
                 </div>
                 <div className="rounded-xl rounded-tl-none bg-tertiary-fixed/60 p-4 text-sm font-medium leading-relaxed text-on-tertiary-fixed">
                   That is an impressive scale. How did you manage the data consistency across those services during the transition phase?
@@ -418,7 +423,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
 
             <div className="bg-surface-container p-4 text-center">
               <p className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">
-                Confidence Score: 98.4%
+                {t("interview.confidenceScore").replace("{value}", "98.4%")}
               </p>
             </div>
           </aside>
@@ -432,15 +437,15 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
             >
               mic
             </span>
-            <span className="text-[10px] uppercase tracking-widest">Mic</span>
+            <span className="text-[10px] uppercase tracking-widest">{t("interview.mic")}</span>
           </button>
           <button className="group flex flex-col items-center gap-1 rounded-full bg-white/20 p-3 text-white transition-transform hover:scale-110 active:scale-90">
             <span className="material-symbols-outlined">videocam</span>
-            <span className="text-[10px] uppercase tracking-widest">Video</span>
+            <span className="text-[10px] uppercase tracking-widest">{t("interview.video")}</span>
           </button>
           <button className="group flex flex-col items-center gap-1 p-3 text-white/70 transition-transform hover:scale-110 hover:text-white active:scale-90">
             <span className="material-symbols-outlined">history</span>
-            <span className="text-[10px] uppercase tracking-widest">History</span>
+            <span className="text-[10px] uppercase tracking-widest">{t("common.history")}</span>
           </button>
           <div className="mx-2 h-8 w-px bg-white/20" />
           <button className="group flex flex-col items-center gap-1 rounded-full bg-error p-3 text-white transition-all hover:scale-110 hover:bg-red-600 active:scale-90">
@@ -450,19 +455,19 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
             >
               call_end
             </span>
-            <span className="text-[10px] uppercase tracking-widest">End</span>
+            <span className="text-[10px] uppercase tracking-widest">{t("interview.end")}</span>
           </button>
         </nav>
 
         <footer className="fixed bottom-0 left-0 hidden w-full border-t border-outline-variant/20 bg-surface py-3 md:block">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-12 text-xs text-on-surface-variant">
-            <p>© 2024 Curator AI Platform. Editorial Intelligence for HR.</p>
+            <p>{t("interview.footer.copyright")}</p>
             <div className="flex gap-6">
               <Link className="transition-colors hover:underline" href="#">
-                Privacy Policy
+                {t("interview.footer.privacyPolicy")}
               </Link>
               <Link className="transition-colors hover:underline" href="#">
-                Security
+                {t("interview.footer.security")}
               </Link>
             </div>
           </div>
@@ -485,57 +490,57 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
             </div>
             <div>
               <h1 className="font-headline font-extrabold leading-tight text-on-surface">
-                Admin Console
+                {t("interview.sidebar.adminConsole")}
               </h1>
               <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">
-                AI Data Management
+                {t("interview.sidebar.aiDataManagement")}
               </p>
             </div>
           </div>
 
           <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-semibold text-white shadow-sm transition-all hover:bg-primary-container active:scale-95">
             <span className="material-symbols-outlined text-sm">add</span>
-            New Interview
+            {t("interview.sidebar.newInterview")}
           </button>
 
           <nav className="flex-1 space-y-2">
             <div className="mb-4 px-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-              Main Menu
+              {t("interview.sidebar.mainMenu")}
             </div>
             <Link
               className="group flex items-center gap-3 px-3 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
               href="#"
             >
               <span className="material-symbols-outlined">dashboard</span>
-              <span>Dashboard</span>
+              <span>{t("common.dashboard")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 rounded-md bg-surface-container-lowest px-3 py-2.5 font-semibold text-primary shadow-sm"
               href="/interview"
             >
               <span className="material-symbols-outlined">forum</span>
-              <span>Interviews</span>
+              <span>{t("common.interviews")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
               href="#"
             >
               <span className="material-symbols-outlined">school</span>
-              <span>Practice</span>
+              <span>{t("common.practice")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
               href="#"
             >
               <span className="material-symbols-outlined">person</span>
-              <span>My Profile</span>
+              <span>{t("common.myProfile")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
               href="#"
             >
               <span className="material-symbols-outlined">settings</span>
-              <span>Settings</span>
+              <span>{t("common.settings")}</span>
             </Link>
           </nav>
 
@@ -545,14 +550,14 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               href="#"
             >
               <span className="material-symbols-outlined">help</span>
-              <span>Help Center</span>
+              <span>{t("common.helpCenter")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 rounded-md px-3 py-2 text-on-surface-variant transition-all hover:bg-error-container/20 hover:text-error"
               href="#"
             >
               <span className="material-symbols-outlined">logout</span>
-              <span>Logout</span>
+              <span>{t("common.logout")}</span>
             </Link>
           </div>
         </div>
@@ -582,17 +587,17 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
           <div className="flex items-center gap-4">
             <div className="flex items-center rounded-lg bg-surface-container p-1">
               <button className="rounded-md bg-surface-container-lowest px-3 py-1 text-xs font-bold text-primary shadow-sm">
-                EN
+                {t("interview.lang.enShort")}
               </button>
               <button className="rounded-md px-3 py-1 text-xs font-bold text-on-surface-variant transition-colors hover:bg-surface-container-high">
-                VN
+                {t("interview.lang.vnShort")}
               </button>
             </div>
             <button className="flex items-center gap-2 rounded-lg px-4 py-2 font-semibold text-on-surface-variant transition-all hover:bg-surface-container-low active:scale-95">
               <span className="material-symbols-outlined text-[20px]">language</span>
             </button>
             <button className="rounded-xl border-2 border-error/20 px-6 py-2 font-bold text-error transition-all hover:bg-error-container/30 active:scale-95">
-              Exit Interview
+              {t("interview.exitInterview")}
             </button>
           </div>
         </header>
@@ -611,19 +616,19 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
             </div>
             <div className="space-y-3 pt-1">
               <div className="flex items-center gap-3">
-                <span className="font-headline text-lg font-bold">Curator AI</span>
+                <span className="font-headline text-lg font-bold">{t("interview.curatorAi")}</span>
                 <span className="rounded bg-secondary-container px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-on-secondary-container">
-                  Interviewer
+                  {t("interview.interviewerPill")}
                 </span>
               </div>
               <div className="rounded-bl-3xl rounded-br-3xl rounded-tr-3xl border-l-4 border-primary/20 bg-surface-container-low p-6 text-lg leading-relaxed text-on-surface">
-                Welcome to the senior product design interview. To start, could you describe a time you had to pivot a product strategy based on user data? What was the catalyst, and how did you manage the transition?
+                {t("interview.welcomePrompt")}
               </div>
               <div className="flex items-center gap-4 text-xs text-on-surface-variant">
                 <span>10:42 AM</span>
                 <div className="flex cursor-pointer items-center gap-1 transition-colors hover:text-primary">
                   <span className="material-symbols-outlined text-sm">volume_up</span>
-                  <span>Listen</span>
+                  <span>{t("common.listen")}</span>
                 </div>
               </div>
             </div>
@@ -673,7 +678,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
             <div className="flex items-end gap-4 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-2 shadow-lg transition-all duration-300 focus-within:ring-2 focus-within:ring-surface-tint/20">
               <textarea
                 className="min-h-[100px] flex-1 resize-none border-none bg-transparent p-4 text-lg text-on-surface placeholder:text-on-surface-variant/40 focus:ring-0"
-                placeholder="Type your answer here..."
+                placeholder={t("interview.typeYourAnswer")}
               />
               <div className="flex flex-col gap-2 p-2">
                 <button className="group flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white transition-all hover:bg-primary-container active:scale-90">
@@ -689,12 +694,12 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
 
             <div className="mt-4 flex items-center justify-between px-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
               <div className="flex gap-6">
-                <span>Press Enter to send</span>
-                <span>Shift + Enter for new line</span>
+                <span>{t("interview.pressEnterToSend")}</span>
+                <span>{t("interview.shiftEnterForNewLine")}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-green-500" />
-                Secure &amp; Private Interview
+                {t("interview.securePrivate")}
               </div>
             </div>
           </div>
