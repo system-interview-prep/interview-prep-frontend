@@ -116,7 +116,7 @@ export default async function SolutionsPage() {
                     </div>
                   </div>
                   <Link
-                    href="/interview"
+                    href="/interview/select"
                     className="ai-gradient-button text-white px-8 py-4 rounded-xl font-bold w-fit shadow-xl shadow-primary/20 hover:opacity-90 active:scale-95 transition-all text-center"
                   >
                     {t("solutions.segment.seekers.cta")}

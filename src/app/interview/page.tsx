@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import LanguageToggleButton from "../../components/LanguageToggleButton";
 import { cookies } from "next/headers";
 import { getDictionary, normalizeLang } from "../../i18n/i18n";
@@ -21,6 +22,10 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
   const mode = Array.isArray(modeParam) ? modeParam[0] : modeParam;
   const isVoiceMode = mode === "voice";
   const isVideoMode = mode === "video";
+
+  if (!isVoiceMode && !isVideoMode) {
+    redirect("/interview/select");
+  }
 
   if (isVideoMode) {
     return (
@@ -223,7 +228,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               Curator AI
             </Link>
             <div className="hidden items-center gap-6 font-headline text-lg font-bold tracking-tight md:flex">
-              <Link className="text-on-surface-variant transition-colors hover:text-on-surface" href="/interview">
+              <Link className="text-on-surface-variant transition-colors hover:text-on-surface" href="/interview/select">
                 {t("interview.interviewMode")}
               </Link>
               <span className="cursor-default border-b-2 border-primary pb-1 text-primary">
@@ -291,14 +296,14 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               </Link>
               <Link
                 className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
-                href="#"
+                href="/practice"
               >
                 <span className="material-symbols-outlined">school</span>
                 <span className="text-sm">{t("common.practice")}</span>
               </Link>
               <Link
                 className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
-                href="#"
+                href="/dashboard/profile"
               >
                 <span className="material-symbols-outlined">person</span>
                 <span className="text-sm">{t("common.myProfile")}</span>
@@ -516,21 +521,21 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
             </Link>
             <Link
               className="flex items-center gap-3 rounded-md bg-surface-container-lowest px-3 py-2.5 font-semibold text-primary shadow-sm"
-              href="/interview"
+              href="/interview/select"
             >
               <span className="material-symbols-outlined">forum</span>
               <span>{t("common.interviews")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
-              href="#"
+              href="/practice"
             >
               <span className="material-symbols-outlined">school</span>
               <span>{t("common.practice")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
-              href="#"
+              href="/dashboard/profile"
             >
               <span className="material-symbols-outlined">person</span>
               <span>{t("common.myProfile")}</span>

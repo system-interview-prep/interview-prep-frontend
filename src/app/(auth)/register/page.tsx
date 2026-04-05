@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { useLanguage } from '../../i18n/LanguageProvider';
+import { useLanguage } from '../../../i18n/LanguageProvider';
 
 export default function RegisterPage() {
   const { t } = useLanguage();

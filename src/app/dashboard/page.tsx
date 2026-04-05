@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import LanguageToggleButton from "../../components/LanguageToggleButton";
+import { UserDashboardShell } from "../../components/user-dashboard/UserDashboardShell";
 import { useLanguage } from "../../i18n/LanguageProvider";
+import { startDemoVideoInterviewRoom } from "../../utils/demoInterviewSession";
 
 type DemoSession = {
   roomId: string;
@@ -35,8 +36,6 @@ function initialsFromTopic(topic: string) {
 
 export default function DashboardPage() {
   const { t, lang } = useLanguage();
-  const pathname = usePathname();
-  const [creating, setCreating] = useState(false);
   const [sessions, setSessions] = useState<DemoSession[]>([]);
   const [profile, setProfile] = useState<GoogleProfile | null>(null);
 
@@ -57,35 +56,11 @@ export default function DashboardPage() {
     return () => window.removeEventListener("focus", onFocus);
   }, [loadFromStorage]);
 
-  const isActive = useMemo(
-    () => ({
-      dashboard: pathname === "/dashboard",
-      interviews: pathname.startsWith("/interview-summary"),
-      practice: pathname.startsWith("/demo"),
-      profile: pathname === "/dashboard",
-      settings: pathname.startsWith("/pricing"),
-      help: pathname.startsWith("/resources"),
-    }),
-    [pathname],
-  );
-
   function persistSessions(next: DemoSession[]) {
     localStorage.setItem("demo.sessions", JSON.stringify(next));
     setSessions(next);
   }
 
-  function createNewInterview() {
-    setCreating(true);
-    const roomId = `room_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    const startedAt = new Date().toISOString();
-    const topic = lang === "vi" ? "Phỏng vấn mô phỏng" : "Mock interview";
-    const next = [{ roomId, startedAt, topic }, ...sessions].slice(0, 50);
-    persistSessions(next);
-    setCreating(false);
-
-    const languageParam = lang === "vi" ? "Vietnamese" : "English";
-    window.location.assign(`/interview/room/${roomId}?language=${encodeURIComponent(languageParam)}`);
-  }
 
   const displayName = profile?.name?.trim() || profile?.email?.split("@")[0] || "";
   const welcomeTitle = displayName
@@ -93,99 +68,9 @@ export default function DashboardPage() {
     : t("userDash.welcomeFallback");
   const roleLabel = t("userDash.roleFallback");
 
-  const navBase =
-    "flex items-center gap-3 px-4 py-3 rounded-md hover:translate-x-1 transition-transform duration-200";
-  const navInactive =
-    "text-[#434654] dark:text-slate-400 hover:bg-[#e0e3e5] dark:hover:bg-slate-700/50";
-  const navActive =
-    "bg-white dark:bg-slate-700 text-[#003d9b] dark:text-blue-300 shadow-sm font-semibold";
-
   return (
-    <div className="bg-surface font-body text-on-surface min-h-screen">
-      <aside className="hidden md:flex md:flex-col h-screen w-64 fixed left-0 top-0 bg-[#f2f4f6] dark:bg-slate-800/50 z-40">
-        <div className="flex flex-col h-full p-6 space-y-8">
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">
-              <span className="material-symbols-outlined text-sm">psychology</span>
-            </div>
-            <div>
-              <h1 className="font-headline font-extrabold text-[#191c1e] dark:text-white leading-none">
-                {t("userDash.sidebar.brand")}
-              </h1>
-              <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">
-                {t("userDash.sidebar.tagline")}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={createNewInterview}
-            disabled={creating}
-            className="w-full py-3 px-4 bg-primary text-on-primary rounded-xl font-headline font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary-container transition-all active:scale-95 shadow-sm disabled:opacity-60"
-          >
-            <span className="material-symbols-outlined text-lg">add</span>
-            {t("userDash.nav.newInterview")}
-          </button>
-
-          <nav className="flex-1 space-y-2">
-            <Link
-              href="/dashboard"
-              className={`${navBase} ${isActive.dashboard ? navActive : navInactive}`}
-            >
-              <span className="material-symbols-outlined">dashboard</span>
-              <span className="font-inter text-sm font-medium">{t("userDash.nav.dashboard")}</span>
-            </Link>
-            <Link
-              href="/interview-summary"
-              className={`${navBase} ${isActive.interviews ? navActive : navInactive}`}
-            >
-              <span className="material-symbols-outlined">forum</span>
-              <span className="font-inter text-sm font-medium">{t("userDash.nav.interviews")}</span>
-            </Link>
-            <Link
-              href="/demo"
-              className={`${navBase} ${isActive.practice ? navActive : navInactive}`}
-            >
-              <span className="material-symbols-outlined">school</span>
-              <span className="font-inter text-sm font-medium">{t("userDash.nav.practice")}</span>
-            </Link>
-            <Link
-              href="/dashboard#user-profile"
-              className={`${navBase} ${navInactive}`}
-            >
-              <span className="material-symbols-outlined">person</span>
-              <span className="font-inter text-sm font-medium">{t("userDash.nav.profile")}</span>
-            </Link>
-            <Link
-              href="/pricing"
-              className={`${navBase} ${isActive.settings ? navActive : navInactive}`}
-            >
-              <span className="material-symbols-outlined">settings</span>
-              <span className="font-inter text-sm font-medium">{t("userDash.nav.settings")}</span>
-            </Link>
-          </nav>
-
-          <div className="pt-6 border-t border-outline-variant/20 space-y-2">
-            <Link
-              href="/resources"
-              className={`${navBase} ${isActive.help ? navActive : navInactive}`}
-            >
-              <span className="material-symbols-outlined">help</span>
-              <span className="font-inter text-sm font-medium">{t("userDash.nav.help")}</span>
-            </Link>
-            <Link
-              href="/logout"
-              className={`${navBase} text-error hover:bg-error-container/20`}
-            >
-              <span className="material-symbols-outlined">logout</span>
-              <span className="font-inter text-sm font-medium">{t("userDash.nav.logout")}</span>
-            </Link>
-          </div>
-        </div>
-      </aside>
-
-      <main className="ml-0 md:ml-64 min-h-screen p-6 md:p-12 bg-surface pb-28 md:pb-12">
+    <UserDashboardShell>
+      <main className="min-h-screen p-6 md:p-12 bg-surface md:pb-12">
         <header
           id="user-profile"
           className="flex flex-col gap-6 sm:flex-row sm:justify-between sm:items-end mb-12 scroll-mt-24"
@@ -234,17 +119,15 @@ export default function DashboardPage() {
               <p className="text-on-surface-variant body-md leading-relaxed mb-8">
                 {t("userDash.mode.chat.desc")}
               </p>
-              <button
-                type="button"
-                onClick={createNewInterview}
-                disabled={creating}
-                className="flex items-center gap-2 text-primary font-bold group/btn disabled:opacity-60"
+              <Link
+                href="/chat"
+                className="inline-flex items-center gap-2 text-primary font-bold group/btn"
               >
                 {t("userDash.mode.chat.cta")}
                 <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
                   arrow_forward
                 </span>
-              </button>
+              </Link>
               <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
                 <span className="material-symbols-outlined text-9xl">chat_bubble</span>
               </div>
@@ -259,7 +142,7 @@ export default function DashboardPage() {
                 {t("userDash.mode.voice.desc")}
               </p>
               <Link
-                href="/interview?mode=voice"
+                href="/voice"
                 className="inline-flex items-center gap-2 text-primary font-bold group/btn"
               >
                 {t("userDash.mode.voice.cta")}
@@ -277,18 +160,19 @@ export default function DashboardPage() {
                 <span className="material-symbols-outlined text-3xl">videocam</span>
               </div>
               <h3 className="font-headline font-bold text-xl mb-3">{t("userDash.mode.video.title")}</h3>
-              <p className="text-on-surface-variant/90 body-md leading-relaxed mb-8">
+              <p className="text-white/90 body-md leading-relaxed mb-8">
                 {t("userDash.mode.video.desc")}
               </p>
-              <Link
-                href="/interview?mode=video"
+              <button
+                type="button"
+                onClick={() => startDemoVideoInterviewRoom(lang === "vi" ? "vi" : "en")}
                 className="inline-flex items-center gap-2 text-white font-bold group/btn"
               >
                 {t("userDash.mode.video.cta")}
                 <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
                   arrow_forward
                 </span>
-              </Link>
+              </button>
               <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full backdrop-blur-sm">
                 <div className="w-2 h-2 rounded-full bg-tertiary animate-pulse" />
                 <span className="text-[10px] font-bold uppercase tracking-tighter">
@@ -383,7 +267,7 @@ export default function DashboardPage() {
             <p className="text-on-surface-variant mb-8 max-w-md">{t("userDash.training.desc")}</p>
             <div className="flex flex-wrap gap-4">
               <Link
-                href="/demo"
+                href="/practice"
                 className="px-8 py-4 bg-tertiary text-white rounded-xl font-bold hover:bg-tertiary-container transition-colors shadow-lg shadow-tertiary/20 text-center"
               >
                 {t("userDash.training.quiz")}
@@ -480,37 +364,6 @@ export default function DashboardPage() {
           </div>
         </footer>
       </main>
-
-      <nav className="md:hidden fixed bottom-8 left-1/2 -translate-x-1/2 rounded-full px-6 py-3 w-fit min-w-[280px] max-w-[calc(100vw-2rem)] bg-[#7029e1]/85 backdrop-blur-xl flex items-center justify-around gap-4 z-50 shadow-[0_40px_60px_rgba(25,28,30,0.04)] border border-[#c3c6d6]/20">
-        <Link
-          href="/voice"
-          className="bg-white/20 rounded-full p-3 text-white transition-transform hover:scale-110 active:scale-90"
-          aria-label="Voice"
-        >
-          <span className="material-symbols-outlined">mic</span>
-        </Link>
-        <Link
-          href="/interview?mode=video"
-          className="text-white/70 hover:text-white p-3 transition-transform hover:scale-110 active:scale-90 rounded-full"
-          aria-label="Video"
-        >
-          <span className="material-symbols-outlined">videocam</span>
-        </Link>
-        <Link
-          href="/interview-summary"
-          className="text-white/70 hover:text-white p-3 transition-transform hover:scale-110 active:scale-90 rounded-full"
-          aria-label="History"
-        >
-          <span className="material-symbols-outlined">history</span>
-        </Link>
-        <Link
-          href="/logout"
-          className="text-white/70 hover:text-white p-3 transition-transform hover:scale-110 active:scale-90 rounded-full"
-          aria-label="Logout"
-        >
-          <span className="material-symbols-outlined">call_end</span>
-        </Link>
-      </nav>
-    </div>
+    </UserDashboardShell>
   );
 }

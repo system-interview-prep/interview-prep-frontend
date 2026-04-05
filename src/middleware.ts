@@ -8,9 +8,11 @@ function isAdminRequest(req: NextRequest) {
 function isUserProtectedRequest(req: NextRequest) {
   const p = req.nextUrl.pathname;
   return (
-    p === "/dashboard" ||
+    p.startsWith("/dashboard") ||
     p.startsWith("/interview") ||
     p.startsWith("/chat") ||
+    p.startsWith("/voice") ||
+    p.startsWith("/practice") ||
     p.startsWith("/interview-summary")
   );
 }
@@ -38,6 +40,18 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/dashboard", "/interview/:path*", "/chat/:path*", "/interview-summary/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/dashboard",
+    "/dashboard/:path*",
+    "/interview/:path*",
+    "/chat/:path*",
+    "/voice",
+    "/voice/:path*",
+    "/practice",
+    "/practice/:path*",
+    "/interview-summary",
+    "/interview-summary/:path*",
+  ],
 };
 
