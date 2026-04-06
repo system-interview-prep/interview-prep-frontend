@@ -304,7 +304,7 @@ export default function AdminJobProfilesPanel() {
     startTransition(() => {
       router.replace(`/admin/dashboard?page=${nextPage}`, { scroll: false });
     });
-  };
+  };11
 
   const pagerText = useMemo(() => {
     const vi = lang === "vi";
