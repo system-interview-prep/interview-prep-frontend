@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import LanguageToggleButton from "../src/components/LanguageToggleButton";
 import { useLanguage } from "../src/i18n/LanguageProvider";
 import { useGoogleLogin } from "@react-oauth/google";
+import { writeAuthProfile } from "../src/auth/authProfile";
 
 export default function Authentication({ defaultMode = "login" }: { defaultMode?: "login" | "signup" }) {
   const { t, lang } = useLanguage();
@@ -53,11 +54,11 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
 
   useEffect(() => {
     const role = getCookie("role");
-    if (role === "admin") {
+    if (role?.toLowerCase() === "admin") {
       router.replace(nextUrl ?? "/admin/dashboard");
       return;
     }
-    if (role === "user") {
+    if (role?.toLowerCase() === "user") {
       router.replace(nextUrl ?? "/dashboard");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,10 +87,17 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
         if (data.access_token) {
           localStorage.setItem("accessToken", data.access_token);
         }
+        if (data?.user) {
+          writeAuthProfile({
+            email: data.user.email ?? null,
+            name: data.user.name ?? null,
+            picture: data.user.picture ?? null,
+          });
+        }
         document.cookie = `access_token=${data.access_token}; Path=/; SameSite=Lax; Max-Age=31536000`;
-        document.cookie = `role=${data.user.role}; Path=/; SameSite=Lax; Max-Age=31536000`;
+        setRoleCookie(String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "admin" : "user");
 
-        router.replace(nextUrl ?? (data.user.role === 'ADMIN' ? "/admin/dashboard" : "/dashboard"));
+        router.replace(nextUrl ?? (String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "/admin/Dashboard" : "/dashboard"));
       } catch (err: any) {
         setGoogleError(err.message || t("auth.error.googleFailed"));
       } finally {
@@ -141,10 +149,17 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
       if (data.access_token) {
         localStorage.setItem("accessToken", data.access_token);
       }
+      if (data?.user) {
+        writeAuthProfile({
+          email: data.user.email ?? null,
+          name: data.user.name ?? null,
+          picture: data.user.picture ?? null,
+        });
+      }
       document.cookie = `access_token=${data.access_token}; Path=/; SameSite=Lax; Max-Age=31536000`;
-      document.cookie = `role=${data.user.role}; Path=/; SameSite=Lax; Max-Age=31536000`;
+      setRoleCookie(String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "admin" : "user");
 
-      router.replace(nextUrl ?? (data.user.role === 'ADMIN' ? "/admin/dashboard" : "/dashboard"));
+      router.replace(nextUrl ?? (String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "/admin/Dashboard" : "/dashboard"));
     } catch (err: any) {
       setLoginError(err.message || "Failed to login");
     } finally {

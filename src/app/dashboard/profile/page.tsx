@@ -5,17 +5,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import LanguageToggleButton from "../../../components/LanguageToggleButton";
 import { UserDashboardShell } from "../../../components/user-dashboard/UserDashboardShell";
 import { useLanguage } from "../../../i18n/LanguageProvider";
+import { useAuthProfile } from "../../../auth/useAuthProfile";
 
 type CvFile = {
   id: string;
   name: string;
   uploadedAt: string;
-};
-
-type GoogleProfile = {
-  email?: string | null;
-  name?: string | null;
-  picture?: string | null;
 };
 
 const STORAGE_KEY = "demo.cvFiles";
@@ -45,7 +40,7 @@ function extIcon(name: string) {
 export default function ProfilePage() {
   const { t } = useLanguage();
   const [files, setFiles] = useState<CvFile[]>([]);
-  const [profile, setProfile] = useState<GoogleProfile | null>(null);
+  const { profile, displayName } = useAuthProfile();
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -58,23 +53,17 @@ export default function ProfilePage() {
     }
   }, []);
 
-  const loadProfile = useCallback(() => {
-    setProfile(safeJsonParse<GoogleProfile>(localStorage.getItem("auth.googleProfile")));
-  }, []);
-
   useEffect(() => {
     loadFiles();
-    loadProfile();
-  }, [loadFiles, loadProfile]);
+  }, [loadFiles]);
 
   useEffect(() => {
     function onFocus() {
       loadFiles();
-      loadProfile();
     }
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [loadFiles, loadProfile]);
+  }, [loadFiles]);
 
   function persist(next: CvFile[]) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -119,7 +108,6 @@ export default function ProfilePage() {
     persist(files.filter((x) => x.id !== id));
   }
 
-  const displayName = profile?.name?.trim() || profile?.email?.split("@")[0] || "";
   const email = profile?.email?.trim() || "";
   const roleLabel = t("userDash.roleFallback");
 

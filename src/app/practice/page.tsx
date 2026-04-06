@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import LanguageToggleButton from "../../components/LanguageToggleButton";
 import { UserDashboardShell } from "../../components/user-dashboard/UserDashboardShell";
 import { useLanguage } from "../../i18n/LanguageProvider";
+import { useAuthProfile } from "../../auth/useAuthProfile";
 
 const QUESTION_IDS = ["q1", "q2", "q3"] as const;
 const CORRECT: Record<(typeof QUESTION_IDS)[number], number> = {
@@ -14,21 +15,6 @@ const CORRECT: Record<(typeof QUESTION_IDS)[number], number> = {
 };
 
 const LETTERS = ["A", "B", "C"] as const;
-
-type GoogleProfile = {
-  email?: string | null;
-  name?: string | null;
-  picture?: string | null;
-};
-
-function safeJsonParse<T>(value: string | null): T | null {
-  if (!value) return null;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return null;
-  }
-}
 
 function initialsFromName(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -45,23 +31,7 @@ export default function PracticePage() {
   );
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
-  const [profile, setProfile] = useState<GoogleProfile | null>(null);
-
-  const loadProfile = useCallback(() => {
-    setProfile(safeJsonParse<GoogleProfile>(localStorage.getItem("auth.googleProfile")));
-  }, []);
-
-  useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
-
-  useEffect(() => {
-    function onFocus() {
-      loadProfile();
-    }
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [loadProfile]);
+  const { profile, displayName } = useAuthProfile();
 
   const qid = QUESTION_IDS[step];
   const options = useMemo(
@@ -91,7 +61,6 @@ export default function PracticePage() {
     return Math.min(100, (base + bump) * 100);
   }, [step, picked]);
 
-  const displayName = profile?.name?.trim() || profile?.email?.split("@")[0] || "";
   const roleLabel = t("userDash.roleFallback");
 
   function handleNext() {

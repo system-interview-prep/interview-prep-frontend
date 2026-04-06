@@ -1,7 +1,6 @@
 "use client";
 
 import axios from "axios";
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import AdminButton from "./AdminButton";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -88,13 +87,6 @@ function CategoryListItem({
         )}
       </div>
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-0.5 sm:flex-col sm:items-end sm:pt-0.5">
-        <Link
-          href={`/admin/dashboard?categoryId=${encodeURIComponent(cat.id)}`}
-          className="inline-flex items-center gap-0.5 text-sm font-medium text-primary hover:underline"
-        >
-          {t("admin.jobCategories.filterBoard")}
-          <span className="material-symbols-outlined text-[18px]">chevron_right</span>
-        </Link>
         <div className="flex items-center">
           <button
             type="button"

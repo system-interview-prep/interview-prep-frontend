@@ -160,7 +160,7 @@ export default function AdminJobProfileDetailView() {
             </span>
             <div className="flex flex-wrap gap-2">
               <Link
-                href={`/admin/dashboard?edit=${encodeURIComponent(profile.id)}`}
+                href={`/admin/job-profiles/create?edit=${encodeURIComponent(profile.id)}`}
                 className="rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-primary shadow-lg transition hover:shadow-xl"
               >
                 {t("admin.jobProfile.featured.cta")}

@@ -1,26 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useMemo } from "react";
 import LanguageToggleButton from "../../../components/LanguageToggleButton";
 import { UserDashboardShell } from "../../../components/user-dashboard/UserDashboardShell";
 import { useLanguage } from "../../../i18n/LanguageProvider";
 import { startDemoVideoInterviewRoom } from "../../../utils/demoInterviewSession";
-
-type GoogleProfile = {
-  email?: string | null;
-  name?: string | null;
-  picture?: string | null;
-};
-
-function safeJsonParse<T>(value: string | null): T | null {
-  if (!value) return null;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return null;
-  }
-}
+import { useAuthProfile } from "../../../auth/useAuthProfile";
 
 function initialsFromName(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -30,26 +16,9 @@ function initialsFromName(name: string) {
 
 export default function InterviewSelectPage() {
   const { t, lang } = useLanguage();
-  const [profile, setProfile] = useState<GoogleProfile | null>(null);
-
-  const loadProfile = useCallback(() => {
-    setProfile(safeJsonParse<GoogleProfile>(localStorage.getItem("auth.googleProfile")));
-  }, []);
-
-  useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
-
-  useEffect(() => {
-    function onFocus() {
-      loadProfile();
-    }
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [loadProfile]);
-
-  const displayName = profile?.name?.trim() || profile?.email?.split("@")[0] || "";
+  const { profile, displayName } = useAuthProfile();
   const roleLabel = t("userDash.roleFallback");
+  const initials = useMemo(() => (displayName ? initialsFromName(displayName) : "?"), [displayName]);
 
   return (
     <UserDashboardShell>
@@ -90,7 +59,7 @@ export default function InterviewSelectPage() {
                   />
                 ) : (
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-fixed font-headline text-sm font-bold text-primary">
-                    {displayName ? initialsFromName(displayName) : "?"}
+                    {initials}
                   </div>
                 )}
               </Link>

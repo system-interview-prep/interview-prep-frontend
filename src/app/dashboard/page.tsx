@@ -7,17 +7,13 @@ import UserJobProfilesSection from "../../components/user-dashboard/UserJobProfi
 import { UserDashboardShell } from "../../components/user-dashboard/UserDashboardShell";
 import { useLanguage } from "../../i18n/LanguageProvider";
 import { startDemoVideoInterviewRoom } from "../../utils/demoInterviewSession";
+import { useAuthProfile } from "../../auth/useAuthProfile";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type DemoSession = {
   roomId: string;
   topic: string;
   startedAt: string;
-};
-
-type GoogleProfile = {
-  email?: string | null;
-  name?: string | null;
-  picture?: string | null;
 };
 
 function safeJsonParse<T>(value: string | null): T | null {
@@ -38,11 +34,14 @@ function initialsFromTopic(topic: string) {
 export default function DashboardPage() {
   const { t, lang } = useLanguage();
   const [sessions, setSessions] = useState<DemoSession[]>([]);
-  const [profile, setProfile] = useState<GoogleProfile | null>(null);
+  const { profile, displayName } = useAuthProfile();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pageSize = 8;
+  const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
 
   const loadFromStorage = useCallback(() => {
     setSessions(safeJsonParse<DemoSession[]>(localStorage.getItem("demo.sessions")) ?? []);
-    setProfile(safeJsonParse<GoogleProfile>(localStorage.getItem("auth.googleProfile")));
   }, []);
 
   useEffect(() => {
@@ -62,8 +61,17 @@ export default function DashboardPage() {
     setSessions(next);
   }
 
+  const totalPages = Math.max(1, Math.ceil(sessions.length / pageSize));
+  const pageSafe = Math.min(page, totalPages);
+  const sessionsPage = sessions.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
 
-  const displayName = profile?.name?.trim() || profile?.email?.split("@")[0] || "";
+  const setPage = (p: number) => {
+    const next = Math.max(1, Math.min(p, totalPages));
+    const sp = new URLSearchParams(searchParams.toString());
+    sp.set("page", String(next));
+    router.replace(`/dashboard?${sp.toString()}`, { scroll: false });
+  };
+
   const welcomeTitle = displayName
     ? t("userDash.welcomeWithName").replace("{name}", displayName)
     : t("userDash.welcomeFallback");
@@ -215,7 +223,7 @@ export default function DashboardPage() {
                     </td>
                   </tr>
                 ) : (
-                  sessions.map((s) => (
+                  sessionsPage.map((s) => (
                     <tr key={s.roomId} className="hover:bg-surface-container/50 transition-colors">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
@@ -257,6 +265,35 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
+          {sessions.length > 0 ? (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-on-surface-variant">
+                {Math.min((pageSafe - 1) * pageSize + 1, sessions.length)}–
+                {Math.min(pageSafe * pageSize, sessions.length)} / {sessions.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage(pageSafe - 1)}
+                  disabled={pageSafe <= 1}
+                  className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:opacity-50"
+                >
+                  Prev
+                </button>
+                <span className="min-w-[5rem] text-center text-sm font-semibold text-on-surface">
+                  Page {pageSafe}/{totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage(pageSafe + 1)}
+                  disabled={pageSafe >= totalPages}
+                  className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch mb-16">

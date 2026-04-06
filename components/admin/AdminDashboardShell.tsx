@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import AdminDashboardJobNav from "./AdminDashboardJobNav";
 import AdminSidebarBrand from "./AdminSidebarBrand";
+import AdminAuthBadge from "./AdminAuthBadge";
 import { getDictionary, normalizeLang } from "@/i18n/i18n";
 
 export default async function AdminDashboardShell({ children }: { children: React.ReactNode }) {
@@ -48,6 +49,9 @@ export default async function AdminDashboardShell({ children }: { children: Reac
         </nav>
 
         <div className="space-y-1 border-t border-outline-variant/20 pt-6">
+          <div className="mb-4 rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-3">
+            <AdminAuthBadge roleLabel={t("admin.role.seniorAdmin")} />
+          </div>
           <Link
             className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-colors hover:bg-surface-variant"
             href="/admin/help"

@@ -25,6 +25,8 @@ export type JobProfile = {
 export type JobProfileListResponse = {
   items: JobProfile[];
   nextCursor?: string;
+  /** When the backend returns a total count, callers can avoid walking all pages. */
+  total?: number;
 };
 
 export type CreateJobProfileBody = {
@@ -49,8 +51,8 @@ export const emptyJobProfileForm: JobProfileFormState = {
   title: "",
   categoryId: "",
   keywords: "",
-  description: "",
-  requirements: "",
+  description: "• ",
+  requirements: "• ",
   status: "ACTIVE",
 };
 
@@ -93,9 +95,41 @@ export function jobProfileListCategoryParams(
   return { category: filter };
 }
 
+const AGGREGATE_FETCH_LIMIT = 100;
+
+/**
+ * Walks cursor pages (same filters as the list UI) to compute totals and description/requirement coverage.
+ */
+export async function fetchJobProfileListAggregates(
+  params: Omit<ListJobProfilesParams, "cursor" | "limit">,
+  options?: { signal?: AbortSignal }
+): Promise<{ total: number; withDescription: number; withRequirements: number }> {
+  let cursor: string | undefined;
+  let total = 0;
+  let withDescription = 0;
+  let withRequirements = 0;
+
+  for (;;) {
+    const { data } = await jobProfileApi.list(
+      { ...params, limit: AGGREGATE_FETCH_LIMIT, cursor },
+      { signal: options?.signal }
+    );
+    const items = data.items ?? [];
+    for (const p of items) {
+      total++;
+      if ((p.description ?? "").trim().length > 0) withDescription++;
+      if ((p.requirements ?? "").trim().length > 0) withRequirements++;
+    }
+    cursor = data.nextCursor;
+    if (!cursor) break;
+  }
+
+  return { total, withDescription, withRequirements };
+}
+
 export const jobProfileApi = {
-  list: (params?: ListJobProfilesParams) =>
-    api.get<JobProfileListResponse>("/admin/job-profiles", { params }),
+  list: (params?: ListJobProfilesParams, config?: { signal?: AbortSignal }) =>
+    api.get<JobProfileListResponse>("/admin/job-profiles", { params, ...config }),
   get: (id: string) => api.get<JobProfile>(`/admin/job-profiles/${id}`),
   create: (body: CreateJobProfileBody) =>
     api.post<JobProfile>("/admin/job-profiles", body),

@@ -4,17 +4,14 @@ import Link from "next/link";
 import axios from "axios";
 import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import AdminButton from "./AdminButton";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { jobCategoryApi, type JobCategory } from "@/services/jobCategoryApi";
 import {
-  emptyJobProfileForm,
+  fetchJobProfileListAggregates,
   jobProfileApi,
   jobProfileListCategoryParams,
   keywordsArrayToInput,
-  keywordsStringToArray,
   type JobProfile,
-  type JobProfileFormState,
 } from "@/services/jobProfileApi";
 import { useLanguage } from "@/i18n/LanguageProvider";
 
@@ -80,19 +77,24 @@ export default function AdminJobProfilesPanel() {
 
   const [profiles, setProfiles] = useState<JobProfile[]>([]);
   const [nextCursor, setNextCursor] = useState<string | undefined>();
+  const [page, setPage] = useState(1);
+  const [pageCursors, setPageCursors] = useState<Record<number, string | undefined>>({ 1: undefined });
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 400);
   const [sort, setSort] = useState<SortKey>("newest");
   const [categoryFilter, setCategoryFilter] = useState<"all" | string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<JobProfileFormState>(emptyJobProfileForm);
-  const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<JobCategory[]>([]);
+
+  const [listAggregate, setListAggregate] = useState<{
+    total: number;
+    withDescription: number;
+    withRequirements: number;
+  } | null>(null);
+  const [aggregateLoading, setAggregateLoading] = useState(false);
+  const [aggregateTick, setAggregateTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,14 +117,42 @@ export default function AdminJobProfilesPanel() {
     [categories]
   );
 
-  const loadPage = useCallback(
-    async (cursor: string | undefined, append: boolean) => {
+  useEffect(() => {
+    const ac = new AbortController();
+    let cancelled = false;
+
+    (async () => {
+      setAggregateLoading(true);
+      setListAggregate(null);
       try {
-        if (append) setLoadingMore(true);
-        else {
-          setLoading(true);
-          setError(null);
-        }
+        const order: "asc" | "desc" = sort === "oldest" ? "asc" : "desc";
+        const agg = await fetchJobProfileListAggregates(
+          {
+            q: debouncedSearch.trim() || undefined,
+            ...(categoryFilter !== "all" ? jobProfileListCategoryParams(categoryFilter) : {}),
+            order,
+          },
+          { signal: ac.signal }
+        );
+        if (!cancelled) setListAggregate(agg);
+      } catch {
+        if (!cancelled) setListAggregate(null);
+      } finally {
+        if (!cancelled) setAggregateLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [debouncedSearch, categoryFilter, sort, aggregateTick]);
+
+  const loadPage = useCallback(
+    async (cursor: string | undefined, pageNumber: number) => {
+      try {
+        setLoading(true);
+        setError(null);
         const order: "asc" | "desc" = sort === "oldest" ? "asc" : "desc";
         const { data } = await jobProfileApi.list({
           limit: PAGE_SIZE,
@@ -132,26 +162,51 @@ export default function AdminJobProfilesPanel() {
           order,
         });
         const items = data.items ?? [];
-        setProfiles((prev) => (append ? [...prev, ...items] : items));
+        setProfiles(items);
         setNextCursor(data.nextCursor);
+        setPageCursors((prev) => ({
+          ...prev,
+          [pageNumber]: cursor,
+          ...(data.nextCursor ? { [pageNumber + 1]: data.nextCursor } : {}),
+        }));
       } catch (e: unknown) {
         const msg = axios.isAxiosError(e)
           ? String((e.response?.data as { message?: string })?.message ?? e.message)
           : t("admin.jobProfile.error.load");
         setError(msg);
-        if (!append) setProfiles([]);
+        setProfiles([]);
         setNextCursor(undefined);
       } finally {
         setLoading(false);
-        setLoadingMore(false);
       }
     },
     [debouncedSearch, categoryFilter, sort, t]
   );
 
   useEffect(() => {
-    loadPage(undefined, false);
+    // This API uses cursor-based pagination. Jumping directly to page>1 isn't possible without
+    // walking cursors, so we clamp to page 1 on initial load.
+    const requested = Number.parseInt(searchParams.get("page") ?? "1", 10);
+    const safePage = Number.isFinite(requested) && requested > 0 ? requested : 1;
+    if (safePage !== 1) {
+      router.replace("/admin/dashboard?page=1", { scroll: false });
+    }
+    setPage(1);
+    setPageCursors({ 1: undefined });
+    loadPage(undefined, 1);
   }, [loadPage]);
+
+  // Reset pagination when filters change.
+  useEffect(() => {
+    setPage(1);
+    setPageCursors({ 1: undefined });
+    setNextCursor(undefined);
+    loadPage(undefined, 1);
+    startTransition(() => {
+      router.replace("/admin/dashboard?page=1", { scroll: false });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, categoryFilter, sort]);
 
   useEffect(() => {
     if (searchParams.get("action") !== "create") return;
@@ -188,6 +243,16 @@ export default function AdminJobProfilesPanel() {
   }, [profiles, sort, lang]);
 
   const stats = useMemo(() => {
+    if (listAggregate) {
+      const total = listAggregate.total;
+      const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
+      return {
+        total,
+        pctDesc: pct(listAggregate.withDescription),
+        pctReq: pct(listAggregate.withRequirements),
+        hasGlobal: true as const,
+      };
+    }
     const total = profiles.length;
     const withDesc = profiles.filter((p) => (p.description ?? "").trim().length > 0).length;
     const withReq = profiles.filter((p) => (p.requirements ?? "").trim().length > 0).length;
@@ -196,85 +261,60 @@ export default function AdminJobProfilesPanel() {
       total,
       pctDesc: pct(withDesc),
       pctReq: pct(withReq),
+      hasGlobal: false as const,
     };
-  }, [profiles]);
+  }, [listAggregate, profiles]);
 
-  const openEdit = useCallback((p: JobProfile) => {
-    setEditingId(p.id);
-    setForm({
-      title: p.title,
-      categoryId: p.categoryId,
-      keywords: keywordsArrayToInput(p.keywords),
-      description: p.description ?? "",
-      requirements: p.requirements ?? "",
-      status: p.status ?? "ACTIVE",
-    });
-    setModalOpen(true);
-  }, []);
+  const goToEdit = useCallback(
+    (p: JobProfile) => {
+      startTransition(() => {
+        router.push(`/admin/job-profiles/create?edit=${encodeURIComponent(p.id)}`);
+      });
+    },
+    [router]
+  );
 
   useEffect(() => {
     const editId = searchParams.get("edit");
     if (!editId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await jobProfileApi.get(editId);
-        if (cancelled) return;
-        openEdit(data);
-      } catch {
-        /* invalid id */
-      } finally {
-        if (!cancelled) router.replace("/admin/dashboard", { scroll: false });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [searchParams, router, openEdit]);
-
-  const closeModal = () => {
-    setModalOpen(false);
-    setEditingId(null);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.title.trim() || !form.categoryId || !editingId || saving) return;
-    setSaving(true);
-    try {
-      await jobProfileApi.update(editingId, {
-        title: form.title.trim(),
-        categoryId: form.categoryId,
-        keywords: keywordsStringToArray(form.keywords),
-        description: form.description.trim() || undefined,
-        requirements: form.requirements.trim() || undefined,
-        status: form.status,
-      });
-      await loadPage(undefined, false);
-      closeModal();
-    } catch (err: unknown) {
-      const msg = axios.isAxiosError(err)
-        ? String((err.response?.data as { message?: string })?.message ?? err.message)
-        : t("admin.jobProfile.error.save");
-      setError(msg);
-    } finally {
-      setSaving(false);
-    }
-  };
+    startTransition(() => {
+      router.replace(`/admin/job-profiles/create?edit=${encodeURIComponent(editId)}`);
+    });
+  }, [searchParams, router]);
 
   const handleDelete = async (id: string) => {
     if (typeof window !== "undefined" && !window.confirm(t("admin.jobProfile.card.confirmDelete"))) return;
     try {
       await jobProfileApi.delete(id);
-      await loadPage(undefined, false);
+      setPage(1);
+      setPageCursors({ 1: undefined });
+      await loadPage(undefined, 1);
+      setAggregateTick((n) => n + 1);
     } catch {
       setError(t("admin.jobProfile.error.save"));
     }
   };
 
-  const handleLoadMore = () => {
-    if (nextCursor && !loadingMore) loadPage(nextCursor, true);
+  const goToPage = (nextPage: number) => {
+    if (nextPage < 1) return;
+    const cursor = pageCursors[nextPage];
+    if (nextPage > page && !nextCursor) return;
+    setPage(nextPage);
+    void loadPage(cursor, nextPage);
+    startTransition(() => {
+      router.replace(`/admin/dashboard?page=${nextPage}`, { scroll: false });
+    });
   };
+
+  const pagerText = useMemo(() => {
+    const vi = lang === "vi";
+    return {
+      prev: vi ? "Trước" : "Prev",
+      next: vi ? "Sau" : "Next",
+      page: vi ? "Trang" : "Page",
+      items: vi ? "mục" : "items",
+    };
+  }, [lang]);
 
   return (
     <div className="min-w-0 space-y-0">
@@ -375,25 +415,41 @@ export default function AdminJobProfilesPanel() {
                 <div>
                   <div className="mb-2 flex justify-between text-[10px] font-bold uppercase text-primary/80">
                     <span>{t("admin.jobProfile.stats.withDescription")}</span>
-                    <span>{stats.pctDesc}%</span>
+                    <span>
+                      {aggregateLoading && !stats.hasGlobal ? "…" : `${stats.pctDesc}%`}
+                    </span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-primary-fixed/35 dark:bg-primary-fixed/25">
-                    <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${stats.pctDesc}%` }} />
+                    <div
+                      className="h-full rounded-full bg-primary transition-all"
+                      style={{
+                        width: aggregateLoading && !stats.hasGlobal ? "0%" : `${stats.pctDesc}%`,
+                      }}
+                    />
                   </div>
                 </div>
                 <div>
                   <div className="mb-2 flex justify-between text-[10px] font-bold uppercase text-primary/80">
                     <span>{t("admin.jobProfile.stats.withRequirements")}</span>
-                    <span>{stats.pctReq}%</span>
+                    <span>
+                      {aggregateLoading && !stats.hasGlobal ? "…" : `${stats.pctReq}%`}
+                    </span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-primary-fixed/35 dark:bg-primary-fixed/25">
-                    <div className="h-full rounded-full bg-tertiary transition-all" style={{ width: `${stats.pctReq}%` }} />
+                    <div
+                      className="h-full rounded-full bg-tertiary transition-all"
+                      style={{
+                        width: aggregateLoading && !stats.hasGlobal ? "0%" : `${stats.pctReq}%`,
+                      }}
+                    />
                   </div>
                 </div>
               </div>
             </div>
             <div className="flex flex-col justify-center rounded-2xl border border-primary/15 bg-white p-6 text-primary shadow-sm ring-1 ring-primary/5 dark:border-primary/20 dark:bg-surface-container-lowest">
-              <div className="font-headline text-4xl font-black text-primary md:text-5xl">{stats.total}</div>
+              <div className="font-headline text-4xl font-black text-primary md:text-5xl">
+                {aggregateLoading && listAggregate === null ? "…" : stats.total}
+              </div>
               <div className="mt-2 text-[10px] font-bold uppercase leading-relaxed text-primary/60">
                 {t("admin.jobProfile.stats.total")}
                 <br />
@@ -452,7 +508,7 @@ export default function AdminJobProfilesPanel() {
                   <div className="flex gap-1">
                     <button
                       type="button"
-                      onClick={() => openEdit(p)}
+                      onClick={() => goToEdit(p)}
                       className="rounded-lg p-2 text-primary/60 transition hover:bg-primary-fixed/40 hover:text-primary"
                       aria-label={t("admin.jobProfile.card.edit")}
                     >
@@ -483,7 +539,7 @@ export default function AdminJobProfilesPanel() {
                 <th className="px-5 py-4">{t("admin.jobProfile.list.category")}</th>
                 <th className="px-5 py-4">{t("admin.jobProfile.list.keywords")}</th>
                 <th className="px-5 py-4">{t("admin.jobProfile.list.updated")}</th>
-                <th className="px-5 py-4 text-right">{t("admin.jobProfile.list.actions")}</th>
+                <th className="px-5 py-4 text-right align-middle">{t("admin.jobProfile.list.actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/10">
@@ -518,21 +574,25 @@ export default function AdminJobProfilesPanel() {
                   <td className="whitespace-nowrap px-5 py-4 text-on-surface-variant">
                     {formatDate(p.updatedAt ?? p.createdAt ?? "", lang)}
                   </td>
-                  <td className="px-5 py-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(p)}
-                      className="mr-2 inline-flex rounded-lg p-2 text-primary hover:bg-primary-fixed"
-                    >
-                      <span className="material-symbols-outlined text-[20px]">edit</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(p.id)}
-                      className="inline-flex rounded-lg p-2 text-error hover:bg-error-container/30"
-                    >
-                      <span className="material-symbols-outlined text-[20px]">delete</span>
-                    </button>
+                  <td className="whitespace-nowrap px-5 py-4 text-right align-middle">
+                    <div className="inline-flex items-center justify-end gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => goToEdit(p)}
+                        className="inline-flex shrink-0 items-center justify-center rounded-lg p-2 text-primary hover:bg-primary-fixed"
+                        aria-label={t("admin.jobProfile.card.edit")}
+                      >
+                        <span className="material-symbols-outlined text-[20px]">edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(p.id)}
+                        className="inline-flex shrink-0 items-center justify-center rounded-lg p-2 text-error hover:bg-error-container/30"
+                        aria-label={t("admin.jobProfile.card.delete")}
+                      >
+                        <span className="material-symbols-outlined text-[20px]">delete</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -541,134 +601,41 @@ export default function AdminJobProfilesPanel() {
         </div>
       )}
 
-      {!loading && nextCursor && (
-        <div className="mt-8 flex justify-center">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-on-surface-variant">
+          <span className="inline-flex items-center gap-2 rounded-full border border-outline-variant/20 bg-surface-container-lowest px-3 py-1.5">
+            <span className="material-symbols-outlined text-[18px] text-primary">inventory_2</span>
+            <span className="font-semibold text-on-surface">
+              {aggregateLoading && listAggregate === null ? "…" : listAggregate?.total ?? profiles.length}
+            </span>
+            <span className="text-on-surface-variant">{pagerText.items}</span>
+          </span>
+        </p>
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleLoadMore}
-            disabled={loadingMore}
-            className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-6 py-3 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:opacity-50"
+            onClick={() => goToPage(page - 1)}
+            disabled={loading || page <= 1}
+            className="inline-flex items-center gap-2 rounded-full border border-outline-variant/25 bg-surface-container-lowest px-4 py-2 text-sm font-semibold text-on-surface shadow-sm transition-colors hover:bg-surface-container-high disabled:opacity-50"
           >
-            {loadingMore ? t("admin.jobProfile.loading") : t("admin.jobProfile.loadMore")}
+            <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+            {pagerText.prev}
+          </button>
+          <span className="inline-flex min-w-[7.5rem] items-center justify-center rounded-full border border-outline-variant/20 bg-surface-container-lowest px-4 py-2 text-sm font-semibold text-on-surface">
+            {pagerText.page} {page}
+          </span>
+          <button
+            type="button"
+            onClick={() => goToPage(page + 1)}
+            disabled={loading || !nextCursor}
+            className="inline-flex items-center gap-2 rounded-full border border-outline-variant/25 bg-surface-container-lowest px-4 py-2 text-sm font-semibold text-on-surface shadow-sm transition-colors hover:bg-surface-container-high disabled:opacity-50"
+          >
+            {pagerText.next}
+            <span className="material-symbols-outlined text-[18px]">chevron_right</span>
           </button>
         </div>
-      )}
+      </div>
 
-      {modalOpen && (
-        <div
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-inverse-surface/40 p-4 backdrop-blur-sm sm:items-center"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="max-h-[min(92vh,900px)] w-full max-w-lg overflow-y-auto rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-2xl">
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <h2 className="font-headline text-xl font-bold text-on-surface">{t("admin.jobProfile.form.editTitle")}</h2>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-lg p-2 text-on-surface-variant hover:bg-surface-container-high"
-                aria-label={t("admin.jobProfile.form.cancel")}
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-on-surface" htmlFor="jp-title">
-                  {t("admin.jobProfile.form.title")}
-                </label>
-                <input
-                  id="jp-title"
-                  required
-                  value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder={t("admin.jobProfile.form.titlePlaceholder")}
-                  className="w-full rounded-xl border border-outline-variant/30 bg-surface px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-on-surface" htmlFor="jp-category">
-                  {t("admin.jobProfile.form.category")}
-                </label>
-                <select
-                  id="jp-category"
-                  value={form.categoryId}
-                  onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
-                  className="w-full rounded-xl border border-outline-variant/30 bg-surface px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  required
-                >
-                  {form.categoryId && !categories.some((c) => c.id === form.categoryId) && (
-                    <option value={form.categoryId}>{form.categoryId}</option>
-                  )}
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-on-surface" htmlFor="jp-keywords">
-                  {t("admin.jobProfile.form.keywords")}
-                </label>
-                <input
-                  id="jp-keywords"
-                  value={form.keywords}
-                  onChange={(e) => setForm((f) => ({ ...f, keywords: e.target.value }))}
-                  placeholder={t("admin.jobProfile.form.keywordsHint")}
-                  className="w-full rounded-xl border border-outline-variant/30 bg-surface px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/55 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-                <p className="mt-1 text-xs text-on-surface-variant">{t("admin.jobProfile.form.keywordsHint")}</p>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-on-surface" htmlFor="jp-desc">
-                  {t("admin.jobProfile.form.description")}
-                </label>
-                <textarea
-                  id="jp-desc"
-                  rows={5}
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder={t("admin.jobProfile.form.descriptionPlaceholder")}
-                  className="w-full resize-y rounded-xl border border-outline-variant/30 bg-surface px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/55 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-on-surface" htmlFor="jp-req">
-                  {t("admin.jobProfile.form.requirements")}
-                </label>
-                <textarea
-                  id="jp-req"
-                  rows={5}
-                  value={form.requirements}
-                  onChange={(e) => setForm((f) => ({ ...f, requirements: e.target.value }))}
-                  placeholder={t("admin.jobProfile.form.requirementsPlaceholder")}
-                  className="w-full resize-y rounded-xl border border-outline-variant/30 bg-surface px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/55 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-
-              <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  disabled={saving}
-                  className="rounded-xl border border-outline-variant/40 px-5 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:opacity-50"
-                >
-                  {t("admin.jobProfile.form.cancel")}
-                </button>
-                <AdminButton variant="primary" size="md" type="submit" icon="save" iconFill disabled={saving}>
-                  {t("admin.jobProfile.form.save")}
-                </AdminButton>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
