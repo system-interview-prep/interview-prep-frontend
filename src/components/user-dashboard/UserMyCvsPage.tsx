@@ -1,15 +1,19 @@
 "use client";
 
+import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import LanguageToggleButton from "@/components/LanguageToggleButton";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { userCvApi, type UserCvDto } from "@/services/userCvApi";
 
 type CvFile = {
   id: string;
   name: string;
   uploadedAt: string;
+  /** From API when listing user CVs; used to show PDF/Word when filename has no extension */
+  contentType?: string;
 };
 
 const STORAGE_KEY = "demo.cvFiles";
@@ -18,22 +22,51 @@ type TypeFilter = "all" | "pdf" | "word";
 type DateFilter = "all" | "7d" | "30d" | "90d";
 type SortKey = "newest" | "oldest" | "name";
 
-function extIcon(name: string) {
-  const lower = name.toLowerCase();
-  if (lower.endsWith(".pdf")) return "picture_as_pdf";
-  if (lower.endsWith(".doc") || lower.endsWith(".docx")) return "article";
-  return "description";
-}
-
-function fileKind(name: string): "pdf" | "word" | "other" {
-  const lower = name.toLowerCase();
+function fileKind(name: string | undefined, mime?: string): "pdf" | "word" | "other" {
+  const lower = (name ?? "").toLowerCase();
   if (lower.endsWith(".pdf")) return "pdf";
   if (lower.endsWith(".doc") || lower.endsWith(".docx")) return "word";
+  const m = (mime ?? "").toLowerCase();
+  if (m.includes("pdf")) return "pdf";
+  if (m.includes("wordprocessingml") || m.includes("msword") || m.includes("officedocument")) return "word";
   return "other";
 }
 
-function displayName(name: string) {
-  return name.replace(/\.(pdf|docx?)$/i, "").replace(/[._-]+/g, " ").trim() || name;
+function extIcon(name: string | undefined, mime?: string) {
+  const k = fileKind(name, mime);
+  if (k === "pdf") return "picture_as_pdf";
+  if (k === "word") return "article";
+  return "description";
+}
+
+function displayName(name: string | undefined) {
+  const n = name ?? "";
+  const base = n.replace(/\.(pdf|docx?)$/i, "").replace(/[._-]+/g, " ").trim();
+  return base || n || "—";
+}
+
+function dtoToCvFile(d: UserCvDto): CvFile {
+  const name = d.originalName?.trim() || "document";
+  const uploadedAt = d.createdAt ?? new Date().toISOString();
+  const contentType = d.contentType?.trim() || undefined;
+  return { id: d.id, name, uploadedAt, contentType };
+}
+
+function syncDemoCvFiles(items: CvFile[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, 10)));
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadLocalOnly(): CvFile[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as CvFile[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 export default function UserMyCvsPage() {
@@ -42,31 +75,84 @@ export default function UserMyCvsPage() {
   const [files, setFiles] = useState<CvFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+  const [apiConnected, setApiConnected] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [sort, setSort] = useState<SortKey>("newest");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputPdfRef = useRef<HTMLInputElement>(null);
+  const inputWordRef = useRef<HTMLInputElement>(null);
 
-  const loadFiles = useCallback(() => {
+  const loadFiles = useCallback(async () => {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    if (!token) {
+      setFiles(loadLocalOnly());
+      setApiConnected(false);
+      setListError(null);
+      return;
+    }
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      setFiles(raw ? (JSON.parse(raw) as CvFile[]) : []);
-    } catch {
-      setFiles([]);
+      const { data } = await userCvApi.list(50);
+      const mapped = data.items.map(dtoToCvFile);
+      setFiles(mapped);
+      syncDemoCvFiles(mapped);
+      setApiConnected(true);
+      setListError(null);
+    } catch (e) {
+      setApiConnected(false);
+      setFiles(loadLocalOnly());
+      if (axios.isAxiosError(e) && e.response?.status === 401) {
+        setListError(t("userDash.myCvs.apiNeedLogin"));
+      } else {
+        setListError(t("userDash.myCvs.apiListError"));
+      }
+    }
+  }, [t]);
+
+  /** Legacy: cookie-only sessions could not send Bearer to :5000 — copy into localStorage once. */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const m = document.cookie.match(/(?:^|; )access_token=([^;]*)/);
+    if (m?.[1] && !localStorage.getItem("accessToken")) {
+      try {
+        localStorage.setItem("accessToken", decodeURIComponent(m[1]));
+      } catch {
+        /* ignore */
+      }
     }
   }, []);
 
   useEffect(() => {
-    loadFiles();
+    let cancelled = false;
+    (async () => {
+      setInitialLoading(true);
+      await loadFiles();
+      if (!cancelled) setInitialLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [loadFiles]);
 
-  function persist(next: CvFile[]) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    setFiles(next);
-  }
-
-  function addFile(f: File) {
+  async function addFile(f: File) {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    if (token) {
+      try {
+        await userCvApi.upload(f);
+        await loadFiles();
+        setAnalyzeError(null);
+      } catch (e) {
+        const msg = axios.isAxiosError(e)
+          ? String((e.response?.data as { message?: string })?.message ?? e.message)
+          : t("userDash.myCvs.apiUploadError");
+        setAnalyzeError(msg);
+      }
+      return;
+    }
     const entry: CvFile = {
       id: `cv_${Date.now().toString(36)}`,
       name: f.name,
@@ -80,12 +166,30 @@ export default function UserMyCvsPage() {
     setAnalyzeError(null);
   }
 
-  function removeFile(id: string) {
+  async function removeFile(id: string) {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    if (token) {
+      try {
+        await userCvApi.remove(id);
+        await loadFiles();
+      } catch {
+        setListError(t("userDash.myCvs.apiListError"));
+      }
+      return;
+    }
     setFiles((prev) => {
       const next = prev.filter((x) => x.id !== id);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       return next;
     });
+  }
+
+  function confirmRemoveFile(id: string) {
+    if (typeof window !== "undefined" && !window.confirm(t("userDash.myCvs.confirmDelete"))) {
+      return;
+    }
+    void removeFile(id);
   }
 
   function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -127,8 +231,8 @@ export default function UserMyCvsPage() {
           f.name.toLowerCase().includes(q) || displayName(f.name).toLowerCase().includes(q)
       );
     }
-    if (typeFilter === "pdf") list = list.filter((f) => fileKind(f.name) === "pdf");
-    if (typeFilter === "word") list = list.filter((f) => fileKind(f.name) === "word");
+    if (typeFilter === "pdf") list = list.filter((f) => fileKind(f.name, f.contentType) === "pdf");
+    if (typeFilter === "word") list = list.filter((f) => fileKind(f.name, f.contentType) === "word");
 
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;
@@ -144,8 +248,8 @@ export default function UserMyCvsPage() {
     return list;
   }, [files, search, typeFilter, dateFilter, sort, lang]);
 
-  const typeLabel = (name: string) => {
-    const k = fileKind(name);
+  const typeLabel = (f: CvFile) => {
+    const k = fileKind(f.name, f.contentType);
     if (k === "pdf") return t("userDash.myCvs.typePdf");
     if (k === "word") return t("userDash.myCvs.typeWord");
     return "—";
@@ -210,15 +314,8 @@ export default function UserMyCvsPage() {
         <div className="space-y-8">
           <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-white/80 p-1 shadow-sm backdrop-blur-md dark:border-outline-variant/30 dark:bg-surface-container-lowest/90">
             <div
-              role="button"
-              tabIndex={0}
-              onClick={() => inputRef.current?.click()}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  inputRef.current?.click();
-                }
-              }}
+              role="region"
+              aria-label={t("userDash.myCvs.uploadDropRegionAria")}
               onDragEnter={(e) => {
                 e.preventDefault();
                 setDragOver(true);
@@ -229,8 +326,8 @@ export default function UserMyCvsPage() {
               }}
               onDragOver={(e) => e.preventDefault()}
               onDrop={onDrop}
-              className={`group flex cursor-pointer flex-col items-center rounded-[calc(1rem-4px)] border-2 border-dashed p-8 text-center transition-colors md:p-12 ${
-                dragOver ? "border-primary bg-primary/5" : "border-outline-variant/35 hover:border-primary/50"
+              className={`group flex flex-col items-center rounded-[calc(1rem-4px)] border-2 border-dashed p-8 text-center transition-colors md:p-12 ${
+                dragOver ? "border-primary bg-primary/5" : "border-outline-variant/35"
               }`}
             >
               <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-primary-fixed/50 transition-transform duration-300 group-hover:scale-110 dark:bg-primary-fixed/25 motion-reduce:transform-none">
@@ -244,19 +341,36 @@ export default function UserMyCvsPage() {
               <h3 className="font-headline text-2xl font-bold text-on-surface">{t("userDash.myCvs.uploadTitle")}</h3>
               <p className="mb-8 max-w-sm text-on-surface-variant">{t("userDash.myCvs.uploadHint")}</p>
               <div className="mb-8 flex flex-wrap justify-center gap-3">
-                <div className="flex items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container/50 px-4 py-2 dark:bg-surface-container-low/80">
+                <button
+                  type="button"
+                  onClick={() => inputPdfRef.current?.click()}
+                  className="flex cursor-pointer items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container/50 px-4 py-2 transition-colors hover:border-primary/40 hover:bg-primary/5 dark:bg-surface-container-low/80"
+                  aria-label={t("userDash.myCvs.pickPdf")}
+                >
                   <span className="material-symbols-outlined text-sm text-error">picture_as_pdf</span>
                   <span className="text-sm font-semibold text-on-surface">PDF</span>
-                </div>
-                <div className="flex items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container/50 px-4 py-2 dark:bg-surface-container-low/80">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => inputWordRef.current?.click()}
+                  className="flex cursor-pointer items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container/50 px-4 py-2 transition-colors hover:border-primary/40 hover:bg-primary/5 dark:bg-surface-container-low/80"
+                  aria-label={t("userDash.myCvs.pickWord")}
+                >
                   <span className="material-symbols-outlined text-sm text-primary">description</span>
                   <span className="text-sm font-semibold text-on-surface">DOCX</span>
-                </div>
+                </button>
               </div>
               <input
-                ref={inputRef}
+                ref={inputPdfRef}
                 type="file"
-                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={onUpload}
+              />
+              <input
+                ref={inputWordRef}
+                type="file"
+                accept="application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.doc,.docx"
                 className="hidden"
                 onChange={onUpload}
               />
@@ -282,12 +396,23 @@ export default function UserMyCvsPage() {
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="font-headline text-lg font-bold text-on-surface">{t("userDash.myCvs.listTitle")}</h2>
-                <p className="mt-0.5 text-xs text-on-surface-variant">{t("userDash.myCvs.listHint")}</p>
+                <p className="mt-0.5 text-xs text-on-surface-variant">
+                  {apiConnected ? t("userDash.myCvs.listHintApi") : t("userDash.myCvs.listHint")}
+                </p>
               </div>
               <p className="text-xs font-medium text-on-surface-variant">
                 {t("userDash.myCvs.listCount").replace("{count}", String(filtered.length))}
               </p>
             </div>
+
+            {listError && (
+              <div
+                className="mb-4 rounded-lg border border-error/25 bg-error-container/15 px-3 py-2 text-sm text-error"
+                role="alert"
+              >
+                {listError}
+              </div>
+            )}
 
             <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
               <div className="relative min-w-0 flex-1 lg:min-w-[220px]">
@@ -338,7 +463,9 @@ export default function UserMyCvsPage() {
               </div>
             </div>
 
-            {files.length === 0 ? (
+            {initialLoading ? (
+              <p className="py-10 text-center text-sm text-on-surface-variant">{t("admin.jobProfile.loading")}</p>
+            ) : files.length === 0 ? (
               <p className="py-10 text-center text-sm text-on-surface-variant">{t("userDash.myCvs.emptyList")}</p>
             ) : filtered.length === 0 ? (
               <p className="py-10 text-center text-sm text-on-surface-variant">{t("userDash.myCvs.emptyFiltered")}</p>
@@ -359,7 +486,7 @@ export default function UserMyCvsPage() {
                         <tr key={f.id} className="hover:bg-surface-container/40">
                           <td className="py-3 pr-4 align-top">
                             <div className="flex items-start gap-2">
-                              <span className="material-symbols-outlined mt-0.5 shrink-0 text-primary">{extIcon(f.name)}</span>
+                              <span className="material-symbols-outlined mt-0.5 shrink-0 text-primary">{extIcon(f.name, f.contentType)}</span>
                               <div className="min-w-0">
                                 <p className="font-semibold text-on-surface">{displayName(f.name)}</p>
                                 <p className="truncate text-xs text-on-surface-variant">{f.name}</p>
@@ -368,7 +495,7 @@ export default function UserMyCvsPage() {
                           </td>
                           <td className="py-3 pr-4 align-top">
                             <span className="inline-flex rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
-                              {typeLabel(f.name)}
+                              {typeLabel(f)}
                             </span>
                           </td>
                           <td className="py-3 pr-4 align-top text-on-surface-variant whitespace-nowrap">
@@ -377,7 +504,7 @@ export default function UserMyCvsPage() {
                           <td className="py-3 text-right align-top">
                             <button
                               type="button"
-                              onClick={() => removeFile(f.id)}
+                              onClick={() => confirmRemoveFile(f.id)}
                               className="inline-flex rounded-lg p-2 text-error hover:bg-error-container/20"
                               aria-label={t("profile.removeAria")}
                             >
@@ -397,20 +524,20 @@ export default function UserMyCvsPage() {
                       className="rounded-xl border border-outline-variant/15 bg-surface-container p-4"
                     >
                       <div className="flex items-start gap-3">
-                        <span className="material-symbols-outlined text-primary">{extIcon(f.name)}</span>
+                        <span className="material-symbols-outlined text-primary">{extIcon(f.name, f.contentType)}</span>
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-on-surface">{displayName(f.name)}</p>
                           <p className="truncate text-xs text-on-surface-variant">{f.name}</p>
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
                             <span className="rounded-full bg-primary/12 px-2 py-0.5 font-bold uppercase text-primary">
-                              {typeLabel(f.name)}
+                              {typeLabel(f)}
                             </span>
                             <span>{formatDate(f.uploadedAt)}</span>
                           </div>
                         </div>
                         <button
                           type="button"
-                          onClick={() => removeFile(f.id)}
+                          onClick={() => confirmRemoveFile(f.id)}
                           className="shrink-0 rounded-lg p-2 text-error hover:bg-error-container/20"
                           aria-label={t("profile.removeAria")}
                         >

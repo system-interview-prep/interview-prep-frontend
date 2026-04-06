@@ -82,7 +82,10 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
         }
         
         const data = await r.json();
-        
+
+        if (data.access_token) {
+          localStorage.setItem("accessToken", data.access_token);
+        }
         document.cookie = `access_token=${data.access_token}; Path=/; SameSite=Lax; Max-Age=31536000`;
         document.cookie = `role=${data.user.role}; Path=/; SameSite=Lax; Max-Age=31536000`;
 
@@ -135,6 +138,9 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
       }
 
       const data = await r.json();
+      if (data.access_token) {
+        localStorage.setItem("accessToken", data.access_token);
+      }
       document.cookie = `access_token=${data.access_token}; Path=/; SameSite=Lax; Max-Age=31536000`;
       document.cookie = `role=${data.user.role}; Path=/; SameSite=Lax; Max-Age=31536000`;
 
