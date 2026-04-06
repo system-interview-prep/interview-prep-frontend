@@ -18,7 +18,8 @@ function isUserProtectedRequest(req: NextRequest) {
 }
 
 export function middleware(req: NextRequest) {
-  const role = req.cookies.get("role")?.value;
+  const role = req.cookies.get("role")?.value?.toLowerCase();
+  const token = req.cookies.get("access_token")?.value;
 
   if (isAdminRequest(req)) {
     if (role === "admin") return NextResponse.next();
@@ -29,7 +30,14 @@ export function middleware(req: NextRequest) {
   }
 
   if (isUserProtectedRequest(req)) {
-    if (role === "user" || role === "admin") return NextResponse.next();
+    // Basic verification: user has a valid access_token
+    if (token) return NextResponse.next();
+    
+    // Explicit Role verification fallback
+    if (role === "user" || role === "candidate" || role === "student" || role === "employed") {
+      return NextResponse.next();
+    }
+    
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", req.nextUrl.pathname);

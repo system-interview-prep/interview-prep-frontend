@@ -18,6 +18,15 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
+  
+  const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupDob, setSignupDob] = useState("");
+  const [signupType, setSignupType] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupLoading, setSignupLoading] = useState(false);
+  const [signupError, setSignupError] = useState<string | null>(null);
+
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
 
@@ -61,25 +70,25 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
         setGoogleError(null);
         setGoogleLoading(true);
 
-        const r = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        const r = await fetch("http://localhost:5000/auth/google", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accessToken: tokenResponse.access_token }),
         });
-        if (!r.ok) throw new Error(`userinfo_failed_${r.status}`);
-        const profile = (await r.json()) as { email?: string; name?: string; picture?: string };
+        
+        if (!r.ok) {
+           const errData = await r.json();
+           throw new Error(errData.message || "Google Auth Failed");
+        }
+        
+        const data = await r.json();
+        
+        document.cookie = `access_token=${data.access_token}; Path=/; SameSite=Lax; Max-Age=31536000`;
+        document.cookie = `role=${data.user.role}; Path=/; SameSite=Lax; Max-Age=31536000`;
 
-        localStorage.setItem(
-          "auth.googleProfile",
-          JSON.stringify({
-            email: profile.email ?? null,
-            name: profile.name ?? null,
-            picture: profile.picture ?? null,
-          }),
-        );
-
-        setRoleCookie("user");
-        router.replace(nextUrl ?? "/dashboard");
-      } catch {
-        setGoogleError(t("auth.error.googleFailed"));
+        router.replace(nextUrl ?? (data.user.role === 'ADMIN' ? "/admin/dashboard" : "/dashboard"));
+      } catch (err: any) {
+        setGoogleError(err.message || t("auth.error.googleFailed"));
       } finally {
         setGoogleLoading(false);
       }
@@ -109,21 +118,66 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
       const email = loginEmail.trim().toLowerCase();
       const password = loginPassword;
 
-      if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-        setRoleCookie("admin");
-        router.replace(nextUrl ?? "/admin/dashboard");
-        return;
-      }
-
       if (!email || !password) {
         setLoginError(t("auth.error.requiredEmailPassword"));
         return;
       }
 
-      setRoleCookie("user");
-      router.replace(nextUrl ?? "/dashboard");
+      const r = await fetch("http://localhost:5000/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      
+      if (!r.ok) {
+         const errData = await r.json();
+         throw new Error(errData.message || "Login Failed");
+      }
+
+      const data = await r.json();
+      document.cookie = `access_token=${data.access_token}; Path=/; SameSite=Lax; Max-Age=31536000`;
+      document.cookie = `role=${data.user.role}; Path=/; SameSite=Lax; Max-Age=31536000`;
+
+      router.replace(nextUrl ?? (data.user.role === 'ADMIN' ? "/admin/dashboard" : "/dashboard"));
+    } catch (err: any) {
+      setLoginError(err.message || "Failed to login");
     } finally {
       setLoginLoading(false);
+    }
+  }
+
+  async function onSignupSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSignupError(null);
+    setSignupLoading(true);
+
+    try {
+      const email = signupEmail.trim().toLowerCase();
+      const password = signupPassword;
+      const name = signupName.trim();
+
+      if (!email || !password || !name) {
+        setSignupError("Please fill required fields");
+        return;
+      }
+
+      const r = await fetch("http://localhost:5000/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name, dob: signupDob, role: signupType || 'CANDIDATE' }),
+      });
+      
+      if (!r.ok) {
+         const errData = await r.json();
+         throw new Error(errData.message || "Registration Failed");
+      }
+
+      // Instead of forcing login again, maybe redirect to login page.
+      window.location.href = '/login';
+    } catch (err: any) {
+      setSignupError(err.message || "Failed to register");
+    } finally {
+      setSignupLoading(false);
     }
   }
 
@@ -353,7 +407,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                   {t("auth.createAccount.subtitle")}
                 </p>
               </div>
-              <form className="space-y-6">
+              <form className="space-y-6" onSubmit={onSignupSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="group">
                     <label
@@ -367,6 +421,8 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                       id="signup-name"
                       placeholder="John Doe"
                       type="text"
+                      value={signupName}
+                      onChange={(e) => setSignupName(e.target.value)}
                     />
                   </div>
                   <div className="group">
@@ -381,6 +437,8 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                       id="signup-email"
                       placeholder="name@company.com"
                       type="email"
+                      value={signupEmail}
+                      onChange={(e) => setSignupEmail(e.target.value)}
                     />
                   </div>
                 </div>
@@ -397,6 +455,8 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                       className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none"
                       id="signup-dob"
                       type="date"
+                      value={signupDob}
+                      onChange={(e) => setSignupDob(e.target.value)}
                     />
                   </div>
                   <div className="group">
@@ -409,7 +469,8 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                     <select
                       className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none appearance-none cursor-pointer"
                       id="signup-type"
-                      defaultValue=""
+                      value={signupType}
+                      onChange={(e) => setSignupType(e.target.value)}
                     >
                       <option disabled value="">
                         {t("auth.userType.placeholder")}
@@ -433,13 +494,21 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                     id="signup-password"
                     placeholder={t("auth.passwordHint")}
                     type="password"
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
                   />
                 </div>
+                {signupError ? (
+                  <div className="rounded-xl border border-error/20 bg-error-container/20 px-4 py-3 text-sm text-error">
+                    {signupError}
+                  </div>
+                ) : null}
                 <button
                   className="w-full py-4 bg-tertiary text-white font-bold rounded-xl hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-tertiary/10"
                   type="submit"
+                  disabled={signupLoading}
                 >
-                  {t("auth.createAccount.cta")}
+                  {signupLoading ? "Signing Up..." : t("auth.createAccount.cta")}
                 </button>
 
                 <div className="relative flex items-center py-2">

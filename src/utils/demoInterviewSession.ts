@@ -1,3 +1,5 @@
+import { createSession } from '../lib/aiService';
+
 export type DemoSession = {
   roomId: string;
   topic: string;
@@ -13,15 +15,25 @@ function safeParse(value: string | null): DemoSession[] {
   }
 }
 
-/** Creates a video interview room, appends to demo.sessions, then navigates to WebRTC room. */
-export function startDemoVideoInterviewRoom(lang: "en" | "vi"): void {
-  const roomId = `room_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-  const startedAt = new Date().toISOString();
-  const topic = lang === "vi" ? "Phỏng vấn video AI" : "AI video interview";
-  const prev = safeParse(localStorage.getItem("demo.sessions"));
-  const next = [{ roomId, startedAt, topic }, ...prev].slice(0, 50);
-  localStorage.setItem("demo.sessions", JSON.stringify(next));
+/** Creates a video interview room using Backend API, appends to demo.sessions, then navigates to WebRTC room. */
+export async function startDemoVideoInterviewRoom(lang: "en" | "vi"): Promise<void> {
+  try {
+    // Xin 1 Session ID hợp lệ và lưu vào DynamoDB (InterviewSessions) trước khi bắt đầu
+    const res = await createSession();
+    const roomId = res.sessionId;
+    
+    // Lưu lịch sử Local (Frontend Helper)
+    const startedAt = new Date().toISOString();
+    const topic = lang === "vi" ? "Phỏng vấn video AI" : "AI video interview";
+    const prev = safeParse(localStorage.getItem("demo.sessions"));
+    const next = [{ roomId, startedAt, topic }, ...prev].slice(0, 50);
+    localStorage.setItem("demo.sessions", JSON.stringify(next));
 
-  const languageParam = lang === "vi" ? "Vietnamese" : "English";
-  window.location.assign(`/interview/room/${roomId}?language=${encodeURIComponent(languageParam)}`);
+    // Điều hướng vào phòng ảo
+    const languageParam = lang === "vi" ? "Vietnamese" : "English";
+    window.location.assign(`/interview/room/${roomId}?language=${encodeURIComponent(languageParam)}`);
+  } catch (error) {
+    console.error("Lỗi khi tạo Session trên Backend:", error);
+    alert("Lỗi: Không thể kết nối hoặc bạn chưa đăng nhập hợp lệ!");
+  }
 }
