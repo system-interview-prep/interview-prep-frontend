@@ -2,12 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { useLanguage } from "../../i18n/LanguageProvider";
+
+const subscribeNothing = () => () => {};
+
+function useIsClient() {
+  return useSyncExternalStore(subscribeNothing, () => true, () => false);
+}
 
 export function UserDashboardShell({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
   const pathname = usePathname();
+  /** Active styles only after hydration so SSR and first client paint match (avoids usePathname mismatch warnings). */
+  const navReady = useIsClient();
 
   const isActive = useMemo(
     () => ({
@@ -29,6 +37,9 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
     "text-[#434654] dark:text-slate-400 hover:bg-[#e0e3e5] dark:hover:bg-slate-700/50";
   const navActive =
     "bg-white dark:bg-slate-700 text-[#003d9b] dark:text-blue-300 shadow-sm font-semibold";
+
+  const linkClass = (active: boolean) =>
+    `${navBase} ${navReady && active ? navActive : navInactive}`;
 
   return (
     <div className="bg-surface font-body text-on-surface min-h-screen">
@@ -63,35 +74,35 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
           <nav className="flex-1 space-y-2">
             <Link
               href="/dashboard"
-              className={`${navBase} ${isActive.dashboard ? navActive : navInactive}`}
+              className={linkClass(isActive.dashboard)}
             >
               <span className="material-symbols-outlined">dashboard</span>
               <span className="font-inter text-sm font-medium">{t("userDash.nav.dashboard")}</span>
             </Link>
             <Link
               href="/interview/select"
-              className={`${navBase} ${isActive.interviews ? navActive : navInactive}`}
+              className={linkClass(isActive.interviews)}
             >
               <span className="material-symbols-outlined">forum</span>
               <span className="font-inter text-sm font-medium">{t("userDash.nav.interviews")}</span>
             </Link>
             <Link
               href="/practice"
-              className={`${navBase} ${isActive.practice ? navActive : navInactive}`}
+              className={linkClass(isActive.practice)}
             >
               <span className="material-symbols-outlined">school</span>
               <span className="font-inter text-sm font-medium">{t("userDash.nav.practice")}</span>
             </Link>
             <Link
               href="/dashboard/profile"
-              className={`${navBase} ${isActive.profile ? navActive : navInactive}`}
+              className={linkClass(isActive.profile)}
             >
               <span className="material-symbols-outlined">person</span>
               <span className="font-inter text-sm font-medium">{t("userDash.nav.profile")}</span>
             </Link>
             <Link
               href="/pricing"
-              className={`${navBase} ${isActive.settings ? navActive : navInactive}`}
+              className={linkClass(isActive.settings)}
             >
               <span className="material-symbols-outlined">settings</span>
               <span className="font-inter text-sm font-medium">{t("userDash.nav.settings")}</span>
@@ -101,7 +112,7 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
           <div className="pt-6 border-t border-outline-variant/20 space-y-2">
             <Link
               href="/resources"
-              className={`${navBase} ${isActive.help ? navActive : navInactive}`}
+              className={linkClass(isActive.help)}
             >
               <span className="material-symbols-outlined">help</span>
               <span className="font-inter text-sm font-medium">{t("userDash.nav.help")}</span>

@@ -7,16 +7,14 @@ type VoiceFloatingBarProps = {
   recorderSupported: boolean;
   isRecording: boolean;
   onMicToggle: () => void;
-  onHistory: () => void;
   onEndSession: () => void;
 };
 
-/** Mic tray — glass purple bar + icon labels (console mock) */
+/** Mic + end — history lives on mobile tab bar */
 export function VoiceFloatingBar({
   recorderSupported,
   isRecording,
   onMicToggle,
-  onHistory,
   onEndSession,
 }: VoiceFloatingBarProps) {
   const { t } = useLanguage();
@@ -26,7 +24,7 @@ export function VoiceFloatingBar({
 
   return (
     <div
-      className="pointer-events-auto flex w-full max-w-[min(100%,380px)] min-w-[280px] items-center justify-around gap-2 rounded-full border border-outline-variant/20 bg-tertiary-container/85 px-4 py-3 shadow-[0_40px_60px_rgba(25,28,30,0.06)] backdrop-blur-xl sm:min-w-[320px] sm:px-8"
+      className="pointer-events-auto flex w-full max-w-[min(100%,240px)] min-w-[200px] items-center justify-around gap-4 rounded-full border border-outline-variant/20 bg-tertiary-container/85 px-6 py-3 shadow-[0_40px_60px_rgba(25,28,30,0.06)] backdrop-blur-xl sm:min-w-[220px] sm:px-8"
       role="toolbar"
       aria-label={t("voice.floatingBarAria")}
     >
@@ -48,28 +46,6 @@ export function VoiceFloatingBar({
           mic
         </span>
         <span className="font-body text-[10px] uppercase tracking-widest">{t("voice.control.mic")}</span>
-      </button>
-
-      <button
-        type="button"
-        disabled
-        title={t("voice.videoComingSoon")}
-        aria-label={t("voice.videoComingSoon")}
-        className={`${pill} cursor-not-allowed bg-white/20 text-white`}
-      >
-        <span className="material-symbols-outlined text-[26px]">videocam</span>
-        <span className="font-body text-[10px] uppercase tracking-widest">{t("voice.control.video")}</span>
-      </button>
-
-      <button
-        type="button"
-        onClick={onHistory}
-        title={t("voice.control.history")}
-        aria-label={t("voice.control.history")}
-        className={`${pill} text-white/80 hover:scale-110 hover:text-white`}
-      >
-        <span className="material-symbols-outlined text-[26px]">history</span>
-        <span className="font-body text-[10px] uppercase tracking-widest">{t("voice.control.history")}</span>
       </button>
 
       <div className="mx-1 h-8 w-px shrink-0 bg-white/20 sm:mx-2" aria-hidden />

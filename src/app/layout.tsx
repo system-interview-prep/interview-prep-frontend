@@ -34,7 +34,7 @@ export default async function RootLayout({
   const t = (key: string) => getDictionary(lang)[key] ?? key;
 
   return (
-    <html lang={lang} className="h-full">
+    <html lang={lang} className="h-full" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -54,6 +54,7 @@ export default async function RootLayout({
       </head>
       <body
         className={`bg-surface font-body text-on-surface ${geistSans.variable} ${geistMono.variable} antialiased h-full`}
+        suppressHydrationWarning
       >
         <GoogleAuthProvider>
           <LanguageProvider initialLang={lang}>{children}</LanguageProvider>

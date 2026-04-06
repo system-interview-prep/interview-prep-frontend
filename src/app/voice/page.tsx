@@ -98,10 +98,6 @@ export default function VoiceChatPage() {
     });
   }, [supportsVoice, handleStop]);
 
-  const scrollToTranscript = useCallback(() => {
-    document.getElementById("voice-live-transcript")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, []);
-
   const waveformActive = isRecording || isSpeaking;
 
   return (
@@ -190,7 +186,6 @@ export default function VoiceChatPage() {
                   recorderSupported={recorderSupported}
                   isRecording={isRecording}
                   onMicToggle={handleMicToggle}
-                  onHistory={scrollToTranscript}
                   onEndSession={() => router.push("/dashboard")}
                 />
               </div>

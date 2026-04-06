@@ -20,6 +20,13 @@ export type ChatSessionListItem = {
     messageCount: number;
 };
 
+/** API/localStorage may yield numeric ids; normalize so callers can use string methods safely. */
+function normalizeSessionId(raw: unknown): string {
+    if (raw == null) return "";
+    const s = String(raw).trim();
+    return s === "undefined" || s === "null" ? "" : s;
+}
+
 export function useChat() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [sessionId, setSessionId] = useState<string>("");
@@ -36,7 +43,10 @@ export function useChat() {
     const fetchSessions = useCallback(async () => {
         try {
             const all = await getAllSessions();
-            setSessions(all.sessions.filter((s) => s && s !== "undefined"));
+            const list = Array.isArray(all.sessions) ? all.sessions : [];
+            setSessions(
+                list.map(normalizeSessionId).filter((id) => id.length > 0),
+            );
             setSessionMeta(readAllSessionMeta());
         } catch (err) {
             console.error("Failed to fetch sessions", err);
@@ -45,11 +55,13 @@ export function useChat() {
 
     const loadSession = useCallback(
         async (sid: string) => {
+            const sessionKey = normalizeSessionId(sid);
+            if (!sessionKey) return;
             try {
                 setIsLoading(true);
                 setError(null);
-                setSessionId(sid);
-                const historyRes = await getChatHistory(sid);
+                setSessionId(sessionKey);
+                const historyRes = await getChatHistory(sessionKey);
                 let nextMessages: Message[];
                 if (historyRes.history && historyRes.history.length > 0) {
                     nextMessages = historyRes.history.map((item, idx) => {
@@ -75,7 +87,7 @@ export function useChat() {
                     ];
                 }
                 setMessages(nextMessages);
-                syncMetaFromMessages(sid, nextMessages);
+                syncMetaFromMessages(sessionKey, nextMessages);
                 setSessionMeta(readAllSessionMeta());
             } catch (err) {
                 setError("chat.error.loadSession");
@@ -219,12 +231,16 @@ export function useChat() {
 
     const sessionListItems: ChatSessionListItem[] = useMemo(() => {
         return [...sessions]
-            .map((id) => ({
-                id,
-                preview: sessionMeta[id]?.preview ?? "",
-                updatedAt: sessionMeta[id]?.updatedAt ?? 0,
-                messageCount: sessionMeta[id]?.messageCount ?? 0,
-            }))
+            .map((id) => {
+                const sid = normalizeSessionId(id);
+                return {
+                    id: sid,
+                    preview: sessionMeta[sid]?.preview ?? "",
+                    updatedAt: sessionMeta[sid]?.updatedAt ?? 0,
+                    messageCount: sessionMeta[sid]?.messageCount ?? 0,
+                };
+            })
+            .filter((item) => item.id.length > 0)
             .sort((a, b) => b.updatedAt - a.updatedAt);
     }, [sessions, sessionMeta]);
 
