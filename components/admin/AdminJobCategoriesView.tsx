@@ -73,7 +73,7 @@ function CategoryListItem({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <li className="flex flex-col gap-4 py-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+    <li className="group flex flex-col gap-4 rounded-xl border border-transparent px-3 py-6 transition-[background-color,box-shadow,border-color] duration-200 sm:flex-row sm:items-start sm:justify-between sm:gap-8 hover:border-outline-variant/20 hover:bg-surface-container-low/70 hover:shadow-sm dark:hover:bg-surface-container-low/40">
       <div className="min-w-0 flex-1">
         <h2 className="text-base font-medium text-on-surface">{cat.name}</h2>
         {cat.description?.trim() ? (
@@ -86,12 +86,12 @@ function CategoryListItem({
           <p className="mt-1.5 text-sm text-on-surface-variant/60">{t("admin.jobCategories.noDescription")}</p>
         )}
       </div>
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-0.5 sm:flex-col sm:items-end sm:pt-0.5">
-        <div className="flex items-center">
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-0.5 sm:items-center sm:pt-0.5">
+        <div className="inline-flex items-center gap-0.5 rounded-lg bg-transparent p-0.5 transition-colors group-hover:bg-surface/80 dark:group-hover:bg-surface-container-highest/50">
           <button
             type="button"
             onClick={() => onEdit(cat.id)}
-            className="rounded-md p-2 text-on-surface-variant/60 transition hover:bg-surface-container-high hover:text-primary"
+            className="rounded-md p-2 text-on-surface-variant/65 transition-all duration-150 hover:bg-primary/12 hover:text-primary active:scale-95"
             aria-label={t("admin.jobCategories.edit")}
           >
             <span className="material-symbols-outlined text-[20px]">edit</span>
@@ -100,7 +100,7 @@ function CategoryListItem({
             type="button"
             onClick={() => onDelete(cat.id)}
             disabled={deleting}
-            className="rounded-md p-2 text-on-surface-variant/60 transition hover:bg-error-container/20 hover:text-error disabled:opacity-40"
+            className="rounded-md p-2 text-on-surface-variant/65 transition-all duration-150 hover:bg-error-container/35 hover:text-error active:scale-95 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-on-surface-variant/65"
             aria-label={t("admin.jobCategories.delete")}
           >
             <span className="material-symbols-outlined text-[20px]">delete</span>
@@ -271,10 +271,15 @@ export default function AdminJobCategoriesView() {
         <button
           type="button"
           onClick={openCreate}
-          className="inline-flex shrink-0 items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
+          className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-full border border-primary/25 bg-primary/5 px-4 py-2 text-sm font-semibold leading-none text-primary shadow-sm transition-all hover:border-primary/45 hover:bg-primary/12 hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
         >
-          <span className="material-symbols-outlined text-[20px]">add</span>
-          {t("admin.jobCategories.add")}
+          <span
+            className="material-symbols-outlined inline-flex h-5 w-5 shrink-0 items-center justify-center text-[20px] leading-none"
+            aria-hidden
+          >
+            add
+          </span>
+          <span className="whitespace-nowrap leading-tight">{t("admin.jobCategories.add")}</span>
         </button>
       </header>
 
@@ -287,7 +292,7 @@ export default function AdminJobCategoriesView() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t("admin.jobCategories.searchPlaceholder")}
-          className="w-full rounded-lg border border-outline-variant/20 bg-surface py-2.5 pl-10 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+          className="w-full rounded-lg border border-outline-variant/20 bg-surface py-2.5 pl-10 pr-3 text-sm text-on-surface transition-colors placeholder:text-on-surface-variant/50 hover:border-outline-variant/45 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
           aria-label={t("admin.jobCategories.searchPlaceholder")}
         />
       </div>
