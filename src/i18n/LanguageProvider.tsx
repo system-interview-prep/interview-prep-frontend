@@ -29,12 +29,17 @@ export default function LanguageProvider({
   const [lang, setLangState] = useState<Lang>(() => normalizeLang(initialLang));
 
   const dict = useMemo(() => getDictionary(lang), [lang]);
+  const dictEn = useMemo(() => getDictionary("en"), []);
 
   const t = useCallback(
     (key: string) => {
-      return dict[key] ?? key;
+      const localized = dict[key];
+      if (localized !== undefined && localized !== "") return localized;
+      const english = dictEn[key];
+      if (english !== undefined && english !== "") return english;
+      return key;
     },
-    [dict],
+    [dict, dictEn],
   );
 
   const setLang = useCallback(

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Message } from "../types/message";
 import {
     sendChatMessage,
@@ -7,19 +7,37 @@ import {
     getAllSessions,
     sendVoiceChatMessage,
 } from "../lib/aiService";
+import {
+    readAllSessionMeta,
+    syncMetaFromMessages,
+    type SessionMeta,
+} from "../utils/chatSessionMeta";
+
+export type ChatSessionListItem = {
+    id: string;
+    preview: string;
+    updatedAt: number;
+    messageCount: number;
+};
 
 export function useChat() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [sessionId, setSessionId] = useState<string>("");
     const [language, setLanguage] = useState<string>("vietnamese");
     const [sessions, setSessions] = useState<string[]>([]);
+    const [sessionMeta, setSessionMeta] = useState<Record<string, SessionMeta>>({});
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        setSessionMeta(readAllSessionMeta());
+    }, []);
 
     const fetchSessions = useCallback(async () => {
         try {
             const all = await getAllSessions();
             setSessions(all.sessions.filter((s) => s && s !== "undefined"));
+            setSessionMeta(readAllSessionMeta());
         } catch (err) {
             console.error("Failed to fetch sessions", err);
         }
@@ -32,16 +50,19 @@ export function useChat() {
                 setError(null);
                 setSessionId(sid);
                 const historyRes = await getChatHistory(sid);
+                let nextMessages: Message[];
                 if (historyRes.history && historyRes.history.length > 0) {
-                    setMessages(
-                        historyRes.history.map((item, idx) => ({
+                    nextMessages = historyRes.history.map((item, idx) => {
+                        const parsed = Date.parse(item.timestamp);
+                        return {
                             id: idx + 1,
                             text: item.content,
-                            sender: item.role === "assistant" ? "ai" : "user",
-                        }))
-                    );
+                            sender: item.role === "assistant" ? ("ai" as const) : ("user" as const),
+                            sentAt: Number.isFinite(parsed) ? parsed : undefined,
+                        };
+                    });
                 } else {
-                    setMessages([
+                    nextMessages = [
                         {
                             id: 1,
                             text:
@@ -49,11 +70,15 @@ export function useChat() {
                                     ? "Xin chào! Tôi là AI, bạn cần luyện phỏng vấn lĩnh vực nào?"
                                     : "Hello! I'm AI, which interview topic do you want to practice?",
                             sender: "ai",
+                            sentAt: Date.now(),
                         },
-                    ]);
+                    ];
                 }
+                setMessages(nextMessages);
+                syncMetaFromMessages(sid, nextMessages);
+                setSessionMeta(readAllSessionMeta());
             } catch (err) {
-                setError("Failed to load session history");
+                setError("chat.error.loadSession");
             } finally {
                 setIsLoading(false);
             }
@@ -71,7 +96,7 @@ export function useChat() {
                 await loadSession(res.sessionId);
                 await fetchSessions();
             } catch (err) {
-                setError("Failed to create new session");
+                setError("chat.error.createSession");
                 setIsLoading(false);
             }
         },
@@ -79,20 +104,24 @@ export function useChat() {
     );
 
     const sendMessageInternal = useCallback(
-        async (
-            input: string,
-            mode: "text" | "voice"
-        ): Promise<{ audioBase64?: string; audioMimeType?: string } | null> => {
+        async (input: string, mode: "text" | "voice"): Promise<{ audioBase64?: string; audioMimeType?: string } | null> => {
             if (!input.trim() || !sessionId) return null;
 
-            setMessages((prev) => [
-                ...prev,
-                {
-                    id: prev.length + 1,
-                    text: input,
-                    sender: "user",
-                },
-            ]);
+            const sentAt = Date.now();
+            setMessages((prev) => {
+                const next = [
+                    ...prev,
+                    {
+                        id: prev.length + 1,
+                        text: input,
+                        sender: "user" as const,
+                        sentAt,
+                    },
+                ];
+                syncMetaFromMessages(sessionId, next);
+                setSessionMeta(readAllSessionMeta());
+                return next;
+            });
             setIsLoading(true);
             setError(null);
 
@@ -109,15 +138,21 @@ export function useChat() {
                         audioMimeType: data.mimeType,
                     };
 
-                    setMessages((prev) => [
-                        ...prev,
-                        {
-                            id: prev.length + 1,
-                            text: replyText,
-                            sender: "ai",
-                            ...voicePayload,
-                        },
-                    ]);
+                    setMessages((prev) => {
+                        const next = [
+                            ...prev,
+                            {
+                                id: prev.length + 1,
+                                text: replyText,
+                                sender: "ai" as const,
+                                sentAt: Date.now(),
+                                ...voicePayload,
+                            },
+                        ];
+                        syncMetaFromMessages(sessionId, next);
+                        setSessionMeta(readAllSessionMeta());
+                        return next;
+                    });
                     return voicePayload;
                 }
 
@@ -128,28 +163,40 @@ export function useChat() {
                         ? "Không nhận được phản hồi từ AI."
                         : "No response from AI.");
 
-                setMessages((prev) => [
-                    ...prev,
-                    {
-                        id: prev.length + 1,
-                        text: replyText,
-                        sender: "ai",
-                    },
-                ]);
+                setMessages((prev) => {
+                    const next = [
+                        ...prev,
+                        {
+                            id: prev.length + 1,
+                            text: replyText,
+                            sender: "ai" as const,
+                            sentAt: Date.now(),
+                        },
+                    ];
+                    syncMetaFromMessages(sessionId, next);
+                    setSessionMeta(readAllSessionMeta());
+                    return next;
+                });
                 return null;
             } catch (err) {
-                setError("Failed to send message");
-                setMessages((prev) => [
-                    ...prev,
-                    {
-                        id: prev.length + 1,
-                        text:
-                            language === "vietnamese"
-                                ? "Lỗi kết nối đến AI."
-                                : "Failed to connect to AI.",
-                        sender: "ai",
-                    },
-                ]);
+                setError("chat.error.sendFailed");
+                setMessages((prev) => {
+                    const next = [
+                        ...prev,
+                        {
+                            id: prev.length + 1,
+                            text:
+                                language === "vietnamese"
+                                    ? "Lỗi kết nối đến AI."
+                                    : "Failed to connect to AI.",
+                            sender: "ai" as const,
+                            sentAt: Date.now(),
+                        },
+                    ];
+                    syncMetaFromMessages(sessionId, next);
+                    setSessionMeta(readAllSessionMeta());
+                    return next;
+                });
                 return null;
             } finally {
                 setIsLoading(false);
@@ -167,15 +214,26 @@ export function useChat() {
     };
 
     useEffect(() => {
-        // Initial load
         startNewSession();
     }, []);
+
+    const sessionListItems: ChatSessionListItem[] = useMemo(() => {
+        return [...sessions]
+            .map((id) => ({
+                id,
+                preview: sessionMeta[id]?.preview ?? "",
+                updatedAt: sessionMeta[id]?.updatedAt ?? 0,
+                messageCount: sessionMeta[id]?.messageCount ?? 0,
+            }))
+            .sort((a, b) => b.updatedAt - a.updatedAt);
+    }, [sessions, sessionMeta]);
 
     return {
         messages,
         sessionId,
         language,
         sessions,
+        sessionListItems,
         isLoading,
         error,
         setLanguage,

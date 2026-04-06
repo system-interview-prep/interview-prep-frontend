@@ -58,9 +58,8 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
           </div>
 
           <div className="flex items-center gap-4">
-            <LanguageToggleButton showLabel />
+            <LanguageToggleButton />
             <div className="flex gap-2">
-              <LanguageToggleButton className="material-symbols-outlined cursor-pointer rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-variant" />
               <span className="material-symbols-outlined cursor-pointer rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-variant">
                 notifications
               </span>
@@ -242,26 +241,11 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               </Link>
             </div>
           </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 rounded-full bg-surface-container px-4 py-1.5 text-sm font-medium">
-              <span className="text-primary">{t("interview.lang.enShort")}</span>
-              <span className="text-outline-variant">|</span>
-              <span className="cursor-pointer text-on-surface-variant hover:text-on-surface">
-                {t("interview.lang.vnShort")}
-              </span>
-            </div>
-            <div className="flex items-center gap-4">
-              <button className="rounded-full p-2 transition-colors duration-200 hover:bg-surface-container-low">
-                <span className="material-symbols-outlined text-on-surface-variant">
-                  language
-                </span>
-              </button>
-              <button className="rounded-full p-2 transition-colors duration-200 hover:bg-surface-container-low">
-                <span className="material-symbols-outlined text-on-surface-variant">
-                  settings
-                </span>
-              </button>
-            </div>
+          <div className="flex items-center gap-4">
+            <LanguageToggleButton />
+            <button className="rounded-full p-2 transition-colors duration-200 hover:bg-surface-container-low" type="button">
+              <span className="material-symbols-outlined text-on-surface-variant">settings</span>
+            </button>
           </div>
         </header>
 
@@ -589,19 +573,12 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               </Link>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center rounded-lg bg-surface-container p-1">
-              <button className="rounded-md bg-surface-container-lowest px-3 py-1 text-xs font-bold text-primary shadow-sm">
-                {t("interview.lang.enShort")}
-              </button>
-              <button className="rounded-md px-3 py-1 text-xs font-bold text-on-surface-variant transition-colors hover:bg-surface-container-high">
-                {t("interview.lang.vnShort")}
-              </button>
-            </div>
-            <button className="flex items-center gap-2 rounded-lg px-4 py-2 font-semibold text-on-surface-variant transition-all hover:bg-surface-container-low active:scale-95">
-              <span className="material-symbols-outlined text-[20px]">language</span>
-            </button>
-            <button className="rounded-xl border-2 border-error/20 px-6 py-2 font-bold text-error transition-all hover:bg-error-container/30 active:scale-95">
+          <div className="flex items-center gap-3">
+            <LanguageToggleButton />
+            <button
+              type="button"
+              className="rounded-xl border-2 border-error/20 px-6 py-2 font-bold text-error transition-all hover:bg-error-container/30 active:scale-95"
+            >
               {t("interview.exitInterview")}
             </button>
           </div>
@@ -673,38 +650,22 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
           </div>
         </section>
 
-        <footer className="bg-surface-bright/50 p-8 backdrop-blur-md">
-          <div className="group relative mx-auto w-full max-w-5xl">
-            <div className="absolute -top-12 left-0 flex items-center gap-3 rounded-t-xl border-x border-t border-outline-variant/10 bg-surface-container-low px-4 py-2 text-xs text-on-surface-variant">
-              <span className="material-symbols-outlined text-sm text-tertiary">mic</span>
-              AI is currently listening for voice input
-            </div>
-
-            <div className="flex items-end gap-4 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-2 shadow-lg transition-all duration-300 focus-within:ring-2 focus-within:ring-surface-tint/20">
+        <footer className="border-t border-outline-variant/20 bg-surface-bright/50 p-6 backdrop-blur-md">
+          <div className="mx-auto w-full max-w-5xl">
+            <div className="flex items-end gap-3 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-2 shadow-sm transition-all duration-300 focus-within:ring-2 focus-within:ring-surface-tint/20">
               <textarea
-                className="min-h-[100px] flex-1 resize-none border-none bg-transparent p-4 text-lg text-on-surface placeholder:text-on-surface-variant/40 focus:ring-0"
+                className="min-h-[96px] flex-1 resize-none border-none bg-transparent p-4 text-lg text-on-surface placeholder:text-on-surface-variant/40 focus:ring-0"
                 placeholder={t("interview.typeYourAnswer")}
               />
-              <div className="flex flex-col gap-2 p-2">
-                <button className="group flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white transition-all hover:bg-primary-container active:scale-90">
+              <div className="p-2 pb-3">
+                <button
+                  type="button"
+                  className="group flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white transition-all hover:bg-primary-container active:scale-90"
+                >
                   <span className="material-symbols-outlined text-[28px] transition-transform group-hover:translate-x-0.5">
                     send
                   </span>
                 </button>
-                <button className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface-container text-on-surface-variant transition-all hover:bg-surface-container-high">
-                  <span className="material-symbols-outlined text-[24px]">mic</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-4 flex items-center justify-between px-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-              <div className="flex gap-6">
-                <span>{t("interview.pressEnterToSend")}</span>
-                <span>{t("interview.shiftEnterForNewLine")}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-green-500" />
-                {t("interview.securePrivate")}
               </div>
             </div>
           </div>

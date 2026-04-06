@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import React, {
   useCallback,
   useEffect,
@@ -7,20 +9,28 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { Sidebar } from "../component/Sidebar";
+import { VoiceHeader } from "../component/VoiceHeader";
+import { useLanguage } from "../../i18n/LanguageProvider";
 import { useChat } from "../../hooks/useChat";
 import { useAudioPlayer } from "../../hooks/useAudioPlayer";
 import { useVoiceRecognition } from "../../hooks/useVoiceRecognition";
-import { Message } from "../../types/message";
-import { MessageBubble } from "./components/MessageBubble";
-import { VoicePageHeader } from "./components/VoicePageHeader";
-import { VoiceChatInput } from "./components/VoiceChatInput";
-import { VoiceConsole } from "./components/VoiceConsole";
+import { formatRelativeTime } from "../../utils/chatSessionMeta";
+import { VoiceFloatingBar } from "./components/VoiceFloatingBar";
+import { VoiceLiveTranscript } from "./components/VoiceLiveTranscript";
+import { VoiceStage } from "./components/VoiceStage";
+
+function sessionLabel(t: (key: string) => string, index: number) {
+  return t("chatInterview.sessionNumber").replace("{n}", String(index + 1));
+}
 
 export default function VoiceChatPage() {
+  const { t, lang } = useLanguage();
+  const router = useRouter();
   const {
     messages,
     sessionId,
-    sessions,
+    sessionListItems,
     language,
     setLanguage,
     startNewSession,
@@ -30,7 +40,6 @@ export default function VoiceChatPage() {
     error,
   } = useChat();
 
-  const [input, setInput] = useState("");
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [lastSpokenId, setLastSpokenId] = useState<number | null>(null);
 
@@ -41,23 +50,20 @@ export default function VoiceChatPage() {
     handleStop,
   } = useAudioPlayer();
 
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const sendVoiceMessageRef = useRef(sendVoiceMessage);
   useEffect(() => {
     sendVoiceMessageRef.current = sendVoiceMessage;
   }, [sendVoiceMessage]);
 
+  useEffect(() => {
+    setLanguage(lang === "vi" ? "vietnamese" : "english");
+  }, [lang, setLanguage]);
+
   const submitPrompt = useCallback(async (payload: string) => {
     const trimmed = payload.trim();
     if (!trimmed) return;
-    setInput("");
     await sendVoiceMessageRef.current(trimmed);
   }, []);
-
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
 
   const {
     recorderSupported,
@@ -66,11 +72,6 @@ export default function VoiceChatPage() {
     recognitionError,
     handleMicToggle,
   } = useVoiceRecognition({ language, onFinalTranscript: submitPrompt });
-
-  const latestAiMessage = useMemo(
-    () => [...messages].reverse().find((m) => m.sender === "ai"),
-    [messages]
-  );
 
   const latestVoiceMessage = useMemo(
     () => [...messages].reverse().find((m) => m.sender === "ai" && m.audioBase64),
@@ -87,22 +88,7 @@ export default function VoiceChatPage() {
     if (played) setLastSpokenId(latestVoiceMessage.id);
   }, [latestVoiceMessage, voiceEnabled, lastSpokenId, playAudio]);
 
-  const replayVoice = useCallback(
-    (message: Message) => {
-      if (!message.audioBase64) return;
-      const played = playAudio(message.audioBase64, message.audioMimeType);
-      if (played) setLastSpokenId(message.id);
-    },
-    [playAudio]
-  );
-
-  const handleSend = useCallback(async () => {
-    const content = input.trim();
-    if (!content) return;
-    await submitPrompt(content);
-  }, [input, submitPrompt]);
-
-  const handleToggleVoice = useCallback(() => {
+  const handleToggleVoicePlayback = useCallback(() => {
     if (!supportsVoice) return;
     setVoiceEnabled((prev) => {
       const next = !prev;
@@ -112,107 +98,131 @@ export default function VoiceChatPage() {
     });
   }, [supportsVoice, handleStop]);
 
-  const recentSessions = useMemo(() => sessions.slice(0, 4), [sessions]);
+  const scrollToTranscript = useCallback(() => {
+    document.getElementById("voice-live-transcript")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, []);
+
+  const waveformActive = isRecording || isSpeaking;
 
   return (
-    <div className="relative h-screen overflow-hidden bg-slate-950 text-white">
-      {/* Background blobs */}
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute -top-32 left-1/2 h-[60vw] w-[60vw] -translate-x-1/2 rounded-full bg-emerald-500/20 blur-[180px]" />
-        <div className="absolute bottom-0 right-0 h-[40vw] w-[40vw] rounded-full bg-cyan-500/20 blur-[140px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_transparent_55%)]" />
-      </div>
+    <div className="flex h-screen bg-surface font-body text-on-surface overflow-hidden">
+      <Sidebar
+        sessionListItems={sessionListItems}
+        currentSessionId={sessionId}
+        onSelectSession={loadSession}
+        onNewSession={() => startNewSession(language)}
+      />
 
-      <div className="relative z-10 flex h-full flex-col px-4 py-6 sm:px-8">
-        <div className="mx-auto flex w-full max-w-6xl flex-1 min-h-0 flex-col gap-5">
-          <VoicePageHeader
-            language={language}
-            setLanguage={setLanguage}
-            voiceEnabled={voiceEnabled}
-            supportsVoice={supportsVoice}
-            onToggleVoice={handleToggleVoice}
-          />
+      <main className="flex-1 md:ml-[17.5rem] flex flex-col h-full min-w-0 bg-gradient-to-br from-primary/[0.04] via-surface to-tertiary/[0.06] pb-24 md:pb-0">
+        <VoiceHeader
+          voiceEnabled={voiceEnabled}
+          supportsVoice={supportsVoice}
+          onToggleVoicePlayback={handleToggleVoicePlayback}
+        />
 
-          <div className="grid flex-1 min-h-0 gap-6 overflow-hidden lg:grid-cols-[1.25fr_0.75fr]">
-            {/* Main chat section */}
-            <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-[32px] border border-white/10 bg-white/5 p-6 backdrop-blur-3xl">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.4em] text-slate-400">
-                    Session {sessionId ? sessionId.slice(0, 8) : "loading"}
-                  </p>
-                  <h2 className="text-2xl font-semibold text-white">
-                    Conversational Arena
-                  </h2>
+        {error && (
+          <div
+            className="shrink-0 mx-3 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-error/25 bg-error-container px-3 py-2.5 text-sm text-on-error-container sm:mx-4"
+            role="alert"
+          >
+            <span className="min-w-0 flex-1">{t(error)}</span>
+            <button
+              type="button"
+              onClick={() => startNewSession(language)}
+              className="shrink-0 rounded-lg bg-error px-3 py-1.5 text-xs font-bold text-on-error hover:opacity-95"
+            >
+              {t("chat.error.retry")}
+            </button>
+          </div>
+        )}
+
+        <div
+          id="voice-interview-sessions"
+          className="md:hidden border-b border-outline-variant/20 bg-surface-container-low/90 px-4 py-3 backdrop-blur-sm"
+        >
+          <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-2">
+            {t("chatInterview.mobileSessions")}
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {sessionListItems.length === 0 && (
+              <span className="text-xs text-on-surface-variant italic whitespace-nowrap">
+                {t("chat.noHistoryYet")}
+              </span>
+            )}
+            {sessionListItems.map((item, index) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => loadSession(item.id)}
+                className={`shrink-0 px-3 py-2 rounded-xl text-left text-xs max-w-[220px] transition-all ${
+                  item.id === sessionId
+                    ? "bg-primary text-on-primary font-semibold shadow-sm"
+                    : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container"
+                }`}
+              >
+                <div className="font-semibold truncate">{sessionLabel(t, index)}</div>
+                {item.preview && (
+                  <div className="truncate opacity-90 mt-0.5 line-clamp-2">{item.preview}</div>
+                )}
+                <div className="text-[10px] opacity-75 mt-0.5 font-mono">
+                  {item.updatedAt > 0
+                    ? formatRelativeTime(item.updatedAt, lang === "vi" ? "vi" : "en")
+                    : item.id.slice(0, 8)}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => startNewSession(language)}
-                  className="rounded-2xl border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white hover:bg-white/10"
-                >
-                  New Voice Session
-                </button>
-              </div>
-
-              {error && (
-                <div className="mt-4 rounded-2xl border border-red-400/50 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-                  {error}
-                </div>
-              )}
-
-              <div className="mt-6 flex-1 min-h-0 overflow-hidden">
-                <div className="flex h-full flex-col space-y-4 overflow-y-auto scroll-smooth pr-2">
-                  {messages.length === 0 && (
-                    <div className="rounded-3xl border border-dashed border-white/20 px-6 py-10 text-center text-sm text-slate-300">
-                      Voice session is booting up. Say hi to begin.
-                    </div>
-                  )}
-                  {messages.map((message) => (
-                    <MessageBubble
-                      key={message.id}
-                      message={message}
-                      isActive={message.id === lastSpokenId}
-                      onReplay={replayVoice}
-                      canReplay={supportsVoice && Boolean(message.audioBase64)}
-                    />
-                  ))}
-                  {isLoading && (
-                    <div className="rounded-3xl border border-white/20 bg-white/5 px-5 py-4 text-sm text-slate-300">
-                      AI is composing a spoken response…
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-              </div>
-
-              <VoiceChatInput
-                input={input}
-                setInput={setInput}
-                onSend={handleSend}
-                onMicToggle={handleMicToggle}
-                isRecording={isRecording}
-                recorderSupported={recorderSupported}
-                interimTranscript={interimTranscript}
-                recognitionError={recognitionError}
-                language={language}
-              />
-            </section>
-
-            <VoiceConsole
-              supportsVoice={supportsVoice}
-              voiceEnabled={voiceEnabled}
-              isSpeaking={isSpeaking}
-              recorderSupported={recorderSupported}
-              isRecording={isRecording}
-              language={language}
-              latestAiMessage={latestAiMessage}
-              recentSessions={recentSessions}
-              sessionId={sessionId}
-              loadSession={loadSession}
-            />
+              </button>
+            ))}
           </div>
         </div>
-      </div>
+
+        <div className="flex min-h-0 flex-1 flex-col px-2 py-3 sm:px-4 sm:py-4">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-0 lg:rounded-3xl lg:border lg:border-outline-variant/25 lg:bg-surface-container-lowest/90 lg:shadow-[0_16px_56px_-20px_rgba(86,0,190,0.12)] lg:overflow-hidden">
+            {/* Main stage ~2/3 */}
+            <div className="relative flex min-h-[min(52vh,480px)] flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-[#f4f6f8] pb-28 lg:min-h-0 lg:rounded-none lg:border-0 lg:bg-[#f4f6f8]">
+              <VoiceStage
+                waveformActive={waveformActive}
+                interimTranscript={interimTranscript}
+                recognitionError={recognitionError}
+                isRecording={isRecording}
+              />
+
+              <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-3 sm:bottom-5">
+                <VoiceFloatingBar
+                  recorderSupported={recorderSupported}
+                  isRecording={isRecording}
+                  onMicToggle={handleMicToggle}
+                  onHistory={scrollToTranscript}
+                  onEndSession={() => router.push("/dashboard")}
+                />
+              </div>
+            </div>
+
+            {/* Live transcript ~1/3 */}
+            <div className="flex min-h-[min(42vh,380px)] flex-1 flex-col lg:min-h-0 lg:max-w-[440px] lg:flex-[0.42] xl:max-w-[460px]">
+              <VoiceLiveTranscript messages={messages} sessionId={sessionId} isLoading={isLoading} />
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <nav
+        className="fixed bottom-5 left-1/2 z-50 flex w-fit min-w-[160px] -translate-x-1/2 items-center justify-center gap-8 rounded-full border border-white/10 bg-primary/95 px-6 py-2 shadow-lg backdrop-blur-xl md:hidden"
+        aria-label={t("chatInterview.navSection")}
+      >
+        <Link
+          href="/chat"
+          className="rounded-full p-2 text-on-primary/95 transition-transform hover:bg-white/10 active:scale-95"
+          aria-label={t("chatInterview.nav.chatInterview")}
+        >
+          <span className="material-symbols-outlined text-[22px]">chat</span>
+        </Link>
+        <a
+          href="#voice-interview-sessions"
+          className="rounded-full p-2 text-on-primary/95 transition-transform hover:bg-white/10 active:scale-95"
+          aria-label={t("chat.history")}
+        >
+          <span className="material-symbols-outlined text-[22px]">history</span>
+        </a>
+      </nav>
     </div>
   );
 }

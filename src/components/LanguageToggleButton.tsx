@@ -4,13 +4,13 @@ import React from "react";
 import { useLanguage } from "../i18n/LanguageProvider";
 
 export default function LanguageToggleButton({
-  className = "material-symbols-outlined cursor-pointer hover:bg-[#eceef0] p-1 rounded-full transition-colors",
+  className = "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container",
   showLabel = false,
 }: {
   className?: string;
   showLabel?: boolean;
 }) {
-  const { lang, toggleLang } = useLanguage();
+  const { lang, toggleLang, t } = useLanguage();
 
   if (showLabel) {
     return (
@@ -25,8 +25,13 @@ export default function LanguageToggleButton({
   }
 
   return (
-    <button type="button" onClick={toggleLang} className={className} aria-label="Toggle language">
-      language
+    <button
+      type="button"
+      onClick={toggleLang}
+      className={className}
+      aria-label={t("chat.toggleUiLanguage")}
+    >
+      <span className="material-symbols-outlined text-[22px]">globe</span>
     </button>
   );
 }
