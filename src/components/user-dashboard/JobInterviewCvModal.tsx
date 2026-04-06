@@ -1,0 +1,422 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { startDemoVideoInterviewRoom } from "@/utils/demoInterviewSession";
+
+type CvFile = {
+  id: string;
+  name: string;
+  uploadedAt: string;
+};
+
+const STORAGE_KEY = "demo.cvFiles";
+const SELECTED_CV_SESSION_KEY = "interview.selectedCvId";
+
+function extIcon(name: string) {
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".pdf")) return "picture_as_pdf";
+  if (lower.endsWith(".doc") || lower.endsWith(".docx")) return "article";
+  return "description";
+}
+
+type Step = "cv" | "mode";
+
+type JobInterviewCvModalProps = {
+  open: boolean;
+  jobTitle: string;
+  jobProfileId?: string;
+  onClose: () => void;
+};
+
+export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: JobInterviewCvModalProps) {
+  const { t, lang } = useLanguage();
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const [step, setStep] = useState<Step>("cv");
+  const [files, setFiles] = useState<CvFile[]>([]);
+  const [selectedCvId, setSelectedCvId] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [roomStarting, setRoomStarting] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const loadFiles = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const list = raw ? (JSON.parse(raw) as CvFile[]) : [];
+      setFiles(list);
+      setSelectedCvId((prev) => {
+        if (list.length === 0) return null;
+        if (prev && list.some((x) => x.id === prev)) return prev;
+        return list[0].id;
+      });
+    } catch {
+      setFiles([]);
+      setSelectedCvId(null);
+    }
+  }, []);
+
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!open) return;
+    setStep("cv");
+    setRoomStarting(false);
+    loadFiles();
+    try {
+      const title = jobTitle.trim();
+      if (!title) return;
+      sessionStorage.setItem(
+        "interview.pendingJob",
+        JSON.stringify(jobProfileId ? { jobProfileId, title } : { title })
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [open, jobTitle, jobProfileId, loadFiles]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (step === "mode") setStep("cv");
+      else onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, step, onClose]);
+
+  function addFile(f: File) {
+    const entry: CvFile = {
+      id: `cv_${Date.now().toString(36)}`,
+      name: f.name,
+      uploadedAt: new Date().toISOString(),
+    };
+    setFiles((prev) => {
+      const next = [entry, ...prev].slice(0, 10);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+    setSelectedCvId(entry.id);
+  }
+
+  function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const list = e.target.files;
+    if (!list?.length) return;
+    addFile(list[0]);
+    e.target.value = "";
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const f = e.dataTransfer.files?.[0];
+    if (!f) return;
+    const ok =
+      f.type === "application/pdf" ||
+      f.type === "application/msword" ||
+      f.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      /\.pdf$/i.test(f.name) ||
+      /\.docx?$/i.test(f.name);
+    if (ok) addFile(f);
+  }
+
+  const goToModeStep = () => {
+    if (files.length === 0 || !selectedCvId) return;
+    try {
+      sessionStorage.setItem(SELECTED_CV_SESSION_KEY, selectedCvId);
+    } catch {
+      /* ignore */
+    }
+    setStep("mode");
+  };
+
+  const goToChat = () => {
+    onClose();
+    router.push("/chat");
+  };
+
+  const goToVoice = () => {
+    onClose();
+    router.push("/voice");
+  };
+
+  const goToRoom = async () => {
+    if (!selectedCvId || roomStarting) return;
+    setRoomStarting(true);
+    try {
+      try {
+        sessionStorage.setItem(SELECTED_CV_SESSION_KEY, selectedCvId);
+      } catch {
+        /* ignore */
+      }
+      await startDemoVideoInterviewRoom(lang === "vi" ? "vi" : "en", jobTitle.trim() || undefined);
+    } catch {
+      setRoomStarting(false);
+    }
+  };
+
+  if (!mounted || !open) return null;
+
+  const titleId = step === "cv" ? "job-cv-modal-title" : "job-cv-modal-mode-title";
+
+  const modal = (
+    <div
+      className="fixed inset-0 z-[200] flex items-end justify-center p-0 sm:items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+    >
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+        aria-label={t("interview.cvUpload.cancel")}
+        onClick={onClose}
+      />
+      <div
+        className={`relative z-10 flex max-h-[min(92vh,760px)] w-full flex-col overflow-hidden rounded-t-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-2xl sm:rounded-2xl ${
+          step === "mode" ? "max-w-3xl" : "max-w-lg"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-outline-variant/15 px-5 py-4 sm:px-6">
+          <div className="min-w-0">
+            {step === "mode" && (
+              <button
+                type="button"
+                onClick={() => setStep("cv")}
+                className="mb-2 inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+              >
+                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                {t("userDash.jobCvModal.backToCv")}
+              </button>
+            )}
+            <h2
+              id={titleId}
+              className="font-headline text-lg font-bold text-on-surface sm:text-xl"
+            >
+              {step === "cv" ? t("userDash.jobCvModal.title") : t("userDash.jobCvModal.modeStepTitle")}
+            </h2>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              {step === "cv"
+                ? t("interview.cvUpload.subtitle").replace("{role}", jobTitle)
+                : t("userDash.jobCvModal.modeStepSubtitle")}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-lg p-2 text-on-surface-variant hover:bg-surface-container-high"
+            aria-label={t("interview.cvUpload.cancel")}
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        {step === "cv" ? (
+          <>
+            <div className="flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+              <p className="mb-3 text-xs font-bold uppercase tracking-wide text-primary">
+                {t("userDash.jobCvModal.savedSection")}
+              </p>
+              {files.length === 0 ? (
+                <p className="mb-4 rounded-xl border border-outline-variant/15 bg-surface-container/40 py-8 text-center text-sm text-on-surface-variant">
+                  {t("userDash.jobCvModal.noSavedYet")}
+                </p>
+              ) : (
+                <ul className="mb-4 space-y-2" role="radiogroup" aria-label={t("userDash.jobCvModal.savedSection")}>
+                  {files.map((f) => (
+                    <li key={f.id}>
+                      <label
+                        className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
+                          selectedCvId === f.id
+                            ? "border-primary bg-primary/8 shadow-sm"
+                            : "border-outline-variant/15 hover:border-primary/30"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="job-cv-choice"
+                          className="h-4 w-4 shrink-0 accent-primary"
+                          checked={selectedCvId === f.id}
+                          onChange={() => setSelectedCvId(f.id)}
+                        />
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary-container text-primary">
+                          <span className="material-symbols-outlined">{extIcon(f.name)}</span>
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium text-on-surface">{f.name}</span>
+                          <span className="text-[11px] text-on-surface-variant">
+                            {new Date(f.uploadedAt).toLocaleString()}
+                          </span>
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-on-surface-variant">
+                {t("userDash.jobCvModal.uploadSection")}
+              </p>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => inputRef.current?.click()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    inputRef.current?.click();
+                  }
+                }}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false);
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={onDrop}
+                className={`rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
+                  dragOver ? "border-primary bg-primary/8" : "border-outline-variant/30 hover:border-primary/40"
+                }`}
+              >
+                <span className="material-symbols-outlined mb-2 text-3xl text-primary">upload_file</span>
+                <p className="text-sm text-on-surface-variant">{t("profile.dropHint")}</p>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  className="hidden"
+                  onChange={onUpload}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    inputRef.current?.click();
+                  }}
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-on-primary"
+                >
+                  {t("profile.upload")}
+                </button>
+              </div>
+
+              <div className="mt-4 text-center">
+                <Link
+                  href="/dashboard/cvs"
+                  className="text-xs font-semibold text-primary hover:underline"
+                  onClick={onClose}
+                >
+                  {t("userDash.jobCvModal.linkMyCvs")}
+                </Link>
+              </div>
+
+              {files.length > 0 && !selectedCvId && (
+                <p className="mt-3 text-center text-sm text-error">{t("userDash.jobCvModal.needSelect")}</p>
+              )}
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-outline-variant/15 bg-surface-container/30 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-outline-variant/30 px-5 py-2.5 text-sm font-bold text-on-surface hover:bg-surface-container-high"
+              >
+                {t("interview.cvUpload.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={goToModeStep}
+                disabled={files.length === 0 || !selectedCvId}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-on-primary shadow-md transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {t("userDash.jobCvModal.nextChooseMode")}
+                <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={goToChat}
+                  className="group flex flex-col rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-5 text-left shadow-sm transition hover:border-primary/35 hover:shadow-md"
+                  aria-label={t("userDash.jobCvModal.modeChatAria")}
+                >
+                  <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-fixed text-primary transition-transform group-hover:scale-105">
+                    <span className="material-symbols-outlined text-2xl">chat_bubble</span>
+                  </span>
+                  <span className="font-headline text-base font-bold text-on-surface">{t("userDash.mode.chat.title")}</span>
+                  <span className="mt-2 line-clamp-3 text-xs leading-relaxed text-on-surface-variant">
+                    {t("userDash.mode.chat.desc")}
+                  </span>
+                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-primary">
+                    {t("userDash.mode.chat.cta")}
+                    <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-0.5">
+                      arrow_forward
+                    </span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={goToVoice}
+                  className="group flex flex-col rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-5 text-left shadow-sm transition hover:border-primary/35 hover:shadow-md"
+                  aria-label={t("userDash.jobCvModal.modeVoiceAria")}
+                >
+                  <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-secondary-container text-primary transition-transform group-hover:scale-105">
+                    <span className="material-symbols-outlined text-2xl">settings_voice</span>
+                  </span>
+                  <span className="font-headline text-base font-bold text-on-surface">{t("userDash.mode.voice.title")}</span>
+                  <span className="mt-2 line-clamp-3 text-xs leading-relaxed text-on-surface-variant">
+                    {t("userDash.mode.voice.desc")}
+                  </span>
+                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-primary">
+                    {t("userDash.mode.voice.cta")}
+                    <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-0.5">
+                      arrow_forward
+                    </span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={goToRoom}
+                  disabled={roomStarting}
+                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-transparent bg-gradient-to-br from-primary to-tertiary p-5 text-left text-white shadow-md transition hover:shadow-lg disabled:opacity-60"
+                  aria-label={t("userDash.jobCvModal.modeRoomAria")}
+                >
+                  <span className="mb-1 inline-flex w-fit items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                    {t("userDash.mode.video.badge")}
+                  </span>
+                  <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-sm transition-transform group-hover:scale-105">
+                    <span className="material-symbols-outlined text-2xl">videocam</span>
+                  </span>
+                  <span className="font-headline text-base font-bold">{t("userDash.mode.video.title")}</span>
+                  <span className="mt-2 line-clamp-3 text-xs leading-relaxed text-white/90">
+                    {t("userDash.mode.video.desc")}
+                  </span>
+                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-white">
+                    {roomStarting ? t("admin.jobProfile.loading") : t("userDash.mode.video.cta")}
+                    {!roomStarting && (
+                      <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                    )}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  return createPortal(modal, document.body);
+}

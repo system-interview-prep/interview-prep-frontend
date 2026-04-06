@@ -20,6 +20,8 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
   const isActive = useMemo(
     () => ({
       dashboard: pathname === "/dashboard",
+      jobs: pathname === "/dashboard/jobs" || pathname.startsWith("/dashboard/jobs/"),
+      myCvs: pathname === "/dashboard/cvs" || pathname.startsWith("/dashboard/cvs/"),
       interviews:
         pathname === "/interview" ||
         pathname.startsWith("/interview/"),
@@ -78,6 +80,20 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
             >
               <span className="material-symbols-outlined">dashboard</span>
               <span className="font-inter text-sm font-medium">{t("userDash.nav.dashboard")}</span>
+            </Link>
+            <Link
+              href="/dashboard/jobs"
+              className={linkClass(isActive.jobs)}
+            >
+              <span className="material-symbols-outlined">work</span>
+              <span className="font-inter text-sm font-medium">{t("userDash.nav.openRoles")}</span>
+            </Link>
+            <Link
+              href="/dashboard/cvs"
+              className={linkClass(isActive.myCvs)}
+            >
+              <span className="material-symbols-outlined">description</span>
+              <span className="font-inter text-sm font-medium">{t("userDash.nav.myCvs")}</span>
             </Link>
             <Link
               href="/interview/select"
@@ -151,6 +167,13 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
           aria-label={t("userDash.nav.practice")}
         >
           <span className="material-symbols-outlined">quiz</span>
+        </Link>
+        <Link
+          href="/dashboard/cvs"
+          className="text-white/70 hover:text-white p-3 transition-transform hover:scale-110 active:scale-90 rounded-full"
+          aria-label={t("userDash.nav.myCvs")}
+        >
+          <span className="material-symbols-outlined">description</span>
         </Link>
         <Link
           href="/logout"

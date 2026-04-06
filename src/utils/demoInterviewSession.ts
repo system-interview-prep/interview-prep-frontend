@@ -16,7 +16,7 @@ function safeParse(value: string | null): DemoSession[] {
 }
 
 /** Creates a video interview room using Backend API, appends to demo.sessions, then navigates to WebRTC room. */
-export async function startDemoVideoInterviewRoom(lang: "en" | "vi"): Promise<void> {
+export async function startDemoVideoInterviewRoom(lang: "en" | "vi", jobTitle?: string): Promise<void> {
   try {
     // Xin 1 Session ID hợp lệ và lưu vào DynamoDB (InterviewSessions) trước khi bắt đầu
     const res = await createSession();
@@ -24,7 +24,8 @@ export async function startDemoVideoInterviewRoom(lang: "en" | "vi"): Promise<vo
     
     // Lưu lịch sử Local (Frontend Helper)
     const startedAt = new Date().toISOString();
-    const topic = lang === "vi" ? "Phỏng vấn video AI" : "AI video interview";
+    const fallback = lang === "vi" ? "Phỏng vấn video AI" : "AI video interview";
+    const topic = jobTitle?.trim() || fallback;
     const prev = safeParse(localStorage.getItem("demo.sessions"));
     const next = [{ roomId, startedAt, topic }, ...prev].slice(0, 50);
     localStorage.setItem("demo.sessions", JSON.stringify(next));

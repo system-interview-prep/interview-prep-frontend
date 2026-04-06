@@ -12,6 +12,8 @@ export default function AdminButton({
   size = "md",
   className = "",
   type = "button",
+  onClick,
+  disabled,
 }: {
   children: React.ReactNode;
   href?: string;
@@ -21,6 +23,8 @@ export default function AdminButton({
   size?: Size;
   className?: string;
   type?: "button" | "submit" | "reset";
+  onClick?: () => void;
+  disabled?: boolean;
 }) {
   const base =
     "inline-flex items-center justify-center gap-2 font-bold tracking-tight transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none";
@@ -65,7 +69,7 @@ export default function AdminButton({
   }
 
   return (
-    <button className={cls} type={type}>
+    <button className={cls} type={type} onClick={onClick} disabled={disabled}>
       {iconNode}
       {children}
     </button>

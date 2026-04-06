@@ -10,12 +10,20 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach auth token to every request
+function readAccessTokenFromCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const m = document.cookie.match(/(?:^|; )access_token=([^;]*)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+// Attach auth token: localStorage (legacy) or httpOnly-style cookie set by login
 api.interceptors.request.use(config => {
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (typeof window !== 'undefined') {
+    const token =
+      localStorage.getItem('accessToken') ?? readAccessTokenFromCookie();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
@@ -44,7 +52,7 @@ export const interviewApi = {
 export const userApi = {
   getProfile: () =>
     api.get('/user/profile'),
-  updateProfile: (data: Record<string, any>) =>
+  updateProfile: (data: Record<string, unknown>) =>
     api.patch('/user/profile', data),
 };
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import LanguageToggleButton from "../../components/LanguageToggleButton";
+import UserJobProfilesSection from "../../components/user-dashboard/UserJobProfilesSection";
 import { UserDashboardShell } from "../../components/user-dashboard/UserDashboardShell";
 import { useLanguage } from "../../i18n/LanguageProvider";
 import { startDemoVideoInterviewRoom } from "../../utils/demoInterviewSession";
@@ -108,6 +109,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </header>
+
+        <UserJobProfilesSection />
 
         <section className="mb-16">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
