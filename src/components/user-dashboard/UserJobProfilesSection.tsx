@@ -121,6 +121,8 @@ export default function UserJobProfilesSection() {
           {profiles.map((p) => (
             <UserJobProfileCard
               key={p.id}
+              jobId={p.id}
+              viewDetailAria={t("userDash.jobProfiles.viewDetailAria")}
               title={p.title}
               categoryLabel={resolveCategoryName(p)}
               keywordsLine={keywordsLine(p.keywords)}
