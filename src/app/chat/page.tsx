@@ -4,31 +4,20 @@ import Link from "next/link";
 import React, { useEffect } from "react";
 import { useLanguage } from "../../i18n/LanguageProvider";
 import { useChat } from "../../hooks/useChat";
-import { formatRelativeTime } from "../../utils/chatSessionMeta";
 import { ChatHeader } from "../component/ChatHeader";
 import { ChatInterviewActions } from "../component/ChatInterviewActions";
 import { ChatMessages } from "../component/ChatMessages";
 import { ChatInput } from "../component/ChatInput";
-import { Sidebar } from "../component/Sidebar";
-import { useResizableSidebar } from "../../hooks/useResizableSidebar";
-
-function sessionLabel(t: (key: string) => string, index: number) {
-  return t("chatInterview.sessionNumber").replace("{n}", String(index + 1));
-}
 
 export default function ChatPage() {
   const { t, lang } = useLanguage();
-  const { sidebarWidth, startResize } = useResizableSidebar();
   const {
     messages,
     sessionId,
     language,
-    sessionListItems,
     isLoading,
     error,
     setLanguage,
-    startNewSession,
-    loadSession,
     sendMessage,
   } = useChat({ defaultMode: "chat" });
 
@@ -48,51 +37,9 @@ export default function ChatPage() {
   return (
     <div
       className="flex h-screen bg-surface font-body text-on-surface overflow-hidden"
-      style={{ ["--sidebar-width" as any]: `${sidebarWidth}px` } as React.CSSProperties}
     >
-      <Sidebar
-        sessionListItems={sessionListItems}
-        currentSessionId={sessionId}
-        onSelectSession={loadSession}
-        onNewSession={() => startNewSession(language)}
-        sidebarWidth={sidebarWidth}
-        onResizeStart={startResize}
-      />
-
-      <main className="flex-1 flex flex-col h-full min-w-0 bg-gradient-to-br from-primary/[0.06] via-surface to-tertiary/[0.05] pb-24 md:pb-0 md:ml-[var(--sidebar-width)]">
-        <ChatHeader />
-
-        <div
-          id="chat-interview-sessions"
-          className="md:hidden border-b border-outline-variant/20 bg-surface-container-low/90 px-4 py-3 backdrop-blur-sm"
-        >
-          <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-2">
-            {t("chatInterview.mobileSessions")}
-          </p>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {sessionListItems.length === 0 && (
-              <span className="text-xs text-on-surface-variant italic whitespace-nowrap">{t("chat.noHistoryYet")}</span>
-            )}
-            {sessionListItems.map((item, index) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => loadSession(item.id)}
-                className={`shrink-0 px-3 py-2 rounded-xl text-left text-xs max-w-[220px] transition-all ${
-                  item.id === sessionId
-                    ? "bg-primary text-on-primary font-semibold shadow-sm"
-                    : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container"
-                }`}
-              >
-                <div className="font-semibold truncate">{sessionLabel(t, index)}</div>
-                {item.preview && <div className="truncate opacity-90 mt-0.5 line-clamp-2">{item.preview}</div>}
-                <div className="text-[10px] opacity-75 mt-0.5 font-mono">
-                  {item.updatedAt > 0 ? formatRelativeTime(item.updatedAt, lang === "vi" ? "vi" : "en") : item.id.slice(0, 8)}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+      <main className="flex-1 flex flex-col h-full min-w-0 bg-gradient-to-br from-primary/[0.06] via-surface to-tertiary/[0.05] pb-24 md:pb-0">
+        <ChatHeader sessionId={sessionId} />
 
         <div className="flex min-h-0 flex-1 flex-col px-2 py-3 sm:px-4 sm:py-4">
           <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest/95 shadow-[0_16px_56px_-20px_rgba(0,61,155,0.22)] backdrop-blur-[2px] sm:rounded-3xl">
@@ -118,13 +65,6 @@ export default function ChatPage() {
                 role="alert"
               >
                 <span className="min-w-0 flex-1">{t(error)}</span>
-                <button
-                  type="button"
-                  onClick={() => startNewSession(language)}
-                  className="shrink-0 px-3 py-1.5 rounded-lg bg-error text-on-error text-xs font-bold hover:opacity-90 transition-opacity"
-                >
-                  {t("chat.error.retry")}
-                </button>
               </div>
             )}
 
@@ -148,13 +88,6 @@ export default function ChatPage() {
         >
           <span className="material-symbols-outlined text-[22px]">mic</span>
         </Link>
-        <a
-          href="#chat-interview-sessions"
-          className="text-on-primary/95 hover:text-on-primary p-2 rounded-full hover:bg-white/10 transition-transform active:scale-95"
-          aria-label={t("chat.history")}
-        >
-          <span className="material-symbols-outlined text-[22px]">history</span>
-        </a>
       </nav>
     </div>
   );

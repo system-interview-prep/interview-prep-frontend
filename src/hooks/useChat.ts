@@ -132,8 +132,11 @@ export function useChat(options: UseChatOptions = {}) {
             try {
                 setIsLoading(true);
                 setError(null);
-                const res = await createSession();
                 const nextLanguage = lang ?? language;
+                const res = await createSession({
+                    type: defaultMode === "voice" ? "Voice" : "Chat",
+                    language: nextLanguage === "vietnamese" ? "Vietnamese" : "English",
+                });
                 if (lang) setLanguage(lang);
                 recordDemoSession(res.sessionId, getDemoSessionTopic(defaultMode, nextLanguage), defaultMode);
                 await loadSession(res.sessionId);

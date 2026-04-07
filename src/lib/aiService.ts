@@ -67,13 +67,17 @@ export async function sendVoiceChatMessage(request: ChatRequest): Promise<ChatVo
   return res.json();
 }
 
-export async function createSession(): Promise<{ sessionId: string }> {
+export async function createSession(params?: { type?: "Chat" | "Voice" | "Call"; language?: string }): Promise<{ sessionId: string }> {
   const res = await fetch(`${API_BASE_URL}/ai/session`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...getAuthHeaders()
-    }
+    },
+    body: JSON.stringify({
+      type: params?.type ?? "Chat",
+      language: params?.language ?? "English",
+    }),
   });
   if (!res.ok) throw new Error("Network response was not ok");
   return res.json();
@@ -92,6 +96,18 @@ export async function getChatHistory(sessionId: string = "default-session"): Pro
 
 export async function getAllSessions(): Promise<{ sessions: string[] }> {
   const res = await fetch(`${API_BASE_URL}/ai/sessions`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders()
+    }
+  });
+  if (!res.ok) throw new Error("Network response was not ok");
+  return res.json();
+}
+
+export async function closeSession(sessionId: string): Promise<{ sessionId: string; status: string; endedAt: string }> {
+  const res = await fetch(`${API_BASE_URL}/ai/session/${encodeURIComponent(sessionId)}/close`, {
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...getAuthHeaders()

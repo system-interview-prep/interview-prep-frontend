@@ -2,12 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import React from "react";
+import { createPortal } from "react-dom";
 import LanguageToggleButton from "../../components/LanguageToggleButton";
 import { useLanguage } from "../../i18n/LanguageProvider";
+import { closeSession } from "../../lib/aiService";
 
-export function ChatHeader() {
+export function ChatHeader(props: { sessionId?: string }) {
   const { t } = useLanguage();
   const router = useRouter();
+  const [isClosing, setIsClosing] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
 
   return (
     <header className="shrink-0 bg-[#f9fafb]/95 dark:bg-surface/90 backdrop-blur-md border-b border-outline-variant/20 px-4 py-3 sm:px-6 sm:py-3.5 z-50">
@@ -20,13 +24,68 @@ export function ChatHeader() {
           <LanguageToggleButton />
           <button
             type="button"
-            onClick={() => router.push("/dashboard")}
+            disabled={isClosing}
+            onClick={() => setConfirmOpen(true)}
             className="px-3 py-2 rounded-xl bg-surface-container text-on-surface text-sm font-semibold border border-outline-variant/40 hover:bg-surface-container-high transition-all"
           >
-            {t("chatInterview.endSession")}
+            {isClosing ? "Closing…" : t("chatInterview.endSession")}
           </button>
         </div>
       </div>
+
+      {confirmOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 px-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="w-full max-w-md rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-4 shadow-xl">
+              <div className="mb-3">
+                <div className="text-base font-semibold text-on-surface">
+                  {t("chatInterview.endSession")}
+                </div>
+                <div className="mt-1 text-sm text-on-surface-variant">
+                  Bạn có chắc muốn kết thúc phiên này không?
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={isClosing}
+                  onClick={() => setConfirmOpen(false)}
+                  className="px-3 py-2 rounded-xl bg-surface-container text-on-surface text-sm font-semibold border border-outline-variant/40 hover:bg-surface-container-high transition-all"
+                >
+                  Huỷ
+                </button>
+                <button
+                  type="button"
+                  disabled={isClosing}
+                  onClick={async () => {
+                    try {
+                      setIsClosing(true);
+                      if (props.sessionId) {
+                        await closeSession(props.sessionId);
+                      }
+                    } catch {
+                      // ignore: user can still leave UI even if close fails
+                    } finally {
+                      setConfirmOpen(false);
+                      router.push("/dashboard");
+                      setIsClosing(false);
+                    }
+                  }}
+                  className="px-3 py-2 rounded-xl bg-error text-on-error text-sm font-bold hover:opacity-90 transition-opacity"
+                >
+                  Kết thúc
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </header>
   );
 }
