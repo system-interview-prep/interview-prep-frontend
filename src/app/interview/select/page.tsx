@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { useNavigationLoading } from "../../../components/NavigationLoadingProvider";
 import LanguageToggleButton from "../../../components/LanguageToggleButton";
 import { UserDashboardShell } from "../../../components/user-dashboard/UserDashboardShell";
+import { DemoSessionsHistory } from "../../../components/user-dashboard/DemoSessionsHistory";
 import { useLanguage } from "../../../i18n/LanguageProvider";
 import { startDemoVideoInterviewRoom } from "../../../utils/demoInterviewSession";
 import { useAuthProfile } from "../../../auth/useAuthProfile";
@@ -171,18 +172,7 @@ export default function InterviewSelectPage() {
           </div>
         </section>
 
-        <section className="mb-16 border-t border-outline-variant/20 pt-10">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="font-headline text-2xl font-bold text-on-surface">{t("userDash.history.title")}</h3>
-            <Link
-              href="/interview-summary"
-              className="flex w-fit items-center gap-1 text-sm font-bold text-primary hover:underline"
-            >
-              {t("userDash.history.viewArchive")}
-              <span className="material-symbols-outlined text-sm">open_in_new</span>
-            </Link>
-          </div>
-        </section>
+        <DemoSessionsHistory variant="full" />
       </main>
     </UserDashboardShell>
   );

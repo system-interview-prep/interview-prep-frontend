@@ -1,4 +1,5 @@
 import api from "./api";
+import type { CvProcessingStatus } from "@/types/cvProcessing";
 
 export type UserCvDto = {
   id: string;
@@ -10,6 +11,10 @@ export type UserCvDto = {
   s3Key: string;
   createdAt: string;
   updatedAt: string;
+  /** Khi BE trả về pipeline xử lý CV */
+  status?: CvProcessingStatus;
+  error?: string;
+  score?: number;
 };
 
 /** Recover filename from S3 key shape: cvs/{userId}/{cvId}-{safeName} */
@@ -44,6 +49,18 @@ export function normalizeUserCvDto(raw: unknown): UserCvDto {
   const s3Key = String(r.s3Key ?? r.s3_key ?? "");
   const createdAt = String(r.createdAt ?? r.created_at ?? "");
   const updatedAt = String(r.updatedAt ?? r.updated_at ?? "");
+  const statusRaw = r.status ?? r.processingStatus;
+  const status =
+    typeof statusRaw === "string"
+      ? (statusRaw as CvProcessingStatus)
+      : undefined;
+  const error =
+    typeof r.error === "string"
+      ? r.error
+      : typeof (r as { processingError?: string }).processingError === "string"
+        ? (r as { processingError: string }).processingError
+        : undefined;
+  const score = typeof r.score === "number" ? r.score : undefined;
 
   if (!originalName) {
     originalName = inferNameFromS3Key(s3Key, id);
@@ -62,6 +79,9 @@ export function normalizeUserCvDto(raw: unknown): UserCvDto {
     s3Key,
     createdAt,
     updatedAt,
+    ...(status ? { status } : {}),
+    ...(error ? { error } : {}),
+    ...(score !== undefined ? { score } : {}),
   };
 }
 

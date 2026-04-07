@@ -1,78 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import LanguageToggleButton from "../../components/LanguageToggleButton";
 import UserJobProfilesSection from "../../components/user-dashboard/UserJobProfilesSection";
 import { UserDashboardShell } from "../../components/user-dashboard/UserDashboardShell";
 import { useLanguage } from "../../i18n/LanguageProvider";
 import { startDemoVideoInterviewRoom } from "../../utils/demoInterviewSession";
 import { useAuthProfile } from "../../auth/useAuthProfile";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useNavigationLoading } from "../../components/NavigationLoadingProvider";
 
-type DemoSession = {
-  roomId: string;
-  topic: string;
-  startedAt: string;
-};
-
-function safeJsonParse<T>(value: string | null): T | null {
-  if (!value) return null;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return null;
-  }
-}
-
-function initialsFromTopic(topic: string) {
-  const parts = topic.trim().split(/\s+/).filter(Boolean);
+function initialsFromName(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase().slice(0, 2);
-  return topic.slice(0, 2).toUpperCase() || "?";
+  return name.slice(0, 2).toUpperCase() || "?";
 }
 
 export default function DashboardPage() {
   const { t, lang } = useLanguage();
-  const [sessions, setSessions] = useState<DemoSession[]>([]);
   const { profile, displayName } = useAuthProfile();
   const router = useRouter();
   const { showNavigationLoading, hideNavigationLoading } = useNavigationLoading();
-  const searchParams = useSearchParams();
-  const pageSize = 8;
-  const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
-
-  const loadFromStorage = useCallback(() => {
-    setSessions(safeJsonParse<DemoSession[]>(localStorage.getItem("demo.sessions")) ?? []);
-  }, []);
-
-  useEffect(() => {
-    loadFromStorage();
-  }, [loadFromStorage]);
-
-  useEffect(() => {
-    function onFocus() {
-      loadFromStorage();
-    }
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [loadFromStorage]);
-
-  function persistSessions(next: DemoSession[]) {
-    localStorage.setItem("demo.sessions", JSON.stringify(next));
-    setSessions(next);
-  }
-
-  const totalPages = Math.max(1, Math.ceil(sessions.length / pageSize));
-  const pageSafe = Math.min(page, totalPages);
-  const sessionsPage = sessions.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
-
-  const setPage = (p: number) => {
-    const next = Math.max(1, Math.min(p, totalPages));
-    const sp = new URLSearchParams(searchParams.toString());
-    sp.set("page", String(next));
-    router.replace(`/dashboard?${sp.toString()}`, { scroll: false });
-  };
 
   const goToChat = () => {
     showNavigationLoading();
@@ -132,7 +80,7 @@ export default function DashboardPage() {
                 />
               ) : (
                 <div className="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center font-headline font-bold text-primary text-sm ring-2 ring-primary/10">
-                  {displayName ? initialsFromTopic(displayName) : "?"}
+                  {displayName ? initialsFromName(displayName) : "?"}
                 </div>
               )}
             </div>
@@ -215,108 +163,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        </section>
-
-        <section className="mb-16">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
-            <h3 className="font-headline font-bold text-2xl">{t("userDash.history.title")}</h3>
-            <Link
-              href="/interview-summary"
-              className="text-primary text-sm font-bold flex items-center gap-1 hover:underline w-fit"
-            >
-              {t("userDash.history.viewArchive")}
-              <span className="material-symbols-outlined text-sm">open_in_new</span>
-            </Link>
-          </div>
-          <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/10 overflow-hidden overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[640px]">
-              <thead>
-                <tr className="bg-surface-container-low text-on-surface-variant uppercase text-[10px] font-bold tracking-[0.2em]">
-                  <th className="px-8 py-5">{t("userDash.table.candidateDate")}</th>
-                  <th className="px-8 py-5">{t("userDash.table.mode")}</th>
-                  <th className="px-8 py-5 text-center">{t("userDash.table.score")}</th>
-                  <th className="px-8 py-5 text-right">{t("userDash.table.actions")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-outline-variant/10">
-                {sessions.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-8 py-10 text-center text-on-surface-variant">
-                      {t("dashboard.empty")}
-                    </td>
-                  </tr>
-                ) : (
-                  sessionsPage.map((s) => (
-                    <tr key={s.roomId} className="hover:bg-surface-container/50 transition-colors">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant font-bold text-sm">
-                            {initialsFromTopic(s.topic)}
-                          </div>
-                          <div>
-                            <p className="font-bold text-on-surface">{s.topic}</p>
-                            <p className="text-xs text-on-surface-variant">
-                              {new Date(s.startedAt).toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-2 text-on-surface-variant font-medium text-sm">
-                          <span className="material-symbols-outlined text-lg">chat_bubble</span>
-                          {t("userDash.table.modeChat")}
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="flex items-center justify-center">
-                          <span className="px-3 py-1 bg-surface-container text-on-surface-variant rounded-full text-xs font-bold ring-1 ring-outline-variant/30">
-                            —
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <Link
-                          href={`/interview/room/${s.roomId}`}
-                          className="px-4 py-2 text-primary font-bold text-sm hover:bg-primary/5 rounded-lg transition-colors inline-block"
-                        >
-                          {t("userDash.table.viewSummary")}
-                        </Link>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          {sessions.length > 0 ? (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-on-surface-variant">
-                {Math.min((pageSafe - 1) * pageSize + 1, sessions.length)}–
-                {Math.min(pageSafe * pageSize, sessions.length)} / {sessions.length}
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPage(pageSafe - 1)}
-                  disabled={pageSafe <= 1}
-                  className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:opacity-50"
-                >
-                  Prev
-                </button>
-                <span className="min-w-[5rem] text-center text-sm font-semibold text-on-surface">
-                  Page {pageSafe}/{totalPages}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPage(pageSafe + 1)}
-                  disabled={pageSafe >= totalPages}
-                  className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          ) : null}
         </section>
 
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch mb-16">

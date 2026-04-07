@@ -1,11 +1,12 @@
 "use client";
 
 import axios from "axios";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import LanguageToggleButton from "@/components/LanguageToggleButton";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { useCvProcessingStatus } from "@/hooks/useCvProcessingStatus";
 import { userCvApi, type UserCvDto } from "@/services/userCvApi";
+import type { CvProcessingStatus } from "@/types/cvProcessing";
 
 type CvFile = {
   id: string;
@@ -68,6 +69,22 @@ function loadLocalOnly(): CvFile[] {
   }
 }
 
+function labelForCvStatus(t: (key: string) => string, s: CvProcessingStatus | null) {
+  switch (s) {
+    case "PARSING":
+      return t("userDash.myCvs.statusParsing");
+    case "AI_PROCESSING":
+      return t("userDash.myCvs.statusAi");
+    case "DONE":
+      return t("userDash.myCvs.statusDone");
+    case "FAILED":
+      return t("userDash.myCvs.statusFailed");
+    case "PENDING":
+    default:
+      return t("userDash.myCvs.statusPending");
+  }
+}
+
 export default function UserMyCvsPage() {
   const { t, lang } = useLanguage();
   const [files, setFiles] = useState<CvFile[]>([]);
@@ -82,6 +99,7 @@ export default function UserMyCvsPage() {
   const [sort, setSort] = useState<SortKey>("newest");
   const inputPdfRef = useRef<HTMLInputElement>(null);
   const inputWordRef = useRef<HTMLInputElement>(null);
+  const [trackingCvId, setTrackingCvId] = useState<string | null>(null);
 
   const loadFiles = useCallback(async () => {
     const token =
@@ -109,6 +127,22 @@ export default function UserMyCvsPage() {
       }
     }
   }, [t]);
+
+  const finishCvTracking = useCallback(() => {
+    setTrackingCvId(null);
+    void loadFiles();
+  }, [loadFiles]);
+
+  const { status: cvProcessStatus, lastPayload: cvStatusPayload } = useCvProcessingStatus(
+    trackingCvId,
+    {
+      onDone: finishCvTracking,
+      onFailed: (p) => {
+        if (p?.error) setAnalyzeError(p.error);
+        finishCvTracking();
+      },
+    }
+  );
 
   /** Legacy: cookie-only sessions could not send Bearer to :5000 — copy into localStorage once. */
   useEffect(() => {
@@ -140,9 +174,10 @@ export default function UserMyCvsPage() {
       typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
     if (token) {
       try {
-        await userCvApi.upload(f);
-        await loadFiles();
+        const { data } = await userCvApi.upload(f);
         setAnalyzeError(null);
+        setTrackingCvId(data.id);
+        await loadFiles();
       } catch (e) {
         const msg = axios.isAxiosError(e)
           ? String((e.response?.data as { message?: string })?.message ?? e.message)
@@ -271,35 +306,6 @@ export default function UserMyCvsPage() {
       </header>
 
       <div className="mx-auto max-w-4xl">
-        <div className="mb-10 flex max-w-md items-center justify-between">
-          <Link href="/interview/select" className="flex flex-col items-center gap-2 text-center">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-on-primary">
-              1
-            </div>
-            <span className="text-[10px] font-bold uppercase tracking-wide text-primary">
-              {t("userDash.myCvs.stepSelect")}
-            </span>
-          </Link>
-          <div className="mx-2 mt-[-1.25rem] h-0.5 flex-1 bg-primary" aria-hidden />
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-on-primary ring-4 ring-primary/20">
-              2
-            </div>
-            <span className="text-[10px] font-bold uppercase tracking-wide text-primary">
-              {t("userDash.myCvs.stepUpload")}
-            </span>
-          </div>
-          <div className="mx-2 mt-[-1.25rem] h-0.5 flex-1 bg-outline-variant/40" aria-hidden />
-          <div className="flex flex-col items-center gap-2 opacity-70">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-container-high text-xs font-bold text-on-surface-variant">
-              3
-            </div>
-            <span className="text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">
-              {t("userDash.myCvs.stepInterview")}
-            </span>
-          </div>
-        </div>
-
         <div className="space-y-8">
           <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-white/80 p-1 shadow-sm backdrop-blur-md dark:border-outline-variant/30 dark:bg-surface-container-lowest/90">
             <div
@@ -370,6 +376,27 @@ export default function UserMyCvsPage() {
               )}
             </div>
           </div>
+
+          {trackingCvId ? (
+            <div
+              className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-on-surface"
+              role="status"
+              aria-live="polite"
+            >
+              <span className="material-symbols-outlined mt-0.5 shrink-0 animate-spin text-primary">
+                progress_activity
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-headline text-sm font-bold">{t("userDash.myCvs.processingTitle")}</p>
+                <p className="mt-0.5 text-sm text-on-surface-variant">
+                  {labelForCvStatus(t, cvProcessStatus)}
+                </p>
+                {cvStatusPayload?.status === "FAILED" && cvStatusPayload.error ? (
+                  <p className="mt-2 text-sm text-error">{String(cvStatusPayload.error)}</p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           <section className="rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-4 shadow-sm md:p-6">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
