@@ -9,27 +9,20 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Sidebar } from "../component/Sidebar";
 import { VoiceHeader } from "../component/VoiceHeader";
 import { useLanguage } from "../../i18n/LanguageProvider";
 import { useChat } from "../../hooks/useChat";
 import { useAudioPlayer } from "../../hooks/useAudioPlayer";
 import { useVoiceRecognition } from "../../hooks/useVoiceRecognition";
-import { formatRelativeTime } from "../../utils/chatSessionMeta";
 import { VoiceFloatingBar } from "./components/VoiceFloatingBar";
 import { VoiceLiveTranscript } from "./components/VoiceLiveTranscript";
 import { VoiceStage } from "./components/VoiceStage";
-import { useResizableSidebar } from "../../hooks/useResizableSidebar";
 import { useResizableWidth } from "../../hooks/useResizableWidth";
-
-function sessionLabel(t: (key: string) => string, index: number) {
-  return t("chatInterview.sessionNumber").replace("{n}", String(index + 1));
-}
+import { closeSession } from "../../lib/aiService";
 
 export default function VoiceChatPage() {
   const { t, lang } = useLanguage();
   const router = useRouter();
-  const { sidebarWidth, startResize } = useResizableSidebar();
   const { width: transcriptWidth, startResize: startTranscriptResize } = useResizableWidth({
     storageKey: "voice.transcriptWidth.v1",
     defaultWidth: 430,
@@ -39,11 +32,8 @@ export default function VoiceChatPage() {
   const {
     messages,
     sessionId,
-    sessionListItems,
     language,
     setLanguage,
-    startNewSession,
-    loadSession,
     sendVoiceMessage,
     isLoading,
     error,
@@ -51,6 +41,8 @@ export default function VoiceChatPage() {
 
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [lastSpokenId, setLastSpokenId] = useState<number | null>(null);
+  const [confirmEndOpen, setConfirmEndOpen] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
 
   const {
     supportsVoice,
@@ -113,20 +105,10 @@ export default function VoiceChatPage() {
     <div
       className="flex h-screen bg-surface font-body text-on-surface overflow-hidden"
       style={{
-        ["--sidebar-width" as any]: `${sidebarWidth}px`,
         ["--transcript-width" as any]: `${transcriptWidth}px`,
       } as React.CSSProperties}
     >
-      <Sidebar
-        sessionListItems={sessionListItems}
-        currentSessionId={sessionId}
-        onSelectSession={loadSession}
-        onNewSession={() => startNewSession(language)}
-        sidebarWidth={sidebarWidth}
-        onResizeStart={startResize}
-      />
-
-      <main className="flex-1 flex flex-col h-full min-w-0 bg-gradient-to-br from-primary/[0.04] via-surface to-tertiary/[0.06] pb-24 md:pb-0 md:ml-[var(--sidebar-width)]">
+      <main className="flex-1 flex flex-col h-full min-w-0 bg-gradient-to-br from-primary/[0.04] via-surface to-tertiary/[0.06] pb-24 md:pb-0">
         <VoiceHeader
           voiceEnabled={voiceEnabled}
           supportsVoice={supportsVoice}
@@ -139,53 +121,8 @@ export default function VoiceChatPage() {
             role="alert"
           >
             <span className="min-w-0 flex-1">{t(error)}</span>
-            <button
-              type="button"
-              onClick={() => startNewSession(language)}
-              className="shrink-0 rounded-lg bg-error px-3 py-1.5 text-xs font-bold text-on-error hover:opacity-95"
-            >
-              {t("chat.error.retry")}
-            </button>
           </div>
         )}
-
-        <div
-          id="voice-interview-sessions"
-          className="md:hidden border-b border-outline-variant/20 bg-surface-container-low/90 px-4 py-3 backdrop-blur-sm"
-        >
-          <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-2">
-            {t("chatInterview.mobileSessions")}
-          </p>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {sessionListItems.length === 0 && (
-              <span className="text-xs text-on-surface-variant italic whitespace-nowrap">
-                {t("chat.noHistoryYet")}
-              </span>
-            )}
-            {sessionListItems.map((item, index) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => loadSession(item.id)}
-                className={`shrink-0 px-3 py-2 rounded-xl text-left text-xs max-w-[220px] transition-all ${
-                  item.id === sessionId
-                    ? "bg-primary text-on-primary font-semibold shadow-sm"
-                    : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container"
-                }`}
-              >
-                <div className="font-semibold truncate">{sessionLabel(t, index)}</div>
-                {item.preview && (
-                  <div className="truncate opacity-90 mt-0.5 line-clamp-2">{item.preview}</div>
-                )}
-                <div className="text-[10px] opacity-75 mt-0.5 font-mono">
-                  {item.updatedAt > 0
-                    ? formatRelativeTime(item.updatedAt, lang === "vi" ? "vi" : "en")
-                    : item.id.slice(0, 8)}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
 
         <div className="flex min-h-0 flex-1 flex-col px-2 py-3 sm:px-4 sm:py-4">
           <div className="flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_12px_var(--transcript-width)] lg:gap-0 lg:rounded-3xl lg:border lg:border-outline-variant/25 lg:bg-surface-container-lowest/90 lg:shadow-[0_16px_56px_-20px_rgba(86,0,190,0.12)] lg:overflow-hidden">
@@ -203,7 +140,7 @@ export default function VoiceChatPage() {
                     recorderSupported={recorderSupported}
                     isRecording={isRecording}
                     onMicToggle={handleMicToggle}
-                    onEndSession={() => router.push("/dashboard")}
+                    onEndSession={() => setConfirmEndOpen(true)}
                   />
                 }
               />
@@ -240,14 +177,55 @@ export default function VoiceChatPage() {
         >
           <span className="material-symbols-outlined text-[22px]">chat</span>
         </Link>
-        <a
-          href="#voice-interview-sessions"
-          className="rounded-full p-2 text-on-primary/95 transition-transform hover:bg-white/10 active:scale-95"
-          aria-label={t("chat.history")}
-        >
-          <span className="material-symbols-outlined text-[22px]">history</span>
-        </a>
       </nav>
+
+      {confirmEndOpen && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 px-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-4 shadow-xl">
+            <div className="mb-3">
+              <div className="text-base font-semibold text-on-surface">
+                {t("chatInterview.endSession")}
+              </div>
+              <div className="mt-1 text-sm text-on-surface-variant">
+                Bạn có chắc muốn kết thúc phiên này không?
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={isEnding}
+                onClick={() => setConfirmEndOpen(false)}
+                className="px-3 py-2 rounded-xl bg-surface-container text-on-surface text-sm font-semibold border border-outline-variant/40 hover:bg-surface-container-high transition-all"
+              >
+                Huỷ
+              </button>
+              <button
+                type="button"
+                disabled={isEnding}
+                onClick={async () => {
+                  try {
+                    setIsEnding(true);
+                    if (sessionId) await closeSession(sessionId);
+                  } catch {
+                    // ignore
+                  } finally {
+                    setConfirmEndOpen(false);
+                    router.push("/dashboard");
+                    setIsEnding(false);
+                  }
+                }}
+                className="px-3 py-2 rounded-xl bg-error text-on-error text-sm font-bold hover:opacity-90 transition-opacity"
+              >
+                {isEnding ? "Closing…" : "Kết thúc"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
