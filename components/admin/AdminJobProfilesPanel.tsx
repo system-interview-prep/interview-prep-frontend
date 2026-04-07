@@ -312,7 +312,7 @@ export default function AdminJobProfilesPanel() {
       prev: vi ? "Trước" : "Prev",
       next: vi ? "Sau" : "Next",
       page: vi ? "Trang" : "Page",
-      items: vi ? "mục" : "items",
+      items: vi ? "mục" : "items", 
     };
   }, [lang]);
 

@@ -97,7 +97,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
         document.cookie = `access_token=${data.access_token}; Path=/; SameSite=Lax; Max-Age=31536000`;
         setRoleCookie(String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "admin" : "user");
 
-        router.replace(nextUrl ?? (String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "/admin/Dashboard" : "/dashboard"));
+        router.replace(nextUrl ?? (String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "/admin/dashboard" : "/dashboard"));
       } catch (err: any) {
         setGoogleError(err.message || t("auth.error.googleFailed"));
       } finally {
@@ -159,7 +159,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
       document.cookie = `access_token=${data.access_token}; Path=/; SameSite=Lax; Max-Age=31536000`;
       setRoleCookie(String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "admin" : "user");
 
-      router.replace(nextUrl ?? (String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "/admin/Dashboard" : "/dashboard"));
+      router.replace(nextUrl ?? (String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "/admin/dashboard" : "/dashboard"));
     } catch (err: any) {
       setLoginError(err.message || "Failed to login");
     } finally {
