@@ -11,7 +11,7 @@ export type VideoRoomFloatingBarProps = {
   onEndSession: () => void;
 };
 
-/** Camera, mic (speech-to-text), end — compact pills */
+/** Single compact row — icons only + title tooltips (minimal vertical space). */
 export function VideoRoomFloatingBar({
   recorderSupported,
   isRecording,
@@ -21,15 +21,12 @@ export function VideoRoomFloatingBar({
 }: VideoRoomFloatingBarProps) {
   const { t } = useLanguage();
 
-  const pillPurple =
-    "flex min-h-[3rem] w-[3.25rem] shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 pb-1.5 pt-1.5 text-white transition-transform active:scale-95 sm:min-h-[3.25rem] sm:w-[3.5rem] sm:gap-1 sm:rounded-2xl sm:px-1.5 sm:pb-2 sm:pt-2";
-
-  const labelClass =
-    "w-full text-center font-body text-[7px] font-semibold uppercase leading-tight tracking-wide text-white/95 sm:text-[8px]";
+  const iconBtn =
+    "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-all active:scale-95 sm:h-10 sm:w-10";
 
   return (
     <div
-      className="pointer-events-auto flex w-full max-w-[min(100%,320px)] min-w-0 flex-wrap items-stretch justify-center gap-1.5 rounded-2xl border border-outline-variant/20 bg-tertiary-container/90 px-2 py-2 shadow-[0_20px_40px_rgba(25,28,30,0.1)] backdrop-blur-xl sm:flex-nowrap sm:gap-2 sm:px-3 sm:py-2"
+      className="pointer-events-auto inline-flex w-auto max-w-none items-center gap-1 rounded-full border border-outline-variant/25 bg-tertiary-container/95 px-1.5 py-1 shadow-md backdrop-blur-md sm:gap-1.5 sm:px-2 sm:py-1.5"
       role="toolbar"
       aria-label={t("room.floatingBarAria")}
     >
@@ -38,10 +35,9 @@ export function VideoRoomFloatingBar({
         onClick={onToggleCamera}
         title={t("room.toggleCameraAria")}
         aria-label={t("room.toggleCameraAria")}
-        className={`${pillPurple} text-white/90 hover:bg-white/10 hover:text-white`}
+        className={`${iconBtn} hover:bg-white/15`}
       >
-        <span className="material-symbols-outlined shrink-0 text-[18px] sm:text-[20px]">photo_camera</span>
-        <span className={labelClass}>{t("room.toggleCamera")}</span>
+        <span className="material-symbols-outlined text-[20px] sm:text-[22px]">photo_camera</span>
       </button>
 
       <button
@@ -51,35 +47,29 @@ export function VideoRoomFloatingBar({
         aria-pressed={isRecording}
         title={isRecording ? t("room.dictationStop") : t("room.control.micShort")}
         aria-label={isRecording ? t("room.dictationStop") : t("room.control.micShort")}
-        className={`${pillPurple} text-white/90 hover:text-white disabled:opacity-40 ${
-          isRecording ? "bg-white/20 text-white" : "hover:bg-white/10"
+        className={`${iconBtn} hover:bg-white/15 disabled:opacity-40 ${
+          isRecording ? "bg-white/25 ring-2 ring-white/40" : ""
         }`}
       >
         <span
-          className={`material-symbols-outlined shrink-0 text-[18px] sm:text-[20px] ${isRecording ? "animate-pulse" : ""}`}
+          className={`material-symbols-outlined text-[20px] sm:text-[22px] ${isRecording ? "animate-pulse" : ""}`}
           style={{ fontVariationSettings: "'FILL' 1" }}
         >
           {isRecording ? "stop_circle" : "mic"}
         </span>
-        <span className={`${labelClass} line-clamp-2`}>
-          {isRecording ? t("room.dictationStop") : t("room.control.micShort")}
-        </span>
       </button>
 
-      <div className="hidden h-8 w-px shrink-0 self-center bg-white/25 sm:mx-0.5 sm:block" aria-hidden />
+      <div className="mx-0.5 h-6 w-px shrink-0 bg-white/30" aria-hidden />
 
       <button
         type="button"
         onClick={onEndSession}
         title={t("voice.control.end")}
         aria-label={t("voice.control.end")}
-        className="flex min-h-[3rem] w-[3.25rem] shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-red-500/40 bg-error px-1 pb-1.5 pt-1.5 text-on-error shadow-md transition-all hover:scale-[1.02] hover:bg-red-600 active:scale-95 sm:min-h-[3.25rem] sm:w-[3.5rem] sm:gap-1 sm:rounded-2xl sm:px-1.5 sm:pb-2 sm:pt-2"
+        className={`${iconBtn} border border-red-400/50 bg-error text-on-error hover:bg-red-600 hover:ring-1 hover:ring-red-300/50`}
       >
-        <span className="material-symbols-outlined shrink-0 text-[18px] sm:text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+        <span className="material-symbols-outlined text-[20px] sm:text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>
           call_end
-        </span>
-        <span className="w-full text-center font-body text-[7px] font-semibold uppercase leading-tight tracking-wide text-on-error line-clamp-2 sm:text-[8px]">
-          {t("voice.control.end")}
         </span>
       </button>
     </div>
