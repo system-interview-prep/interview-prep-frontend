@@ -1,5 +1,6 @@
 "use client";
 
+import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -7,21 +8,80 @@ import { createPortal } from "react-dom";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { startDemoVideoInterviewRoom } from "@/utils/demoInterviewSession";
 import { useNavigationLoading } from "@/components/NavigationLoadingProvider";
+import { useCvProcessingStatus } from "@/hooks/useCvProcessingStatus";
+import { userCvApi, type UserCvDto } from "@/services/userCvApi";
+import type { CvProcessingStatus } from "@/types/cvProcessing";
 
 type CvFile = {
   id: string;
   name: string;
   uploadedAt: string;
+  contentType?: string;
+  status?: CvProcessingStatus;
 };
 
 const STORAGE_KEY = "demo.cvFiles";
 const SELECTED_CV_SESSION_KEY = "interview.selectedCvId";
 
-function extIcon(name: string) {
-  const lower = name.toLowerCase();
-  if (lower.endsWith(".pdf")) return "picture_as_pdf";
-  if (lower.endsWith(".doc") || lower.endsWith(".docx")) return "article";
+function fileKind(name: string | undefined, mime?: string): "pdf" | "word" | "other" {
+  const lower = (name ?? "").toLowerCase();
+  if (lower.endsWith(".pdf")) return "pdf";
+  if (lower.endsWith(".doc") || lower.endsWith(".docx")) return "word";
+  const m = (mime ?? "").toLowerCase();
+  if (m.includes("pdf")) return "pdf";
+  if (m.includes("wordprocessingml") || m.includes("msword") || m.includes("officedocument")) return "word";
+  return "other";
+}
+
+function extIcon(name: string, mime?: string) {
+  const kind = fileKind(name, mime);
+  if (kind === "pdf") return "picture_as_pdf";
+  if (kind === "word") return "article";
   return "description";
+}
+
+function dtoToCvFile(d: UserCvDto): CvFile {
+  const name = d.originalName?.trim() || "document";
+  return {
+    id: d.id,
+    name,
+    uploadedAt: d.createdAt ?? new Date().toISOString(),
+    contentType: d.contentType?.trim() || undefined,
+    status: d.status,
+  };
+}
+
+function syncDemoCvFiles(items: CvFile[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, 10)));
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadLocalOnly(): CvFile[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as CvFile[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function labelForCvStatus(t: (key: string) => string, s: CvProcessingStatus | null) {
+  switch (s) {
+    case "PARSING":
+      return t("userDash.myCvs.statusParsing");
+    case "AI_PROCESSING":
+      return t("userDash.myCvs.statusAi");
+    case "DONE":
+      return t("userDash.myCvs.statusDone");
+    case "FAILED":
+      return t("userDash.myCvs.statusFailed");
+    case "PENDING":
+    default:
+      return t("userDash.myCvs.statusPending");
+  }
 }
 
 type Step = "cv" | "mode";
@@ -42,32 +102,86 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
   const [selectedCvId, setSelectedCvId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [roomStarting, setRoomStarting] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+  const [apiConnected, setApiConnected] = useState(false);
+  const [trackingCvId, setTrackingCvId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { showNavigationLoading, hideNavigationLoading } = useNavigationLoading();
 
-  const loadFiles = useCallback(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const list = raw ? (JSON.parse(raw) as CvFile[]) : [];
+  const loadFiles = useCallback(async () => {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    if (!token) {
+      const list = loadLocalOnly();
       setFiles(list);
+      setApiConnected(false);
+      setListError(null);
       setSelectedCvId((prev) => {
         if (list.length === 0) return null;
         if (prev && list.some((x) => x.id === prev)) return prev;
         return list[0].id;
       });
-    } catch {
-      setFiles([]);
-      setSelectedCvId(null);
+      return;
     }
-  }, []);
 
-  useEffect(() => setMounted(true), []);
+    try {
+      const { data } = await userCvApi.list(50);
+      const list = data.items.map(dtoToCvFile);
+      setFiles(list);
+      syncDemoCvFiles(list);
+      setApiConnected(true);
+      setListError(null);
+      setSelectedCvId((prev) => {
+        if (list.length === 0) return null;
+        if (prev && list.some((x) => x.id === prev)) return prev;
+        return list[0].id;
+      });
+    } catch (e) {
+      const local = loadLocalOnly();
+      setFiles(local);
+      setApiConnected(false);
+      setSelectedCvId((prev) => {
+        if (local.length === 0) return null;
+        if (prev && local.some((x) => x.id === prev)) return prev;
+        return local[0].id;
+      });
+      if (axios.isAxiosError(e) && e.response?.status === 401) {
+        setListError(t("userDash.myCvs.apiNeedLogin"));
+      } else {
+        setListError(t("userDash.myCvs.apiListError"));
+      }
+    }
+  }, [t]);
+
+  const finishCvTracking = useCallback(() => {
+    setTrackingCvId(null);
+    queueMicrotask(() => {
+      void loadFiles();
+    });
+  }, [loadFiles]);
+
+  const { status: cvProcessStatus, lastPayload: cvStatusPayload } = useCvProcessingStatus(trackingCvId, {
+    onDone: finishCvTracking,
+    onFailed: (p) => {
+      if (p?.error) setAnalyzeError(String(p.error));
+      finishCvTracking();
+    },
+  });
+
+  useEffect(() => {
+    queueMicrotask(() => setMounted(true));
+  }, []);
 
   useEffect(() => {
     if (!open) return;
-    setStep("cv");
-    setRoomStarting(false);
-    loadFiles();
+    queueMicrotask(() => {
+      setStep("cv");
+      setRoomStarting(false);
+      setAnalyzeError(null);
+      setListError(null);
+      void loadFiles();
+    });
     try {
       const title = jobTitle.trim();
       if (!title) return;
@@ -91,7 +205,24 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
     return () => window.removeEventListener("keydown", onKey);
   }, [open, step, onClose]);
 
-  function addFile(f: File) {
+  async function addFile(f: File) {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    if (token) {
+      try {
+        const { data } = await userCvApi.upload(f);
+        setAnalyzeError(null);
+        setTrackingCvId(data.id);
+        await loadFiles();
+      } catch (e) {
+        const msg = axios.isAxiosError(e)
+          ? String((e.response?.data as { message?: string })?.message ?? e.message)
+          : t("userDash.myCvs.apiUploadError");
+        setAnalyzeError(msg);
+      }
+      return;
+    }
+
     const entry: CvFile = {
       id: `cv_${Date.now().toString(36)}`,
       name: f.name,
@@ -103,12 +234,13 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
       return next;
     });
     setSelectedCvId(entry.id);
+    setAnalyzeError(null);
   }
 
   function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const list = e.target.files;
     if (!list?.length) return;
-    addFile(list[0]);
+    void addFile(list[0]);
     e.target.value = "";
   }
 
@@ -123,7 +255,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
       f.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
       /\.pdf$/i.test(f.name) ||
       /\.docx?$/i.test(f.name);
-    if (ok) addFile(f);
+    if (ok) void addFile(f);
   }
 
   const goToModeStep = () => {
@@ -227,6 +359,17 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
               <p className="mb-3 text-xs font-bold uppercase tracking-wide text-primary">
                 {t("userDash.jobCvModal.savedSection")}
               </p>
+              <p className="mb-3 text-[11px] text-on-surface-variant">
+                {apiConnected ? t("userDash.myCvs.listHintApi") : t("userDash.myCvs.listHint")}
+              </p>
+              {listError ? (
+                <div
+                  className="mb-3 rounded-lg border border-error/25 bg-error-container/15 px-3 py-2 text-sm text-error"
+                  role="alert"
+                >
+                  {listError}
+                </div>
+              ) : null}
               {files.length === 0 ? (
                 <p className="mb-4 rounded-xl border border-outline-variant/15 bg-surface-container/40 py-8 text-center text-sm text-on-surface-variant">
                   {t("userDash.jobCvModal.noSavedYet")}
@@ -250,12 +393,19 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                           onChange={() => setSelectedCvId(f.id)}
                         />
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary-container text-primary">
-                          <span className="material-symbols-outlined">{extIcon(f.name)}</span>
+                          <span className="material-symbols-outlined">{extIcon(f.name, f.contentType)}</span>
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-medium text-on-surface">{f.name}</span>
-                          <span className="text-[11px] text-on-surface-variant">
-                            {new Date(f.uploadedAt).toLocaleString()}
+                          <span className="flex flex-wrap items-center gap-2 text-[11px] text-on-surface-variant">
+                            <span>
+                              {new Date(f.uploadedAt).toLocaleString(lang === "vi" ? "vi-VN" : "en-US")}
+                            </span>
+                            {f.status ? (
+                              <span className="rounded-full bg-surface-container-high px-2 py-0.5 font-semibold uppercase tracking-wide text-on-surface-variant">
+                                {labelForCvStatus(t, f.status)}
+                              </span>
+                            ) : null}
                           </span>
                         </span>
                       </label>
@@ -321,6 +471,33 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                   {t("userDash.jobCvModal.linkMyCvs")}
                 </Link>
               </div>
+
+              {trackingCvId ? (
+                <div
+                  className="mt-4 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-on-surface"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span className="material-symbols-outlined mt-0.5 shrink-0 animate-spin text-primary">
+                    progress_activity
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-headline text-sm font-bold">{t("userDash.myCvs.processingTitle")}</p>
+                    <p className="mt-0.5 text-sm text-on-surface-variant">
+                      {labelForCvStatus(t, cvProcessStatus)}
+                    </p>
+                    {cvStatusPayload?.status === "FAILED" && cvStatusPayload.error ? (
+                      <p className="mt-2 text-sm text-error">{String(cvStatusPayload.error)}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {analyzeError ? (
+                <p className="mt-3 text-sm text-error" role="alert">
+                  {analyzeError}
+                </p>
+              ) : null}
 
               {files.length > 0 && !selectedCvId && (
                 <p className="mt-3 text-center text-sm text-error">{t("userDash.jobCvModal.needSelect")}</p>
