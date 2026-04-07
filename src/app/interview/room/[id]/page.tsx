@@ -20,7 +20,7 @@ function RoomContent() {
   const roomId = params?.id as string;
   const language = searchParams.get('language') ?? 'English';
 
-  const { localStream, isConnected, toggleMic, toggleCamera, hangUp } = useWebRTC(roomId);
+  const { localStream, isConnected, toggleCamera, hangUp } = useWebRTC(roomId);
   const { messages, sendMessage } = useSocket(roomId);
 
   const handleVoiceInput = useCallback((text: string) => {
@@ -48,8 +48,8 @@ function RoomContent() {
       <InterviewRoomHeader />
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-gradient-to-br from-primary/[0.06] via-surface to-tertiary/[0.05] p-3 sm:p-4 lg:p-6">
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant/25 bg-[#f4f6f8] pb-[7.5rem] sm:rounded-3xl sm:pb-28">
+        <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-gradient-to-br from-primary/[0.06] via-surface to-tertiary/[0.05] p-2 sm:p-3 lg:min-w-0 lg:flex-[1.65] lg:p-4">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant/25 bg-[#f4f6f8] pb-[5.5rem] sm:rounded-3xl sm:pb-24">
             {isRecording && (
               <div className="absolute left-1/2 top-3 z-30 flex max-w-[min(100%,28rem)] -translate-x-1/2 items-center gap-2 rounded-full border border-primary/20 bg-surface-container-lowest/95 px-4 py-2.5 text-sm text-on-surface shadow-lg backdrop-blur-md">
                 <span className="relative flex h-2.5 w-2.5 shrink-0">
@@ -68,16 +68,16 @@ function RoomContent() {
               </div>
             )}
 
-            <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 p-3 sm:grid-cols-2 sm:gap-4 sm:p-4">
-              <div className="relative aspect-video w-full min-h-0">
+            <div className="grid min-h-0 flex-1 grid-cols-1 content-stretch gap-3 p-2 sm:grid-cols-2 sm:gap-3 sm:p-3 lg:min-h-0">
+              <div className="relative min-h-[44vh] w-full sm:min-h-[min(52vh,50dvh)] lg:min-h-[min(68vh,calc(100vh-11rem))]">
                 <VideoPlayer stream={localStream} label={t('room.you')} muted />
               </div>
-              <div className="relative aspect-video w-full min-h-0">
+              <div className="relative min-h-[44vh] w-full sm:min-h-[min(52vh,50dvh)] lg:min-h-[min(68vh,calc(100vh-11rem))]">
                 <SimliAvatar />
               </div>
             </div>
 
-            <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex flex-col items-center gap-2 px-2 sm:bottom-5 sm:px-4">
+            <div className="pointer-events-none absolute inset-x-0 bottom-2 z-20 flex flex-col items-center gap-1.5 px-2 sm:bottom-4 sm:px-3">
               <div
                 className={`pointer-events-auto flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm ${
                   isConnected
@@ -96,7 +96,6 @@ function RoomContent() {
               <VideoRoomFloatingBar
                 recorderSupported={recorderSupported}
                 isRecording={isRecording}
-                onToggleMic={toggleMic}
                 onToggleCamera={toggleCamera}
                 onToggleDictation={toggleDictation}
                 onEndSession={handleHangUp}
@@ -107,7 +106,7 @@ function RoomContent() {
 
         <aside
           id="video-room-chat-panel"
-          className="flex h-[min(40vh,320px)] w-full shrink-0 border-t border-outline-variant/20 bg-surface-container-low/50 lg:h-auto lg:w-[22rem] lg:border-l lg:border-t-0 xl:w-[24rem]"
+          className="flex h-[min(36vh,280px)] w-full shrink-0 border-t border-outline-variant/20 bg-surface-container-low/50 lg:h-auto lg:w-[17.5rem] lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[18rem]"
         >
           <ChatBox
             messages={messages}
