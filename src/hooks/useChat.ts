@@ -13,6 +13,12 @@ import {
     type SessionMeta,
 } from "../utils/chatSessionMeta";
 
+type InterviewMode = "chat" | "voice";
+
+type UseChatOptions = {
+    defaultMode?: InterviewMode;
+};
+
 export type ChatSessionListItem = {
     id: string;
     preview: string;
@@ -27,7 +33,30 @@ function normalizeSessionId(raw: unknown): string {
     return s === "undefined" || s === "null" ? "" : s;
 }
 
-export function useChat() {
+function getDemoSessionTopic(mode: InterviewMode, language: string): string {
+    if (mode === "voice") {
+        return language === "vietnamese" ? "Gọi thoại AI" : "AI Voice Call";
+    }
+    return language === "vietnamese" ? "Phỏng vấn chat AI" : "AI Chat Interview";
+}
+
+function recordDemoSession(roomId: string, topic: string, mode: InterviewMode) {
+    if (typeof window === "undefined") return;
+    try {
+        const raw = localStorage.getItem("demo.sessions");
+        const prev = raw ? (JSON.parse(raw) as Array<{ roomId: string; topic: string; startedAt: string; mode?: string }>) : [];
+        const next = [
+            { roomId, topic, startedAt: new Date().toISOString(), mode },
+            ...prev.filter((item) => item.roomId !== roomId),
+        ].slice(0, 50);
+        localStorage.setItem("demo.sessions", JSON.stringify(next));
+    } catch {
+        /* ignore */
+    }
+}
+
+export function useChat(options: UseChatOptions = {}) {
+    const defaultMode = options.defaultMode ?? "chat";
     const [messages, setMessages] = useState<Message[]>([]);
     const [sessionId, setSessionId] = useState<string>("");
     const [language, setLanguage] = useState<string>("vietnamese");
@@ -104,7 +133,9 @@ export function useChat() {
                 setIsLoading(true);
                 setError(null);
                 const res = await createSession();
+                const nextLanguage = lang ?? language;
                 if (lang) setLanguage(lang);
+                recordDemoSession(res.sessionId, getDemoSessionTopic(defaultMode, nextLanguage), defaultMode);
                 await loadSession(res.sessionId);
                 await fetchSessions();
             } catch (err) {
@@ -112,7 +143,7 @@ export function useChat() {
                 setIsLoading(false);
             }
         },
-        [fetchSessions, loadSession]
+        [defaultMode, fetchSessions, language, loadSession]
     );
 
     const sendMessageInternal = useCallback(
@@ -227,7 +258,7 @@ export function useChat() {
 
     useEffect(() => {
         startNewSession();
-    }, []);
+    }, [startNewSession]);
 
     const sessionListItems: ChatSessionListItem[] = useMemo(() => {
         return [...sessions]

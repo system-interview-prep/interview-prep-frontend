@@ -57,7 +57,7 @@ export default async function AdminSettingsPage() {
   return (
     <div className="bg-surface font-body text-on-surface antialiased">
       {/* SideNavBar */}
-      <aside className="h-screen w-72 flex-col fixed left-0 top-0 bg-[#f2f4f6] dark:bg-slate-900 font-headline antialiased tracking-tight flex py-12 px-6 z-50">
+      <aside className="fixed left-0 top-0 z-50 flex h-dvh w-80 flex-col overflow-y-auto overscroll-contain bg-[#f2f4f6] px-6 py-12 font-headline antialiased tracking-tight dark:bg-slate-900 xl:w-96">
         <AdminSidebarBrand />
 
         <nav className="flex-1 space-y-2">
@@ -156,7 +156,7 @@ export default async function AdminSettingsPage() {
       </aside>
 
       {/* TopNavBar */}
-      <header className="fixed top-0 right-0 left-72 h-20 bg-[#f7f9fb] dark:bg-slate-950 flex justify-between items-center px-12 z-40">
+      <header className="fixed top-0 right-0 left-80 z-40 flex h-20 items-center justify-between bg-[#f7f9fb] px-12 dark:bg-slate-950 xl:left-96">
         <div className="flex items-center gap-8">
           <span className="text-xl font-black text-[#191c1e] dark:text-white font-headline">
             {t("admin.topbar.title")}
@@ -204,7 +204,7 @@ export default async function AdminSettingsPage() {
       </header>
 
       {/* Main Content Stage */}
-      <main className="ml-72 pt-20 min-h-screen">
+      <main className="ml-80 min-h-screen pt-20 xl:ml-96">
         <div className="max-w-6xl mx-auto px-12 py-16">
           {/* Page Header */}
           <div className="mb-16 flex justify-between items-end">

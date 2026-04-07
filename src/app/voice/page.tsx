@@ -19,6 +19,8 @@ import { formatRelativeTime } from "../../utils/chatSessionMeta";
 import { VoiceFloatingBar } from "./components/VoiceFloatingBar";
 import { VoiceLiveTranscript } from "./components/VoiceLiveTranscript";
 import { VoiceStage } from "./components/VoiceStage";
+import { useResizableSidebar } from "../../hooks/useResizableSidebar";
+import { useResizableWidth } from "../../hooks/useResizableWidth";
 
 function sessionLabel(t: (key: string) => string, index: number) {
   return t("chatInterview.sessionNumber").replace("{n}", String(index + 1));
@@ -27,6 +29,13 @@ function sessionLabel(t: (key: string) => string, index: number) {
 export default function VoiceChatPage() {
   const { t, lang } = useLanguage();
   const router = useRouter();
+  const { sidebarWidth, startResize } = useResizableSidebar();
+  const { width: transcriptWidth, startResize: startTranscriptResize } = useResizableWidth({
+    storageKey: "voice.transcriptWidth.v1",
+    defaultWidth: 430,
+    minWidth: 320,
+    maxWidth: 640,
+  });
   const {
     messages,
     sessionId,
@@ -38,7 +47,7 @@ export default function VoiceChatPage() {
     sendVoiceMessage,
     isLoading,
     error,
-  } = useChat();
+  } = useChat({ defaultMode: "voice" });
 
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [lastSpokenId, setLastSpokenId] = useState<number | null>(null);
@@ -101,15 +110,23 @@ export default function VoiceChatPage() {
   const waveformActive = isRecording || isSpeaking;
 
   return (
-    <div className="flex h-screen bg-surface font-body text-on-surface overflow-hidden">
+    <div
+      className="flex h-screen bg-surface font-body text-on-surface overflow-hidden"
+      style={{
+        ["--sidebar-width" as any]: `${sidebarWidth}px`,
+        ["--transcript-width" as any]: `${transcriptWidth}px`,
+      } as React.CSSProperties}
+    >
       <Sidebar
         sessionListItems={sessionListItems}
         currentSessionId={sessionId}
         onSelectSession={loadSession}
         onNewSession={() => startNewSession(language)}
+        sidebarWidth={sidebarWidth}
+        onResizeStart={startResize}
       />
 
-      <main className="flex-1 md:ml-[17.5rem] flex flex-col h-full min-w-0 bg-gradient-to-br from-primary/[0.04] via-surface to-tertiary/[0.06] pb-24 md:pb-0">
+      <main className="flex-1 flex flex-col h-full min-w-0 bg-gradient-to-br from-primary/[0.04] via-surface to-tertiary/[0.06] pb-24 md:pb-0 md:ml-[var(--sidebar-width)]">
         <VoiceHeader
           voiceEnabled={voiceEnabled}
           supportsVoice={supportsVoice}
@@ -171,28 +188,41 @@ export default function VoiceChatPage() {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col px-2 py-3 sm:px-4 sm:py-4">
-          <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-0 lg:rounded-3xl lg:border lg:border-outline-variant/25 lg:bg-surface-container-lowest/90 lg:shadow-[0_16px_56px_-20px_rgba(86,0,190,0.12)] lg:overflow-hidden">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_12px_var(--transcript-width)] lg:gap-0 lg:rounded-3xl lg:border lg:border-outline-variant/25 lg:bg-surface-container-lowest/90 lg:shadow-[0_16px_56px_-20px_rgba(86,0,190,0.12)] lg:overflow-hidden">
             {/* Main stage ~2/3 */}
-            <div className="relative flex min-h-[min(52vh,480px)] flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-[#f4f6f8] pb-28 lg:min-h-0 lg:rounded-none lg:border-0 lg:bg-[#f4f6f8]">
+            <div className="relative flex min-h-[min(52vh,480px)] flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-[#f4f6f8] pb-8 lg:col-start-1 lg:min-h-0 lg:min-w-0 lg:rounded-none lg:border-0 lg:bg-[#f4f6f8]">
               <VoiceStage
                 waveformActive={waveformActive}
                 interimTranscript={interimTranscript}
                 recognitionError={recognitionError}
                 isRecording={isRecording}
+                aiActive={isSpeaking}
+                candidateActive={isRecording}
+                controls={
+                  <VoiceFloatingBar
+                    recorderSupported={recorderSupported}
+                    isRecording={isRecording}
+                    onMicToggle={handleMicToggle}
+                    onEndSession={() => router.push("/dashboard")}
+                  />
+                }
               />
-
-              <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-3 sm:bottom-5">
-                <VoiceFloatingBar
-                  recorderSupported={recorderSupported}
-                  isRecording={isRecording}
-                  onMicToggle={handleMicToggle}
-                  onEndSession={() => router.push("/dashboard")}
-                />
-              </div>
             </div>
 
+            <button
+              type="button"
+              onPointerDown={startTranscriptResize}
+              aria-label="Resize transcript panel"
+              title="Resize transcript panel"
+              className="hidden lg:flex lg:col-start-2 w-3 shrink-0 cursor-col-resize items-stretch justify-center border-0 bg-transparent p-0 outline-none"
+            >
+              <span className="my-4 w-px rounded-full bg-outline-variant/25 transition-colors hover:bg-primary/50" />
+            </button>
+
             {/* Live transcript ~1/3 */}
-            <div className="flex min-h-[min(42vh,380px)] flex-1 flex-col lg:min-h-0 lg:max-w-[440px] lg:flex-[0.42] xl:max-w-[460px]">
+            <div
+              className="flex min-h-[min(42vh,380px)] flex-1 flex-col lg:col-start-3 lg:min-h-0 lg:min-w-0"
+            >
               <VoiceLiveTranscript messages={messages} sessionId={sessionId} isLoading={isLoading} />
             </div>
           </div>

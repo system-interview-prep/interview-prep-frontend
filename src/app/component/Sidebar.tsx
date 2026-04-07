@@ -13,6 +13,8 @@ type SidebarProps = {
   currentSessionId: string;
   onSelectSession: (id: string) => void;
   onNewSession: () => void;
+  sidebarWidth: number;
+  onResizeStart: (event: React.PointerEvent<HTMLElement>) => void;
 };
 
 function sessionTitle(t: (key: string) => string, index: number) {
@@ -24,6 +26,8 @@ export function Sidebar({
   currentSessionId,
   onSelectSession,
   onNewSession,
+  sidebarWidth,
+  onResizeStart,
 }: SidebarProps) {
   const { t, lang } = useLanguage();
   const pathname = usePathname();
@@ -32,7 +36,19 @@ export function Sidebar({
   const isVoice = pathname.startsWith("/voice");
 
   return (
-    <aside className="bg-[#f9fafb] dark:bg-slate-800/50 h-screen w-[17.5rem] fixed left-0 top-0 z-40 hidden md:flex flex-col font-body text-sm font-medium border-r border-outline-variant/20">
+    <aside
+      className="bg-[#f9fafb] dark:bg-slate-800/50 h-screen fixed left-0 top-0 z-40 hidden md:flex flex-col font-body text-sm font-medium border-r border-outline-variant/20"
+      style={{ width: `${sidebarWidth}px` }}
+    >
+      <button
+        type="button"
+        onPointerDown={onResizeStart}
+        aria-label="Resize sidebar"
+        title="Resize sidebar"
+        className="absolute right-0 top-0 h-full w-3 translate-x-1/2 cursor-col-resize touch-none border-0 bg-transparent p-0 outline-none"
+      >
+        <span className="absolute inset-y-4 left-1/2 w-px -translate-x-1/2 rounded-full bg-primary/20 transition-colors hover:bg-primary/50" />
+      </button>
       <div className="flex flex-col h-full min-h-0 p-4 sm:p-5">
         <Link
           href="/dashboard"

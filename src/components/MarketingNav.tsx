@@ -40,11 +40,14 @@ export default async function MarketingNav({ active }: { active: MarketingNavAct
 
   return (
     <nav className="bg-[#f7f9fb] sticky top-0 z-50 transition-colors duration-200">
-      <div className="flex justify-between items-center w-full px-6 md:px-12 py-4 mx-auto max-w-7xl">
+      <div className="flex w-full max-w-[1600px] items-center justify-between px-6 py-4 mx-auto sm:px-8 lg:px-16">
         <Link
           href="/"
-          className="text-2xl font-black text-[#191c1e] tracking-tighter font-headline shrink-0"
+          className="flex items-center gap-3 text-2xl font-black text-[#191c1e] tracking-tighter font-headline shrink-0"
         >
+          <div className="w-8 h-8 overflow-hidden rounded-lg flex items-center justify-center">
+            <img src="/logo.jpg" alt="INTERVIA Logo" className="w-full h-full object-cover" />
+          </div>
           {t("marketing.brandCurator")}
         </Link>
         <div className="hidden md:flex items-center space-x-8 font-headline tracking-tight">

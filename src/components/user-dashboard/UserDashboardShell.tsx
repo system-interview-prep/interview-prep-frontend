@@ -44,36 +44,34 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
     `${navBase} ${navReady && active ? navActive : navInactive}`;
 
   return (
-    <div className="bg-surface font-body text-on-surface min-h-screen">
-      <aside className="hidden md:flex md:flex-col h-screen w-64 fixed left-0 top-0 bg-[#f2f4f6] dark:bg-slate-800/50 z-40">
-        <div className="flex flex-col h-full p-6 space-y-8">
+    <div className="min-h-screen bg-surface font-body text-on-surface">
+      <aside className="fixed left-0 top-0 z-40 hidden h-dvh w-80 flex-col justify-between overflow-y-auto overscroll-contain bg-[#f2f4f6] dark:bg-slate-800/50 md:flex xl:w-96">
+        <div className="space-y-6 p-6">
           <Link
             href="/dashboard"
             className="flex items-center gap-3 rounded-xl px-2 py-1 transition-colors hover:bg-black/[0.04] dark:hover:bg-white/5"
             aria-label={t("interview.select.backDashboard")}
           >
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">
-              <span className="material-symbols-outlined text-sm">psychology</span>
+            <div className="w-10 h-10 overflow-hidden rounded-lg flex items-center justify-center">
+              <img src="/logo.jpg" alt="INTERVIA" className="w-full h-full object-cover" />
             </div>
             <div>
-              <h1 className="font-headline font-extrabold text-[#191c1e] dark:text-white leading-none">
+              <h1 className="text-2xl font-bold tracking-tighter text-[#191c1e] dark:text-white">
                 {t("userDash.sidebar.brand")}
               </h1>
-              <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">
-                {t("userDash.sidebar.tagline")}
-              </p>
+              <p className="text-xs text-on-surface-variant">AI Interview Suite</p>
             </div>
           </Link>
 
           <Link
             href="/interview/select"
-            className="w-full py-3 px-4 bg-primary text-on-primary rounded-xl font-headline font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary-container transition-all active:scale-95 shadow-sm"
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-headline text-sm font-bold text-on-primary shadow-sm transition-all active:scale-95 hover:bg-primary-container"
           >
             <span className="material-symbols-outlined text-lg">add</span>
             {t("userDash.nav.newInterview")}
           </Link>
 
-          <nav className="flex-1 space-y-2">
+          <nav className="space-y-2">
             <Link
               href="/dashboard"
               className={linkClass(isActive.dashboard)}
@@ -125,7 +123,7 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
             </Link>
           </nav>
 
-          <div className="pt-6 border-t border-outline-variant/20 space-y-2">
+          <div className="border-t border-outline-variant/20 pt-6 space-y-2">
             <Link
               href="/resources"
               className={linkClass(isActive.help)}
@@ -144,7 +142,7 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="ml-0 md:ml-64 min-h-screen pb-28 md:pb-0">{children}</div>
+      <div className="ml-0 min-h-screen pb-28 md:ml-80 md:pb-0 xl:ml-96">{children}</div>
 
       <nav className="md:hidden fixed bottom-8 left-1/2 -translate-x-1/2 rounded-full px-6 py-3 w-fit min-w-[280px] max-w-[calc(100vw-2rem)] bg-[#7029e1]/85 backdrop-blur-xl flex items-center justify-around gap-4 z-50 shadow-[0_40px_60px_rgba(25,28,30,0.04)] border border-[#c3c6d6]/20">
         <Link

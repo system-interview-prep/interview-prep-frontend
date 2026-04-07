@@ -59,10 +59,10 @@ export default function ChatBox({ messages, onSendMessage }: Props) {
             return (
               <div
                 key={i}
-                className={`flex gap-3 ${isAi ? '' : 'flex-row-reverse'}`}
+                className={`flex items-start gap-3 ${isAi ? '' : 'flex-row-reverse'}`}
               >
                 <div
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm ${
+                  className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm ${
                     isAi ? 'ai-gradient-bg text-on-primary' : 'bg-primary-fixed text-primary'
                   }`}
                 >
@@ -70,7 +70,7 @@ export default function ChatBox({ messages, onSendMessage }: Props) {
                     {isAi ? 'psychology' : 'person'}
                   </span>
                 </div>
-                <div className={`min-w-0 max-w-[min(100%,28rem)] ${isAi ? '' : 'text-right'}`}>
+                <div className={`min-w-0 max-w-[min(100%,32rem)] flex-1 ${isAi ? '' : 'text-right'}`}>
                   <div
                     className={`mb-1 flex flex-wrap items-baseline gap-2 ${isAi ? '' : 'flex-row-reverse justify-end'}`}
                   >

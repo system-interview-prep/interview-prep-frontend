@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Curator AI — Dashboard",
+  title: "INTERVIA — Dashboard",
   description: "Your editorial intelligence dashboard",
 };
 

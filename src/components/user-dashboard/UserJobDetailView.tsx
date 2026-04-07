@@ -38,7 +38,14 @@ export default function UserJobDetailView() {
       setError(null);
       try {
         const { data } = await jobProfileApi.get(id);
-        if (!cancelled) setProfile(data);
+        if (!cancelled) {
+          if (data.status !== "ACTIVE") {
+            setError(t("admin.jobProfile.detail.notFound"));
+            setProfile(null);
+          } else {
+            setProfile(data);
+          }
+        }
       } catch (e: unknown) {
         if (!cancelled) {
           const notFound = axios.isAxiosError(e) && e.response?.status === 404;

@@ -4,6 +4,7 @@ export type DemoSession = {
   roomId: string;
   topic: string;
   startedAt: string;
+  mode: "video";
 };
 
 function safeParse(value: string | null): DemoSession[] {
@@ -27,7 +28,7 @@ export async function startDemoVideoInterviewRoom(lang: "en" | "vi", jobTitle?: 
     const fallback = lang === "vi" ? "Phỏng vấn video AI" : "AI video interview";
     const topic = jobTitle?.trim() || fallback;
     const prev = safeParse(localStorage.getItem("demo.sessions"));
-    const next = [{ roomId, startedAt, topic }, ...prev].slice(0, 50);
+    const next = [{ roomId, startedAt, topic, mode: "video" as const }, ...prev].slice(0, 50);
     localStorage.setItem("demo.sessions", JSON.stringify(next));
 
     // Điều hướng vào phòng ảo

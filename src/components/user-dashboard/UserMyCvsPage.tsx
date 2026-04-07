@@ -279,6 +279,20 @@ export default function UserMyCvsPage() {
     return "—";
   };
 
+  const typeBadgeClass = (f: CvFile) => {
+    const k = fileKind(f.name, f.contentType);
+    if (k === "pdf") return "bg-error-container text-error";
+    if (k === "word") return "bg-primary/12 text-primary";
+    return "bg-surface-container text-on-surface-variant";
+  };
+
+  const typeIconClass = (f: CvFile) => {
+    const k = fileKind(f.name, f.contentType);
+    if (k === "pdf") return "text-error";
+    if (k === "word") return "text-primary";
+    return "text-on-surface-variant";
+  };
+
   const formatDate = (iso: string) => {
     try {
       return new Date(iso).toLocaleString(lang === "vi" ? "vi-VN" : "en-US", {
@@ -492,7 +506,9 @@ export default function UserMyCvsPage() {
                         <tr key={f.id} className="hover:bg-surface-container/40">
                           <td className="py-3 pr-4 align-top">
                             <div className="flex items-start gap-2">
-                              <span className="material-symbols-outlined mt-0.5 shrink-0 text-primary">{extIcon(f.name, f.contentType)}</span>
+                              <span className={`material-symbols-outlined mt-0.5 shrink-0 ${typeIconClass(f)}`}>
+                                {extIcon(f.name, f.contentType)}
+                              </span>
                               <div className="min-w-0">
                                 <p className="font-semibold text-on-surface">{displayName(f.name)}</p>
                                 <p className="truncate text-xs text-on-surface-variant">{f.name}</p>
@@ -500,7 +516,7 @@ export default function UserMyCvsPage() {
                             </div>
                           </td>
                           <td className="py-3 pr-4 align-top">
-                            <span className="inline-flex rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${typeBadgeClass(f)}`}>
                               {typeLabel(f)}
                             </span>
                           </td>
@@ -530,12 +546,14 @@ export default function UserMyCvsPage() {
                       className="rounded-xl border border-outline-variant/15 bg-surface-container p-4"
                     >
                       <div className="flex items-start gap-3">
-                        <span className="material-symbols-outlined text-primary">{extIcon(f.name, f.contentType)}</span>
+                        <span className={`material-symbols-outlined ${typeIconClass(f)}`}>
+                          {extIcon(f.name, f.contentType)}
+                        </span>
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-on-surface">{displayName(f.name)}</p>
                           <p className="truncate text-xs text-on-surface-variant">{f.name}</p>
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
-                            <span className="rounded-full bg-primary/12 px-2 py-0.5 font-bold uppercase text-primary">
+                            <span className={`rounded-full px-2 py-0.5 font-bold uppercase ${typeBadgeClass(f)}`}>
                               {typeLabel(f)}
                             </span>
                             <span>{formatDate(f.uploadedAt)}</span>

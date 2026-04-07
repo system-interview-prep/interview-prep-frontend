@@ -5,9 +5,10 @@ import ReactMarkdown from "react-markdown";
 import { useLanguage } from "../../i18n/LanguageProvider";
 import { useAudioPlayer } from "../../hooks/useAudioPlayer";
 import { Message } from "../../types/message";
+import { useAuthProfile } from "../../auth/useAuthProfile";
 
-const USER_AVATAR =
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuANxLApOHiowhCsioppvGgOxOSILLf4zYRMsffPPCl4hkxCPz9RPnPvOho6bVVoWFvtoiH9KvrMS8pzEBjmq0wFMAjHqUAd-EkN05TTwGQ_dlWJGRjuesDHFfSd5iqLZSFbd5UAD56n36FgAZsp0wlXjHmSvyyJOdiuXQRAibdi_CTrdBc9nh1cwjmXH812AfEj9a_Vcgx29noqRFGxVHF7SrSeqvehmlobibXUTmHazzv5cdQxLQHR0ZzQJ1ZeiKVolMfG4jlymYWQ";
+const AI_AVATAR = "/logo.jpg";
+const DEFAULT_USER_AVATAR = "/default-avatar.svg";
 
 function formatMessageTime(sentAt: number | undefined, locale: string) {
   if (sentAt == null) return null;
@@ -37,6 +38,9 @@ export function ChatMessages({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { t, lang } = useLanguage();
   const { playAudio, supportsVoice } = useAudioPlayer();
+  const { profile, displayName } = useAuthProfile();
+  const userAvatarSrc = profile?.picture?.trim() || DEFAULT_USER_AVATAR;
+  const userAvatarAlt = displayName ? `${displayName} avatar` : t("chat.you");
 
   const onListen = useCallback(
     (m: Message) => {
@@ -79,13 +83,8 @@ export function ChatMessages({
           return (
             <div key={msg.id} className="flex gap-6 max-w-[85%]">
               <div className="flex-shrink-0">
-                <div className="w-12 h-12 rounded-xl ai-gradient-bg flex items-center justify-center text-on-primary shadow-lg">
-                  <span
-                    className="material-symbols-outlined text-[28px]"
-                    style={{ fontVariationSettings: "'FILL' 1" }}
-                  >
-                    psychology
-                  </span>
+                <div className="w-12 h-12 rounded-xl overflow-hidden border border-outline-variant/20 bg-surface-container shadow-lg">
+                  <img src={AI_AVATAR} alt="INTERVIA" className="h-full w-full object-cover" />
                 </div>
               </div>
               <div className="space-y-3 pt-1 min-w-0">
@@ -122,7 +121,19 @@ export function ChatMessages({
           <div key={msg.id} className="flex flex-row-reverse gap-6 max-w-[85%] ml-auto">
             <div className="flex-shrink-0">
               <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-primary/10 bg-surface-container">
-                <img alt="" className="w-full h-full object-cover" src={USER_AVATAR} width={48} height={48} />
+                <img
+                  alt={userAvatarAlt}
+                  className="w-full h-full object-cover"
+                  src={userAvatarSrc}
+                  width={48}
+                  height={48}
+                  onError={(event) => {
+                    const target = event.currentTarget;
+                    if (target.src !== window.location.origin + DEFAULT_USER_AVATAR) {
+                      target.src = DEFAULT_USER_AVATAR;
+                    }
+                  }}
+                />
               </div>
             </div>
             <div className="space-y-3 pt-1 text-right min-w-0">

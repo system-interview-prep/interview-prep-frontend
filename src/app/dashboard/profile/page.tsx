@@ -125,14 +125,16 @@ export default function ProfilePage() {
             </h1>
             <p className="mt-2 max-w-2xl font-body text-lg text-on-surface-variant">{t("profile.subtitle")}</p>
           </div>
-          <div className="relative z-[1] flex flex-wrap items-center gap-4 sm:justify-end">
+          <div className="relative z-[1] flex flex-wrap items-center gap-4 sm:flex-nowrap sm:justify-end">
             <LanguageToggleButton />
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="font-headline font-bold text-on-surface">{displayName || "—"}</p>
-                <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                  {roleLabel}
+            <div className="flex items-center gap-4 whitespace-nowrap">
+              <div className="flex items-center gap-3 whitespace-nowrap text-right sm:text-left">
+                <p className="font-headline text-base font-bold leading-none text-on-surface sm:text-lg">
+                  {displayName || "—"}
                 </p>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant sm:text-xs">
+                  {roleLabel}
+                </span>
               </div>
               <Link
                 href="/dashboard"
@@ -160,7 +162,7 @@ export default function ProfilePage() {
           <aside className="space-y-6 lg:col-span-5">
             <div className="overflow-hidden rounded-2xl border border-outline-variant/10 bg-surface-container-lowest shadow-lg shadow-primary/5 transition-shadow duration-300 hover:shadow-xl hover:shadow-primary/10">
               <div className="bg-gradient-to-br from-primary/90 to-tertiary px-6 py-8 text-on-primary">
-                <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left sm:gap-5">
+                <div className="flex flex-col items-center text-center sm:flex-row sm:items-center sm:gap-5 sm:text-left">
                   {profile?.picture ? (
                     <img
                       alt=""
@@ -176,18 +178,20 @@ export default function ProfilePage() {
                     <p className="text-[10px] font-bold uppercase tracking-widest text-white/75">
                       {t("profile.identityTitle")}
                     </p>
-                    <p className="mt-1 font-headline text-xl font-bold leading-tight text-white">
-                      {displayName || "—"}
-                    </p>
+                    <div className="mt-1 flex items-center gap-3 whitespace-nowrap">
+                      <p className="font-headline text-xl font-bold leading-tight text-white">
+                        {displayName || "—"}
+                      </p>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-white/80 sm:text-xs">
+                        {roleLabel}
+                      </span>
+                    </div>
                     {email ? (
                       <p className="mt-2 flex items-center justify-center gap-1.5 text-sm text-white/90 sm:justify-start">
                         <span className="material-symbols-outlined text-base opacity-80">mail</span>
                         <span className="truncate">{email}</span>
                       </p>
                     ) : null}
-                    <span className="mt-3 inline-flex rounded-full bg-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-                      {roleLabel}
-                    </span>
                   </div>
                 </div>
               </div>

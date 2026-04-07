@@ -11,6 +11,10 @@ import { JobInterviewCvModal } from "@/components/user-dashboard/JobInterviewCvM
 
 const PREVIEW_LIMIT = 6;
 
+function isActiveProfile(profile: JobProfile): boolean {
+  return profile.status === "ACTIVE";
+}
+
 function formatRelativeShort(iso: string, locale: string) {
   try {
     const d = new Date(iso);
@@ -65,7 +69,7 @@ export default function UserJobProfilesSection() {
           limit: PREVIEW_LIMIT,
           order: "desc",
         });
-        if (!cancelled) setProfiles(data.items ?? []);
+        if (!cancelled) setProfiles((data.items ?? []).filter(isActiveProfile));
       } catch (e: unknown) {
         const msg = axios.isAxiosError(e)
           ? String((e.response?.data as { message?: string })?.message ?? e.message)

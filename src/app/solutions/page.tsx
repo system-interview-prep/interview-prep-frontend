@@ -317,7 +317,7 @@ export default async function SolutionsPage() {
       <footer className="w-full border-t border-[#c3c6d6]/20 py-12 bg-[#f7f9fb]">
         <div className="max-w-7xl mx-auto px-6 md:px-12 flex flex-col md:flex-row justify-between items-center gap-8 md:gap-0 md:space-y-0">
           <div className="flex flex-col items-center md:items-start space-y-4 text-center md:text-left">
-            <div className="font-headline font-bold text-[#191c1e] text-xl">Curator AI</div>
+            <div className="font-headline font-bold text-[#191c1e] text-xl">INTERVIA</div>
             <p className="font-body text-xs text-[#434654] max-w-xs">{t("footer.copyright")}</p>
           </div>
           <div className="flex flex-wrap justify-center gap-6 md:gap-8 font-body text-xs text-[#434654]">

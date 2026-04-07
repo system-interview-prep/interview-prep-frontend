@@ -216,9 +216,12 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
           />
         </div>
         <div className="relative z-10">
-          <Link href="/">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="w-10 h-10 overflow-hidden rounded-lg flex items-center justify-center">
+              <img src="/logo.jpg" alt="INTERVIA Logo" className="w-full h-full object-cover" />
+            </div>
             <h1 className="font-headline font-black text-white text-4xl tracking-tighter">
-              Curator AI
+              INTERVIA
             </h1>
           </Link>
           <p className="text-on-primary-container/80 mt-2 font-medium tracking-wide">
@@ -600,9 +603,12 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
 
       {/* Floating Branding Anchor (Mobile Only) */}
       <div className="md:hidden fixed top-6 left-6 z-50">
-        <Link href="/">
+        <Link href="/" className="flex items-center gap-2">
+          <div className="w-8 h-8 overflow-hidden rounded-lg flex items-center justify-center">
+            <img src="/logo.jpg" alt="INTERVIA Logo" className="w-full h-full object-cover" />
+          </div>
           <h1 className="font-headline font-black text-primary text-2xl tracking-tighter">
-            Curator AI
+            INTERVIA
           </h1>
         </Link>
       </div>

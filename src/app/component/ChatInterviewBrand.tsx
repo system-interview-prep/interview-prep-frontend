@@ -29,7 +29,6 @@ export function ChatInterviewBrand({
     : isSidebar
       ? "h-10 w-10 rounded-[11px]"
       : "h-11 w-11 rounded-xl";
-  const iconSize = compact ? "text-[22px]" : isSidebar ? "text-[24px]" : "text-[26px]";
   const titleClass = compact
     ? "text-base sm:text-[17px] font-bold text-[#191c1e] dark:text-white leading-tight"
     : isSidebar
@@ -55,14 +54,9 @@ export function ChatInterviewBrand({
   return (
     <div className={`flex min-w-0 items-center gap-2.5 ${isSidebar ? "items-start sm:items-center" : ""}`}>
       <div
-        className={`flex shrink-0 items-center justify-center bg-primary text-on-primary shadow-sm ${iconBox} ${isSidebar ? "mt-0.5 sm:mt-0" : ""}`}
+        className={`relative overflow-hidden shrink-0 bg-surface-container shadow-sm ${iconBox} ${isSidebar ? "mt-0.5 sm:mt-0" : ""}`}
       >
-        <span
-          className={`material-symbols-outlined ${iconSize}`}
-          style={{ fontVariationSettings: "'FILL' 1" }}
-        >
-          psychology
-        </span>
+        <img src="/logo.jpg" alt="INTERVIA" className="h-full w-full object-cover" />
       </div>
       <div className="min-w-0 flex flex-col gap-0.5">
         <span className={`font-headline ${titleClass}`}>{t("chatInterview.brandTitle")}</span>

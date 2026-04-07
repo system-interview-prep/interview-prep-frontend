@@ -3,7 +3,7 @@ import AdminDashboardShell from "../../../../../components/admin/AdminDashboardS
 import AdminJobProfileDetailView from "../../../../../components/admin/AdminJobProfileDetailView";
 
 export const metadata = {
-  title: "Job profile | Curator AI",
+  title: "Job profile | INTERVIA",
 };
 
 export default function AdminJobProfileDetailPage() {

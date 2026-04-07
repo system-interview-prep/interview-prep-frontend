@@ -2,7 +2,7 @@ import AdminDashboardShell from "../../../../../components/admin/AdminDashboardS
 import AdminJobCategoriesView from "../../../../../components/admin/AdminJobCategoriesView";
 
 export const metadata = {
-  title: "Job categories | Curator AI",
+  title: "Job categories | INTERVIA",
 };
 
 export default function AdminJobCategoriesPage() {

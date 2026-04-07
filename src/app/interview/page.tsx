@@ -33,7 +33,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
         <header className="z-10 flex w-full items-center justify-between bg-surface px-12 py-4">
           <div className="flex items-center gap-8">
             <Link className="font-headline text-2xl font-black tracking-tight text-on-surface" href="/interview-summary">
-              Curator AI
+              INTERVIA
             </Link>
             <nav className="hidden gap-6 md:flex">
               <Link
@@ -224,7 +224,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
         <header className="sticky top-0 z-50 flex w-full items-center justify-between bg-surface px-12 py-4">
           <div className="flex items-center gap-8">
             <Link className="font-headline text-2xl font-black tracking-tighter text-on-surface" href="/interview-summary">
-              Curator AI
+              INTERVIA
             </Link>
             <div className="hidden items-center gap-6 font-headline text-lg font-bold tracking-tight md:flex">
               <Link className="text-on-surface-variant transition-colors hover:text-on-surface" href="/interview/select">
@@ -556,7 +556,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
         <header className="sticky top-0 z-50 flex w-full items-center justify-between bg-surface px-12 py-4">
           <div className="flex items-center gap-8">
             <Link className="font-headline text-2xl font-black tracking-tighter text-on-surface" href="/interview-summary">
-              Curator AI
+              INTERVIA
             </Link>
             <div className="hidden items-center gap-6 font-headline text-lg font-bold tracking-tight md:flex">
               <span className="cursor-default border-b-2 border-primary pb-1 text-primary">
@@ -645,7 +645,7 @@ export default async function InterviewPage({ searchParams }: InterviewPageProps
               <div className="h-3 w-3 animate-pulse rounded-full bg-tertiary" />
             </div>
             <div className="animate-pulse italic text-on-surface-variant">
-              Curator is analyzing your response...
+              INTERVIA is analyzing your response...
             </div>
           </div>
         </section>

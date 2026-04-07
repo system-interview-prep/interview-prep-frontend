@@ -47,6 +47,7 @@ function RoomContent() {
     interimTranscript,
     committedSegments,
     recognitionError,
+    handleMicToggle,
     handleStartRecording,
     handleStopRecording,
   } = useVoiceRecognition({
@@ -207,7 +208,7 @@ function RoomContent() {
                 recorderSupported={recorderSupported}
                 isRecording={isRecording}
                 onToggleCamera={toggleCamera}
-                onStartMic={handleStartRecording}
+                onToggleMic={handleMicToggle}
                 onEndSession={handleHangUp}
               />
             </div>

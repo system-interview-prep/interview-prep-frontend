@@ -70,6 +70,22 @@ function keywordChips(keywords: string[] | undefined): string[] {
   return keywords.slice(0, 8);
 }
 
+function normalizeStatus(status: JobProfile["status"]): "ACTIVE" | "DRAFT" | "ARCHIVED" {
+  if (status === "DRAFT" || status === "ARCHIVED") return status;
+  return "ACTIVE";
+}
+
+function statusBadgeClass(status: JobProfile["status"]): string {
+  const normalized = normalizeStatus(status);
+  if (normalized === "DRAFT") {
+    return "bg-amber-100 text-amber-800 ring-1 ring-amber-300/70";
+  }
+  if (normalized === "ARCHIVED") {
+    return "bg-slate-200 text-slate-700 ring-1 ring-slate-400/60";
+  }
+  return "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300/70";
+}
+
 export default function AdminJobProfilesPanel() {
   const { t, lang } = useLanguage();
   const router = useRouter();
@@ -304,7 +320,7 @@ export default function AdminJobProfilesPanel() {
     startTransition(() => {
       router.replace(`/admin/dashboard?page=${nextPage}`, { scroll: false });
     });
-  };11
+  };
 
   const pagerText = useMemo(() => {
     const vi = lang === "vi";
@@ -470,9 +486,13 @@ export default function AdminJobProfilesPanel() {
                       {categoryIconFromName(resolveCategoryName(p))}
                     </span>
                   </div>
-                  <button type="button" className="text-primary/35 hover:text-primary/70 dark:text-primary/40" aria-hidden>
-                    <span className="material-symbols-outlined">more_horiz</span>
-                  </button>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(
+                      p.status
+                    )}`}
+                  >
+                    {normalizeStatus(p.status)}
+                  </span>
                 </div>
                 <h4 className="mb-2 font-headline text-lg font-extrabold leading-snug text-primary line-clamp-2 md:text-xl">
                   <Link href={`/admin/job-profiles/${p.id}`} className="hover:underline">
@@ -532,11 +552,12 @@ export default function AdminJobProfilesPanel() {
 
       {!loading && profiles.length > 0 && displayItems.length > 0 && viewMode === "list" && (
         <div className="overflow-x-auto rounded-2xl border border-outline-variant/15 bg-surface-container-lowest shadow-sm">
-          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[760px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-outline-variant/15 bg-surface-container-low text-xs font-bold uppercase tracking-wider text-on-surface-variant">
                 <th className="px-5 py-4">{t("admin.jobProfile.list.title")}</th>
                 <th className="px-5 py-4">{t("admin.jobProfile.list.category")}</th>
+                <th className="px-5 py-4">{t("admin.jobProfile.list.status")}</th>
                 <th className="px-5 py-4">{t("admin.jobProfile.list.keywords")}</th>
                 <th className="px-5 py-4">{t("admin.jobProfile.list.updated")}</th>
                 <th className="px-5 py-4 text-right align-middle">{t("admin.jobProfile.list.actions")}</th>
@@ -553,6 +574,15 @@ export default function AdminJobProfilesPanel() {
                   <td className="px-5 py-4">
                     <span className="inline-flex max-w-[12rem] items-center truncate rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-on-primary">
                       {resolveCategoryName(p)}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-4">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(
+                        p.status
+                      )}`}
+                    >
+                      {normalizeStatus(p.status)}
                     </span>
                   </td>
                   <td className="max-w-md px-5 py-4">

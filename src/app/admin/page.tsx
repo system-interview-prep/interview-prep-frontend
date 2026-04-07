@@ -11,52 +11,52 @@ export default async function AdminPage() {
 
   return (
     <div className="bg-surface font-body text-on-surface">
-      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col bg-surface-container-low md:flex">
-        <div className="flex h-full flex-col space-y-8 p-6">
+      <aside className="fixed left-0 top-0 z-40 hidden h-dvh w-80 flex-col justify-between overflow-y-auto bg-surface-container-low p-6 overscroll-contain md:flex xl:w-96">
+        <div className="space-y-6">
           <AdminSidebarBrand />
 
           <AdminButton variant="gradient" size="md" icon="add" iconFill className="w-full">
             {t("admin.newInterview")}
           </AdminButton>
 
-          <nav className="flex-1 space-y-2">
+          <nav className="space-y-2">
             <Link
-              className="flex items-center gap-3 rounded-md bg-surface-container-lowest px-4 py-3 font-semibold text-primary shadow-sm transition-transform duration-200 hover:translate-x-1"
+              className="flex items-center gap-3 rounded-md bg-surface-container-lowest px-4 py-2.5 font-semibold text-primary shadow-sm transition-transform duration-200 hover:translate-x-1"
               href="/admin/dashboard"
             >
               <span className="material-symbols-outlined">dashboard</span>
               <span className="text-sm font-medium">{t("common.dashboard")}</span>
             </Link>
             <Link
-              className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
+              className="flex items-center gap-3 rounded-md px-4 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
               href="/admin/insights"
             >
               <span className="material-symbols-outlined">psychology</span>
               <span className="text-sm font-medium">{t("admin.aiInsights")}</span>
             </Link>
             <Link
-              className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
+              className="flex items-center gap-3 rounded-md px-4 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
               href="/admin/interviews"
             >
               <span className="material-symbols-outlined">forum</span>
               <span className="text-sm font-medium">{t("admin.interviews")}</span>
             </Link>
             <Link
-              className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
+              className="flex items-center gap-3 rounded-md px-4 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
               href="/admin/practice"
             >
               <span className="material-symbols-outlined">school</span>
               <span className="text-sm font-medium">{t("admin.practice")}</span>
             </Link>
             <Link
-              className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
+              className="flex items-center gap-3 rounded-md px-4 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
               href="/admin/profile"
             >
               <span className="material-symbols-outlined">person</span>
               <span className="text-sm font-medium">{t("admin.myProfile")}</span>
             </Link>
             <Link
-              className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
+              className="flex items-center gap-3 rounded-md px-4 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
               href="/admin/settings"
             >
               <span className="material-symbols-outlined">settings</span>
@@ -66,14 +66,14 @@ export default async function AdminPage() {
 
           <div className="space-y-2 border-t border-outline-variant/20 pt-6">
             <Link
-              className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
+              className="flex items-center gap-3 rounded-md px-4 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
               href="/admin/help"
             >
               <span className="material-symbols-outlined">help</span>
               <span className="text-sm font-medium">{t("common.helpCenter")}</span>
             </Link>
             <Link
-              className="flex items-center gap-3 rounded-md px-4 py-3 text-error transition-transform duration-200 hover:translate-x-1 hover:bg-error-container/20"
+              className="flex items-center gap-3 rounded-md px-4 py-2.5 text-error transition-transform duration-200 hover:translate-x-1 hover:bg-error-container/20"
               href="/logout"
             >
               <span className="material-symbols-outlined">logout</span>
@@ -83,7 +83,7 @@ export default async function AdminPage() {
         </div>
       </aside>
 
-      <main className="min-h-screen bg-surface p-6 md:ml-64 md:p-12">
+      <main className="min-h-screen bg-surface p-6 md:ml-80 md:p-12 xl:ml-96">
         <header className="mb-12 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
             <h2 className="font-headline text-3xl font-extrabold tracking-tighter text-on-surface md:text-4xl">
@@ -122,9 +122,6 @@ export default async function AdminPage() {
               </p>
               <button className="group/btn flex items-center gap-2 font-bold text-primary">
                 Start Session
-                <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
-                  arrow_forward
-                </span>
               </button>
               <div className="absolute -bottom-4 -right-4 opacity-5 transition-opacity group-hover:opacity-10">
                 <span className="material-symbols-outlined text-9xl">chat_bubble</span>
@@ -141,9 +138,6 @@ export default async function AdminPage() {
               </p>
               <button className="group/btn flex items-center gap-2 font-bold text-primary">
                 Call Now
-                <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
-                  arrow_forward
-                </span>
               </button>
               <div className="absolute -bottom-4 -right-4 opacity-5 transition-opacity group-hover:opacity-10">
                 <span className="material-symbols-outlined text-9xl">settings_voice</span>
@@ -160,9 +154,6 @@ export default async function AdminPage() {
               </p>
               <button className="group/btn flex items-center gap-2 font-bold text-white">
                 Launch Studio
-                <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
-                  arrow_forward
-                </span>
               </button>
               <div className="absolute right-4 top-4 flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 backdrop-blur-sm">
                 <div className="h-2 w-2 animate-pulse rounded-full bg-tertiary" />
@@ -173,12 +164,8 @@ export default async function AdminPage() {
         </section>
 
         <section className="mb-16">
-          <div className="mb-8 flex items-center justify-between">
+          <div className="mb-8 flex items-center">
             <h3 className="font-headline text-2xl font-bold">{t("admin.home.interviewHistory")}</h3>
-            <button className="flex items-center gap-1 text-sm font-bold text-primary hover:underline">
-              {t("admin.home.viewFullArchive")}
-              <span className="material-symbols-outlined text-sm">open_in_new</span>
-            </button>
           </div>
           <div className="overflow-x-auto rounded-xl border border-outline-variant/10 bg-surface-container-lowest shadow-sm">
             <table className="w-full min-w-[700px] border-collapse text-left">
@@ -301,7 +288,7 @@ export default async function AdminPage() {
               {t("admin.home.trainingModule")}
             </span>
             <h3 className="mb-4 font-headline text-3xl font-extrabold leading-tight">
-              Master the Curator Protocol.
+              Master the INTERVIA Protocol.
             </h3>
             <p className="mb-8 max-w-md text-on-surface-variant">
               Sharpen your evaluative skills with interactive multiple-choice question sets focused on AI-human synergy and bias detection.
@@ -379,9 +366,9 @@ export default async function AdminPage() {
         <footer className="mt-24 w-full border-t border-outline-variant/20 py-12">
           <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
             <div className="flex flex-col items-center gap-2 text-center md:flex-row md:gap-4 md:text-left">
-              <span className="font-headline text-xl font-bold text-on-surface">Curator AI</span>
+              <span className="font-headline text-xl font-bold text-on-surface">INTERVIA</span>
               <span className="text-xs text-on-surface-variant">
-                © 2024 Curator AI Platform. Editorial Intelligence for HR.
+                © {new Date().getFullYear()} INTERVIA Platform. Editorial Intelligence for HR.
               </span>
             </div>
             <div className="flex flex-wrap justify-center gap-6 md:gap-8">

@@ -29,6 +29,7 @@ export function VoiceLiveTranscript({ messages, sessionId, isLoading }: VoiceLiv
   const { t, lang } = useLanguage();
   const bottomRef = useRef<HTMLDivElement>(null);
   const locale = lang === "vi" ? "vi" : "en";
+  const aiAvatarSrc = "/logo.jpg";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -37,7 +38,7 @@ export function VoiceLiveTranscript({ messages, sessionId, isLoading }: VoiceLiv
   return (
     <div
       id="voice-live-transcript"
-      className="flex h-full min-h-0 min-w-0 flex-1 flex-col border-l border-outline-variant/15 bg-surface-container-low lg:w-[400px] lg:max-w-[400px] lg:flex-none"
+      className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col border-l border-outline-variant/15 bg-surface-container-low"
     >
       <div className="flex shrink-0 items-center justify-between border-b border-outline-variant/15 bg-white/50 px-4 py-4 sm:px-6">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -62,16 +63,19 @@ export function VoiceLiveTranscript({ messages, sessionId, isLoading }: VoiceLiv
 
           if (isAi) {
             return (
-              <div key={msg.id} className="flex flex-col gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase text-tertiary">{t("interview.curatorAi")}</span>
-                  {timeStr ? (
-                    <span className="text-[10px] text-on-surface-variant">{timeStr}</span>
-                  ) : null}
+              <div key={msg.id} className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-outline-variant/15 bg-surface-container shadow-sm">
+                  <img src={aiAvatarSrc} alt="INTERVIA" className="h-full w-full object-cover" />
                 </div>
-                <div className="rounded-xl rounded-tl-none bg-tertiary-fixed p-4 text-sm font-medium leading-relaxed text-on-tertiary-fixed shadow-sm">
-                  <div className="prose prose-sm max-w-none text-on-tertiary-fixed prose-p:my-1 prose-p:leading-relaxed">
-                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase text-tertiary">{t("interview.curatorAi")}</span>
+                    {timeStr ? <span className="text-[10px] text-on-surface-variant">{timeStr}</span> : null}
+                  </div>
+                  <div className="rounded-xl rounded-tl-none bg-tertiary-fixed p-4 text-sm font-medium leading-relaxed text-on-tertiary-fixed shadow-sm">
+                    <div className="prose prose-sm max-w-none text-on-tertiary-fixed prose-p:my-1 prose-p:leading-relaxed">
+                      <ReactMarkdown>{msg.text}</ReactMarkdown>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -79,28 +83,36 @@ export function VoiceLiveTranscript({ messages, sessionId, isLoading }: VoiceLiv
           }
 
           return (
-            <div key={msg.id} className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                {timeStr ? (
-                  <span className="text-[10px] text-on-surface-variant">{timeStr}</span>
-                ) : null}
-                <span className="text-[10px] font-bold uppercase text-primary">{t("chat.you")}</span>
+            <div key={msg.id} className="flex items-start gap-3 justify-end">
+              <div className="min-w-0 flex-1 space-y-2 text-right">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {timeStr ? <span className="text-[10px] text-on-surface-variant">{timeStr}</span> : null}
+                  <span className="text-[10px] font-bold uppercase text-primary">{t("chat.you")}</span>
+                </div>
+                <div className="rounded-xl rounded-tr-none border border-outline-variant/15 bg-white p-4 text-sm leading-relaxed text-on-surface shadow-sm text-left">
+                  {msg.text}
+                </div>
               </div>
-              <div className="rounded-xl rounded-tr-none border border-outline-variant/15 bg-white p-4 text-sm leading-relaxed text-on-surface shadow-sm">
-                {msg.text}
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-primary shadow-sm">
+                <span className="material-symbols-outlined text-[20px]">person</span>
               </div>
             </div>
           );
         })}
 
         {isLoading && (
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-bold uppercase text-tertiary">{t("interview.curatorAi")}</span>
-              <span className="text-[10px] italic text-on-surface-variant">{t("voice.transcribing")}</span>
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-outline-variant/15 bg-surface-container shadow-sm">
+              <img src={aiAvatarSrc} alt="INTERVIA" className="h-full w-full object-cover" />
             </div>
-            <div className="rounded-xl rounded-tl-none bg-tertiary-fixed/60 p-4 text-sm text-on-tertiary-fixed">
-              <span className="opacity-80">…</span>
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-bold uppercase text-tertiary">{t("interview.curatorAi")}</span>
+                <span className="text-[10px] italic text-on-surface-variant">{t("voice.transcribing")}</span>
+              </div>
+              <div className="rounded-xl rounded-tl-none bg-tertiary-fixed/60 p-4 text-sm text-on-tertiary-fixed">
+                <span className="opacity-80">…</span>
+              </div>
             </div>
           </div>
         )}

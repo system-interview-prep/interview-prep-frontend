@@ -93,7 +93,7 @@ export default async function AdminPracticePage() {
   return (
     <div className="bg-surface font-body text-on-surface">
       {/* SideNavBar Shell */}
-      <aside className="h-screen w-72 fixed left-0 top-0 bg-[#f2f4f6] dark:bg-slate-900 flex flex-col py-12 px-6 z-50">
+      <aside className="fixed left-0 top-0 z-50 flex h-dvh w-80 flex-col overflow-y-auto overscroll-contain bg-[#f2f4f6] px-6 py-12 dark:bg-slate-900 xl:w-96">
         <AdminSidebarBrand />
 
         <nav className="flex-1 space-y-2">
@@ -150,7 +150,7 @@ export default async function AdminPracticePage() {
       </aside>
 
       {/* TopNavBar Shell */}
-      <header className="fixed top-0 right-0 left-72 z-40 bg-[#f7f9fb]/80 backdrop-blur-xl flex justify-between items-center h-16 px-8">
+      <header className="fixed top-0 right-0 left-80 z-40 flex h-16 items-center justify-between bg-[#f7f9fb]/80 px-8 backdrop-blur-xl xl:left-96">
         <div className="flex items-center bg-surface-container-highest rounded-lg px-3 py-1.5 w-96">
           <span className="material-symbols-outlined text-outline mr-2 text-sm">
             search
@@ -188,7 +188,7 @@ export default async function AdminPracticePage() {
       </header>
 
       {/* Main Content Canvas */}
-      <main className="ml-72 pt-24 pb-16 px-12 min-h-screen space-y-12">
+      <main className="ml-80 min-h-screen space-y-12 px-12 pb-16 pt-24 xl:ml-96">
         {/* Header Section */}
         <section className="flex justify-between items-end">
           <div className="max-w-2xl">
@@ -287,11 +287,6 @@ export default async function AdminPracticePage() {
                     <div className="flex justify-between items-start mb-3">
                       <span className={`${c.labelClassName} px-2 py-0.5 rounded text-[10px] font-bold uppercase`}>
                         {c.label}
-                      </span>
-                      <span
-                        className={`material-symbols-outlined text-outline-variant transition-colors ${c.arrowHoverClassName}`}
-                      >
-                        arrow_forward
                       </span>
                     </div>
                     <h4 className="font-bold">{c.title}</h4>

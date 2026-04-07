@@ -9,11 +9,11 @@ export default async function LandingPage() {
   const t = (key: string) => getDictionary(lang)[key] ?? key;
 
   return (
-    <div className="bg-surface font-body text-on-surface">
+    <div className="min-h-screen bg-surface font-body text-on-surface">
       <MarketingNav active="platform" />
 
       <main>
-        <section className="relative pt-24 pb-32 px-12 max-w-7xl mx-auto overflow-hidden">
+        <section className="relative mx-auto w-full max-w-[1600px] overflow-hidden px-6 pb-24 pt-20 sm:px-8 md:pb-28 md:pt-24 lg:px-16">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div className="z-10">
               <span className="inline-block px-4 py-1.5 mb-6 text-xs font-bold tracking-widest text-on-tertiary-fixed bg-tertiary-fixed rounded-full uppercase">
@@ -97,8 +97,8 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        <section className="bg-surface-container-low py-24">
-          <div className="max-w-7xl mx-auto px-12">
+        <section className="bg-surface-container-low py-20 md:py-24">
+          <div className="mx-auto w-full max-w-[1600px] px-6 sm:px-8 lg:px-16">
             <div className="mb-16 text-center">
               <h2 className="font-headline text-4xl font-extrabold mb-4">
                 {t("landing.section.modes.title")}
@@ -156,7 +156,7 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        <section className="py-24 px-12 max-w-7xl mx-auto">
+        <section className="mx-auto w-full max-w-[1600px] px-6 py-20 sm:px-8 md:py-24 lg:px-16">
           <div className="flex flex-col lg:flex-row items-center gap-16">
             <div className="lg:w-1/2">
               <img
@@ -217,8 +217,8 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        <section className="bg-surface-dim/20 py-24">
-          <div className="max-w-7xl mx-auto px-12">
+        <section className="bg-surface-dim/20 py-20 md:py-24">
+          <div className="mx-auto w-full max-w-[1600px] px-6 sm:px-8 lg:px-16">
             <h2 className="font-headline text-3xl font-bold mb-12 text-center">
               {t("landing.section.testimonials.title")}
             </h2>
@@ -340,8 +340,8 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        <section className="py-24 px-12">
-          <div className="max-w-5xl mx-auto bg-[#7029e1] rounded-[3rem] p-16 text-center text-white relative overflow-hidden shadow-2xl">
+        <section className="mx-auto w-full max-w-[1600px] px-6 py-20 sm:px-8 md:py-24 lg:px-16">
+          <div className="relative overflow-hidden rounded-[3rem] bg-[#7029e1] p-10 text-center text-white shadow-2xl sm:p-12 lg:p-16">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
             <div className="relative z-10">
               <h2 className="font-headline text-5xl font-extrabold mb-8 tracking-tighter">
@@ -369,11 +369,14 @@ export default async function LandingPage() {
         </section>
       </main>
 
-      <footer className="w-full border-t border-[#c3c6d6]/20 py-12 bg-[#f7f9fb] dark:bg-slate-950">
-        <div className="max-w-7xl mx-auto px-12 flex flex-col md:flex-row justify-between items-center space-y-8 md:space-y-0">
+      <footer className="w-full border-t border-[#c3c6d6]/20 bg-[#f7f9fb] py-12 dark:bg-slate-950">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col items-center justify-between space-y-8 px-6 md:flex-row md:space-y-0 sm:px-8 lg:px-16">
           <div className="flex flex-col items-center md:items-start space-y-4">
-            <div className="font-manrope font-bold text-[#191c1e] text-xl">
-              Curator AI
+            <div className="flex items-center gap-3 font-manrope font-bold text-[#191c1e] text-xl">
+              <div className="w-8 h-8 overflow-hidden rounded-lg flex items-center justify-center">
+                <img src="/logo.jpg" alt="INTERVIA Logo" className="w-full h-full object-cover" />
+              </div>
+              INTERVIA
             </div>
             <p className="font-inter text-xs text-[#434654] dark:text-slate-500 max-w-xs text-center md:text-left">
               {t("footer.copyright")}

@@ -47,7 +47,7 @@ export function AdminJobProfileForm({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div>
           <label className="mb-2 block text-sm font-bold text-on-surface" htmlFor={`${formId}-cat`}>
             {t("admin.jobProfile.form.category")}
@@ -73,21 +73,40 @@ export function AdminJobProfileForm({
         </div>
 
         <div>
+          <label className="mb-2 block text-sm font-bold text-on-surface" htmlFor={`${formId}-status`}>
+            Status
+          </label>
+          <select
+            id={`${formId}-status`}
+            value={form.status}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                status: e.target.value as JobProfileFormState["status"],
+              }))
+            }
+            className="w-full rounded-xl border border-outline-variant/30 bg-surface px-4 py-3 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          >
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="DRAFT">DRAFT</option>
+            <option value="ARCHIVED">ARCHIVED</option>
+          </select>
+        </div>
+
+        <div>
           <label className="mb-2 block text-sm font-bold text-on-surface" htmlFor={`${formId}-kw`}>
             {t("admin.jobProfile.form.keywords")}
           </label>
-          <div className="relative">
-            <input
-              id={`${formId}-kw`}
-              value={form.keywords}
-              onChange={(e) => setForm((f) => ({ ...f, keywords: e.target.value }))}
-              placeholder={t("admin.jobProfile.form.keywordsHint")}
-              className="w-full rounded-xl border border-outline-variant/30 bg-surface py-3 pl-4 pr-[7.5rem] text-sm text-on-surface placeholder:text-on-surface-variant/55 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-primary-fixed px-2 py-1 text-[10px] font-bold text-primary">
-              {t("admin.jobProfile.createPage.keywordsBadge")}
-            </span>
-          </div>
+          <input
+            id={`${formId}-kw`}
+            value={form.keywords}
+            onChange={(e) => setForm((f) => ({ ...f, keywords: e.target.value }))}
+            placeholder={t("admin.jobProfile.form.keywordsHint")}
+            className="w-full rounded-xl border border-outline-variant/30 bg-surface px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/55 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+          <p className="mt-1 text-[11px] font-semibold text-primary/80">
+            {t("admin.jobProfile.createPage.keywordsBadge")}
+          </p>
         </div>
       </div>
 

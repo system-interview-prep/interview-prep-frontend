@@ -7,11 +7,15 @@ import LanguageToggleButton from "@/components/LanguageToggleButton";
 import { UserDashboardShell } from "@/components/user-dashboard/UserDashboardShell";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { startDemoVideoInterviewRoom } from "@/utils/demoInterviewSession";
+import { useCvProcessingStatus } from "@/hooks/useCvProcessingStatus";
+import { userCvApi } from "@/services/userCvApi";
+import type { CvProcessingStatus } from "@/types/cvProcessing";
 
 type CvFile = {
   id: string;
   name: string;
   uploadedAt: string;
+  status?: CvProcessingStatus;
 };
 
 const STORAGE_KEY = "demo.cvFiles";
@@ -23,6 +27,22 @@ function extIcon(name: string) {
   return "description";
 }
 
+function labelForCvStatus(t: (key: string) => string, s: CvProcessingStatus | null | undefined) {
+  switch (s) {
+    case "PARSING":
+      return t("userDash.myCvs.statusParsing");
+    case "AI_PROCESSING":
+      return t("userDash.myCvs.statusAi");
+    case "DONE":
+      return t("userDash.myCvs.statusDone");
+    case "FAILED":
+      return t("userDash.myCvs.statusFailed");
+    case "PENDING":
+    default:
+      return t("userDash.myCvs.statusPending");
+  }
+}
+
 function UploadCvContent() {
   const { t, lang } = useLanguage();
   const searchParams = useSearchParams();
@@ -32,7 +52,38 @@ function UploadCvContent() {
   const [files, setFiles] = useState<CvFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [continuing, setContinuing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [trackingCvId, setTrackingCvId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    status: cvProcessStatus,
+    lastPayload: cvStatusPayload,
+    pollError,
+    isTracking,
+  } = useCvProcessingStatus(trackingCvId, {
+    onDone: () => {
+      setFiles((prev) =>
+        prev.map((f) => (f.id === trackingCvId ? { ...f, status: "DONE" } : f))
+      );
+      setTrackingCvId(null);
+    },
+    onFailed: (p) => {
+      setFiles((prev) =>
+        prev.map((f) => (f.id === trackingCvId ? { ...f, status: "FAILED" } : f))
+      );
+      setUploadError(p?.error || t("userDash.myCvs.apiUploadError"));
+      setTrackingCvId(null);
+    },
+  });
+
+  useEffect(() => {
+    if (!trackingCvId || !cvProcessStatus) return;
+    setFiles((prev) =>
+      prev.map((f) => (f.id === trackingCvId ? { ...f, status: cvProcessStatus } : f))
+    );
+  }, [trackingCvId, cvProcessStatus]);
 
   const loadFiles = useCallback(() => {
     try {
@@ -66,16 +117,45 @@ function UploadCvContent() {
   }
 
   function addFile(f: File) {
-    const entry: CvFile = {
-      id: `cv_${Date.now().toString(36)}`,
-      name: f.name,
-      uploadedAt: new Date().toISOString(),
-    };
-    setFiles((prev) => {
-      const next = [entry, ...prev].slice(0, 10);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
+    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    if (!token) {
+      const entry: CvFile = {
+        id: `cv_${Date.now().toString(36)}`,
+        name: f.name,
+        uploadedAt: new Date().toISOString(),
+      };
+      setFiles((prev) => {
+        const next = [entry, ...prev].slice(0, 10);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        return next;
+      });
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+    void userCvApi
+      .upload(f)
+      .then(({ data }) => {
+        const entry: CvFile = {
+          id: data.id,
+          name: data.originalName || f.name,
+          uploadedAt: data.createdAt || new Date().toISOString(),
+          status: data.status ?? "PENDING",
+        };
+        setFiles((prev) => {
+          const next = [entry, ...prev.filter((x) => x.id !== entry.id)].slice(0, 10);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+          return next;
+        });
+        setTrackingCvId(data.id);
+      })
+      .catch(() => {
+        setUploadError(t("userDash.myCvs.apiUploadError"));
+      })
+      .finally(() => {
+        setUploading(false);
+      });
   }
 
   function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -105,6 +185,7 @@ function UploadCvContent() {
 
   const handleContinue = async () => {
     if (files.length === 0 || continuing) return;
+    if (trackingCvId && cvProcessStatus && cvProcessStatus !== "DONE") return;
     setContinuing(true);
     try {
       await startDemoVideoInterviewRoom(lang === "vi" ? "vi" : "en", title || undefined);
@@ -160,6 +241,24 @@ function UploadCvContent() {
           </div>
 
           <div className="space-y-6 p-6 sm:p-8">
+            {(uploading || isTracking || cvProcessStatus || uploadError || pollError) && (
+              <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-on-surface">{t("userDash.myCvs.processingTitle")}</span>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                    {uploading ? t("admin.jobProfile.loading") : labelForCvStatus(t, cvProcessStatus)}
+                  </span>
+                  {trackingCvId && cvStatusPayload?.updatedAt && (
+                    <span className="text-xs text-on-surface-variant">
+                      {new Date(cvStatusPayload.updatedAt).toLocaleTimeString(lang === "vi" ? "vi-VN" : "en-US")}
+                    </span>
+                  )}
+                </div>
+                {uploadError && <p className="mt-2 text-xs text-error">{uploadError}</p>}
+                {pollError && <p className="mt-2 text-xs text-on-surface-variant">Socket yếu, đang fallback polling…</p>}
+              </div>
+            )}
+
             <div
               role="button"
               tabIndex={0}
@@ -227,6 +326,11 @@ function UploadCvContent() {
                       <p className="mt-0.5 text-xs text-on-surface-variant">
                         {new Date(f.uploadedAt).toLocaleString()}
                       </p>
+                      {(f.status || (trackingCvId === f.id && cvProcessStatus)) && (
+                        <p className="mt-1 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                          {labelForCvStatus(t, trackingCvId === f.id ? cvProcessStatus : f.status)}
+                        </p>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -255,7 +359,7 @@ function UploadCvContent() {
               <button
                 type="button"
                 onClick={handleContinue}
-                disabled={files.length === 0 || continuing}
+                disabled={files.length === 0 || continuing || uploading || (trackingCvId !== null && cvProcessStatus !== "DONE")}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-on-primary shadow-md transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {continuing ? t("admin.jobProfile.loading") : t("interview.cvUpload.continue")}

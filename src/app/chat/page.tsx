@@ -10,6 +10,7 @@ import { ChatInterviewActions } from "../component/ChatInterviewActions";
 import { ChatMessages } from "../component/ChatMessages";
 import { ChatInput } from "../component/ChatInput";
 import { Sidebar } from "../component/Sidebar";
+import { useResizableSidebar } from "../../hooks/useResizableSidebar";
 
 function sessionLabel(t: (key: string) => string, index: number) {
   return t("chatInterview.sessionNumber").replace("{n}", String(index + 1));
@@ -17,6 +18,7 @@ function sessionLabel(t: (key: string) => string, index: number) {
 
 export default function ChatPage() {
   const { t, lang } = useLanguage();
+  const { sidebarWidth, startResize } = useResizableSidebar();
   const {
     messages,
     sessionId,
@@ -28,7 +30,7 @@ export default function ChatPage() {
     startNewSession,
     loadSession,
     sendMessage,
-  } = useChat();
+  } = useChat({ defaultMode: "chat" });
 
   const [input, setInput] = React.useState("");
 
@@ -44,15 +46,20 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-screen bg-surface font-body text-on-surface overflow-hidden">
+    <div
+      className="flex h-screen bg-surface font-body text-on-surface overflow-hidden"
+      style={{ ["--sidebar-width" as any]: `${sidebarWidth}px` } as React.CSSProperties}
+    >
       <Sidebar
         sessionListItems={sessionListItems}
         currentSessionId={sessionId}
         onSelectSession={loadSession}
         onNewSession={() => startNewSession(language)}
+        sidebarWidth={sidebarWidth}
+        onResizeStart={startResize}
       />
 
-      <main className="flex-1 md:ml-[17.5rem] flex flex-col h-full min-w-0 bg-gradient-to-br from-primary/[0.06] via-surface to-tertiary/[0.05] pb-24 md:pb-0">
+      <main className="flex-1 flex flex-col h-full min-w-0 bg-gradient-to-br from-primary/[0.06] via-surface to-tertiary/[0.05] pb-24 md:pb-0 md:ml-[var(--sidebar-width)]">
         <ChatHeader />
 
         <div

@@ -17,6 +17,11 @@ import { JobInterviewCvModal } from "@/components/user-dashboard/JobInterviewCvM
 /** Keep in sync with admin job profiles list (`AdminJobProfilesPanel`). */
 const PAGE_SIZE = 12;
 
+type PageStart = {
+  cursor: string | undefined;
+  bufferedActive: JobProfile[];
+};
+
 function formatRelativeShort(iso: string, locale: string) {
   try {
     const d = new Date(iso);
@@ -37,14 +42,20 @@ function keywordsLine(keywords: string[] | undefined): string {
   return keywords.slice(0, 6).join(", ");
 }
 
+function isActiveProfile(profile: JobProfile): boolean {
+  return profile.status === "ACTIVE";
+}
+
 export default function UserJobsBoard() {
   const { t, lang } = useLanguage();
   const [profiles, setProfiles] = useState<JobProfile[]>([]);
-  /** Cursor used to fetch the current page (undefined = first page). */
-  const [pageStartCursor, setPageStartCursor] = useState<string | undefined>(undefined);
-  /** Stack of prior `pageStartCursor` values for "Previous". */
-  const [cursorBackStack, setCursorBackStack] = useState<(string | undefined)[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | undefined>();
+  /** Snapshot stack for previous pages to support exact back navigation. */
+  const [pageBackStack, setPageBackStack] = useState<PageStart[]>([]);
+  const [currentPageStart, setCurrentPageStart] = useState<PageStart>({
+    cursor: undefined,
+    bufferedActive: [],
+  });
+  const [nextPageStart, setNextPageStart] = useState<PageStart | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -75,28 +86,55 @@ export default function UserJobsBoard() {
   );
 
   const loadPage = useCallback(
-    async (cursor: string | undefined) => {
+    async (start: PageStart) => {
       try {
         setLoading(true);
         setError(null);
-        const { data } = await jobProfileApi.list({
-          limit: PAGE_SIZE,
-          cursor,
-          q: debouncedSearch.trim() || undefined,
-          ...(categoryFilter !== "all" ? jobProfileListCategoryParams(categoryFilter) : {}),
-          order: "desc",
-        });
-        const items = data.items ?? [];
-        setProfiles(items);
-        setPageStartCursor(cursor);
-        setNextCursor(data.nextCursor);
+        const collected: JobProfile[] = [];
+        const bufferedActive = [...start.bufferedActive];
+        let cursor: string | undefined = start.cursor;
+        let reachedEnd = false;
+
+        if (bufferedActive.length > 0) {
+          const fromBuffer = bufferedActive.splice(0, PAGE_SIZE);
+          collected.push(...fromBuffer);
+        }
+
+        while (collected.length < PAGE_SIZE && !reachedEnd) {
+          const { data } = await jobProfileApi.list({
+            limit: PAGE_SIZE,
+            cursor,
+            q: debouncedSearch.trim() || undefined,
+            ...(categoryFilter !== "all" ? jobProfileListCategoryParams(categoryFilter) : {}),
+            order: "desc",
+          });
+
+          const activeItems = (data.items ?? []).filter(isActiveProfile);
+          const need = PAGE_SIZE - collected.length;
+          collected.push(...activeItems.slice(0, need));
+
+          if (activeItems.length > need) {
+            bufferedActive.push(...activeItems.slice(need));
+          }
+
+          cursor = data.nextCursor;
+          if (!cursor) reachedEnd = true;
+        }
+
+        setProfiles(collected);
+        setCurrentPageStart(start);
+        if (bufferedActive.length > 0 || cursor) {
+          setNextPageStart({ cursor, bufferedActive });
+        } else {
+          setNextPageStart(null);
+        }
       } catch (e: unknown) {
         const msg = axios.isAxiosError(e)
           ? String((e.response?.data as { message?: string })?.message ?? e.message)
           : t("admin.jobProfile.error.load");
         setError(msg);
         setProfiles([]);
-        setNextCursor(undefined);
+        setNextPageStart(null);
       } finally {
         setLoading(false);
       }
@@ -105,20 +143,20 @@ export default function UserJobsBoard() {
   );
 
   useEffect(() => {
-    setCursorBackStack([]);
-    loadPage(undefined);
+    setPageBackStack([]);
+    void loadPage({ cursor: undefined, bufferedActive: [] });
   }, [loadPage]);
 
   const handleNextPage = () => {
-    if (!nextCursor || loading) return;
-    setCursorBackStack((s) => [...s, pageStartCursor]);
-    void loadPage(nextCursor);
+    if (!nextPageStart || loading) return;
+    setPageBackStack((s) => [...s, currentPageStart]);
+    void loadPage(nextPageStart);
   };
 
   const handlePrevPage = () => {
-    if (cursorBackStack.length === 0 || loading) return;
-    const prevStart = cursorBackStack[cursorBackStack.length - 1];
-    setCursorBackStack((s) => s.slice(0, -1));
+    if (pageBackStack.length === 0 || loading) return;
+    const prevStart = pageBackStack[pageBackStack.length - 1];
+    setPageBackStack((s) => s.slice(0, -1));
     void loadPage(prevStart);
   };
 
@@ -203,7 +241,7 @@ export default function UserJobsBoard() {
             <button
               type="button"
               onClick={handlePrevPage}
-              disabled={loading || cursorBackStack.length === 0}
+              disabled={loading || pageBackStack.length === 0}
               className="inline-flex min-w-[7rem] items-center justify-center gap-1.5 rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-5 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-45"
             >
               <span className="material-symbols-outlined text-[18px]">chevron_left</span>
@@ -212,7 +250,7 @@ export default function UserJobsBoard() {
             <button
               type="button"
               onClick={handleNextPage}
-              disabled={loading || !nextCursor}
+              disabled={loading || !nextPageStart}
               className="inline-flex min-w-[7rem] items-center justify-center gap-1.5 rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-5 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-45"
             >
               {t("userDash.jobProfiles.pageNext")}

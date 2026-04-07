@@ -15,13 +15,16 @@ const CANDIDATE_FALLBACK_AVATAR =
   "https://api.dicebear.com/7.x/personas/svg?seed=CuratorDemo&backgroundColor=eceef0&scale=88";
 
 const AVATAR_BOX =
-  "relative mx-auto aspect-square w-[13.5rem] shrink-0 sm:w-[15rem] md:w-[17rem]";
+  "relative mx-auto aspect-square w-[9.5rem] shrink-0 sm:w-[10.5rem] md:w-[11.5rem] lg:w-[12.5rem]";
 
 type VoiceStageProps = {
   waveformActive: boolean;
   interimTranscript?: string;
   recognitionError?: string | null;
   isRecording?: boolean;
+  controls?: React.ReactNode;
+  aiActive?: boolean;
+  candidateActive?: boolean;
 };
 
 export function VoiceStage({
@@ -29,12 +32,15 @@ export function VoiceStage({
   interimTranscript = "",
   recognitionError = null,
   isRecording = false,
+  controls,
+  aiActive = false,
+  candidateActive = false,
 }: VoiceStageProps) {
   const { t } = useLanguage();
   const [candidateSrc, setCandidateSrc] = useState(CANDIDATE_DEMO_AVATAR);
 
   return (
-    <section className="relative flex min-h-0 flex-1 flex-col items-center bg-surface px-3 pb-4 pt-5 sm:px-8 sm:pt-8">
+    <section className="relative flex min-h-0 flex-1 flex-col items-center bg-surface px-3 pb-6 pt-5 sm:px-8 sm:pt-8">
       <div
         className="mb-6 flex items-center gap-2 rounded-full border border-outline-variant/15 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-on-surface-variant shadow-sm sm:mb-8"
         role="status"
@@ -43,25 +49,31 @@ export function VoiceStage({
         {t("voice.liveAnalysisBadge")}
       </div>
 
-      <div className="flex w-full max-w-5xl flex-col items-center justify-center gap-12 md:flex-row md:gap-20 lg:gap-28">
+      <div className="flex w-full max-w-5xl flex-col items-center justify-center gap-10 md:flex-row md:gap-16 lg:gap-20">
         {/* AI interviewer — purple ring + name pill */}
         <div className="flex flex-col items-center">
           <div className={AVATAR_BOX}>
-            <div className="absolute inset-0 rounded-full pulse-ring" aria-hidden />
-            <div className="relative z-10 h-full w-full overflow-hidden rounded-full border-[5px] border-tertiary bg-surface-container-lowest shadow-[0_12px_40px_-12px_rgba(86,0,190,0.35)]">
+            {aiActive ? <div className="absolute inset-0 rounded-full pulse-ring" aria-hidden /> : null}
+            <div
+              className={`relative z-10 h-full w-full overflow-hidden rounded-full border-[5px] bg-surface-container-lowest transition-all duration-200 ${
+                aiActive
+                  ? "border-tertiary shadow-[0_14px_44px_-14px_rgba(86,0,190,0.45)]"
+                  : "border-tertiary/55 shadow-[0_10px_30px_-14px_rgba(86,0,190,0.2)]"
+              }`}
+            >
               <img
                 src={AI_AVATAR_IMG}
                 alt={t("voice.labelAiInterviewer")}
                 className="h-full w-full rounded-full object-cover object-center"
-                width={280}
-                height={280}
+                width={192}
+                height={192}
                 loading="eager"
                 referrerPolicy="no-referrer"
                 decoding="async"
               />
             </div>
             <div className="absolute bottom-0 left-1/2 z-20 w-max max-w-[calc(100%+1rem)] -translate-x-1/2 translate-y-1/2 px-1">
-              <span className="inline-block rounded-full bg-tertiary px-4 py-1.5 text-center font-body text-[10px] font-bold uppercase tracking-wide text-on-tertiary shadow-lg">
+              <span className="inline-block rounded-full bg-tertiary px-3.5 py-1.5 text-center font-body text-[9px] font-bold uppercase tracking-wide text-on-tertiary shadow-lg">
                 {t("voice.labelAiInterviewer")}
               </span>
             </div>
@@ -70,14 +82,23 @@ export function VoiceStage({
 
         {/* Candidate — neutral ring + demo avatar + name pill */}
         <div className="flex flex-col items-center">
-          <div className={AVATAR_BOX}>
-            <div className="relative z-10 h-full w-full overflow-hidden rounded-full border-[5px] border-outline-variant/30 bg-surface-container-lowest shadow-[0_10px_36px_-14px_rgba(25,28,30,0.18)]">
+          <div className="relative mx-auto aspect-square w-[9.5rem] shrink-0 sm:w-[10.5rem] md:w-[11.5rem] lg:w-[12.5rem]">
+            {candidateActive ? (
+              <div className="absolute inset-0 rounded-full pulse-ring bg-secondary-container/40" aria-hidden />
+            ) : null}
+            <div
+              className={`relative z-10 h-full w-full overflow-hidden rounded-full border-[5px] bg-surface-container-lowest transition-all duration-200 ${
+                candidateActive
+                  ? "border-secondary shadow-[0_12px_40px_-14px_rgba(82,95,127,0.42)]"
+                  : "border-outline-variant/30 shadow-[0_10px_36px_-14px_rgba(25,28,30,0.18)]"
+              }`}
+            >
               <img
                 src={candidateSrc}
                 alt={t("voice.labelCandidate")}
                 className="h-full w-full rounded-full object-cover object-center grayscale contrast-[0.95]"
-                width={280}
-                height={280}
+                width={192}
+                height={192}
                 loading="eager"
                 referrerPolicy="no-referrer"
                 decoding="async"
@@ -89,7 +110,7 @@ export function VoiceStage({
               />
             </div>
             <div className="absolute bottom-0 left-1/2 z-20 w-max max-w-[calc(100%+1rem)] -translate-x-1/2 translate-y-1/2 px-1">
-              <span className="inline-block rounded-full bg-surface-container-highest px-4 py-1.5 text-center font-body text-[10px] font-bold uppercase tracking-wide text-on-surface-variant shadow-md ring-1 ring-outline-variant/25">
+              <span className="inline-block rounded-full bg-surface-container-highest px-3 py-1 text-center font-body text-[9px] font-bold uppercase tracking-wide text-on-surface-variant shadow-md ring-1 ring-outline-variant/25">
                 {t("voice.labelCandidate")}
               </span>
             </div>
@@ -97,7 +118,7 @@ export function VoiceStage({
         </div>
       </div>
 
-      <div className="mt-14 w-full max-w-lg sm:mt-16">
+      <div className="w-full max-w-lg">
         <VoiceWaveform active={waveformActive} />
         {(isRecording || interimTranscript) && (
           <p className="mt-3 line-clamp-3 text-center text-xs text-tertiary" aria-live="polite">
@@ -110,6 +131,8 @@ export function VoiceStage({
           </p>
         )}
       </div>
+
+      {controls ? <div className="mt-1 sm:mt-2">{controls}</div> : null}
     </section>
   );
 }

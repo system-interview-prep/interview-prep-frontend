@@ -12,7 +12,7 @@ export default async function InterviewSummaryPage() {
     <div className="bg-surface font-body text-on-surface selection:bg-primary-container selection:text-white">
       <nav className="sticky top-0 z-50 flex w-full items-center justify-between bg-surface px-12 py-4">
         <div className="flex items-center gap-8">
-          <span className="font-headline text-2xl font-black tracking-tight text-on-surface">Curator AI</span>
+          <span className="font-headline text-2xl font-black tracking-tight text-on-surface">INTERVIA</span>
           <div className="hidden gap-6 md:flex">
             <Link className="font-headline font-bold tracking-tight text-on-surface-variant transition-colors hover:text-primary-container" href="#">
               {t("nav.platform")}

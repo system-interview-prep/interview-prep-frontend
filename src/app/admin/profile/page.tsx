@@ -14,7 +14,7 @@ export default async function AdminProfilePage() {
   return (
     <div className="bg-surface font-body text-on-surface">
       {/* SideNavBar (consistent shell) */}
-      <aside className="h-screen w-72 fixed left-0 top-0 bg-[#f2f4f6] dark:bg-slate-900 flex flex-col py-12 px-6 z-50 font-headline antialiased tracking-tight">
+      <aside className="fixed left-0 top-0 z-50 flex h-dvh w-80 flex-col overflow-y-auto overscroll-contain bg-[#f2f4f6] px-6 py-12 font-headline antialiased tracking-tight dark:bg-slate-900 xl:w-96">
         <AdminSidebarBrand />
 
         <nav className="flex-1 space-y-2">
@@ -102,7 +102,7 @@ export default async function AdminProfilePage() {
       </aside>
 
       {/* TopNavBar */}
-      <header className="fixed top-0 right-0 left-72 z-40 bg-[#f7f9fb]/80 dark:bg-slate-950/80 backdrop-blur-xl h-16 px-8 flex justify-between items-center shadow-sm">
+      <header className="fixed top-0 right-0 left-80 z-40 flex h-16 items-center justify-between bg-[#f7f9fb]/80 px-8 shadow-sm backdrop-blur-xl dark:bg-slate-950/80 xl:left-96">
         <div className="flex items-center flex-1 max-w-md">
           <div className="relative w-full">
             <span
@@ -130,7 +130,7 @@ export default async function AdminProfilePage() {
       </header>
 
       {/* Main Content Canvas */}
-      <main className="ml-72 min-h-screen bg-surface px-6 pb-16 pt-24 sm:px-8 lg:px-12">
+      <main className="ml-80 min-h-screen bg-surface px-6 pb-16 pt-24 sm:px-8 lg:px-12 xl:ml-96">
         <div className="mx-auto w-full max-w-6xl">
           {/* Page Header */}
           <header className="mb-8 flex flex-col gap-3 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">

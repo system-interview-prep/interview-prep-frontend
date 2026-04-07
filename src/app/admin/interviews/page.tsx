@@ -117,7 +117,7 @@ export default async function AdminInterviewsPage() {
   return (
     <div className="bg-surface text-on-surface antialiased font-body">
       {/* SideNavBar Shell */}
-      <aside className="h-screen w-72 flex-col fixed left-0 top-0 bg-[#f2f4f6] dark:bg-slate-900 font-headline antialiased tracking-tight flex py-12 px-6 z-50">
+      <aside className="fixed left-0 top-0 z-50 flex h-dvh w-80 flex-col overflow-y-auto overscroll-contain bg-[#f2f4f6] px-6 py-12 font-headline antialiased tracking-tight dark:bg-slate-900 xl:w-96">
         <AdminSidebarBrand />
 
         <nav className="flex-1 space-y-2">
@@ -208,7 +208,7 @@ export default async function AdminInterviewsPage() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="ml-72 min-h-screen bg-surface">
+      <main className="ml-80 min-h-screen bg-surface xl:ml-96">
         {/* TopNavBar Shell */}
         <header className="flex justify-between items-center h-20 px-12 sticky top-0 bg-[#f7f9fb] dark:bg-slate-950 z-40">
           <div className="flex items-center gap-8">

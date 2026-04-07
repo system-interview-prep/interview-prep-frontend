@@ -18,10 +18,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Curator AI | Master Your Next Interview",
+  title: "INTERVIA | Master Your Next Interview",
   description: "Master Your Next Interview",
   icons: {
-    icon: "/icon.jpg",
+    icon: "/logo.jpg",
   },
 };
 

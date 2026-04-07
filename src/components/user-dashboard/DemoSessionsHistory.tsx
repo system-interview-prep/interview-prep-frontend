@@ -8,11 +8,12 @@ export type DemoSession = {
   roomId: string;
   topic: string;
   startedAt: string;
+  mode?: "video" | "voice" | "chat";
 };
 
 const STORAGE_KEY = "demo.sessions";
-const PAGE_SIZE_FULL = 8;
-const PREVIEW_MAX = 5;
+const PAGE_SIZE_FULL = 4;
+const PREVIEW_MAX = 4;
 
 function safeJsonParse<T>(value: string | null): T | null {
   if (!value) return null;
@@ -27,6 +28,25 @@ function initialsFromTopic(topic: string) {
   const parts = topic.trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase().slice(0, 2);
   return topic.slice(0, 2).toUpperCase() || "?";
+}
+
+function modeMeta(mode: DemoSession["mode"], t: (key: string) => string) {
+  if (mode === "voice") {
+    return {
+      icon: "mic",
+      label: t("admin.home.mode.voiceCall"),
+    };
+  }
+  if (mode === "chat") {
+    return {
+      icon: "chat_bubble",
+      label: t("userDash.table.modeChat"),
+    };
+  }
+  return {
+    icon: "videocam",
+    label: t("admin.home.mode.videoCall"),
+  };
 }
 
 type DemoSessionsHistoryProps = {
@@ -75,15 +95,8 @@ export function DemoSessionsHistory({ variant }: DemoSessionsHistoryProps) {
     <section
       className={`mb-16 ${variant === "full" ? "border-t border-outline-variant/20 pt-10" : ""}`}
     >
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center">
         <h3 className="font-headline text-2xl font-bold text-on-surface">{t("userDash.history.title")}</h3>
-        <Link
-          href="/interview-summary"
-          className="flex w-fit items-center gap-1 text-sm font-bold text-primary hover:underline"
-        >
-          {t("userDash.history.viewArchive")}
-          <span className="material-symbols-outlined text-sm">open_in_new</span>
-        </Link>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-outline-variant/10 bg-surface-container-lowest shadow-sm overflow-x-auto">
@@ -121,8 +134,15 @@ export function DemoSessionsHistory({ variant }: DemoSessionsHistoryProps) {
                   </td>
                   <td className="px-6 py-5 md:px-8 md:py-6">
                     <div className="flex items-center gap-2 text-sm font-medium text-on-surface-variant">
-                      <span className="material-symbols-outlined text-lg">chat_bubble</span>
-                      {t("userDash.table.modeChat")}
+                      {(() => {
+                        const meta = modeMeta(s.mode, t);
+                        return (
+                          <>
+                            <span className="material-symbols-outlined text-lg">{meta.icon}</span>
+                            {meta.label}
+                          </>
+                        );
+                      })()}
                     </div>
                   </td>
                   <td className="px-6 py-5 md:px-8 md:py-6">

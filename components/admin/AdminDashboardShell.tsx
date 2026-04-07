@@ -12,35 +12,37 @@ export default async function AdminDashboardShell({ children }: { children: Reac
 
   return (
     <div className="min-w-0 overflow-x-hidden bg-surface font-body text-on-surface selection:bg-primary-fixed">
-      <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 shrink-0 flex-col space-y-8 bg-surface-container-low p-6 font-body text-sm font-medium">
-        <AdminSidebarBrand />
+      <aside className="fixed left-0 top-0 z-40 flex h-dvh w-80 shrink-0 flex-col justify-between overflow-y-auto bg-surface-container-low p-6 font-body text-sm font-medium overscroll-contain xl:w-96">
+        <div className="space-y-6">
+          <AdminSidebarBrand />
 
-        <AdminDashboardJobNav />
+          <AdminDashboardJobNav />
+        </div>
 
-        <nav className="flex-grow space-y-1 border-t border-outline-variant/20 pt-6">
+        <nav className="space-y-1 border-t border-outline-variant/20 pt-6">
           <Link
-            className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
+            className="flex items-center gap-3 rounded-md px-4 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
             href="/admin/interviews"
           >
             <span className="material-symbols-outlined">forum</span>
             {t("admin.interviews")}
           </Link>
           <Link
-            className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
+            className="flex items-center gap-3 rounded-md px-4 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
             href="/admin/insights"
           >
             <span className="material-symbols-outlined">psychology</span>
             {t("admin.aiInsights")}
           </Link>
           <Link
-            className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
+            className="flex items-center gap-3 rounded-md px-4 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
             href="/admin/knowledge-base"
           >
             <span className="material-symbols-outlined">database</span>
             {t("admin.knowledgeBase")}
           </Link>
           <Link
-            className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
+            className="flex items-center gap-3 rounded-md px-4 py-2.5 text-on-surface-variant transition-transform duration-200 hover:translate-x-1 hover:bg-surface-variant"
             href="/admin/settings"
           >
             <span className="material-symbols-outlined">settings</span>
@@ -53,14 +55,14 @@ export default async function AdminDashboardShell({ children }: { children: Reac
             <AdminAuthBadge roleLabel={t("admin.role.seniorAdmin")} />
           </div>
           <Link
-            className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-colors hover:bg-surface-variant"
+            className="flex items-center gap-3 rounded-md px-4 py-2.5 text-on-surface-variant transition-colors hover:bg-surface-variant"
             href="/admin/help"
           >
             <span className="material-symbols-outlined">help</span>
             {t("common.helpCenter")}
           </Link>
           <Link
-            className="flex items-center gap-3 rounded-md px-4 py-3 text-on-surface-variant transition-colors hover:bg-surface-variant"
+            className="flex items-center gap-3 rounded-md px-4 py-2.5 text-on-surface-variant transition-colors hover:bg-surface-variant"
             href="/logout"
           >
             <span className="material-symbols-outlined">logout</span>
@@ -69,16 +71,16 @@ export default async function AdminDashboardShell({ children }: { children: Reac
         </div>
       </aside>
 
-      <main className="ml-64 min-h-screen w-[calc(100%-16rem)] min-w-0 overflow-x-hidden px-4 pb-10 pt-8 sm:px-6 md:px-10 md:pb-12 md:pt-12 lg:px-12">
+      <main className="ml-80 min-h-screen w-[calc(100%-20rem)] min-w-0 overflow-x-hidden px-4 pb-10 pt-8 sm:px-6 md:px-10 md:pb-12 md:pt-12 lg:px-12 xl:ml-96 xl:w-[calc(100%-24rem)]">
         {children}
       </main>
 
-      <footer className="ml-64 w-[calc(100%-16rem)] min-w-0 border-t border-outline-variant/20 bg-surface py-12">
+      <footer className="ml-80 w-[calc(100%-20rem)] min-w-0 border-t border-outline-variant/20 bg-surface py-12 xl:ml-96 xl:w-[calc(100%-24rem)]">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-12 md:flex-row">
           <div className="flex items-center gap-4">
-            <span className="font-headline text-lg font-bold text-on-surface">Curator AI</span>
+            <span className="font-headline text-lg font-bold text-on-surface">INTERVIA</span>
             <span className="text-xs text-on-surface-variant">
-              © 2024 Curator AI Platform. Editorial Intelligence for HR.
+              © {new Date().getFullYear()} INTERVIA Platform. Editorial Intelligence for HR.
             </span>
           </div>
           <div className="flex gap-8">

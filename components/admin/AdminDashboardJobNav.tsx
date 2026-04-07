@@ -16,10 +16,10 @@ export default function AdminDashboardJobNav() {
   const isCategories = pathname.startsWith("/admin/job-profiles/categories");
 
   return (
-    <nav className="space-y-1" aria-label={t("admin.sidebar.jobNavAria")}>
+    <nav className="space-y-1" aria-label={t("admin.sidebar.jobNavAria")}> 
       <Link
         href="/admin/dashboard"
-        className={`flex items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
+        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
           isJobBoard
             ? "bg-primary-fixed/55 font-bold text-primary shadow-sm dark:bg-primary-fixed/25"
             : "text-on-surface-variant hover:bg-surface-variant"
@@ -37,7 +37,7 @@ export default function AdminDashboardJobNav() {
 
       <Link
         href="/admin/job-profiles/create"
-        className={`flex items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
+        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
           isCreate
             ? "bg-primary-fixed/55 font-bold text-primary shadow-sm dark:bg-primary-fixed/25"
             : "text-on-surface-variant hover:bg-surface-variant"
@@ -56,7 +56,7 @@ export default function AdminDashboardJobNav() {
 
       <Link
         href="/admin/job-profiles/categories"
-        className={`flex items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
+        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
           isCategories
             ? "bg-primary-fixed/55 font-bold text-primary shadow-sm dark:bg-primary-fixed/25"
             : "text-on-surface-variant hover:bg-surface-variant"
