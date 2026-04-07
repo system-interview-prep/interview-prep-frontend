@@ -7,7 +7,8 @@ export type VideoRoomFloatingBarProps = {
   recorderSupported: boolean;
   isRecording: boolean;
   onToggleCamera: () => void;
-  onToggleDictation: () => void;
+  /** Starts continuous listening until end session (mic cannot be toggled off here). */
+  onStartMic: () => void;
   onEndSession: () => void;
 };
 
@@ -16,7 +17,7 @@ export function VideoRoomFloatingBar({
   recorderSupported,
   isRecording,
   onToggleCamera,
-  onToggleDictation,
+  onStartMic,
   onEndSession,
 }: VideoRoomFloatingBarProps) {
   const { t } = useLanguage();
@@ -42,20 +43,23 @@ export function VideoRoomFloatingBar({
 
       <button
         type="button"
-        onClick={onToggleDictation}
+        onClick={() => {
+          if (!isRecording) onStartMic();
+        }}
         disabled={!recorderSupported}
         aria-pressed={isRecording}
-        title={isRecording ? t("room.dictationStop") : t("room.control.micShort")}
-        aria-label={isRecording ? t("room.dictationStop") : t("room.control.micShort")}
+        aria-disabled={isRecording}
+        title={isRecording ? t("room.micContinuousHint") : t("room.micStartTitle")}
+        aria-label={isRecording ? t("room.micContinuousHint") : t("room.micStartTitle")}
         className={`${iconBtn} hover:bg-white/15 disabled:opacity-40 ${
-          isRecording ? "bg-white/25 ring-2 ring-white/40" : ""
+          isRecording ? "pointer-events-none cursor-default bg-white/25 ring-2 ring-white/40" : ""
         }`}
       >
         <span
           className={`material-symbols-outlined text-[20px] sm:text-[22px] ${isRecording ? "animate-pulse" : ""}`}
           style={{ fontVariationSettings: "'FILL' 1" }}
         >
-          {isRecording ? "stop_circle" : "mic"}
+          mic
         </span>
       </button>
 

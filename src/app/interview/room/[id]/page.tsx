@@ -45,14 +45,17 @@ function RoomContent() {
     recorderSupported,
     isRecording,
     interimTranscript,
+    committedSegments,
     recognitionError,
-    handleMicToggle: toggleDictation,
+    handleStartRecording,
+    handleStopRecording,
   } = useVoiceRecognition({
     language: language.toLowerCase() === 'vietnamese' ? 'vietnamese' : 'english',
     onFinalTranscript: handleVoiceInput,
   });
 
   const handleHangUp = () => {
+    handleStopRecording();
     hangUp();
     router.push('/dashboard');
   };
@@ -134,12 +137,36 @@ function RoomContent() {
         <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-gradient-to-br from-primary/[0.06] via-surface to-tertiary/[0.05] p-2 sm:p-3 lg:min-w-0 lg:min-w-[280px] lg:flex-1 lg:p-4">
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant/25 bg-[#f4f6f8] pb-16 sm:rounded-3xl sm:pb-[4.5rem]">
             {isRecording && (
-              <div className="absolute left-1/2 top-3 z-30 flex max-w-[min(100%,28rem)] -translate-x-1/2 items-center gap-2 rounded-full border border-primary/20 bg-surface-container-lowest/95 px-4 py-2.5 text-sm text-on-surface shadow-lg backdrop-blur-md">
-                <span className="relative flex h-2.5 w-2.5 shrink-0">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
-                </span>
-                <span className="truncate font-medium">{interimTranscript || t('room.listening')}</span>
+              <div
+                className="absolute left-1/2 top-3 z-30 flex max-h-[min(40vh,14rem)] max-w-[min(100%,28rem)] -translate-x-1/2 flex-col gap-2 rounded-2xl border border-primary/20 bg-surface-container-lowest/95 px-4 py-3 text-sm text-on-surface shadow-lg backdrop-blur-md"
+                role="region"
+                aria-live="polite"
+                aria-label={t('room.liveTranscript')}
+              >
+                <div className="flex items-start gap-2">
+                  <span className="relative mt-1.5 flex h-2.5 w-2.5 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
+                  </span>
+                  <div className="min-w-0 flex-1 space-y-1.5 overflow-y-auto">
+                    {committedSegments.length === 0 && !interimTranscript && (
+                      <p className="font-medium text-on-surface-variant">{t('room.listening')}</p>
+                    )}
+                    {committedSegments.slice(-4).map((line, idx) => {
+                      const base = Math.max(0, committedSegments.length - 4);
+                      return (
+                        <p key={`seg-${base + idx}`} className="leading-snug text-on-surface">
+                          {line}
+                        </p>
+                      );
+                    })}
+                    {interimTranscript ? (
+                      <p className="border-l-2 border-primary/40 pl-2 leading-snug text-on-surface-variant italic">
+                        {interimTranscript}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
               </div>
             )}
             {recognitionError && (
@@ -180,7 +207,7 @@ function RoomContent() {
                 recorderSupported={recorderSupported}
                 isRecording={isRecording}
                 onToggleCamera={toggleCamera}
-                onToggleDictation={toggleDictation}
+                onStartMic={handleStartRecording}
                 onEndSession={handleHangUp}
               />
             </div>

@@ -20,6 +20,8 @@ export function useVoiceRecognition({
     const [recorderSupported, setRecorderSupported] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [interimTranscript, setInterimTranscript] = useState("");
+    /** Each finalized phrase (after a natural pause / end of utterance). Capped for UI memory. */
+    const [committedSegments, setCommittedSegments] = useState<string[]>([]);
     const [recognitionError, setRecognitionError] = useState<string | null>(null);
 
     const recognitionRef = useRef<VoiceRecognitionInstance | null>(null);
@@ -77,6 +79,10 @@ export function useVoiceRecognition({
             if (finalText) {
                 setInterimTranscript("");
                 setRecognitionError(null);
+                setCommittedSegments((prev) => {
+                    const next = [...prev, finalText];
+                    return next.length > 40 ? next.slice(-40) : next;
+                });
                 onFinalTranscriptRef.current(finalText);
             }
         };
@@ -103,6 +109,7 @@ export function useVoiceRecognition({
             if (!userWantsListeningRef.current) {
                 setIsRecording(false);
                 setInterimTranscript("");
+                setCommittedSegments([]);
                 return;
             }
             window.setTimeout(() => {
@@ -136,6 +143,7 @@ export function useVoiceRecognition({
         if (isRecording) return;
         setRecognitionError(null);
         setInterimTranscript("");
+        setCommittedSegments([]);
         userWantsListeningRef.current = true;
         try {
             recognitionRef.current.lang = language === "vietnamese" ? "vi-VN" : "en-US";
@@ -163,6 +171,7 @@ export function useVoiceRecognition({
         }
     }, []);
 
+    /** Toggle start/stop — for screens where mic should turn off without ending the session (e.g. Voice page). */
     const handleMicToggle = useCallback(() => {
         if (!recorderSupported) return;
         if (isRecording) {
@@ -176,6 +185,7 @@ export function useVoiceRecognition({
         recorderSupported,
         isRecording,
         interimTranscript,
+        committedSegments,
         recognitionError,
         handleMicToggle,
         handleStartRecording,
