@@ -2,7 +2,6 @@
 
 import axios from "axios";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import LanguageToggleButton from "@/components/LanguageToggleButton";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -71,7 +70,6 @@ function loadLocalOnly(): CvFile[] {
 
 export default function UserMyCvsPage() {
   const { t, lang } = useLanguage();
-  const router = useRouter();
   const [files, setFiles] = useState<CvFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
@@ -212,15 +210,6 @@ export default function UserMyCvsPage() {
       /\.docx?$/i.test(f.name);
     if (ok) addFile(f);
   }
-
-  const handleAnalyze = () => {
-    if (files.length === 0) {
-      setAnalyzeError(t("userDash.myCvs.needUpload"));
-      return;
-    }
-    setAnalyzeError(null);
-    router.push("/interview/select");
-  };
 
   const filtered = useMemo(() => {
     let list = [...files];
@@ -374,16 +363,6 @@ export default function UserMyCvsPage() {
                 className="hidden"
                 onChange={onUpload}
               />
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAnalyze();
-                }}
-                className="rounded-xl bg-primary px-10 py-4 font-bold text-on-primary shadow-lg shadow-primary/25 transition-all hover:opacity-95 active:scale-[0.98]"
-              >
-                {t("userDash.myCvs.analyzeCta")}
-              </button>
               {analyzeError && (
                 <p className="mt-4 text-sm text-error" role="alert">
                   {analyzeError}

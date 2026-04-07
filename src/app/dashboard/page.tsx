@@ -9,6 +9,7 @@ import { useLanguage } from "../../i18n/LanguageProvider";
 import { startDemoVideoInterviewRoom } from "../../utils/demoInterviewSession";
 import { useAuthProfile } from "../../auth/useAuthProfile";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useNavigationLoading } from "../../components/NavigationLoadingProvider";
 
 type DemoSession = {
   roomId: string;
@@ -36,6 +37,7 @@ export default function DashboardPage() {
   const [sessions, setSessions] = useState<DemoSession[]>([]);
   const { profile, displayName } = useAuthProfile();
   const router = useRouter();
+  const { showNavigationLoading, hideNavigationLoading } = useNavigationLoading();
   const searchParams = useSearchParams();
   const pageSize = 8;
   const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
@@ -70,6 +72,25 @@ export default function DashboardPage() {
     const sp = new URLSearchParams(searchParams.toString());
     sp.set("page", String(next));
     router.replace(`/dashboard?${sp.toString()}`, { scroll: false });
+  };
+
+  const goToChat = () => {
+    showNavigationLoading();
+    router.push("/chat");
+  };
+
+  const goToVoice = () => {
+    showNavigationLoading();
+    router.push("/voice");
+  };
+
+  const goToRoom = async () => {
+    showNavigationLoading();
+    try {
+      await startDemoVideoInterviewRoom(lang === "vi" ? "vi" : "en");
+    } catch {
+      hideNavigationLoading();
+    }
   };
 
   const welcomeTitle = displayName
@@ -130,15 +151,16 @@ export default function DashboardPage() {
               <p className="text-on-surface-variant body-md leading-relaxed mb-8">
                 {t("userDash.mode.chat.desc")}
               </p>
-              <Link
-                href="/chat"
-                className="inline-flex items-center gap-2 text-primary font-bold group/btn"
+              <button
+                type="button"
+                onClick={goToChat}
+                className="inline-flex items-center gap-2 border-0 bg-transparent p-0 text-primary font-bold group/btn"
               >
                 {t("userDash.mode.chat.cta")}
                 <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
                   arrow_forward
                 </span>
-              </Link>
+              </button>
               <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
                 <span className="material-symbols-outlined text-9xl">chat_bubble</span>
               </div>
@@ -152,15 +174,16 @@ export default function DashboardPage() {
               <p className="text-on-surface-variant body-md leading-relaxed mb-8">
                 {t("userDash.mode.voice.desc")}
               </p>
-              <Link
-                href="/voice"
-                className="inline-flex items-center gap-2 text-primary font-bold group/btn"
+              <button
+                type="button"
+                onClick={goToVoice}
+                className="inline-flex items-center gap-2 border-0 bg-transparent p-0 text-primary font-bold group/btn"
               >
                 {t("userDash.mode.voice.cta")}
                 <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
                   arrow_forward
                 </span>
-              </Link>
+              </button>
               <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
                 <span className="material-symbols-outlined text-9xl">settings_voice</span>
               </div>
@@ -176,7 +199,7 @@ export default function DashboardPage() {
               </p>
               <button
                 type="button"
-                onClick={() => startDemoVideoInterviewRoom(lang === "vi" ? "vi" : "en")}
+                onClick={goToRoom}
                 className="inline-flex items-center gap-2 text-white font-bold group/btn"
               >
                 {t("userDash.mode.video.cta")}

@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo } from "react";
+import { useNavigationLoading } from "../../../components/NavigationLoadingProvider";
 import LanguageToggleButton from "../../../components/LanguageToggleButton";
 import { UserDashboardShell } from "../../../components/user-dashboard/UserDashboardShell";
 import { useLanguage } from "../../../i18n/LanguageProvider";
@@ -16,9 +18,30 @@ function initialsFromName(name: string) {
 
 export default function InterviewSelectPage() {
   const { t, lang } = useLanguage();
+  const router = useRouter();
+  const { showNavigationLoading, hideNavigationLoading } = useNavigationLoading();
   const { profile, displayName } = useAuthProfile();
   const roleLabel = t("userDash.roleFallback");
   const initials = useMemo(() => (displayName ? initialsFromName(displayName) : "?"), [displayName]);
+
+  const goToChat = () => {
+    showNavigationLoading();
+    router.push("/chat");
+  };
+
+  const goToVoice = () => {
+    showNavigationLoading();
+    router.push("/voice");
+  };
+
+  const goToRoom = async () => {
+    showNavigationLoading();
+    try {
+      await startDemoVideoInterviewRoom(lang === "vi" ? "vi" : "en");
+    } catch {
+      hideNavigationLoading();
+    }
+  };
 
   return (
     <UserDashboardShell>
@@ -79,15 +102,16 @@ export default function InterviewSelectPage() {
               <p className="mb-8 text-on-surface-variant body-md leading-relaxed">
                 {t("userDash.mode.chat.desc")}
               </p>
-              <Link
-                href="/chat"
-                className="group/btn inline-flex items-center gap-2 font-bold text-primary"
+              <button
+                type="button"
+                onClick={goToChat}
+                className="group/btn inline-flex items-center gap-2 border-0 bg-transparent p-0 font-bold text-primary"
               >
                 {t("userDash.mode.chat.cta")}
                 <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
                   arrow_forward
                 </span>
-              </Link>
+              </button>
               <div className="pointer-events-none absolute -bottom-4 -right-4 opacity-5 transition-opacity group-hover:opacity-10">
                 <span className="material-symbols-outlined text-9xl">chat_bubble</span>
               </div>
@@ -103,15 +127,16 @@ export default function InterviewSelectPage() {
               <p className="mb-8 text-on-surface-variant body-md leading-relaxed">
                 {t("userDash.mode.voice.desc")}
               </p>
-              <Link
-                href="/voice"
-                className="group/btn inline-flex items-center gap-2 font-bold text-primary"
+              <button
+                type="button"
+                onClick={goToVoice}
+                className="group/btn inline-flex items-center gap-2 border-0 bg-transparent p-0 font-bold text-primary"
               >
                 {t("userDash.mode.voice.cta")}
                 <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
                   arrow_forward
                 </span>
-              </Link>
+              </button>
               <div className="pointer-events-none absolute -bottom-4 -right-4 opacity-5 transition-opacity group-hover:opacity-10">
                 <span className="material-symbols-outlined text-9xl">settings_voice</span>
               </div>
@@ -131,7 +156,7 @@ export default function InterviewSelectPage() {
               <p className="mb-8 text-white/90 body-md leading-relaxed">{t("userDash.mode.video.desc")}</p>
               <button
                 type="button"
-                onClick={() => startDemoVideoInterviewRoom(lang === "vi" ? "vi" : "en")}
+                onClick={goToRoom}
                 className="group/btn inline-flex items-center gap-2 font-bold text-white"
               >
                 {t("userDash.mode.video.cta")}

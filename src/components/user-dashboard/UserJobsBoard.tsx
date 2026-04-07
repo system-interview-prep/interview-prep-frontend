@@ -14,7 +14,8 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { UserJobProfileCard } from "@/components/user-dashboard/UserJobProfileCard";
 import { JobInterviewCvModal } from "@/components/user-dashboard/JobInterviewCvModal";
 
-const PAGE_SIZE = 30;
+/** Keep in sync with admin job profiles list (`AdminJobProfilesPanel`). */
+const PAGE_SIZE = 12;
 
 function formatRelativeShort(iso: string, locale: string) {
   try {
@@ -39,9 +40,12 @@ function keywordsLine(keywords: string[] | undefined): string {
 export default function UserJobsBoard() {
   const { t, lang } = useLanguage();
   const [profiles, setProfiles] = useState<JobProfile[]>([]);
+  /** Cursor used to fetch the current page (undefined = first page). */
+  const [pageStartCursor, setPageStartCursor] = useState<string | undefined>(undefined);
+  /** Stack of prior `pageStartCursor` values for "Previous". */
+  const [cursorBackStack, setCursorBackStack] = useState<(string | undefined)[]>([]);
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 400);
@@ -71,13 +75,10 @@ export default function UserJobsBoard() {
   );
 
   const loadPage = useCallback(
-    async (cursor: string | undefined, append: boolean) => {
+    async (cursor: string | undefined) => {
       try {
-        if (append) setLoadingMore(true);
-        else {
-          setLoading(true);
-          setError(null);
-        }
+        setLoading(true);
+        setError(null);
         const { data } = await jobProfileApi.list({
           limit: PAGE_SIZE,
           cursor,
@@ -86,29 +87,39 @@ export default function UserJobsBoard() {
           order: "desc",
         });
         const items = data.items ?? [];
-        setProfiles((prev) => (append ? [...prev, ...items] : items));
+        setProfiles(items);
+        setPageStartCursor(cursor);
         setNextCursor(data.nextCursor);
       } catch (e: unknown) {
         const msg = axios.isAxiosError(e)
           ? String((e.response?.data as { message?: string })?.message ?? e.message)
           : t("admin.jobProfile.error.load");
         setError(msg);
-        if (!append) setProfiles([]);
+        setProfiles([]);
         setNextCursor(undefined);
       } finally {
         setLoading(false);
-        setLoadingMore(false);
       }
     },
     [debouncedSearch, categoryFilter, t]
   );
 
   useEffect(() => {
-    loadPage(undefined, false);
+    setCursorBackStack([]);
+    loadPage(undefined);
   }, [loadPage]);
 
-  const handleLoadMore = () => {
-    if (nextCursor && !loadingMore) loadPage(nextCursor, true);
+  const handleNextPage = () => {
+    if (!nextCursor || loading) return;
+    setCursorBackStack((s) => [...s, pageStartCursor]);
+    void loadPage(nextCursor);
+  };
+
+  const handlePrevPage = () => {
+    if (cursorBackStack.length === 0 || loading) return;
+    const prevStart = cursorBackStack[cursorBackStack.length - 1];
+    setCursorBackStack((s) => s.slice(0, -1));
+    void loadPage(prevStart);
   };
 
   return (
@@ -188,21 +199,26 @@ export default function UserJobsBoard() {
               />
             ))}
           </div>
-          <p className="text-center text-xs text-on-surface-variant">
-            {t("userDash.jobProfiles.showingCount").replace("{count}", String(profiles.length))}
-          </p>
-          {nextCursor && (
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={handleLoadMore}
-                disabled={loadingMore}
-                className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-6 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:opacity-50"
-              >
-                {loadingMore ? t("admin.jobProfile.loading") : t("admin.jobProfile.loadMore")}
-              </button>
-            </div>
-          )}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={handlePrevPage}
+              disabled={loading || cursorBackStack.length === 0}
+              className="inline-flex min-w-[7rem] items-center justify-center gap-1.5 rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-5 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+              {t("userDash.jobProfiles.pagePrev")}
+            </button>
+            <button
+              type="button"
+              onClick={handleNextPage}
+              disabled={loading || !nextCursor}
+              className="inline-flex min-w-[7rem] items-center justify-center gap-1.5 rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-5 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              {t("userDash.jobProfiles.pageNext")}
+              <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+            </button>
+          </div>
         </>
       )}
       <JobInterviewCvModal

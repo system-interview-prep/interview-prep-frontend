@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { startDemoVideoInterviewRoom } from "@/utils/demoInterviewSession";
+import { useNavigationLoading } from "@/components/NavigationLoadingProvider";
 
 type CvFile = {
   id: string;
@@ -42,6 +43,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
   const [dragOver, setDragOver] = useState(false);
   const [roomStarting, setRoomStarting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { showNavigationLoading, hideNavigationLoading } = useNavigationLoading();
 
   const loadFiles = useCallback(() => {
     try {
@@ -135,11 +137,13 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
   };
 
   const goToChat = () => {
+    showNavigationLoading();
     onClose();
     router.push("/chat");
   };
 
   const goToVoice = () => {
+    showNavigationLoading();
     onClose();
     router.push("/voice");
   };
@@ -147,6 +151,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
   const goToRoom = async () => {
     if (!selectedCvId || roomStarting) return;
     setRoomStarting(true);
+    showNavigationLoading();
     try {
       try {
         sessionStorage.setItem(SELECTED_CV_SESSION_KEY, selectedCvId);
@@ -156,6 +161,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
       await startDemoVideoInterviewRoom(lang === "vi" ? "vi" : "en", jobTitle.trim() || undefined);
     } catch {
       setRoomStarting(false);
+      hideNavigationLoading();
     }
   };
 

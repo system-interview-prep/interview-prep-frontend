@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import LanguageProvider from "../i18n/LanguageProvider";
 import { getDictionary, normalizeLang } from "../i18n/i18n";
 import GoogleAuthProvider from "../components/GoogleAuthProvider";
+import { NavigationLoadingProvider } from "../components/NavigationLoadingProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,7 +58,9 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         <GoogleAuthProvider>
-          <LanguageProvider initialLang={lang}>{children}</LanguageProvider>
+          <LanguageProvider initialLang={lang}>
+            <NavigationLoadingProvider>{children}</NavigationLoadingProvider>
+          </LanguageProvider>
         </GoogleAuthProvider>
       </body>
     </html>

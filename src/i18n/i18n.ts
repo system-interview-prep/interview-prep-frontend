@@ -754,9 +754,11 @@ const en: Dict = {
   "userDash.jobProfiles.previewSubtitle": "Latest openings in a card grid. Open the full list to search, filter, and browse every role.",
   "userDash.jobProfiles.viewAll": "View all jobs",
   "userDash.jobProfiles.pageTitle": "Jobs",
-  "userDash.jobProfiles.pageSubtitle": "Search and filter by category. Jobs are shown as cards — load more for long lists.",
+  "userDash.jobProfiles.pageSubtitle": "Search and filter by category. Jobs are shown as cards — use previous and next to browse pages.",
   "userDash.jobProfiles.backToDashboard": "Back to dashboard",
   "userDash.jobProfiles.showingCount": "{count} positions loaded",
+  "userDash.jobProfiles.pagePrev": "Previous",
+  "userDash.jobProfiles.pageNext": "Next",
   "userDash.jobProfiles.interviewNow": "Interview now",
   "userDash.jobProfiles.empty": "No jobs yet. Check back later.",
   "userDash.jobProfiles.viewDetailAria": "View job details",
@@ -787,8 +789,6 @@ const en: Dict = {
   "userDash.myCvs.uploadTitle": "Upload your CV",
   "userDash.myCvs.uploadHint": "Drag and drop here, or use PDF or Word below — each button opens a picker filtered to that type only.",
   "userDash.myCvs.uploadDropRegionAria": "CV upload area — drag and drop, or choose PDF or Word below",
-  "userDash.myCvs.analyzeCta": "Analyze CV",
-  "userDash.myCvs.needUpload": "Please upload at least one CV file first.",
   "userDash.myCvs.listTitle": "Uploaded CVs",
   "userDash.myCvs.listHint": "File names and dates are stored in this browser only (demo).",
   "userDash.myCvs.listHintApi": "CVs are loaded from your account (server).",
@@ -1280,6 +1280,8 @@ const en: Dict = {
   "page.resources.placeholder": "Resources page (placeholder) — avoids 404 when navigating from LandingPage.",
   "meta.title": "Curator AI | Master Your Next Interview",
   "meta.description": "Master Your Next Interview",
+  "navigation.loading": "Opening your interview…",
+  "navigation.loadingAria": "Loading interview mode",
 };
 
 const vi: Dict = {
@@ -1916,9 +1918,11 @@ const vi: Dict = {
   "userDash.jobProfiles.previewSubtitle": "Các vị trí mới nhất dạng thẻ. Mở danh sách đầy đủ để tìm kiếm, lọc và xem mọi tin.",
   "userDash.jobProfiles.viewAll": "Xem tất cả",
   "userDash.jobProfiles.pageTitle": "Việc làm",
-  "userDash.jobProfiles.pageSubtitle": "Tìm kiếm và lọc theo danh mục. Hiển thị dạng thẻ — tải thêm khi danh sách dài.",
+  "userDash.jobProfiles.pageSubtitle": "Tìm kiếm và lọc theo danh mục. Hiển thị dạng thẻ — dùng trước / sau để xem trang tiếp theo.",
   "userDash.jobProfiles.backToDashboard": "Về bảng điều khiển",
   "userDash.jobProfiles.showingCount": "Đã tải {count} vị trí",
+  "userDash.jobProfiles.pagePrev": "Trước",
+  "userDash.jobProfiles.pageNext": "Sau",
   "userDash.jobProfiles.interviewNow": "Phỏng vấn ngay",
   "userDash.jobProfiles.empty": "Chưa có việc làm nào. Quay lại sau.",
   "userDash.jobProfiles.viewDetailAria": "Xem chi tiết vị trí",
@@ -1949,8 +1953,6 @@ const vi: Dict = {
   "userDash.myCvs.uploadTitle": "Tải CV của bạn",
   "userDash.myCvs.uploadHint": "Kéo thả file vào đây, hoặc bấm PDF / DOCX bên dưới — mỗi nút chỉ mở hộp thoại lọc đúng loại file đó.",
   "userDash.myCvs.uploadDropRegionAria": "Khu vực tải CV — kéo thả hoặc chọn PDF / Word bên dưới",
-  "userDash.myCvs.analyzeCta": "Phân tích CV",
-  "userDash.myCvs.needUpload": "Vui lòng tải ít nhất một file CV trước.",
   "userDash.myCvs.listTitle": "CV đã tải lên",
   "userDash.myCvs.listHint": "Tên file và ngày tải chỉ lưu trên trình duyệt này (bản demo).",
   "userDash.myCvs.listHintApi": "CV được tải từ tài khoản của bạn (máy chủ).",
@@ -2547,6 +2549,8 @@ const vi: Dict = {
   "page.resources.placeholder": "Trang tài nguyên (placeholder) — dùng để tránh 404 khi điều hướng từ LandingPage.",
   "meta.title": "Curator AI | Làm chủ buổi phỏng vấn tiếp theo",
   "meta.description": "Làm chủ buổi phỏng vấn tiếp theo",
+  "navigation.loading": "Đang mở phỏng vấn…",
+  "navigation.loadingAria": "Đang tải chế độ phỏng vấn",
 };
 
 export function getDictionary(lang: Lang): Dict {

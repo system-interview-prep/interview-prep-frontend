@@ -36,5 +36,6 @@ export async function startDemoVideoInterviewRoom(lang: "en" | "vi", jobTitle?: 
   } catch (error) {
     console.error("Lỗi khi tạo Session trên Backend:", error);
     alert("Lỗi: Không thể kết nối hoặc bạn chưa đăng nhập hợp lệ!");
+    throw error;
   }
 }
