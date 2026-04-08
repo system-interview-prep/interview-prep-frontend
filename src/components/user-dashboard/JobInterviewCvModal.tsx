@@ -19,11 +19,13 @@ type CvFile = {
   uploadedAt: string;
   contentType?: string;
   status?: CvProcessingStatus;
+  error?: string;
   score?: number;
 };
 
 const STORAGE_KEY = "demo.cvFiles";
 const SELECTED_CV_SESSION_KEY = "interview.selectedCvId";
+const STALE_PROCESSING_MS = 10 * 60 * 1000;
 
 function fileKind(name: string | undefined, mime?: string): "pdf" | "word" | "other" {
   const lower = (name ?? "").toLowerCase();
@@ -50,6 +52,7 @@ function dtoToCvFile(d: UserCvDto): CvFile {
     uploadedAt: d.createdAt ?? new Date().toISOString(),
     contentType: d.contentType?.trim() || undefined,
     status: d.status,
+    error: d.error?.trim() || undefined,
     score: typeof d.score === "number" ? d.score : undefined,
   };
 }
@@ -87,6 +90,44 @@ function labelForCvStatus(t: (key: string) => string, s: CvProcessingStatus | nu
   }
 }
 
+function statusBadgeClass(status: CvProcessingStatus | null) {
+  switch (status) {
+    case "DONE":
+      return "bg-emerald-100 text-emerald-700";
+    case "FAILED":
+      return "bg-error-container text-error";
+    case "AI_PROCESSING":
+      return "bg-amber-100 text-amber-700";
+    case "PARSING":
+      return "bg-sky-100 text-sky-700";
+    case "PENDING":
+    default:
+      return "bg-surface-container-high text-on-surface-variant";
+  }
+}
+
+function effectiveCvStatus(file: CvFile): CvProcessingStatus | null {
+  if (
+    (file.status === "PARSING" || file.status === "AI_PROCESSING") &&
+    Date.now() - new Date(file.uploadedAt).getTime() > STALE_PROCESSING_MS
+  ) {
+    return "FAILED";
+  }
+  if (file.error && file.status !== "DONE") return "FAILED";
+  return file.status ?? null;
+}
+
+function isSelectableCvFile(file: CvFile) {
+  return effectiveCvStatus(file) !== "FAILED";
+}
+
+function pickSelectableCvId(items: CvFile[], preferred: string | null = null) {
+  if (preferred && items.some((item) => item.id === preferred && isSelectableCvFile(item))) {
+    return preferred;
+  }
+  return items.find(isSelectableCvFile)?.id ?? null;
+}
+
 type Step = "cv" | "mode";
 
 type JobInterviewCvModalProps = {
@@ -109,8 +150,10 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
   const [listError, setListError] = useState<string | null>(null);
   const [apiConnected, setApiConnected] = useState(false);
   const [trackingCvId, setTrackingCvId] = useState<string | null>(null);
+  const [failedVisibleCvIds, setFailedVisibleCvIds] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const { showNavigationLoading, hideNavigationLoading } = useNavigationLoading();
+  const visibleFiles = files.filter((file) => effectiveCvStatus(file) !== "FAILED" || failedVisibleCvIds.includes(file.id));
 
   const loadFiles = useCallback(async () => {
     const token =
@@ -120,11 +163,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
       setFiles(list);
       setApiConnected(false);
       setListError(null);
-      setSelectedCvId((prev) => {
-        if (list.length === 0) return null;
-        if (prev && list.some((x) => x.id === prev)) return prev;
-        return list[0].id;
-      });
+      setSelectedCvId((prev) => pickSelectableCvId(list, prev));
       return;
     }
 
@@ -135,20 +174,12 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
       syncDemoCvFiles(list);
       setApiConnected(true);
       setListError(null);
-      setSelectedCvId((prev) => {
-        if (list.length === 0) return null;
-        if (prev && list.some((x) => x.id === prev)) return prev;
-        return list[0].id;
-      });
+      setSelectedCvId((prev) => pickSelectableCvId(list, prev));
     } catch (e) {
       const local = loadLocalOnly();
       setFiles(local);
       setApiConnected(false);
-      setSelectedCvId((prev) => {
-        if (local.length === 0) return null;
-        if (prev && local.some((x) => x.id === prev)) return prev;
-        return local[0].id;
-      });
+      setSelectedCvId((prev) => pickSelectableCvId(local, prev));
       if (axios.isAxiosError(e) && e.response?.status === 401) {
         setListError(t("userDash.myCvs.apiNeedLogin"));
       } else {
@@ -168,6 +199,19 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
     onDone: finishCvTracking,
     onFailed: (p) => {
       if (p?.error) setAnalyzeError(String(p.error));
+      const failedCvId = p?.cvId || trackingCvId;
+      if (failedCvId) {
+        setFiles((prev) => {
+          const next = prev.map((file) =>
+            file.id === failedCvId ? { ...file, status: "FAILED" as CvProcessingStatus } : file
+          );
+          setSelectedCvId((current) => pickSelectableCvId(next, current));
+          return next;
+        });
+        setFailedVisibleCvIds((prev) => (prev.includes(failedCvId) ? prev : [...prev, failedCvId]));
+      } else {
+        setFailedVisibleCvIds((prev) => prev);
+      }
       finishCvTracking();
     },
   });
@@ -177,7 +221,10 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      queueMicrotask(() => setFailedVisibleCvIds([]));
+      return;
+    }
     queueMicrotask(() => {
       setStep("cv");
       setRoomStarting(false);
@@ -445,10 +492,12 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                 </p>
               ) : (
                 <ul className="mb-4 space-y-2" role="radiogroup" aria-label={t("userDash.jobCvModal.savedSection")}>
-                  {files.map((f) => (
+                  {visibleFiles.map((f) => (
                     <li key={f.id}>
                       <label
-                        className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
+                        className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${
+                          effectiveCvStatus(f) === "FAILED" ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+                        } ${
                           selectedCvId === f.id
                             ? "border-primary bg-primary/8 shadow-sm"
                             : "border-outline-variant/15 hover:border-primary/30"
@@ -460,19 +509,28 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                           className="h-4 w-4 shrink-0 accent-primary"
                           checked={selectedCvId === f.id}
                           onChange={() => setSelectedCvId(f.id)}
+                          disabled={!isSelectableCvFile(f)}
                         />
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary-container text-primary">
+                        <span
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                            fileKind(f.name, f.contentType) === "pdf"
+                              ? "bg-red-100 text-red-600"
+                              : "bg-secondary-container text-primary"
+                          }`}
+                        >
                           <span className="material-symbols-outlined">{extIcon(f.name, f.contentType)}</span>
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-medium text-on-surface">{f.name}</span>
+                          <span className={`block truncate font-medium ${effectiveCvStatus(f) === "FAILED" ? "text-on-surface-variant" : "text-on-surface"}`}>
+                            {f.name}
+                          </span>
                           <span className="flex flex-wrap items-center gap-2 text-[11px] text-on-surface-variant">
                             <span>
                               {new Date(f.uploadedAt).toLocaleString(lang === "vi" ? "vi-VN" : "en-US")}
                             </span>
-                            {f.status ? (
-                              <span className="rounded-full bg-surface-container-high px-2 py-0.5 font-semibold uppercase tracking-wide text-on-surface-variant">
-                                {labelForCvStatus(t, f.status)}
+                            {effectiveCvStatus(f) ? (
+                              <span className={`rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide ${statusBadgeClass(effectiveCvStatus(f))}`}>
+                                {labelForCvStatus(t, effectiveCvStatus(f))}
                               </span>
                             ) : null}
                           </span>

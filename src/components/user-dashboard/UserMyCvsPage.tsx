@@ -14,9 +14,13 @@ type CvFile = {
   uploadedAt: string;
   /** From API when listing user CVs; used to show PDF/Word when filename has no extension */
   contentType?: string;
+  status?: CvProcessingStatus;
+  error?: string;
+  score?: number;
 };
 
 const STORAGE_KEY = "demo.cvFiles";
+const STALE_PROCESSING_MS = 10 * 60 * 1000;
 
 type TypeFilter = "all" | "pdf" | "word";
 type DateFilter = "all" | "7d" | "30d" | "90d";
@@ -49,7 +53,7 @@ function dtoToCvFile(d: UserCvDto): CvFile {
   const name = d.originalName?.trim() || "document";
   const uploadedAt = d.createdAt ?? new Date().toISOString();
   const contentType = d.contentType?.trim() || undefined;
-  return { id: d.id, name, uploadedAt, contentType };
+  return { id: d.id, name, uploadedAt, contentType, status: d.status, error: d.error?.trim() || undefined, score: d.score };
 }
 
 function syncDemoCvFiles(items: CvFile[]) {
@@ -85,6 +89,33 @@ function labelForCvStatus(t: (key: string) => string, s: CvProcessingStatus | nu
   }
 }
 
+function effectiveCvStatus(file: CvFile): CvProcessingStatus | null {
+  if (
+    (file.status === "PARSING" || file.status === "AI_PROCESSING") &&
+    Date.now() - new Date(file.uploadedAt).getTime() > STALE_PROCESSING_MS
+  ) {
+    return "FAILED";
+  }
+  if (file.error && file.status !== "DONE") return "FAILED";
+  return file.status ?? null;
+}
+
+function statusBadgeClass(status: CvProcessingStatus | null | undefined) {
+  switch (status) {
+    case "DONE":
+      return "bg-emerald-100 text-emerald-700";
+    case "FAILED":
+      return "bg-red-100 text-red-700";
+    case "AI_PROCESSING":
+      return "bg-amber-100 text-amber-700";
+    case "PARSING":
+      return "bg-sky-100 text-sky-700";
+    case "PENDING":
+    default:
+      return "bg-surface-container-high text-on-surface-variant";
+  }
+}
+
 export default function UserMyCvsPage() {
   const { t, lang } = useLanguage();
   const [files, setFiles] = useState<CvFile[]>([]);
@@ -100,6 +131,8 @@ export default function UserMyCvsPage() {
   const inputPdfRef = useRef<HTMLInputElement>(null);
   const inputWordRef = useRef<HTMLInputElement>(null);
   const [trackingCvId, setTrackingCvId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CvFile | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadFiles = useCallback(async () => {
     const token =
@@ -219,10 +252,24 @@ export default function UserMyCvsPage() {
   }
 
   function confirmRemoveFile(id: string) {
-    if (typeof window !== "undefined" && !window.confirm(t("userDash.myCvs.confirmDelete"))) {
-      return;
+    const target = files.find((f) => f.id === id) ?? null;
+    setDeleteTarget(target);
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    try {
+      await removeFile(deleteTarget.id);
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
     }
-    void removeFile(id);
+  }
+
+  function closeDeleteModal() {
+    if (deleting) return;
+    setDeleteTarget(null);
   }
 
   function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -511,7 +558,12 @@ export default function UserMyCvsPage() {
                               </span>
                               <div className="min-w-0">
                                 <p className="font-semibold text-on-surface">{displayName(f.name)}</p>
-                                <p className="truncate text-xs text-on-surface-variant">{f.name}</p>
+                                  <p className="truncate text-xs text-on-surface-variant">{f.name}</p>
+                                  {effectiveCvStatus(f) ? (
+                                    <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(effectiveCvStatus(f))}`}>
+                                      {labelForCvStatus(t, effectiveCvStatus(f))}
+                                    </span>
+                                  ) : null}
                               </div>
                             </div>
                           </td>
@@ -552,6 +604,13 @@ export default function UserMyCvsPage() {
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-on-surface">{displayName(f.name)}</p>
                           <p className="truncate text-xs text-on-surface-variant">{f.name}</p>
+                          {effectiveCvStatus(f) ? (
+                            <div className="mt-2">
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(effectiveCvStatus(f))}`}>
+                                {labelForCvStatus(t, effectiveCvStatus(f))}
+                              </span>
+                            </div>
+                          ) : null}
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
                             <span className={`rounded-full px-2 py-0.5 font-bold uppercase ${typeBadgeClass(f)}`}>
                               {typeLabel(f)}
@@ -576,6 +635,39 @@ export default function UserMyCvsPage() {
           </section>
         </div>
       </div>
+
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={t("userDash.myCvs.confirmDelete")}>
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"
+            onClick={closeDeleteModal}
+            aria-label={t("interview.cvUpload.cancel")}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-2xl">
+            <h3 className="font-headline text-lg font-bold text-on-surface">{t("userDash.myCvs.confirmDelete")}</h3>
+            <p className="mt-2 text-sm text-on-surface-variant">{deleteTarget.name}</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={deleting}
+                className="rounded-lg border border-outline-variant/30 px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:opacity-60"
+              >
+                {t("interview.cvUpload.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmDelete()}
+                disabled={deleting}
+                className="rounded-lg bg-error px-4 py-2 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60"
+              >
+                {deleting ? t("admin.jobProfile.loading") : t("profile.removeAria")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
