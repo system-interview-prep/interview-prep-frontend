@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { createPortal } from "react-dom";
 import LanguageToggleButton from "@/components/LanguageToggleButton";
 import { UserDashboardShell } from "@/components/user-dashboard/UserDashboardShell";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -19,6 +20,12 @@ type CvFile = {
 };
 
 const STORAGE_KEY = "demo.cvFiles";
+const PASS_CV_THRESHOLD = 60;
+
+type CvAnalysisModalState = {
+  variant: "pass" | "fail";
+  score: number;
+};
 
 function extIcon(name: string) {
   const lower = name.toLowerCase();
@@ -49,12 +56,21 @@ function UploadCvContent() {
   const title = searchParams.get("title")?.trim() || "";
   const jobProfileId = searchParams.get("jobProfileId")?.trim() || "";
 
-  const [files, setFiles] = useState<CvFile[]>([]);
+  const [files, setFiles] = useState<CvFile[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as CvFile[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const [dragOver, setDragOver] = useState(false);
   const [continuing, setContinuing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [trackingCvId, setTrackingCvId] = useState<string | null>(null);
+  const [analysisModal, setAnalysisModal] = useState<CvAnalysisModalState | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -63,40 +79,27 @@ function UploadCvContent() {
     pollError,
     isTracking,
   } = useCvProcessingStatus(trackingCvId, {
-    onDone: () => {
+    onDone: (p) => {
+      const score = Math.max(0, Math.min(100, typeof p?.score === "number" ? p.score : 0));
       setFiles((prev) =>
         prev.map((f) => (f.id === trackingCvId ? { ...f, status: "DONE" } : f))
       );
+      setAnalysisModal({
+        variant: score >= PASS_CV_THRESHOLD ? "pass" : "fail",
+        score,
+      });
       setTrackingCvId(null);
     },
     onFailed: (p) => {
+      const score = Math.max(0, Math.min(100, typeof p?.score === "number" ? p.score : 0));
       setFiles((prev) =>
         prev.map((f) => (f.id === trackingCvId ? { ...f, status: "FAILED" } : f))
       );
       setUploadError(p?.error || t("userDash.myCvs.apiUploadError"));
+      setAnalysisModal({ variant: "fail", score });
       setTrackingCvId(null);
     },
   });
-
-  useEffect(() => {
-    if (!trackingCvId || !cvProcessStatus) return;
-    setFiles((prev) =>
-      prev.map((f) => (f.id === trackingCvId ? { ...f, status: cvProcessStatus } : f))
-    );
-  }, [trackingCvId, cvProcessStatus]);
-
-  const loadFiles = useCallback(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      setFiles(raw ? (JSON.parse(raw) as CvFile[]) : []);
-    } catch {
-      setFiles([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadFiles();
-  }, [loadFiles]);
 
   useEffect(() => {
     if (title && jobProfileId) {
@@ -184,7 +187,7 @@ function UploadCvContent() {
   }
 
   const handleContinue = async () => {
-    if (files.length === 0 || continuing) return;
+    if (files.length === 0 || continuing || uploading || isTracking) return;
     if (trackingCvId && cvProcessStatus && cvProcessStatus !== "DONE") return;
     setContinuing(true);
     try {
@@ -207,9 +210,134 @@ function UploadCvContent() {
     );
   }
 
+  const analysisModalNode =
+    typeof window !== "undefined" && analysisModal
+      ? createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/55 backdrop-blur-[2px]"
+              aria-label={t("interview.cvAnalysis.close")}
+              onClick={() => (continuing ? null : setAnalysisModal(null))}
+            />
+            <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-3xl border border-outline-variant/20 bg-surface-container-lowest shadow-2xl">
+              <div
+                className={`px-6 py-5 sm:px-8 ${
+                  analysisModal.variant === "pass"
+                    ? "bg-gradient-to-r from-emerald-500/12 via-emerald-200/25 to-teal-500/10"
+                    : "bg-gradient-to-r from-amber-400/15 via-amber-200/30 to-yellow-100"
+                }`}
+              >
+                <div
+                  className={`mb-3 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${
+                    analysisModal.variant === "pass"
+                      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-800"
+                      : "border-amber-500/25 bg-amber-500/10 text-amber-900"
+                  }`}
+                >
+                  <span
+                    className={`material-symbols-outlined text-[18px] ${
+                      analysisModal.variant === "pass" ? "text-emerald-700 animate-pulse" : "text-amber-700"
+                    }`}
+                    style={{ fontVariationSettings: "'FILL' 1" }}
+                  >
+                    {analysisModal.variant === "pass" ? "check_circle" : "warning"}
+                  </span>
+                  {analysisModal.variant === "pass"
+                    ? t("interview.cvAnalysis.passBadge")
+                    : t("interview.cvAnalysis.failBadge")}
+                </div>
+                <h3 className="font-headline text-2xl font-black tracking-tight text-on-surface">
+                  {analysisModal.variant === "pass"
+                    ? t("interview.cvAnalysis.passTitle")
+                    : t("interview.cvAnalysis.failTitle")}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">
+                  {analysisModal.variant === "pass"
+                    ? t("interview.cvAnalysis.passDescription").replace("{score}", String(analysisModal.score))
+                    : t("interview.cvAnalysis.failDescription").replace("{score}", String(analysisModal.score))}
+                </p>
+              </div>
+
+              <div className="space-y-4 px-6 py-5 sm:px-8">
+                <div
+                  className={`rounded-2xl border p-4 ${
+                    analysisModal.variant === "pass"
+                      ? "border-emerald-500/20 bg-emerald-50/80"
+                      : "border-amber-500/20 bg-amber-50/80"
+                  }`}
+                >
+                  <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                    {analysisModal.variant === "pass"
+                      ? t("interview.cvAnalysis.passMetricLabel")
+                      : t("interview.cvAnalysis.failMetricLabel")}
+                  </p>
+                  <div className="mt-3 flex items-end gap-3">
+                    <span
+                      className={`font-headline text-5xl font-black ${
+                        analysisModal.variant === "pass" ? "text-emerald-700" : "text-amber-700"
+                      } ${analysisModal.variant === "pass" ? "animate-[pulse_1.2s_ease-in-out_2]" : ""}`}
+                    >
+                      {analysisModal.score}%
+                    </span>
+                    <span className="pb-1 text-sm font-semibold text-on-surface-variant">
+                      {analysisModal.variant === "pass"
+                        ? t("interview.cvAnalysis.passMetricHint")
+                        : t("interview.cvAnalysis.failMetricHint")}
+                    </span>
+                  </div>
+                </div>
+
+                {analysisModal.variant === "fail" ? (
+                  <div className="rounded-2xl border border-amber-400/30 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    <p className="font-semibold">{t("interview.cvAnalysis.failWarningTitle")}</p>
+                    <p className="mt-1">{t("interview.cvAnalysis.failWarningBody")}</p>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-50 px-4 py-3 text-sm text-on-surface-variant">
+                    <p className="font-semibold text-emerald-900">{t("interview.cvAnalysis.passCongratsTitle")}</p>
+                    <p className="mt-1">{t("interview.cvAnalysis.passCongratsBody")}</p>
+                  </div>
+                )}
+
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => (continuing ? null : setAnalysisModal(null))}
+                    className="rounded-xl border border-outline-variant/30 px-5 py-2.5 text-sm font-bold text-on-surface hover:bg-surface-container-high"
+                    disabled={continuing}
+                  >
+                    {t("interview.cvAnalysis.later")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleContinue}
+                    disabled={continuing}
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold shadow-md transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 ${
+                      analysisModal.variant === "pass"
+                        ? "bg-emerald-600 text-white shadow-emerald-600/25"
+                        : "bg-amber-500 text-amber-950 shadow-amber-500/20"
+                    }`}
+                  >
+                    {continuing
+                      ? t("admin.jobProfile.loading")
+                      : analysisModal.variant === "pass"
+                        ? t("interview.cvAnalysis.passCta")
+                        : t("interview.cvAnalysis.failCta")}
+                    {!continuing && <span className="material-symbols-outlined text-[20px]">videocam</span>}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
     <UserDashboardShell>
       <main className="min-h-screen bg-surface p-6 md:p-12">
+        {analysisModalNode}
         <header className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <Link

@@ -32,6 +32,46 @@ export type VideoCallChatVoiceResponse = ChatVoiceResponse & {
   audioUrl?: string;
 };
 
+export type CvScoringDecision = "PASS" | "FAIL";
+
+export type CvScoringCriterion = {
+  name: string;
+  type: string;
+  importance: number;
+  match: number;
+  score: number;
+  evidence: string;
+  criterion?: string;
+  details?: string;
+  match_score?: number;
+};
+
+export type CvScoringResponse = {
+  candidateId: string;
+  jobId: string;
+  score: {
+    raw: number;
+    max: number;
+    normalized: number;
+    percentage: number;
+  };
+  decision: CvScoringDecision;
+  hardFilters: {
+    passed: boolean;
+    reasons: string[];
+  };
+  criteriaBreakdown: CvScoringCriterion[];
+  summary: {
+    strengths: string[];
+    weaknesses: string[];
+    suggestions: string[];
+  };
+  metadata?: {
+    scoringVersion?: string;
+    timestamp?: string;
+  };
+};
+
 // Hàm tiện ích trích xuất Cookie trong client-side
 function getAuthHeaders(): Record<string, string> {
   if (typeof document !== 'undefined') {
@@ -156,5 +196,31 @@ export async function sendVideoCallVoiceChatMessage(params: { callId: string; pr
     body: JSON.stringify({ prompt: params.prompt, language: params.language }),
   });
   if (!res.ok) throw new Error("Network response was not ok");
+  return res.json();
+}
+
+export async function scoreCvAgainstJobProfile(params: {
+  candidateId: string;
+  jobId: string;
+}): Promise<CvScoringResponse> {
+  const res = await fetch(`${API_BASE_URL}/ai/score-cv-jp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(params),
+  });
+
+  if (!res.ok) {
+    let message = "Network response was not ok";
+    try {
+      const payload = (await res.json()) as { message?: string; error?: string };
+      message = payload.message || payload.error || message;
+    } catch {
+      /* ignore parse errors */
+    }
+    throw new Error(message);
+  }
   return res.json();
 }

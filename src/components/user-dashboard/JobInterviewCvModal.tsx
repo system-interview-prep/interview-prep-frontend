@@ -18,6 +18,7 @@ type CvFile = {
   uploadedAt: string;
   contentType?: string;
   status?: CvProcessingStatus;
+  score?: number;
 };
 
 const STORAGE_KEY = "demo.cvFiles";
@@ -48,6 +49,7 @@ function dtoToCvFile(d: UserCvDto): CvFile {
     uploadedAt: d.createdAt ?? new Date().toISOString(),
     contentType: d.contentType?.trim() || undefined,
     status: d.status,
+    score: typeof d.score === "number" ? d.score : undefined,
   };
 }
 
@@ -258,14 +260,32 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
     if (ok) void addFile(f);
   }
 
-  const goToModeStep = () => {
+  const openAnalysisPage = () => {
     if (files.length === 0 || !selectedCvId) return;
+    if (!jobProfileId) {
+      setAnalyzeError(t("interview.cvAnalysis.missingJob"));
+      return;
+    }
+
+    const selectedCv = files.find((file) => file.id === selectedCvId) ?? null;
+    if (selectedCv?.status && selectedCv.status !== "DONE") {
+      setAnalyzeError(t("interview.cvAnalysis.waitForDone"));
+      return;
+    }
+
     try {
-      sessionStorage.setItem(SELECTED_CV_SESSION_KEY, selectedCvId);
+      sessionStorage.setItem(
+        "interview.cvScoreContext",
+        JSON.stringify({ candidateId: selectedCvId, jobId: jobProfileId, jobTitle })
+      );
     } catch {
       /* ignore */
     }
-    setStep("mode");
+
+    showNavigationLoading();
+    router.push(
+      `/interview/cv-score?candidateId=${encodeURIComponent(selectedCvId)}&jobId=${encodeURIComponent(jobProfileId)}&jobTitle=${encodeURIComponent(jobTitle)}`
+    );
   };
 
   const goToChat = () => {
@@ -514,7 +534,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
               </button>
               <button
                 type="button"
-                onClick={goToModeStep}
+                onClick={openAnalysisPage}
                 disabled={files.length === 0 || !selectedCvId}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-on-primary shadow-md transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -601,5 +621,9 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
     </div>
   );
 
-  return createPortal(modal, document.body);
+  return (
+    <>
+      {createPortal(modal, document.body)}
+    </>
+  );
 }

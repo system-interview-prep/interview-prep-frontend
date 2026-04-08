@@ -61,13 +61,6 @@ export function InterviewRoomHeader() {
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <LanguageToggleButton />
-          <button
-            type="button"
-            onClick={() => setConfirmOpen(true)}
-            className="px-3 py-2 rounded-xl bg-surface-container text-on-surface text-sm font-semibold border border-outline-variant/40 hover:bg-surface-container-high transition-all"
-          >
-            {t("chatInterview.endSession")}
-          </button>
         </div>
       </div>
 
