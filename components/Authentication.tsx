@@ -7,6 +7,8 @@ import LanguageToggleButton from "../src/components/LanguageToggleButton";
 import { useLanguage } from "../src/i18n/LanguageProvider";
 import { useGoogleLogin } from "@react-oauth/google";
 import { writeAuthProfile } from "../src/auth/authProfile";
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export default function Authentication({ defaultMode = "login" }: { defaultMode?: "login" | "signup" }) {
   const { t, lang } = useLanguage();
@@ -30,6 +32,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
 
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
+  
 
   const nextUrl = useMemo(() => {
     const next = searchParams.get("next");
@@ -71,7 +74,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
         setGoogleError(null);
         setGoogleLoading(true);
 
-        const r = await fetch("http://localhost:5000/auth/google", {
+        const r = await fetch(`${API_BASE_URL}/auth/google`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ accessToken: tokenResponse.access_token }),
@@ -134,7 +137,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
         return;
       }
 
-      const r = await fetch("http://localhost:5000/auth/login", {
+      const r = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -182,7 +185,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
         return;
       }
 
-      const r = await fetch("http://localhost:5000/auth/register", {
+      const r = await fetch(`${API_BASE_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, name, dob: signupDob, role: signupType || 'CANDIDATE' }),
