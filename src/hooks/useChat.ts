@@ -6,6 +6,7 @@ import {
     createSession,
     getAllSessions,
     sendVoiceChatMessage,
+    getInterviewQuestions,
 } from "../lib/aiService";
 import {
     readAllSessionMeta,
@@ -103,13 +104,24 @@ export function useChat(options: UseChatOptions = {}) {
                         };
                     });
                 } else {
+                    // If questions were generated for this session, use the first question as warm-up prompt.
+                    let firstQuestion: string | null = null;
+                    try {
+                        const qRes = await getInterviewQuestions(sessionKey, 50);
+                        const list = Array.isArray(qRes.questions) ? qRes.questions : [];
+                        const sorted = [...list].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+                        firstQuestion = sorted[0]?.question_text?.trim() || null;
+                    } catch {
+                        /* ignore */
+                    }
                     nextMessages = [
                         {
                             id: 1,
                             text:
-                                language === "vietnamese"
+                                firstQuestion ||
+                                (language === "vietnamese"
                                     ? "Xin chào! Tôi là AI, bạn cần luyện phỏng vấn lĩnh vực nào?"
-                                    : "Hello! I'm AI, which interview topic do you want to practice?",
+                                    : "Hello! I'm AI, which interview topic do you want to practice?"),
                             sender: "ai",
                             sentAt: Date.now(),
                         },
@@ -260,8 +272,23 @@ export function useChat(options: UseChatOptions = {}) {
     };
 
     useEffect(() => {
+        // If a session was created before navigation (e.g. generate questions step),
+        // reuse it instead of creating a new one.
+        if (typeof window !== "undefined") {
+            try {
+                const pre = sessionStorage.getItem("interview.preSessionId");
+                if (pre && pre.trim()) {
+                    sessionStorage.removeItem("interview.preSessionId");
+                    void loadSession(pre.trim());
+                    void fetchSessions();
+                    return;
+                }
+            } catch {
+                /* ignore */
+            }
+        }
         startNewSession();
-    }, [startNewSession]);
+    }, [startNewSession, loadSession, fetchSessions]);
 
     const sessionListItems: ChatSessionListItem[] = useMemo(() => {
         return [...sessions]

@@ -224,3 +224,66 @@ export async function scoreCvAgainstJobProfile(params: {
   }
   return res.json();
 }
+
+export type InterviewQuestionPlan = {
+  sessionId: string;
+  candidateId: string;
+  jobId: string;
+  language: string;
+  stages: Array<{ name: string; targetCount: number }>;
+};
+
+export type InterviewQuestionItem = {
+  id: string;
+  order: number;
+  stage: string;
+  category: string;
+  difficulty: string;
+  question_text: string;
+  expected_signals: string[];
+  source_refs: { cv: string[]; jp: string[] };
+  created_at: string;
+};
+
+export async function generateInterviewQuestions(params: {
+  sessionId: string;
+  candidateId: string;
+  jobId: string;
+  language?: string;
+  totalQuestions?: number;
+  force?: boolean;
+}): Promise<{ plan: InterviewQuestionPlan; questions: InterviewQuestionItem[] }> {
+  const res = await fetch(
+    `${API_BASE_URL}/ai/session/${encodeURIComponent(params.sessionId)}/questions/generate`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({
+        candidateId: params.candidateId,
+        jobId: params.jobId,
+        language: params.language || "Vietnamese",
+        totalQuestions: params.totalQuestions,
+        force: Boolean(params.force),
+      }),
+    }
+  );
+  if (!res.ok) throw new Error("Network response was not ok");
+  return res.json();
+}
+
+export async function getInterviewQuestions(sessionId: string, limit: number = 200): Promise<{ sessionId: string; questions: InterviewQuestionItem[] }> {
+  const res = await fetch(
+    `${API_BASE_URL}/ai/session/${encodeURIComponent(sessionId)}/questions?limit=${encodeURIComponent(String(limit))}`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      },
+    }
+  );
+  if (!res.ok) throw new Error("Network response was not ok");
+  return res.json();
+}

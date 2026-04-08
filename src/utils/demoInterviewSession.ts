@@ -1,4 +1,4 @@
-import { createSession, startVideoCall } from '../lib/aiService';
+import { createSession, generateInterviewQuestions, startVideoCall } from '../lib/aiService';
 
 export type DemoSession = {
   roomId: string;
@@ -17,12 +17,28 @@ function safeParse(value: string | null): DemoSession[] {
 }
 
 /** Creates a video interview room using Backend API, appends to demo.sessions, then navigates to WebRTC room. */
-export async function startDemoVideoInterviewRoom(lang: "en" | "vi", jobTitle?: string): Promise<void> {
+export async function startDemoVideoInterviewRoom(
+  lang: "en" | "vi",
+  jobTitle?: string,
+  params?: { candidateId?: string; jobId?: string }
+): Promise<void> {
   try {
     // Create Call session (InterviewSessions)
     const languageParam = lang === "vi" ? "Vietnamese" : "English";
     const res = await createSession({ type: "Call", language: languageParam });
     const roomId = res.sessionId;
+
+    // Generate interview questions before joining room (idempotent on BE)
+    if (params?.candidateId && params?.jobId) {
+      await generateInterviewQuestions({
+        sessionId: roomId,
+        candidateId: params.candidateId,
+        jobId: params.jobId,
+        language: languageParam,
+        totalQuestions: 20,
+        force: false,
+      });
+    }
 
     // Persist video-call metadata (InterviewVideoCalls)
     const call = await startVideoCall({ roomId, sessionId: roomId });

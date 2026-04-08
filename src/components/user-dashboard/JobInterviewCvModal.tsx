@@ -11,6 +11,7 @@ import { useNavigationLoading } from "@/components/NavigationLoadingProvider";
 import { useCvProcessingStatus } from "@/hooks/useCvProcessingStatus";
 import { userCvApi, type UserCvDto } from "@/services/userCvApi";
 import type { CvProcessingStatus } from "@/types/cvProcessing";
+import { createSession, generateInterviewQuestions } from "@/lib/aiService";
 
 type CvFile = {
   id: string;
@@ -289,15 +290,59 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
   };
 
   const goToChat = () => {
-    showNavigationLoading();
-    onClose();
-    router.push("/chat");
+    void (async () => {
+      if (!selectedCvId) return;
+      if (!jobProfileId?.trim()) {
+        setAnalyzeError("Thiếu Job Profile để tạo bộ câu hỏi.");
+        return;
+      }
+      showNavigationLoading();
+      onClose();
+      const languageParam = lang === "vi" ? "Vietnamese" : "English";
+      const res = await createSession({ type: "Chat", language: languageParam });
+      try {
+        sessionStorage.setItem("interview.preSessionId", res.sessionId);
+      } catch {
+        /* ignore */
+      }
+      await generateInterviewQuestions({
+        sessionId: res.sessionId,
+        candidateId: selectedCvId,
+        jobId: jobProfileId,
+        language: languageParam,
+        totalQuestions: 20,
+        force: false,
+      });
+      router.push("/chat");
+    })();
   };
 
   const goToVoice = () => {
-    showNavigationLoading();
-    onClose();
-    router.push("/voice");
+    void (async () => {
+      if (!selectedCvId) return;
+      if (!jobProfileId?.trim()) {
+        setAnalyzeError("Thiếu Job Profile để tạo bộ câu hỏi.");
+        return;
+      }
+      showNavigationLoading();
+      onClose();
+      const languageParam = lang === "vi" ? "Vietnamese" : "English";
+      const res = await createSession({ type: "Voice", language: languageParam });
+      try {
+        sessionStorage.setItem("interview.preSessionId", res.sessionId);
+      } catch {
+        /* ignore */
+      }
+      await generateInterviewQuestions({
+        sessionId: res.sessionId,
+        candidateId: selectedCvId,
+        jobId: jobProfileId,
+        language: languageParam,
+        totalQuestions: 20,
+        force: false,
+      });
+      router.push("/voice");
+    })();
   };
 
   const goToRoom = async () => {
@@ -310,7 +355,11 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
       } catch {
         /* ignore */
       }
-      await startDemoVideoInterviewRoom(lang === "vi" ? "vi" : "en", jobTitle.trim() || undefined);
+      await startDemoVideoInterviewRoom(
+        lang === "vi" ? "vi" : "en",
+        jobTitle.trim() || undefined,
+        { candidateId: selectedCvId, jobId: jobProfileId }
+      );
     } catch {
       setRoomStarting(false);
       hideNavigationLoading();
