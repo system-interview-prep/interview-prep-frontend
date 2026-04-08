@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { userCvApi } from "@/services/userCvApi";
@@ -11,6 +12,7 @@ import {
 
 const POLL_MS = 4000;
 const POLL_MAX_MS = 5 * 60 * 1000;
+const POLL_TIMEOUT_ERROR = "processing_timeout";
 
 export type UseCvProcessingStatusResult = {
   status: CvProcessingStatus | null;
@@ -38,8 +40,11 @@ export function useCvProcessingStatus(
   const { onDone, onFailed } = options;
   const onDoneRef = useRef(onDone);
   const onFailedRef = useRef(onFailed);
-  onDoneRef.current = onDone;
-  onFailedRef.current = onFailed;
+
+  useEffect(() => {
+    onDoneRef.current = onDone;
+    onFailedRef.current = onFailed;
+  }, [onDone, onFailed]);
 
   const [status, setStatus] = useState<CvProcessingStatus | null>(null);
   const [lastPayload, setLastPayload] = useState<CvStatusPayload | null>(null);
@@ -50,23 +55,29 @@ export function useCvProcessingStatus(
   const pollStartRef = useRef(0);
 
   const applyPayload = useCallback((p: CvStatusPayload) => {
-    setLastPayload(p);
-    setStatus(p.status);
-    if (isTerminalCvStatus(p.status)) {
+    const nextStatus = p.error && p.status !== "DONE" ? "FAILED" : p.status;
+    const nextPayload = nextStatus === p.status ? p : { ...p, status: nextStatus };
+
+    setLastPayload(nextPayload);
+    setStatus(nextStatus);
+
+    if (isTerminalCvStatus(nextStatus)) {
       terminalRef.current = true;
       setIsTracking(false);
-      if (p.status === "DONE") onDoneRef.current?.(p);
-      if (p.status === "FAILED") onFailedRef.current?.(p, p.error);
+      if (nextStatus === "DONE") onDoneRef.current?.(nextPayload);
+      if (nextStatus === "FAILED") onFailedRef.current?.(nextPayload, nextPayload.error);
     }
   }, []);
 
   useEffect(() => {
     terminalRef.current = false;
-    setPollError(null);
+    queueMicrotask(() => setPollError(null));
     if (!cvId) {
-      setStatus(null);
-      setLastPayload(null);
-      setIsTracking(false);
+      queueMicrotask(() => {
+        setStatus(null);
+        setLastPayload(null);
+        setIsTracking(false);
+      });
       return;
     }
 
@@ -85,16 +96,22 @@ export function useCvProcessingStatus(
     const pollInterval = window.setInterval(async () => {
       if (terminalRef.current) return;
       if (Date.now() - pollStartRef.current > POLL_MAX_MS) {
+        applyPayload({
+          cvId,
+          status: "FAILED",
+          error: POLL_TIMEOUT_ERROR,
+        });
+        setPollError(POLL_TIMEOUT_ERROR);
         window.clearInterval(pollInterval);
         return;
       }
       try {
         const { data } = await userCvApi.get(cvId);
         const st = data.status;
-        if (st && isTerminalCvStatus(st)) {
+        if (st && (isTerminalCvStatus(st) || data.error)) {
           applyPayload({
             cvId,
-            status: st,
+            status: data.error && st !== "DONE" ? "FAILED" : st,
             updatedAt: data.updatedAt,
             error: data.error,
             score: data.score,
@@ -103,7 +120,7 @@ export function useCvProcessingStatus(
           return;
         }
         if (st) {
-          setStatus(st);
+          setStatus(data.error ? "FAILED" : st);
         }
       } catch {
         setPollError("poll");
