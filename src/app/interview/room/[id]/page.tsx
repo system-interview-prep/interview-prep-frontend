@@ -8,7 +8,7 @@ import { VideoRoomFloatingBar } from '../../../../components/interview/VideoRoom
 import ChatBox from '../../../../components/interview/ChatBox';
 import { InterviewRoomHeader } from '../../../component/InterviewRoomHeader';
 import { useWebRTC } from '../../../../hooks/useWebRTC';
-import { useSocket } from '../../../../hooks/useSocket';
+import { useVideoCallChat } from '../../../../hooks/useVideoCallChat';
 import { useVoiceRecognition } from '../../../../hooks/useVoiceRecognition';
 import { useLanguage } from '../../../../i18n/LanguageProvider';
 
@@ -35,7 +35,7 @@ function RoomContent() {
   const language = searchParams.get('language') ?? 'English';
 
   const { localStream, isConnected, toggleCamera, hangUp } = useWebRTC(roomId);
-  const { messages, sendMessage } = useSocket(roomId);
+  const { messages, sendMessage } = useVideoCallChat({ language });
 
   const handleVoiceInput = useCallback((text: string) => {
     sendMessage({ roomId, content: text, language });

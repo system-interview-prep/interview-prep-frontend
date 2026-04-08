@@ -1,4 +1,4 @@
-import { createSession } from '../lib/aiService';
+import { createSession, startVideoCall } from '../lib/aiService';
 
 export type DemoSession = {
   roomId: string;
@@ -19,9 +19,18 @@ function safeParse(value: string | null): DemoSession[] {
 /** Creates a video interview room using Backend API, appends to demo.sessions, then navigates to WebRTC room. */
 export async function startDemoVideoInterviewRoom(lang: "en" | "vi", jobTitle?: string): Promise<void> {
   try {
-    // Xin 1 Session ID hợp lệ và lưu vào DynamoDB (InterviewSessions) trước khi bắt đầu
-    const res = await createSession();
+    // Create Call session (InterviewSessions)
+    const languageParam = lang === "vi" ? "Vietnamese" : "English";
+    const res = await createSession({ type: "Call", language: languageParam });
     const roomId = res.sessionId;
+
+    // Persist video-call metadata (InterviewVideoCalls)
+    const call = await startVideoCall({ roomId, sessionId: roomId });
+    try {
+      sessionStorage.setItem("video.callId", call.callId);
+    } catch {
+      /* ignore */
+    }
     
     // Lưu lịch sử Local (Frontend Helper)
     const startedAt = new Date().toISOString();
@@ -32,7 +41,6 @@ export async function startDemoVideoInterviewRoom(lang: "en" | "vi", jobTitle?: 
     localStorage.setItem("demo.sessions", JSON.stringify(next));
 
     // Điều hướng vào phòng ảo
-    const languageParam = lang === "vi" ? "Vietnamese" : "English";
     window.location.assign(`/interview/room/${roomId}?language=${encodeURIComponent(languageParam)}`);
   } catch (error) {
     console.error("Lỗi khi tạo Session trên Backend:", error);

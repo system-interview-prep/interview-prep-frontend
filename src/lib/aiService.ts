@@ -28,6 +28,10 @@ export type ChatVoiceResponse = {
   mimeType: string;
 };
 
+export type VideoCallChatVoiceResponse = ChatVoiceResponse & {
+  audioUrl?: string;
+};
+
 // Hàm tiện ích trích xuất Cookie trong client-side
 function getAuthHeaders(): Record<string, string> {
   if (typeof document !== 'undefined') {
@@ -112,6 +116,44 @@ export async function closeSession(sessionId: string): Promise<{ sessionId: stri
       "Content-Type": "application/json",
       ...getAuthHeaders()
     }
+  });
+  if (!res.ok) throw new Error("Network response was not ok");
+  return res.json();
+}
+
+export async function startVideoCall(params: { roomId: string; sessionId?: string }): Promise<{ callId: string; roomId: string; startedAt: string }> {
+  const res = await fetch(`${API_BASE_URL}/interview/video-calls/start`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders()
+    },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error("Network response was not ok");
+  return res.json();
+}
+
+export async function endVideoCall(callId: string): Promise<{ callId: string; endedAt: string }> {
+  const res = await fetch(`${API_BASE_URL}/interview/video-calls/${encodeURIComponent(callId)}/end`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders()
+    }
+  });
+  if (!res.ok) throw new Error("Network response was not ok");
+  return res.json();
+}
+
+export async function sendVideoCallVoiceChatMessage(params: { callId: string; prompt: string; language: string }): Promise<VideoCallChatVoiceResponse> {
+  const res = await fetch(`${API_BASE_URL}/interview/video-calls/${encodeURIComponent(params.callId)}/chat-voice`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders()
+    },
+    body: JSON.stringify({ prompt: params.prompt, language: params.language }),
   });
   if (!res.ok) throw new Error("Network response was not ok");
   return res.json();
