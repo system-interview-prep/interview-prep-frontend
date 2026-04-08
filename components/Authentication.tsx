@@ -6,12 +6,55 @@ import { useEffect, useMemo, useState } from "react";
 import LanguageToggleButton from "../src/components/LanguageToggleButton";
 import { useLanguage } from "../src/i18n/LanguageProvider";
 import { useGoogleLogin } from "@react-oauth/google";
-import { writeAuthProfile } from "../src/auth/authProfile";
+import { readAuthProfile, writeAuthProfile } from "../src/auth/authProfile";
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
+function pickUserPicture(user: unknown): string | null {
+  if (!user || typeof user !== "object") return null;
+  const u = user as Record<string, unknown>;
+  const candidates = [
+    u.picture,
+    u.avatar,
+    u.avatarUrl,
+    u.photoURL,
+    u.photo_url,
+    u.image,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+  }
+  return null;
+}
+
+async function fetchGooglePicture(accessToken: string): Promise<string | null> {
+  try {
+    const response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) return null;
+    const profile = await response.json();
+    return typeof profile?.picture === "string" && profile.picture.trim() ? profile.picture.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchUserProfilePicture(accessToken: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/user/profile`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) return null;
+    const profile = await response.json();
+    return pickUserPicture(profile);
+  } catch {
+    return null;
+  }
+}
+
 export default function Authentication({ defaultMode = "login" }: { defaultMode?: "login" | "signup" }) {
-  const { t, lang } = useLanguage();
+  const { t } = useLanguage();
   const isLogin = defaultMode === "login";
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -86,6 +129,11 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
         }
         
         const data = await r.json();
+        const backendPicture = pickUserPicture(data?.user);
+        const googlePicture = backendPicture || (await fetchGooglePicture(tokenResponse.access_token));
+        const profilePicture = data.access_token ? await fetchUserProfilePicture(data.access_token) : null;
+        const existingPicture = readAuthProfile()?.picture?.trim() || null;
+        const finalPicture = profilePicture || googlePicture || existingPicture;
 
         if (data.access_token) {
           localStorage.setItem("accessToken", data.access_token);
@@ -94,15 +142,16 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
           writeAuthProfile({
             email: data.user.email ?? null,
             name: data.user.name ?? null,
-            picture: data.user.picture ?? null,
+            picture: finalPicture,
           });
         }
         document.cookie = `access_token=${data.access_token}; Path=/; SameSite=Lax; Max-Age=31536000`;
         setRoleCookie(String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "admin" : "user");
 
         router.replace(nextUrl ?? (String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "/admin/dashboard" : "/dashboard"));
-      } catch (err: any) {
-        setGoogleError(err.message || t("auth.error.googleFailed"));
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : t("auth.error.googleFailed");
+        setGoogleError(message || t("auth.error.googleFailed"));
       } finally {
         setGoogleLoading(false);
       }
@@ -149,6 +198,10 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
       }
 
       const data = await r.json();
+      const loginPicture = pickUserPicture(data?.user);
+      const profilePicture = data.access_token ? await fetchUserProfilePicture(data.access_token) : null;
+      const existingPicture = readAuthProfile()?.picture?.trim() || null;
+      const finalPicture = profilePicture || loginPicture || existingPicture;
       if (data.access_token) {
         localStorage.setItem("accessToken", data.access_token);
       }
@@ -156,15 +209,16 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
         writeAuthProfile({
           email: data.user.email ?? null,
           name: data.user.name ?? null,
-          picture: data.user.picture ?? null,
+          picture: finalPicture,
         });
       }
       document.cookie = `access_token=${data.access_token}; Path=/; SameSite=Lax; Max-Age=31536000`;
       setRoleCookie(String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "admin" : "user");
 
       router.replace(nextUrl ?? (String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "/admin/dashboard" : "/dashboard"));
-    } catch (err: any) {
-      setLoginError(err.message || "Failed to login");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to login";
+      setLoginError(message || "Failed to login");
     } finally {
       setLoginLoading(false);
     }
@@ -198,8 +252,9 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
 
       // Instead of forcing login again, maybe redirect to login page.
       window.location.href = '/login';
-    } catch (err: any) {
-      setSignupError(err.message || "Failed to register");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to register";
+      setSignupError(message || "Failed to register");
     } finally {
       setSignupLoading(false);
     }

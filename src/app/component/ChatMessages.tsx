@@ -10,6 +10,12 @@ import { useAuthProfile } from "../../auth/useAuthProfile";
 const AI_AVATAR = "/logo.jpg";
 const DEFAULT_USER_AVATAR = "/default-avatar.svg";
 
+function buildUserAvatarFallback(displayName: string, email?: string | null) {
+  const seed = (displayName || email || "User").trim();
+  const encoded = encodeURIComponent(seed || "User");
+  return `https://ui-avatars.com/api/?name=${encoded}&background=EAF2FF&color=0B4DBB&size=128&bold=true`;
+}
+
 function formatMessageTime(sentAt: number | undefined, locale: string) {
   if (sentAt == null) return null;
   try {
@@ -39,7 +45,7 @@ export function ChatMessages({
   const { t, lang } = useLanguage();
   const { playAudio, supportsVoice } = useAudioPlayer();
   const { profile, displayName } = useAuthProfile();
-  const userAvatarSrc = profile?.picture?.trim() || DEFAULT_USER_AVATAR;
+  const userAvatarSrc = profile?.picture?.trim() || buildUserAvatarFallback(displayName, profile?.email);
   const userAvatarAlt = displayName ? `${displayName} avatar` : t("chat.you");
 
   const onListen = useCallback(
