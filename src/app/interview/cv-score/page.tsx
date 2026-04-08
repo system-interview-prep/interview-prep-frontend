@@ -29,6 +29,18 @@ type ScoreContext = {
   jobTitle?: string;
 };
 
+type CachedScorePayload = {
+  candidateId: string;
+  jobId: string;
+  result: CvScoringResponse;
+  jobProfile: JobProfile | null;
+  candidate: UserCvDto | null;
+};
+
+type ScoreHistoryState = {
+  __cvScoreCache?: CachedScorePayload;
+};
+
 function safeText(value: unknown, fallback = "-") {
   return typeof value === "string" && value.trim() ? value : fallback;
 }
@@ -59,6 +71,22 @@ function getScoringErrorMessage(payload: unknown) {
     return `AI scoring returned invalid JSON (MODEL_OUTPUT_NOT_JSON). Please try again.`;
   }
   return null;
+}
+
+function readHistoryScoreCache() {
+  if (typeof window === "undefined") return null;
+  const state = window.history.state as ScoreHistoryState | null;
+  return state?.__cvScoreCache ?? null;
+}
+
+function writeHistoryScoreCache(payload: CachedScorePayload) {
+  if (typeof window === "undefined") return;
+  const prev = (window.history.state ?? {}) as Record<string, unknown>;
+  const nextState: ScoreHistoryState & Record<string, unknown> = {
+    ...prev,
+    __cvScoreCache: payload,
+  };
+  window.history.replaceState(nextState, "");
 }
 
 function normalizeResult(result: CvScoringResponse) {
@@ -100,6 +128,34 @@ function normalizeResult(result: CvScoringResponse) {
     weaknesses,
     suggestions,
   };
+}
+
+function getFeaturedCriterionIndex(items: NormalizedCriterion[]) {
+  if (!items.length) return -1;
+
+  let bestIndex = 0;
+  for (let i = 1; i < items.length; i += 1) {
+    const current = items[i];
+    const best = items[bestIndex];
+
+    if (current.importance > best.importance) {
+      bestIndex = i;
+      continue;
+    }
+    if (current.importance < best.importance) continue;
+
+    if (current.score > best.score) {
+      bestIndex = i;
+      continue;
+    }
+    if (current.score < best.score) continue;
+
+    if (current.match > best.match) {
+      bestIndex = i;
+    }
+  }
+
+  return bestIndex;
 }
 
 export default function CvScorePage() {
@@ -167,6 +223,20 @@ export default function CvScorePage() {
     setJobProfile(null);
     setCandidate(null);
 
+    const cached = readHistoryScoreCache();
+    if (
+      cached &&
+      cached.candidateId === candidateId &&
+      cached.jobId === jobId &&
+      isValidScoreResponse(cached.result)
+    ) {
+      setResult(cached.result);
+      setJobProfile(cached.jobProfile ?? null);
+      setCandidate(cached.candidate ?? null);
+      setLoading(false);
+      return;
+    }
+
     void (async () => {
       try {
         const [scoreResponse, jobResponse, candidateResponse] = await Promise.all([
@@ -183,6 +253,15 @@ export default function CvScorePage() {
         setResult(scoreResponse);
         if (jobResponse) setJobProfile(jobResponse);
         if (candidateResponse) setCandidate(candidateResponse);
+
+        const payload: CachedScorePayload = {
+          candidateId,
+          jobId,
+          result: scoreResponse,
+          jobProfile: jobResponse,
+          candidate: candidateResponse,
+        };
+        writeHistoryScoreCache(payload);
       } catch (fetchError) {
         const message = fetchError instanceof Error ? fetchError.message : t("userDash.myCvs.apiUploadError");
         setError(message);
@@ -237,6 +316,10 @@ export default function CvScorePage() {
   const description = isPass
     ? t("interview.cvAnalysis.passDescription").replace("{score}", String(score))
     : t("interview.cvAnalysis.failDescription").replace("{score}", String(score));
+  const criteriaItems = normalized?.criteriaBreakdown ?? [];
+  const featuredCriterionIndex = getFeaturedCriterionIndex(criteriaItems);
+  const featuredCriterion = featuredCriterionIndex >= 0 ? criteriaItems[featuredCriterionIndex] : undefined;
+  const remainingCriteria = criteriaItems.filter((_, index) => index !== featuredCriterionIndex);
 
   const modeModal =
     modeModalOpen && context
@@ -325,6 +408,7 @@ export default function CvScorePage() {
               CV score
             </span>
             {context?.jobTitle ? <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-700">{context.jobTitle}</span> : null}
+            {candidate?.originalName ? <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-700">{candidate.originalName}</span> : null}
           </div>
         </div>
 
@@ -458,42 +542,45 @@ export default function CvScorePage() {
                     </span>
                   </div>
 
-                  <div className="mt-3 space-y-3">
-                    {normalized?.criteriaBreakdown[0] ? (
+                  <div className="mt-3 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
+                    {featuredCriterion ? (
                       <div className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-[0_12px_30px_-22px_rgba(15,23,42,0.3)]">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
                             <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-700">Phân rã nổi bật</p>
-                            <h4 className="mt-1 text-lg font-black leading-6 text-slate-900">{normalized.criteriaBreakdown[0].name}</h4>
-                            <p className="mt-2 text-sm leading-7 text-slate-600">{normalized.criteriaBreakdown[0].evidence}</p>
+                            <h4 className="mt-1 text-lg font-black leading-6 text-slate-900">{featuredCriterion.name}</h4>
                           </div>
-                          <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] ${normalized.criteriaBreakdown[0].score >= 1 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
-                            {t("interview.cvAnalysis.criteriaScore")}: {normalized.criteriaBreakdown[0].score.toFixed(2)}
+
+                          <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] ${featuredCriterion.score >= 1 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
+                            {t("interview.cvAnalysis.criteriaScore")}: {featuredCriterion.score.toFixed(2)}
                           </span>
+                        
+                            <p className="mt-2 text-sm leading-7 text-slate-600">{featuredCriterion.evidence}</p>
                         </div>
 
-                        <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                          <MiniMetric label={t("interview.cvAnalysis.criteriaImportance")} value={normalized.criteriaBreakdown[0].importance.toString()} />
-                          <MiniMetric label={t("interview.cvAnalysis.criteriaMatch")} value={normalized.criteriaBreakdown[0].match.toString()} />
+                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                          <MiniMetric label={t("interview.cvAnalysis.criteriaImportance")} value={featuredCriterion.importance.toString()} />
+                          <MiniMetric label={t("interview.cvAnalysis.criteriaMatch")} value={featuredCriterion.match.toString()} />
                         </div>
                       </div>
                     ) : null}
 
-                    <div className="max-h-[26rem] space-y-3 overflow-y-auto pr-1">
-                      {normalized?.criteriaBreakdown.slice(1).map((item) => (
+                    <div className="space-y-3">
+                      {remainingCriteria.map((item) => (
                         <div key={item.key} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.28)]">
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
                               <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">Phân rã</p>
                               <h4 className="mt-1 text-base font-bold leading-6 text-slate-900">{item.name}</h4>
-                              <p className="mt-1 text-sm leading-6 text-slate-600">{item.evidence}</p>
                             </div>
                             <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] ${item.score >= 1 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
                               {t("interview.cvAnalysis.criteriaScore")}: {item.score.toFixed(2)}
                             </span>
+
+                            <p className="mt-1 text-sm leading-6 text-slate-600">{item.evidence}</p>
                           </div>
 
-                          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                          <div className="mt-4 grid gap-2 sm:grid-cols-2">
                             <MiniMetric label={t("interview.cvAnalysis.criteriaImportance")} value={item.importance.toString()} />
                             <MiniMetric label={t("interview.cvAnalysis.criteriaMatch")} value={item.match.toString()} />
                           </div>
