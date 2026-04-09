@@ -6,7 +6,6 @@ import {
     createSession,
     getAllSessions,
     sendVoiceChatMessage,
-    getInterviewQuestions,
 } from "../lib/aiService";
 import {
     readAllSessionMeta,
@@ -104,24 +103,14 @@ export function useChat(options: UseChatOptions = {}) {
                         };
                     });
                 } else {
-                    // If questions were generated for this session, use the first question as warm-up prompt.
-                    let firstQuestion: string | null = null;
-                    try {
-                        const qRes = await getInterviewQuestions(sessionKey, 50);
-                        const list = Array.isArray(qRes.questions) ? qRes.questions : [];
-                        const sorted = [...list].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-                        firstQuestion = sorted[0]?.question_text?.trim() || null;
-                    } catch {
-                        /* ignore */
-                    }
+                    // Opening + Q1 are persisted by BE on GET /ai/history when a plan exists (ensureOpeningIfEmpty).
                     nextMessages = [
                         {
                             id: 1,
                             text:
-                                firstQuestion ||
-                                (language === "vietnamese"
+                                language === "vietnamese"
                                     ? "Xin chào! Tôi là AI, bạn cần luyện phỏng vấn lĩnh vực nào?"
-                                    : "Hello! I'm AI, which interview topic do you want to practice?"),
+                                    : "Hello! I'm AI, which interview topic do you want to practice?",
                             sender: "ai",
                             sentAt: Date.now(),
                         },
@@ -214,27 +203,24 @@ export function useChat(options: UseChatOptions = {}) {
                     return voicePayload;
                 }
 
-                const data = await sendChatMessage({ sessionId, prompt: input, language });
-                const replyText =
-                    data.reply ||
-                    (language === "vietnamese"
-                        ? "Không nhận được phản hồi từ AI."
-                        : "No response from AI.");
-
-                setMessages((prev) => {
-                    const next = [
-                        ...prev,
-                        {
-                            id: prev.length + 1,
-                            text: replyText,
-                            sender: "ai" as const,
-                            sentAt: Date.now(),
-                        },
-                    ];
-                    syncMetaFromMessages(sessionId, next);
-                    setSessionMeta(readAllSessionMeta());
-                    return next;
+                // BE will persist both: assistant reply + next question (if any).
+                // So after sending, reload history and render it as the single source of truth.
+                await sendChatMessage({ sessionId, prompt: input, language });
+                const historyRes = await getChatHistory(sessionId);
+                const nextMessages: Message[] = (historyRes.history || []).map((item, idx) => {
+                    const parsed = Date.parse(item.timestamp);
+                    return {
+                        id: idx + 1,
+                        text: item.content,
+                        sender: item.role === "assistant" ? ("ai" as const) : ("user" as const),
+                        sentAt: Number.isFinite(parsed) ? parsed : undefined,
+                    };
                 });
+                if (nextMessages.length > 0) {
+                    setMessages(nextMessages);
+                    syncMetaFromMessages(sessionId, nextMessages);
+                    setSessionMeta(readAllSessionMeta());
+                }
                 return null;
             } catch (err) {
                 setError("chat.error.sendFailed");

@@ -273,17 +273,3 @@ export async function generateInterviewQuestions(params: {
   if (!res.ok) throw new Error("Network response was not ok");
   return res.json();
 }
-
-export async function getInterviewQuestions(sessionId: string, limit: number = 200): Promise<{ sessionId: string; questions: InterviewQuestionItem[] }> {
-  const res = await fetch(
-    `${API_BASE_URL}/ai/session/${encodeURIComponent(sessionId)}/questions?limit=${encodeURIComponent(String(limit))}`,
-    {
-      headers: {
-        "Content-Type": "application/json",
-        ...getAuthHeaders(),
-      },
-    }
-  );
-  if (!res.ok) throw new Error("Network response was not ok");
-  return res.json();
-}
