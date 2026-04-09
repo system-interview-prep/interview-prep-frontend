@@ -1,27 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AxiosError } from "axios";
 import LanguageToggleButton from "../../../components/LanguageToggleButton";
 import { UserDashboardShell } from "../../../components/user-dashboard/UserDashboardShell";
 import { useLanguage } from "../../../i18n/LanguageProvider";
-import { useAuthProfile } from "../../../auth/useAuthProfile";
+import { userApi, type UserProfile } from "../../../services/api";
+import { readAuthProfile, writeAuthProfile } from "../../../auth/authProfile";
 
-type CvFile = {
-  id: string;
+const ALLOWED_AVATAR_MIME = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+]);
+
+type EditState = {
   name: string;
-  uploadedAt: string;
+  dob: string;
 };
 
-const STORAGE_KEY = "demo.cvFiles";
-
-function safeJsonParse<T>(value: string | null): T | null {
-  if (!value) return null;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return null;
-  }
+function normalizeDobForInput(value?: string) {
+  if (!value) return "";
+  const trimmed = value.trim();
+  const ymd = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (ymd) return ymd[1];
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
 }
 
 function initialsFromName(name: string) {
@@ -30,308 +38,366 @@ function initialsFromName(name: string) {
   return name.slice(0, 2).toUpperCase() || "?";
 }
 
-function extIcon(name: string) {
-  const lower = name.toLowerCase();
-  if (lower.endsWith(".pdf")) return "picture_as_pdf";
-  if (lower.endsWith(".doc") || lower.endsWith(".docx")) return "article";
-  return "description";
+function formatDate(value?: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  }).format(date);
 }
 
-export default function ProfilePage() {
-  const { t } = useLanguage();
-  const [files, setFiles] = useState<CvFile[]>([]);
-  const { profile, displayName } = useAuthProfile();
-  const [dragOver, setDragOver] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+function readApiError(error: unknown) {
+  if (error instanceof AxiosError) {
+    const message = error.response?.data?.message;
+    if (typeof message === "string") return message;
+    if (Array.isArray(message) && message[0]) return String(message[0]);
+    if (error.response?.status) return `Request failed (${error.response.status})`;
+  }
+  return "Something went wrong. Please try again.";
+}
 
-  const loadFiles = useCallback(() => {
+export default function UserProfilePage() {
+  const { t } = useLanguage();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const isAvatarPickerOpeningRef = useRef(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [form, setForm] = useState<EditState>({ name: "", dob: "" });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [avatarCacheKey, setAvatarCacheKey] = useState<number>(Date.now());
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const roleLabel = t("userDash.roleFallback");
+
+  const currentDisplayName = useMemo(() => {
+    const name = profile?.name?.trim();
+    if (name) return name;
+    const email = profile?.email?.trim();
+    if (!email) return "—";
+    return email.split("@")[0] || "—";
+  }, [profile?.email, profile?.name]);
+
+  const displayedAvatar = useMemo(() => {
+    if (avatarPreviewUrl) return avatarPreviewUrl;
+    if (!profile?.picture) return "";
+    const joiner = profile.picture.includes("?") ? "&" : "?";
+    return `${profile.picture}${joiner}v=${avatarCacheKey}`;
+  }, [avatarCacheKey, avatarPreviewUrl, profile?.picture]);
+
+  async function loadProfile() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      setFiles(raw ? (JSON.parse(raw) as CvFile[]) : []);
-    } catch {
-      setFiles([]);
+      setErrorMessage(null);
+      setLoading(true);
+      const response = await userApi.getProfile();
+      const data = response.data;
+      setProfile(data);
+      setAvatarCacheKey(Date.now());
+      setForm({
+        name: data.name || "",
+        dob: normalizeDobForInput(data.dob),
+      });
+
+      const local = readAuthProfile();
+      writeAuthProfile({
+        email: data.email || local?.email || null,
+        name: data.name || local?.name || null,
+        picture: data.picture || local?.picture || null,
+      });
+    } catch (error) {
+      setErrorMessage(readApiError(error));
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
+    loadProfile();
   }, []);
 
   useEffect(() => {
-    loadFiles();
-  }, [loadFiles]);
-
-  useEffect(() => {
     function onFocus() {
-      loadFiles();
+      if (isAvatarPickerOpeningRef.current) {
+        isAvatarPickerOpeningRef.current = false;
+        return;
+      }
+      loadProfile();
     }
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [loadFiles]);
+  }, []);
 
-  function persist(next: CvFile[]) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    setFiles(next);
+  function setField<K extends keyof EditState>(key: K, value: EditState[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    setSuccessMessage(null);
   }
 
-  function addFile(f: File) {
-    const entry: CvFile = {
-      id: `cv_${Date.now().toString(36)}`,
-      name: f.name,
-      uploadedAt: new Date().toISOString(),
+  async function onAvatarFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    isAvatarPickerOpeningRef.current = false;
+    const file = e.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!ALLOWED_AVATAR_MIME.has(file.type.toLowerCase())) {
+      setErrorMessage("Only jpeg, jpg, png, gif, and webp images are supported.");
+      e.target.value = "";
+      return;
+    }
+
+    const maxBytes = 5 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setErrorMessage("Image is too large. Please choose a file smaller than 5MB.");
+      e.target.value = "";
+      return;
+    }
+
+    try {
+      const previewUrl = URL.createObjectURL(file);
+      setAvatarPreviewUrl(previewUrl);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      setUploadingAvatar(true);
+      const response = await userApi.uploadProfilePicture(file);
+      const updated = response.data;
+      URL.revokeObjectURL(previewUrl);
+      setAvatarPreviewUrl(null);
+      setAvatarCacheKey(Date.now());
+      setProfile(updated);
+      setForm({
+        name: updated.name || "",
+        dob: normalizeDobForInput(updated.dob),
+      });
+      writeAuthProfile({
+        email: updated.email || null,
+        name: updated.name || null,
+        picture: updated.picture || null,
+      });
+      setSuccessMessage("Avatar updated successfully.");
+    } catch (error) {
+      if (avatarPreviewUrl) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+      }
+      setAvatarPreviewUrl(null);
+      setErrorMessage(readApiError(error));
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = "";
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+      }
     };
-    setFiles((prev) => {
-      const next = [entry, ...prev].slice(0, 10);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
-  }
+  }, [avatarPreviewUrl]);
 
-  function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const list = e.target.files;
-    if (!list?.length) return;
-    addFile(list[0]);
-    e.target.value = "";
-  }
-
-  function onDrop(e: React.DragEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setDragOver(false);
-    const f = e.dataTransfer.files?.[0];
-    if (!f) return;
-    const ok =
-      f.type === "application/pdf" ||
-      f.type === "application/msword" ||
-      f.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-      /\.pdf$/i.test(f.name) ||
-      /\.docx?$/i.test(f.name);
-    if (ok) addFile(f);
-  }
+    if (!profile) return;
 
-  function remove(id: string) {
-    persist(files.filter((x) => x.id !== id));
-  }
+    const payload: Partial<Pick<UserProfile, "name" | "dob">> = {};
+    if (form.name !== (profile.name || "")) payload.name = form.name;
+    if (form.dob !== (profile.dob || "")) payload.dob = form.dob;
 
-  const email = profile?.email?.trim() || "";
-  const roleLabel = t("userDash.roleFallback");
+    try {
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      setSaving(true);
+      const response = await userApi.updateProfile(payload);
+      const updated = response.data;
+      setProfile(updated);
+      setForm({
+        name: updated.name || "",
+        dob: normalizeDobForInput(updated.dob),
+      });
+      writeAuthProfile({
+        email: updated.email || profile.email || null,
+        name: updated.name || null,
+        picture: updated.picture || null,
+      });
+      setSuccessMessage("Profile updated successfully.");
+    } catch (error) {
+      setErrorMessage(readApiError(error));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <UserDashboardShell>
-      <main className="min-h-screen bg-surface p-6 pb-28 md:pb-12 md:p-12">
-        <header className="relative mb-10 flex flex-col gap-6 sm:mb-12 sm:flex-row sm:items-end sm:justify-between">
-          <div className="pointer-events-none absolute -right-8 -top-12 h-64 w-64 rounded-full bg-primary/10 blur-[80px] dark:bg-primary/20" aria-hidden />
-          <div className="relative z-[1]">
-            <span className="mb-3 inline-block text-[10px] font-bold uppercase tracking-widest text-tertiary">
+      <main className="min-h-screen bg-surface p-6 pb-28 md:p-12 md:pb-10">
+        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <span className="mb-2 inline-block text-[10px] font-bold uppercase tracking-widest text-tertiary">
               {t("profile.eyebrow")}
             </span>
             <h1 className="font-headline text-3xl font-extrabold tracking-tighter text-on-surface md:text-4xl">
               {t("profile.title")}
             </h1>
-            <p className="mt-2 max-w-2xl font-body text-lg text-on-surface-variant">{t("profile.subtitle")}</p>
+            <p className="mt-2 text-on-surface-variant">{t("profile.subtitle")}</p>
           </div>
-          <div className="relative z-[1] flex flex-wrap items-center gap-4 sm:flex-nowrap sm:justify-end">
+
+          <div className="flex flex-wrap items-center gap-3">
             <LanguageToggleButton />
-            <div className="flex items-center gap-4 whitespace-nowrap">
-              <div className="flex items-center gap-3 whitespace-nowrap text-right sm:text-left">
-                <p className="font-headline text-base font-bold leading-none text-on-surface sm:text-lg">
-                  {displayName || "—"}
-                </p>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant sm:text-xs">
-                  {roleLabel}
-                </span>
-              </div>
-              <Link
-                href="/dashboard"
-                className="shrink-0 rounded-full ring-2 ring-primary/10 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-                aria-label={t("interview.select.backDashboard")}
-                title={t("interview.select.backDashboard")}
-              >
-                {profile?.picture ? (
-                  <img
-                    alt=""
-                    className="h-12 w-12 rounded-full object-cover"
-                    src={profile.picture}
-                  />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-fixed font-headline text-sm font-bold text-primary">
-                    {displayName ? initialsFromName(displayName) : "?"}
-                  </div>
-                )}
-              </Link>
-            </div>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 rounded-full border border-outline-variant/20 bg-surface px-4 py-2.5 text-sm font-semibold text-on-surface transition-transform hover:-translate-y-0.5"
+              aria-label={t("interview.select.backDashboard")}
+              title={t("interview.select.backDashboard")}
+            >
+              <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+              <span>{t("interview.select.backDashboard")}</span>
+            </Link>
           </div>
         </header>
 
-        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 lg:grid-cols-12">
-          <aside className="space-y-6 lg:col-span-5">
-            <div className="overflow-hidden rounded-2xl border border-outline-variant/10 bg-surface-container-lowest shadow-lg shadow-primary/5 transition-shadow duration-300 hover:shadow-xl hover:shadow-primary/10">
-              <div className="bg-gradient-to-br from-primary/90 to-tertiary px-6 py-8 text-on-primary">
-                <div className="flex flex-col items-center text-center sm:flex-row sm:items-center sm:gap-5 sm:text-left">
-                  {profile?.picture ? (
-                    <img
-                      alt=""
-                      className="h-24 w-24 rounded-2xl border-4 border-white/20 object-cover shadow-lg"
-                      src={profile.picture}
+        {loading ? (
+          <section className="rounded-2xl border border-outline-variant/10 bg-surface-container-lowest p-6 text-on-surface-variant">
+            Loading profile...
+          </section>
+        ) : !profile ? (
+          <section className="rounded-2xl border border-error/20 bg-error-container/10 p-6 text-error">
+            {errorMessage || "Could not load profile."}
+          </section>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <section className="rounded-2xl border border-outline-variant/10 bg-surface-container-lowest shadow-sm">
+              <div className="rounded-t-2xl bg-gradient-to-br from-primary to-tertiary p-6 text-white">
+                <div className="flex items-center gap-4">
+                  <div
+                    className="group relative h-16 w-16 overflow-hidden rounded-full border border-white/20 bg-white/15"
+                    aria-label="Change avatar"
+                    title="Change avatar"
+                  >
+                    {displayedAvatar ? (
+                      <img
+                        alt=""
+                        className="h-16 w-16 object-cover"
+                        src={displayedAvatar}
+                      />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center font-headline text-xl font-black">
+                        {currentDisplayName !== "—" ? initialsFromName(currentDisplayName) : "?"}
+                      </div>
+                    )}
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity group-hover:opacity-100">
+                      <span className="material-symbols-outlined text-lg text-white">photo_camera</span>
+                    </span>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="absolute inset-0 z-10 cursor-pointer opacity-0"
+                      onClick={(e) => {
+                        isAvatarPickerOpeningRef.current = true;
+                        e.currentTarget.value = "";
+                      }}
+                      onChange={onAvatarFileChange}
                     />
-                  ) : (
-                    <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-4 border-white/20 bg-white/15 font-headline text-3xl font-black text-white shadow-lg backdrop-blur-sm">
-                      {displayName ? initialsFromName(displayName) : "?"}
-                    </div>
-                  )}
-                  <div className="mt-4 min-w-0 flex-1 sm:mt-0">
+                  </div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-white/75">
                       {t("profile.identityTitle")}
                     </p>
-                    <div className="mt-1 flex items-center gap-3 whitespace-nowrap">
-                      <p className="font-headline text-xl font-bold leading-tight text-white">
-                        {displayName || "—"}
-                      </p>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-white/80 sm:text-xs">
-                        {roleLabel}
-                      </span>
-                    </div>
-                    {email ? (
-                      <p className="mt-2 flex items-center justify-center gap-1.5 text-sm text-white/90 sm:justify-start">
-                        <span className="material-symbols-outlined text-base opacity-80">mail</span>
-                        <span className="truncate">{email}</span>
-                      </p>
-                    ) : null}
+                    <h2 className="truncate font-headline text-2xl font-bold">{currentDisplayName}</h2>
+                    <p className="mt-1 text-xs text-white/80">{roleLabel}</p>
+                    <p className="mt-1 text-[11px] text-white/75">
+                      {uploadingAvatar ? "Uploading avatar..." : "Click avatar to change photo"}
+                    </p>
                   </div>
                 </div>
               </div>
-              <p className="border-t border-outline-variant/10 p-4 text-sm leading-relaxed text-on-surface-variant">
-                {t("profile.identityHint")}
+
+              <div className="space-y-4 p-6 text-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-on-surface-variant">Email</span>
+                  <span className="text-right font-semibold text-on-surface">{profile.email || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-on-surface-variant">Role</span>
+                  <span className="text-right font-semibold text-on-surface">{profile.role || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-on-surface-variant">Provider</span>
+                  <span className="text-right font-semibold text-on-surface">{profile.provider || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-on-surface-variant">Created at</span>
+                  <span className="text-right font-semibold text-on-surface">{formatDate(profile.created_at)}</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-outline-variant/10 bg-surface-container-lowest p-6 shadow-sm">
+              <h3 className="font-headline text-xl font-bold text-on-surface">Edit profile</h3>
+              <p className="mt-1 text-sm text-on-surface-variant">
+                Edit basic profile info. Change avatar directly by clicking your photo.
               </p>
-            </div>
 
-            <div className="rounded-2xl border border-outline-variant/10 bg-surface-container-low p-5">
-              <h3 className="mb-4 font-headline text-sm font-bold uppercase tracking-widest text-on-surface-variant">
-                {t("profile.quickLinks")}
-              </h3>
-              <div className="flex flex-col gap-2">
-                <Link
-                  href="/interview/select"
-                  className="group flex items-center gap-3 rounded-xl border border-transparent bg-surface-container-lowest px-4 py-3 transition-all hover:border-primary/20 hover:shadow-md"
-                >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-fixed text-primary transition-transform group-hover:scale-105">
-                    <span className="material-symbols-outlined">forum</span>
-                  </span>
-                  <span className="font-bold text-on-surface">{t("profile.goInterview")}</span>
-                  <span className="material-symbols-outlined ml-auto text-on-surface-variant transition-transform group-hover:translate-x-0.5">
-                    arrow_forward
-                  </span>
-                </Link>
-                <Link
-                  href="/practice"
-                  className="group flex items-center gap-3 rounded-xl border border-transparent bg-surface-container-lowest px-4 py-3 transition-all hover:border-tertiary/25 hover:shadow-md"
-                >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-tertiary-fixed text-tertiary transition-transform group-hover:scale-105">
-                    <span className="material-symbols-outlined">quiz</span>
-                  </span>
-                  <span className="font-bold text-on-surface">{t("profile.goPractice")}</span>
-                  <span className="material-symbols-outlined ml-auto text-on-surface-variant transition-transform group-hover:translate-x-0.5">
-                    arrow_forward
-                  </span>
-                </Link>
-              </div>
-            </div>
-          </aside>
-
-          <section className="lg:col-span-7">
-            <div className="overflow-hidden rounded-2xl border border-outline-variant/10 bg-surface-container-lowest shadow-lg shadow-primary/5">
-              <div className="border-b border-outline-variant/10 bg-surface-container/40 px-6 py-5 sm:px-8">
-                <h2 className="font-headline text-lg font-bold text-on-surface sm:text-xl">
-                  {t("profile.cvSection")}
-                </h2>
-                <p className="mt-1 text-sm text-on-surface-variant">{t("profile.cvHint")}</p>
-                {files.length > 0 && (
-                  <p className="mt-2 text-xs font-semibold text-primary">
-                    {t("profile.filesStored").replace("{count}", String(files.length))}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-6 p-6 sm:p-8">
-                <div
-                  role="button"
-                  tabIndex={0}
-                  aria-label={t("profile.upload")}
-                  onClick={(e) => {
-                    if ((e.target as HTMLElement).closest("label")) return;
-                    inputRef.current?.click();
-                  }}
-                  onDragEnter={(e) => {
-                    e.preventDefault();
-                    setDragOver(true);
-                  }}
-                  onDragLeave={(e) => {
-                    e.preventDefault();
-                    if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false);
-                  }}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={onDrop}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      inputRef.current?.click();
-                    }
-                  }}
-                  className={`group rounded-xl border-2 border-dashed px-6 py-10 text-center transition-all duration-200 ${
-                    dragOver
-                      ? "border-primary bg-primary/8 scale-[1.01] shadow-inner"
-                      : "border-outline-variant/35 bg-surface-container/30 hover:border-primary/40 hover:bg-primary-fixed/20"
-                  }`}
-                >
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-fixed/80 text-primary transition-transform duration-200 group-hover:scale-105">
-                    <span className="material-symbols-outlined text-3xl">cloud_upload</span>
-                  </div>
-                  <p className="font-medium text-on-surface">{t("profile.dropHint")}</p>
-                  <label className="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-6 py-3 font-headline text-sm font-bold text-on-primary shadow-md shadow-primary/25 transition-all hover:bg-primary-container active:scale-[0.98]">
-                    <span className="material-symbols-outlined text-lg">upload_file</span>
-                    {t("profile.upload")}
-                    <input
-                      ref={inputRef}
-                      type="file"
-                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                      className="hidden"
-                      onChange={onUpload}
-                    />
-                  </label>
+              {errorMessage ? (
+                <div className="mt-4 rounded-lg border border-error/30 bg-error-container/15 px-3 py-2 text-sm text-error">
+                  {errorMessage}
                 </div>
+              ) : null}
 
-                <ul className="space-y-3">
-                  {files.length === 0 ? (
-                    <li className="rounded-xl border border-outline-variant/15 bg-surface-container/40 py-12 text-center text-sm text-on-surface-variant">
-                      <span className="material-symbols-outlined mb-2 block text-4xl opacity-30">folder_open</span>
-                      {t("profile.noFiles")}
-                    </li>
-                  ) : (
-                    files.map((f) => (
-                      <li
-                        key={f.id}
-                        className="group flex items-center gap-4 rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-4 transition-all duration-200 hover:border-primary/15 hover:shadow-md"
-                      >
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary-container text-primary transition-transform duration-200 group-hover:scale-105">
-                          <span className="material-symbols-outlined text-2xl">{extIcon(f.name)}</span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-headline font-bold text-on-surface">{f.name}</p>
-                          <p className="mt-0.5 text-xs text-on-surface-variant">
-                            {new Date(f.uploadedAt).toLocaleString()}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => remove(f.id)}
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-error transition-colors hover:bg-error-container/30"
-                          aria-label={t("profile.removeAria")}
-                        >
-                          <span className="material-symbols-outlined">delete</span>
-                        </button>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </div>
-            </div>
-          </section>
-        </div>
+              {successMessage ? (
+                <div className="mt-4 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary">
+                  {successMessage}
+                </div>
+              ) : null}
+
+              <form onSubmit={onSubmit} className="mt-5 space-y-4">
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Name</span>
+                  <input
+                    className="w-full rounded-xl border border-outline-variant/20 bg-surface px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10"
+                    value={form.name}
+                    onChange={(e) => setField("name", e.target.value)}
+                    placeholder="Your full name"
+                  />
+                </label>
+
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Date of birth</span>
+                  <input
+                    type="date"
+                    className="w-full rounded-xl border border-outline-variant/20 bg-surface px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10"
+                    value={form.dob}
+                    onChange={(e) => setField("dob", e.target.value)}
+                  />
+                </label>
+
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Email (read-only)</span>
+                  <input
+                    className="w-full cursor-not-allowed rounded-xl border border-outline-variant/20 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant"
+                    value={profile.email || ""}
+                    readOnly
+                    aria-readonly="true"
+                  />
+                </label>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-on-primary shadow-sm transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {saving ? "Saving..." : "Save changes"}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+        )}
       </main>
     </UserDashboardShell>
   );

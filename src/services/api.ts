@@ -55,11 +55,31 @@ export const interviewApi = {
 };
 
 // ── User ──────────────────────────────────────────────────────────────────────
+export type UserProfile = {
+  id: string;
+  email: string;
+  name?: string;
+  role?: string;
+  provider?: string;
+  dob?: string;
+  picture?: string;
+  created_at?: string;
+};
+
+export type UpdateUserProfilePayload = Partial<
+  Pick<UserProfile, 'name' | 'dob'>
+>;
+
 export const userApi = {
   getProfile: () =>
-    api.get('/user/profile'),
-  updateProfile: (data: Record<string, unknown>) =>
-    api.patch('/user/profile', data),
+    api.get<UserProfile>('/user/profile'),
+  updateProfile: (data: UpdateUserProfilePayload) =>
+    api.patch<UserProfile>('/user/profile', data),
+  uploadProfilePicture: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<UserProfile>('/user/profile/picture', formData);
+  },
 };
 
 export default api;
