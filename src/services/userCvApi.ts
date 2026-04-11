@@ -1,5 +1,5 @@
 import api from "./api";
-import type { CvProcessingStatus } from "@/types/cvProcessing";
+import { normalizeCvProcessingStatus, type CvProcessingStatus } from "@/types/cvProcessing";
 
 export type UserCvDto = {
   id: string;
@@ -50,16 +50,17 @@ export function normalizeUserCvDto(raw: unknown): UserCvDto {
   const createdAt = String(r.createdAt ?? r.created_at ?? "");
   const updatedAt = String(r.updatedAt ?? r.updated_at ?? "");
   const statusRaw = r.status ?? r.processingStatus;
-  const status =
-    typeof statusRaw === "string"
-      ? (statusRaw as CvProcessingStatus)
-      : undefined;
-  const error =
+  const rawStatus = typeof statusRaw === "string" ? statusRaw.trim() : "";
+  const apiError =
     typeof r.error === "string"
       ? r.error
       : typeof (r as { processingError?: string }).processingError === "string"
         ? (r as { processingError: string }).processingError
         : undefined;
+  const normalizedStatus = normalizeCvProcessingStatus(statusRaw, { hasError: Boolean(apiError) });
+  const unknownStatus = Boolean(rawStatus) && !normalizedStatus && !apiError;
+  const status = (normalizedStatus ?? (unknownStatus ? "FAILED" : undefined)) as CvProcessingStatus | undefined;
+  const error = apiError ?? (unknownStatus ? "userDash.myCvs.error.statusSync" : undefined);
   const score = typeof r.score === "number" ? r.score : undefined;
 
   if (!originalName) {

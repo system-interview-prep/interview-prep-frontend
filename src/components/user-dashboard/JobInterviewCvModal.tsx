@@ -3,7 +3,7 @@
 import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { startDemoVideoInterviewRoom } from "@/utils/demoInterviewSession";
@@ -12,6 +12,7 @@ import { useCvProcessingStatus } from "@/hooks/useCvProcessingStatus";
 import { userCvApi, type UserCvDto } from "@/services/userCvApi";
 import type { CvProcessingStatus } from "@/types/cvProcessing";
 import { createSession, generateInterviewQuestions } from "@/lib/aiService";
+import { resolveBackendErrorMessage } from "@/utils/backendError";
 
 type CvFile = {
   id: string;
@@ -198,7 +199,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
   const { status: cvProcessStatus, lastPayload: cvStatusPayload } = useCvProcessingStatus(trackingCvId, {
     onDone: finishCvTracking,
     onFailed: (p) => {
-      if (p?.error) setAnalyzeError(String(p.error));
+      if (p?.error) setAnalyzeError(resolveBackendErrorMessage(p.error, t));
       const failedCvId = p?.cvId || trackingCvId;
       if (failedCvId) {
         setFiles((prev) => {
@@ -255,6 +256,27 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
     return () => window.removeEventListener("keydown", onKey);
   }, [open, step, onClose]);
 
+  const hasInFlightCv = useMemo(
+    () =>
+      files.some((f) => {
+        const st = effectiveCvStatus(f);
+        return st === "PENDING" || st === "PARSING" || st === "AI_PROCESSING";
+      }),
+    [files],
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    if (!apiConnected) return;
+    if (trackingCvId) return;
+    if (!hasInFlightCv) return;
+
+    const timer = window.setInterval(() => {
+      void loadFiles();
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [open, apiConnected, trackingCvId, hasInFlightCv, loadFiles]);
+
   async function addFile(f: File) {
     const token =
       typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
@@ -265,10 +287,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
         setTrackingCvId(data.id);
         await loadFiles();
       } catch (e) {
-        const msg = axios.isAxiosError(e)
-          ? String((e.response?.data as { message?: string })?.message ?? e.message)
-          : t("userDash.myCvs.apiUploadError");
-        setAnalyzeError(msg);
+        setAnalyzeError(resolveBackendErrorMessage(e, t, "userDash.myCvs.apiUploadError"));
       }
       return;
     }

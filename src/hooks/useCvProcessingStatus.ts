@@ -3,16 +3,24 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { userCvApi } from "@/services/userCvApi";
-import { emitJoinCv, getCvSocket, onCvStatus } from "@/services/cvSocket";
+import { emitJoinCv, getCvSocket, onCvSocketException, onCvStatus } from "@/services/cvSocket";
 import {
+  normalizeCvProcessingStatus,
   type CvProcessingStatus,
   type CvStatusPayload,
   isTerminalCvStatus,
 } from "@/types/cvProcessing";
+import { mapBackendErrorToI18nKey } from "@/utils/backendError";
 
 const POLL_MS = 4000;
 const POLL_MAX_MS = 5 * 60 * 1000;
 const POLL_TIMEOUT_ERROR = "processing_timeout";
+
+function friendlyCvError(raw?: string | null): string | undefined {
+  const msg = String(raw ?? "").trim();
+  if (!msg) return undefined;
+  return mapBackendErrorToI18nKey(msg) ?? msg;
+}
 
 export type UseCvProcessingStatusResult = {
   status: CvProcessingStatus | null;
@@ -55,17 +63,36 @@ export function useCvProcessingStatus(
   const pollStartRef = useRef(0);
 
   const applyPayload = useCallback((p: CvStatusPayload) => {
-    const nextStatus = p.error && p.status !== "DONE" ? "FAILED" : p.status;
-    const nextPayload = nextStatus === p.status ? p : { ...p, status: nextStatus };
+    const rawStatus = typeof p.status === "string" ? p.status.trim() : "";
+    const normalized = normalizeCvProcessingStatus(p.status, { hasError: Boolean(p.error) });
+    const unknownStatus = Boolean(rawStatus) && !normalized && !p.error;
+    const nextStatus = unknownStatus
+      ? "FAILED"
+      : p.error && normalized !== "DONE"
+        ? "FAILED"
+        : (normalized || "PENDING");
+    const nextPayload =
+      nextStatus === p.status && !unknownStatus
+        ? p
+        : {
+            ...p,
+            status: nextStatus,
+            ...(unknownStatus ? { error: "userDash.myCvs.error.statusSync" } : {}),
+          };
+    const mappedError = friendlyCvError(nextPayload.error);
+    const uiPayload =
+      mappedError && nextStatus === "FAILED"
+        ? { ...nextPayload, error: mappedError }
+        : nextPayload;
 
-    setLastPayload(nextPayload);
+    setLastPayload(uiPayload);
     setStatus(nextStatus);
 
     if (isTerminalCvStatus(nextStatus)) {
       terminalRef.current = true;
       setIsTracking(false);
-      if (nextStatus === "DONE") onDoneRef.current?.(nextPayload);
-      if (nextStatus === "FAILED") onFailedRef.current?.(nextPayload, nextPayload.error);
+      if (nextStatus === "DONE") onDoneRef.current?.(uiPayload);
+      if (nextStatus === "FAILED") onFailedRef.current?.(uiPayload, uiPayload.error);
     }
   }, []);
 
@@ -92,6 +119,16 @@ export function useCvProcessingStatus(
       if (payload.cvId !== cvId) return;
       applyPayload(payload);
     });
+    const unsubException = onCvSocketException((payload) => {
+      const payloadCvId = String(payload.cvId || "").trim();
+      if (payloadCvId && payloadCvId !== cvId) return;
+      const err = payload.code || payload.message || "socket_exception";
+      applyPayload({
+        cvId,
+        status: "FAILED",
+        error: err,
+      });
+    });
 
     const pollInterval = window.setInterval(async () => {
       if (terminalRef.current) return;
@@ -107,7 +144,18 @@ export function useCvProcessingStatus(
       }
       try {
         const { data } = await userCvApi.get(cvId);
-        const st = data.status;
+        const rawPolledStatus = typeof data.status === "string" ? data.status.trim() : "";
+        const st = normalizeCvProcessingStatus(data.status, { hasError: Boolean(data.error) });
+        if (!st && rawPolledStatus && !data.error) {
+          applyPayload({
+            cvId,
+            status: "FAILED",
+            updatedAt: data.updatedAt,
+            error: "userDash.myCvs.error.statusSync",
+          });
+          window.clearInterval(pollInterval);
+          return;
+        }
         if (st && (isTerminalCvStatus(st) || data.error)) {
           applyPayload({
             cvId,
@@ -130,6 +178,7 @@ export function useCvProcessingStatus(
     return () => {
       socket.off("connect", joinRoom);
       unsub();
+      unsubException();
       window.clearInterval(pollInterval);
       setIsTracking(false);
     };

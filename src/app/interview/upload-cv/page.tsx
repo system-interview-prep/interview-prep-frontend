@@ -11,6 +11,7 @@ import { startDemoVideoInterviewRoom } from "@/utils/demoInterviewSession";
 import { useCvProcessingStatus } from "@/hooks/useCvProcessingStatus";
 import { userCvApi } from "@/services/userCvApi";
 import type { CvProcessingStatus } from "@/types/cvProcessing";
+import { resolveBackendErrorMessage } from "@/utils/backendError";
 
 type CvFile = {
   id: string;
@@ -95,7 +96,7 @@ function UploadCvContent() {
       setFiles((prev) =>
         prev.map((f) => (f.id === trackingCvId ? { ...f, status: "FAILED" } : f))
       );
-      setUploadError(p?.error || t("userDash.myCvs.apiUploadError"));
+      setUploadError(resolveBackendErrorMessage(p?.error, t, "userDash.myCvs.apiUploadError"));
       setAnalysisModal({ variant: "fail", score });
       setTrackingCvId(null);
     },
@@ -153,8 +154,8 @@ function UploadCvContent() {
         });
         setTrackingCvId(data.id);
       })
-      .catch(() => {
-        setUploadError(t("userDash.myCvs.apiUploadError"));
+      .catch((error) => {
+        setUploadError(resolveBackendErrorMessage(error, t, "userDash.myCvs.apiUploadError"));
       })
       .finally(() => {
         setUploading(false);

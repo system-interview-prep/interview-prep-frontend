@@ -14,6 +14,7 @@ import {
 import { jobProfileApi, type JobProfile } from "@/services/jobProfileApi";
 import { userCvApi, type UserCvDto } from "@/services/userCvApi";
 import { startDemoVideoInterviewRoom } from "@/utils/demoInterviewSession";
+import { resolveBackendErrorMessage } from "@/utils/backendError";
 
 const SELECTED_CV_SESSION_KEY = "interview.selectedCvId";
 const SCORE_CONTEXT_SESSION_KEY = "interview.cvScoreContext";
@@ -68,14 +69,6 @@ function isValidScoreResponse(value: unknown): value is CvScoringResponse {
     typeof value.score.normalized === "number" &&
     typeof value.score.percentage === "number"
   );
-}
-
-function getScoringErrorMessage(payload: unknown) {
-  if (!isRecord(payload)) return null;
-  if (payload.error === "MODEL_OUTPUT_NOT_JSON") {
-    return `AI scoring returned invalid JSON (MODEL_OUTPUT_NOT_JSON). Please try again.`;
-  }
-  return null;
 }
 
 function readHistoryScoreCache() {
@@ -251,7 +244,7 @@ export default function CvScorePage() {
         ]);
 
         if (!isValidScoreResponse(scoreResponse)) {
-          setError(getScoringErrorMessage(scoreResponse) || t("userDash.myCvs.apiUploadError"));
+          setError(resolveBackendErrorMessage(scoreResponse, t, "userDash.myCvs.apiUploadError"));
           return;
         }
 
@@ -268,8 +261,7 @@ export default function CvScorePage() {
         };
         writeHistoryScoreCache(payload);
       } catch (fetchError) {
-        const message = fetchError instanceof Error ? fetchError.message : t("userDash.myCvs.apiUploadError");
-        setError(message);
+        setError(resolveBackendErrorMessage(fetchError, t, "userDash.myCvs.apiUploadError"));
       } finally {
         setLoading(false);
       }

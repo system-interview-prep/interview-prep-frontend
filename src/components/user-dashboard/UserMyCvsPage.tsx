@@ -7,6 +7,7 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { useCvProcessingStatus } from "@/hooks/useCvProcessingStatus";
 import { userCvApi, type UserCvDto } from "@/services/userCvApi";
 import type { CvProcessingStatus } from "@/types/cvProcessing";
+import { resolveBackendErrorMessage } from "@/utils/backendError";
 
 type CvFile = {
   id: string;
@@ -171,7 +172,7 @@ export default function UserMyCvsPage() {
     {
       onDone: finishCvTracking,
       onFailed: (p) => {
-        if (p?.error) setAnalyzeError(p.error);
+        if (p?.error) setAnalyzeError(resolveBackendErrorMessage(p.error, t));
         finishCvTracking();
       },
     }
@@ -202,6 +203,26 @@ export default function UserMyCvsPage() {
     };
   }, [loadFiles]);
 
+  const hasInFlightCv = useMemo(
+    () =>
+      files.some((f) => {
+        const st = effectiveCvStatus(f);
+        return st === "PENDING" || st === "PARSING" || st === "AI_PROCESSING";
+      }),
+    [files],
+  );
+
+  useEffect(() => {
+    if (!apiConnected) return;
+    if (trackingCvId) return;
+    if (!hasInFlightCv) return;
+
+    const timer = window.setInterval(() => {
+      void loadFiles();
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [apiConnected, trackingCvId, hasInFlightCv, loadFiles]);
+
   async function addFile(f: File) {
     const token =
       typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
@@ -212,10 +233,7 @@ export default function UserMyCvsPage() {
         setTrackingCvId(data.id);
         await loadFiles();
       } catch (e) {
-        const msg = axios.isAxiosError(e)
-          ? String((e.response?.data as { message?: string })?.message ?? e.message)
-          : t("userDash.myCvs.apiUploadError");
-        setAnalyzeError(msg);
+        setAnalyzeError(resolveBackendErrorMessage(e, t, "userDash.myCvs.apiUploadError"));
       }
       return;
     }
