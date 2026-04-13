@@ -13,6 +13,13 @@ export function ChatHeader(props: { sessionId?: string }) {
   const [isClosing, setIsClosing] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
 
+  const goToResult = React.useCallback(() => {
+    const query = props.sessionId
+      ? `?sessionId=${encodeURIComponent(props.sessionId)}`
+      : "";
+    router.push(`/interview-results${query}`);
+  }, [props.sessionId, router]);
+
   return (
     <header className="shrink-0 bg-[#f9fafb]/95 dark:bg-surface/90 backdrop-blur-md border-b border-outline-variant/20 px-4 py-3 sm:px-6 sm:py-3.5 z-50">
       <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-3">
@@ -22,6 +29,14 @@ export function ChatHeader(props: { sessionId?: string }) {
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <LanguageToggleButton />
+          <button
+            type="button"
+            disabled={isClosing}
+            onClick={goToResult}
+            className="px-3 py-2 rounded-xl bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
+          >
+            Nộp bài
+          </button>
           <button
             type="button"
             disabled={isClosing}
@@ -47,7 +62,7 @@ export function ChatHeader(props: { sessionId?: string }) {
                   {t("chatInterview.endSession")}
                 </div>
                 <div className="mt-1 text-sm text-on-surface-variant">
-                  Bạn có chắc muốn kết thúc phiên này không?
+                  Bạn có chắc muốn kết thúc phiên này và nộp bài để chấm điểm không?
                 </div>
               </div>
 
@@ -73,13 +88,13 @@ export function ChatHeader(props: { sessionId?: string }) {
                       // ignore: user can still leave UI even if close fails
                     } finally {
                       setConfirmOpen(false);
-                      router.push("/dashboard");
+                      goToResult();
                       setIsClosing(false);
                     }
                   }}
                   className="px-3 py-2 rounded-xl bg-error text-on-error text-sm font-bold hover:opacity-90 transition-opacity"
                 >
-                  Kết thúc
+                  Kết thúc & nộp bài
                 </button>
               </div>
             </div>

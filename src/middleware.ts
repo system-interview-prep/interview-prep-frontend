@@ -60,6 +60,8 @@ export const config = {
     "/practice/:path*",
     "/interview-summary",
     "/interview-summary/:path*",
+    "/interview-results",
+    "/interview-results/:path*",
   ],
 };
 

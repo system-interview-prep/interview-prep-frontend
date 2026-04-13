@@ -8,6 +8,9 @@ type VoiceHeaderProps = {
   voiceEnabled: boolean;
   supportsVoice: boolean;
   onToggleVoicePlayback: () => void;
+  onSubmit: () => void;
+  onEndSession: () => void;
+  busy?: boolean;
 };
 
 /**
@@ -17,6 +20,9 @@ export function VoiceHeader({
   voiceEnabled,
   supportsVoice,
   onToggleVoicePlayback,
+  onSubmit,
+  onEndSession,
+  busy,
 }: VoiceHeaderProps) {
   const { t } = useLanguage();
 
@@ -34,6 +40,22 @@ export function VoiceHeader({
         </h1>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={Boolean(busy)}
+            className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-on-primary transition-opacity hover:opacity-90 disabled:opacity-60"
+          >
+            Nộp bài
+          </button>
+          <button
+            type="button"
+            onClick={onEndSession}
+            disabled={Boolean(busy)}
+            className="rounded-xl bg-error px-3 py-2 text-sm font-semibold text-on-error transition-opacity hover:opacity-90 disabled:opacity-60"
+          >
+            Kết thúc
+          </button>
           <LanguageToggleButton />
           <button
             type="button"

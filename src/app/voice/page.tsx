@@ -44,6 +44,11 @@ export default function VoiceChatPage() {
   const [confirmEndOpen, setConfirmEndOpen] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
 
+  const goToResult = useCallback(() => {
+    const query = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : "";
+    router.push(`/interview-results${query}`);
+  }, [router, sessionId]);
+
   const {
     supportsVoice,
     isSpeaking,
@@ -113,6 +118,9 @@ export default function VoiceChatPage() {
           voiceEnabled={voiceEnabled}
           supportsVoice={supportsVoice}
           onToggleVoicePlayback={handleToggleVoicePlayback}
+          onSubmit={goToResult}
+          onEndSession={() => setConfirmEndOpen(true)}
+          busy={isEnding}
         />
 
         {error && (
@@ -191,7 +199,7 @@ export default function VoiceChatPage() {
                 {t("chatInterview.endSession")}
               </div>
               <div className="mt-1 text-sm text-on-surface-variant">
-                Bạn có chắc muốn kết thúc phiên này không?
+                Bạn có chắc muốn kết thúc phiên này và nộp bài để chấm điểm không?
               </div>
             </div>
             <div className="flex justify-end gap-2">
@@ -214,13 +222,13 @@ export default function VoiceChatPage() {
                     // ignore
                   } finally {
                     setConfirmEndOpen(false);
-                    router.push("/dashboard");
+                    goToResult();
                     setIsEnding(false);
                   }
                 }}
                 className="px-3 py-2 rounded-xl bg-error text-on-error text-sm font-bold hover:opacity-90 transition-opacity"
               >
-                {isEnding ? "Closing…" : "Kết thúc"}
+                {isEnding ? "Closing…" : "Kết thúc & nộp bài"}
               </button>
             </div>
           </div>
