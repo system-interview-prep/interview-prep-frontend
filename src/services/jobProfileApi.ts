@@ -16,10 +16,38 @@ export type JobProfile = {
   category?: JobProfileCategory;
   keywords?: string[];
   description?: string | null;
-  requirements?: string | null;
+  /** canonical UI schema (label/value, stringified JSON) */
+  aiProfileUiJson?: string | null;
+  /** extras (label/value, stringified JSON) */
+  aiExtrasJson?: string | null;
+  rawJdText?: string | null;
   status?: JobProfileStatus;
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type JobProfileUploadStatus = "PENDING" | "PARSING" | "AI_PROCESSING" | "DONE" | "FAILED";
+
+export type LabeledValue = { label: string; value: unknown };
+
+export type JobProfileUpload = {
+  id: string;
+  userId: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  s3Key: string;
+  url: string;
+  status: JobProfileUploadStatus;
+  parseSource?: string | null;
+  rawText?: string | null;
+  /** canonical UI schema (label/value, stringified JSON) */
+  aiProfileUiJson?: string | null;
+  /** extras (label/value, stringified JSON) */
+  aiExtrasJson?: string | null;
+  error?: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type JobProfileListResponse = {
@@ -33,8 +61,6 @@ export type CreateJobProfileBody = {
   title: string;
   categoryId: string;
   keywords?: string[];
-  description?: string;
-  requirements?: string;
   status?: JobProfileStatus;
 };
 
@@ -42,8 +68,6 @@ export type JobProfileFormState = {
   title: string;
   categoryId: string;
   keywords: string;
-  description: string;
-  requirements: string;
   status: JobProfileStatus;
 };
 
@@ -51,8 +75,6 @@ export const emptyJobProfileForm: JobProfileFormState = {
   title: "",
   categoryId: "",
   keywords: "",
-  description: "• ",
-  requirements: "• ",
   status: "ACTIVE",
 };
 
@@ -117,8 +139,10 @@ export async function fetchJobProfileListAggregates(
     const items = data.items ?? [];
     for (const p of items) {
       total++;
-      if ((p.description ?? "").trim().length > 0) withDescription++;
-      if ((p.requirements ?? "").trim().length > 0) withRequirements++;
+      // Deprecated fields; keep shape for dashboard stats compatibility.
+      // Upload-based JP no longer uses description/requirements in FE types.
+      withDescription += 0;
+      withRequirements += 0;
     }
     cursor = data.nextCursor;
     if (!cursor) break;
@@ -131,9 +155,20 @@ export const jobProfileApi = {
   list: (params?: ListJobProfilesParams, config?: { signal?: AbortSignal }) =>
     api.get<JobProfileListResponse>("/admin/job-profiles", { params, ...config }),
   get: (id: string) => api.get<JobProfile>(`/admin/job-profiles/${id}`),
-  create: (body: CreateJobProfileBody) =>
-    api.post<JobProfile>("/admin/job-profiles", body),
-  update: (id: string, body: Partial<CreateJobProfileBody>) =>
-    api.patch<JobProfile>(`/admin/job-profiles/${id}`, body),
   delete: (id: string) => api.delete<void>(`/admin/job-profiles/${id}`),
+
+  uploadJd: async (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return api.post<JobProfileUpload>("/admin/job-profiles/uploads", fd);
+  },
+  getUpload: (id: string) => api.get<JobProfileUpload>(`/admin/job-profiles/uploads/${id}`),
+  updateUpload: (
+    id: string,
+    body: { aiProfileUiJson?: Record<string, unknown> | null; aiExtrasJson?: Record<string, unknown> | null }
+  ) => api.patch<JobProfileUpload>(`/admin/job-profiles/uploads/${id}`, body),
+  finalizeUpload: (
+    id: string,
+    body: { title: string; categoryId: string; keywords?: string[]; status?: JobProfileStatus }
+  ) => api.post<{ id: string }>(`/admin/job-profiles/uploads/${id}/finalize`, body),
 };

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { jobProfileApi, type JobProfile } from "@/services/jobProfileApi";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import ReactMarkdown from "react-markdown";
 
 export default function AdminJobProfileDetailView() {
   const params = useParams();
@@ -109,32 +110,6 @@ export default function AdminJobProfileDetailView() {
           </div>
 
           <h1 className="mb-6 font-headline text-3xl font-black tracking-tight md:text-4xl">{profile.title}</h1>
-
-          {(profile.description?.trim() || profile.requirements?.trim()) && (
-            <div className="mb-6 max-w-3xl space-y-6 text-base leading-relaxed text-on-primary/95">
-              {profile.description?.trim() && (
-                <section>
-                  <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-on-primary/70">
-                    {t("admin.jobProfile.form.description")}
-                  </h2>
-                  <div className="whitespace-pre-wrap break-words">{profile.description}</div>
-                </section>
-              )}
-              {profile.requirements?.trim() && (
-                <section>
-                  <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-on-primary/70">
-                    {t("admin.jobProfile.form.requirements")}
-                  </h2>
-                  <div className="whitespace-pre-wrap break-words">{profile.requirements}</div>
-                </section>
-              )}
-            </div>
-          )}
-
-          {(!profile.description?.trim() && !profile.requirements?.trim()) && (
-            <p className="mb-6 text-on-primary/80">—</p>
-          )}
-
           {profile.keywords && profile.keywords.length > 0 && (
             <div className="mb-8 flex flex-wrap gap-2">
               {profile.keywords.map((k) => (
@@ -159,12 +134,6 @@ export default function AdminJobProfileDetailView() {
                 : "—"}
             </span>
             <div className="flex flex-wrap gap-2">
-              <Link
-                href={`/admin/job-profiles/create?edit=${encodeURIComponent(profile.id)}`}
-                className="rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-primary shadow-lg transition hover:shadow-xl"
-              >
-                {t("admin.jobProfile.featured.cta")}
-              </Link>
               <button
                 type="button"
                 onClick={handleDelete}
@@ -178,6 +147,30 @@ export default function AdminJobProfileDetailView() {
           </div>
         </div>
       </article>
+
+      {String(profile.description || "").trim() && (
+        <section className="rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-6 shadow-sm">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+            Job description
+          </h2>
+          <div className="text-sm leading-relaxed text-on-surface">
+            <ReactMarkdown
+              components={{
+                h2: (p) => <h3 className="mt-5 mb-2 text-base font-extrabold" {...p} />,
+                h3: (p) => <h4 className="mt-4 mb-2 text-sm font-bold" {...p} />,
+                p: (p) => <p className="my-2" {...p} />,
+                ul: (p) => <ul className="my-2 list-disc pl-5" {...p} />,
+                ol: (p) => <ol className="my-2 list-decimal pl-5" {...p} />,
+                li: (p) => <li className="my-1" {...p} />,
+                strong: (p) => <strong className="font-semibold" {...p} />,
+                em: (p) => <em className="italic" {...p} />,
+              }}
+            >
+              {String(profile.description || "").trim()}
+            </ReactMarkdown>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

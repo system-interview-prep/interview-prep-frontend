@@ -48,3 +48,9 @@ export const CV_SOCKET_EVENTS = {
   JOIN_CV: 'join-cv',
   CV_STATUS: 'cv.status',
 } as const;
+
+/** Namespace `/jp` — join room + processing status (JD/JP upload pipeline). */
+export const JP_SOCKET_EVENTS = {
+  JOIN_JP: 'join-jp',
+  JP_STATUS: 'jp.status',
+} as const;

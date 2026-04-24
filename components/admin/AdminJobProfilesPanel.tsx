@@ -10,7 +10,6 @@ import {
   fetchJobProfileListAggregates,
   jobProfileApi,
   jobProfileListCategoryParams,
-  keywordsArrayToInput,
   type JobProfile,
 } from "@/services/jobProfileApi";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -127,11 +126,8 @@ export default function AdminJobProfilesPanel() {
     };
   }, []);
 
-  const resolveCategoryName = useCallback(
-    (p: JobProfile) =>
-      p.category?.name ?? categories.find((c) => c.id === p.categoryId)?.name ?? p.categoryId,
-    [categories]
-  );
+  const resolveCategoryName = (p: JobProfile) =>
+    p.category?.name ?? categories.find((c) => c.id === p.categoryId)?.name ?? p.categoryId;
 
   useEffect(() => {
     const ac = new AbortController();
@@ -270,8 +266,8 @@ export default function AdminJobProfilesPanel() {
       };
     }
     const total = profiles.length;
-    const withDesc = profiles.filter((p) => (p.description ?? "").trim().length > 0).length;
-    const withReq = profiles.filter((p) => (p.requirements ?? "").trim().length > 0).length;
+    const withDesc = 0;
+    const withReq = 0;
     const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
     return {
       total,
@@ -280,23 +276,6 @@ export default function AdminJobProfilesPanel() {
       hasGlobal: false as const,
     };
   }, [listAggregate, profiles]);
-
-  const goToEdit = useCallback(
-    (p: JobProfile) => {
-      startTransition(() => {
-        router.push(`/admin/job-profiles/create?edit=${encodeURIComponent(p.id)}`);
-      });
-    },
-    [router]
-  );
-
-  useEffect(() => {
-    const editId = searchParams.get("edit");
-    if (!editId) return;
-    startTransition(() => {
-      router.replace(`/admin/job-profiles/create?edit=${encodeURIComponent(editId)}`);
-    });
-  }, [searchParams, router]);
 
   const handleDelete = async (id: string) => {
     if (typeof window !== "undefined" && !window.confirm(t("admin.jobProfile.card.confirmDelete"))) return;
@@ -500,7 +479,7 @@ export default function AdminJobProfilesPanel() {
                   </Link>
                 </h4>
                 <p className="mb-5 line-clamp-3 flex-1 whitespace-pre-wrap text-sm leading-relaxed text-primary/80">
-                  {p.description || "—"}
+                  —
                 </p>
                 <div className="mb-5 flex flex-wrap gap-2">
                   <span
@@ -525,24 +504,14 @@ export default function AdminJobProfilesPanel() {
                     {t("admin.jobProfile.card.updated")}:{" "}
                     {formatRelativeShort(p.updatedAt ?? p.createdAt ?? "", lang)}
                   </span>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => goToEdit(p)}
-                      className="rounded-lg p-2 text-primary/60 transition hover:bg-primary-fixed/40 hover:text-primary"
-                      aria-label={t("admin.jobProfile.card.edit")}
-                    >
-                      <span className="material-symbols-outlined text-[22px]">edit</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(p.id)}
-                      className="rounded-lg p-2 text-primary/50 transition hover:bg-error-container/40 hover:text-error"
-                      aria-label={t("admin.jobProfile.card.delete")}
-                    >
-                      <span className="material-symbols-outlined text-[22px]">delete</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(p.id)}
+                    className="rounded-lg p-2 text-primary/50 transition hover:bg-error-container/40 hover:text-error"
+                    aria-label={t("admin.jobProfile.card.delete")}
+                  >
+                    <span className="material-symbols-outlined text-[22px]">delete</span>
+                  </button>
                 </div>
               </article>
             ))}
@@ -606,14 +575,6 @@ export default function AdminJobProfilesPanel() {
                   </td>
                   <td className="whitespace-nowrap px-5 py-4 text-right align-middle">
                     <div className="inline-flex items-center justify-end gap-0.5">
-                      <button
-                        type="button"
-                        onClick={() => goToEdit(p)}
-                        className="inline-flex shrink-0 items-center justify-center rounded-lg p-2 text-primary hover:bg-primary-fixed"
-                        aria-label={t("admin.jobProfile.card.edit")}
-                      >
-                        <span className="material-symbols-outlined text-[20px]">edit</span>
-                      </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(p.id)}

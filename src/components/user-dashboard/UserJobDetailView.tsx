@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { JobInterviewCvModal } from "@/components/user-dashboard/JobInterviewCvModal";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { jobProfileApi, type JobProfile } from "@/services/jobProfileApi";
+import ReactMarkdown from "react-markdown";
 
 function formatDetailDate(iso: string | undefined, locale: string) {
   if (!iso) return "—";
@@ -147,30 +148,32 @@ export default function UserJobDetailView() {
         </section>
       )}
 
-      {profile.description?.trim() && (
-        <section>
-          <h2 className="mb-3 font-headline text-sm font-bold uppercase tracking-wide text-on-surface-variant">
-            {t("userDash.jobProfiles.detailDescription")}
-          </h2>
-          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-on-surface">
-            {profile.description.trim()}
-          </p>
-        </section>
+      {keywords.length === 0 && (
+        <p className="text-sm text-on-surface-variant">{t("userDash.jobProfiles.detailEmpty")}</p>
       )}
 
-      {profile.requirements?.trim() && (
-        <section>
+      {String(profile.description || "").trim() && (
+        <section className="rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-5">
           <h2 className="mb-3 font-headline text-sm font-bold uppercase tracking-wide text-on-surface-variant">
-            {t("userDash.jobProfiles.detailRequirements")}
+            Job description
           </h2>
-          <div className="whitespace-pre-wrap break-words leading-relaxed text-on-surface">
-            {profile.requirements.trim()}
+          <div className="text-sm leading-relaxed text-on-surface">
+            <ReactMarkdown
+              components={{
+                h2: (p) => <h3 className="mt-5 mb-2 text-base font-extrabold" {...p} />,
+                h3: (p) => <h4 className="mt-4 mb-2 text-sm font-bold" {...p} />,
+                p: (p) => <p className="my-2" {...p} />,
+                ul: (p) => <ul className="my-2 list-disc pl-5" {...p} />,
+                ol: (p) => <ol className="my-2 list-decimal pl-5" {...p} />,
+                li: (p) => <li className="my-1" {...p} />,
+                strong: (p) => <strong className="font-semibold" {...p} />,
+                em: (p) => <em className="italic" {...p} />,
+              }}
+            >
+              {String(profile.description || "").trim()}
+            </ReactMarkdown>
           </div>
         </section>
-      )}
-
-      {!profile.description?.trim() && !profile.requirements?.trim() && keywords.length === 0 && (
-        <p className="text-sm text-on-surface-variant">{t("userDash.jobProfiles.detailEmpty")}</p>
       )}
 
       <JobInterviewCvModal
