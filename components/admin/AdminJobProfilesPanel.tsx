@@ -111,6 +111,14 @@ export default function AdminJobProfilesPanel() {
   const [aggregateLoading, setAggregateLoading] = useState(false);
   const [aggregateTick, setAggregateTick] = useState(0);
 
+  const handleEdit = useCallback(
+    (id: string) => {
+      if (!id?.trim()) return;
+      router.push(`/admin/job-profiles/create?id=${encodeURIComponent(id)}`);
+    },
+    [router],
+  );
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -401,57 +409,6 @@ export default function AdminJobProfilesPanel() {
 
       {!loading && profiles.length > 0 && displayItems.length > 0 && viewMode === "grid" && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <div className="flex flex-col rounded-2xl border border-primary/15 bg-white p-6 text-primary shadow-sm ring-1 ring-primary/5 dark:border-primary/20 dark:bg-surface-container-lowest">
-              <h4 className="mb-5 text-xs font-bold uppercase tracking-widest text-primary/65">
-                {t("admin.jobProfile.stats.pipeline")}
-              </h4>
-              <div className="space-y-5">
-                <div>
-                  <div className="mb-2 flex justify-between text-[10px] font-bold uppercase text-primary/80">
-                    <span>{t("admin.jobProfile.stats.withDescription")}</span>
-                    <span>
-                      {aggregateLoading && !stats.hasGlobal ? "…" : `${stats.pctDesc}%`}
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-primary-fixed/35 dark:bg-primary-fixed/25">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all"
-                      style={{
-                        width: aggregateLoading && !stats.hasGlobal ? "0%" : `${stats.pctDesc}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <div className="mb-2 flex justify-between text-[10px] font-bold uppercase text-primary/80">
-                    <span>{t("admin.jobProfile.stats.withRequirements")}</span>
-                    <span>
-                      {aggregateLoading && !stats.hasGlobal ? "…" : `${stats.pctReq}%`}
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-primary-fixed/35 dark:bg-primary-fixed/25">
-                    <div
-                      className="h-full rounded-full bg-tertiary transition-all"
-                      style={{
-                        width: aggregateLoading && !stats.hasGlobal ? "0%" : `${stats.pctReq}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-col justify-center rounded-2xl border border-primary/15 bg-white p-6 text-primary shadow-sm ring-1 ring-primary/5 dark:border-primary/20 dark:bg-surface-container-lowest">
-              <div className="font-headline text-4xl font-black text-primary md:text-5xl">
-                {aggregateLoading && listAggregate === null ? "…" : stats.total}
-              </div>
-              <div className="mt-2 text-[10px] font-bold uppercase leading-relaxed text-primary/60">
-                {t("admin.jobProfile.stats.total")}
-                <br />
-                {t("admin.jobProfile.stats.sub")}
-              </div>
-            </div>
-          </div>
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {displayItems.map((p) => (
@@ -479,7 +436,19 @@ export default function AdminJobProfilesPanel() {
                   </Link>
                 </h4>
                 <p className="mb-5 line-clamp-3 flex-1 whitespace-pre-wrap text-sm leading-relaxed text-primary/80">
-                  —
+                  {(() => {
+                    const raw = String((p as any)?.description || "").trim();
+                    if (!raw) return "—";
+                    // If description is HTML, show a plain-text preview.
+                    const isHtml = /^\s*<[a-z][\w-]*(\s[^>]*)?>/i.test(raw);
+                    const text = isHtml
+                      ? raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
+                      : raw;
+
+                    // Remove markdown headings like "## " at start of lines for list preview.
+                    const cleaned = text.replace(/^\s*#{1,6}\s*/gm, "").trim();
+                    return cleaned || "—";
+                  })()}
                 </p>
                 <div className="mb-5 flex flex-wrap gap-2">
                   <span
@@ -504,14 +473,24 @@ export default function AdminJobProfilesPanel() {
                     {t("admin.jobProfile.card.updated")}:{" "}
                     {formatRelativeShort(p.updatedAt ?? p.createdAt ?? "", lang)}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(p.id)}
-                    className="rounded-lg p-2 text-primary/50 transition hover:bg-error-container/40 hover:text-error"
-                    aria-label={t("admin.jobProfile.card.delete")}
-                  >
-                    <span className="material-symbols-outlined text-[22px]">delete</span>
-                  </button>
+                  <div className="flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(p.id)}
+                      className="rounded-lg p-2 text-primary/50 transition hover:bg-primary-fixed/30 hover:text-primary"
+                      aria-label={t("admin.jobProfile.card.edit")}
+                    >
+                      <span className="material-symbols-outlined text-[22px]">edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(p.id)}
+                      className="rounded-lg p-2 text-primary/50 transition hover:bg-error-container/40 hover:text-error"
+                      aria-label={t("admin.jobProfile.card.delete")}
+                    >
+                      <span className="material-symbols-outlined text-[22px]">delete</span>
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}

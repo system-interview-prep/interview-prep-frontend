@@ -74,31 +74,6 @@ export default async function AdminDashboardShell({ children }: { children: Reac
       <main className="ml-80 min-h-screen w-[calc(100%-20rem)] min-w-0 overflow-x-hidden px-4 pb-10 pt-8 sm:px-6 md:px-10 md:pb-12 md:pt-12 lg:px-12 xl:ml-96 xl:w-[calc(100%-24rem)]">
         {children}
       </main>
-
-      <footer className="ml-80 w-[calc(100%-20rem)] min-w-0 border-t border-outline-variant/20 bg-surface py-12 xl:ml-96 xl:w-[calc(100%-24rem)]">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-12 md:flex-row">
-          <div className="flex items-center gap-4">
-            <span className="font-headline text-lg font-bold text-on-surface">INTERVIA</span>
-            <span className="text-xs text-on-surface-variant">
-              © {new Date().getFullYear()} INTERVIA Platform. Editorial Intelligence for HR.
-            </span>
-          </div>
-          <div className="flex gap-8">
-            <Link className="text-xs text-on-surface-variant hover:underline" href="/admin/settings">
-              {t("footer.privacy")}
-            </Link>
-            <Link className="text-xs text-on-surface-variant hover:underline" href="/admin/settings">
-              {t("footer.terms")}
-            </Link>
-            <Link className="text-xs text-on-surface-variant hover:underline" href="/admin/settings">
-              {t("footer.cookies")}
-            </Link>
-            <Link className="text-xs text-on-surface-variant hover:underline" href="/admin/settings">
-              {t("footer.security")}
-            </Link>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
