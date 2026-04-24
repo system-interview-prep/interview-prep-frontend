@@ -41,6 +41,7 @@ export type JobProfileUpload = {
   status: JobProfileUploadStatus;
   parseSource?: string | null;
   rawText?: string | null;
+  description?: string | null;
   /** canonical UI schema (label/value, stringified JSON) */
   aiProfileUiJson?: string | null;
   /** extras (label/value, stringified JSON) */
@@ -155,6 +156,8 @@ export const jobProfileApi = {
   list: (params?: ListJobProfilesParams, config?: { signal?: AbortSignal }) =>
     api.get<JobProfileListResponse>("/admin/job-profiles", { params, ...config }),
   get: (id: string) => api.get<JobProfile>(`/admin/job-profiles/${id}`),
+  update: (id: string, body: { description?: string | null }) =>
+    api.patch<JobProfile>(`/admin/job-profiles/${id}`, body),
   delete: (id: string) => api.delete<void>(`/admin/job-profiles/${id}`),
 
   uploadJd: async (file: File) => {
@@ -167,8 +170,16 @@ export const jobProfileApi = {
     id: string,
     body: { aiProfileUiJson?: Record<string, unknown> | null; aiExtrasJson?: Record<string, unknown> | null }
   ) => api.patch<JobProfileUpload>(`/admin/job-profiles/uploads/${id}`, body),
+  previewUploadDescription: (id: string, body?: { title?: string }) =>
+    api.post<{ description: string }>(`/admin/job-profiles/uploads/${id}/description-preview`, body || {}),
   finalizeUpload: (
     id: string,
-    body: { title: string; categoryId: string; keywords?: string[]; status?: JobProfileStatus }
+    body: {
+      title: string;
+      categoryId: string;
+      keywords?: string[];
+      status?: JobProfileStatus;
+      description?: string;
+    }
   ) => api.post<{ id: string }>(`/admin/job-profiles/uploads/${id}/finalize`, body),
 };

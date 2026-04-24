@@ -133,26 +133,17 @@ export default function AdminJobProfileDetailView() {
                   )
                 : "—"}
             </span>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="rounded-xl border border-white/35 px-4 py-2.5 text-white transition hover:bg-white/10 disabled:opacity-50"
-                aria-label={t("admin.jobProfile.card.delete")}
-              >
-                <span className="material-symbols-outlined text-[20px]">delete</span>
-              </button>
-            </div>
           </div>
         </div>
       </article>
 
-      {String(profile.description || "").trim() && (
+      {String(profile.description || "").trim() ? (
         <section className="rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-6 shadow-sm">
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-            Job description
-          </h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+              Job description
+            </h2>
+          </div>
           <div className="text-sm leading-relaxed text-on-surface">
             <ReactMarkdown
               components={{
@@ -170,7 +161,7 @@ export default function AdminJobProfileDetailView() {
             </ReactMarkdown>
           </div>
         </section>
-      )}
+      ) : null}
     </div>
   );
 }
