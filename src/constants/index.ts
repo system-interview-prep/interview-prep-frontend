@@ -42,3 +42,15 @@ export const CHAT_EVENTS = {
   USER_LEFT: 'user-left',
   LEAVE_ROOM: 'leave-room',
 } as const;
+
+/** Namespace `/cv` — join room + processing status (see `services/cvSocket.ts`) */
+export const CV_SOCKET_EVENTS = {
+  JOIN_CV: 'join-cv',
+  CV_STATUS: 'cv.status',
+} as const;
+
+/** Namespace `/jp` — join room + processing status (JD/JP upload pipeline). */
+export const JP_SOCKET_EVENTS = {
+  JOIN_JP: 'join-jp',
+  JP_STATUS: 'jp.status',
+} as const;

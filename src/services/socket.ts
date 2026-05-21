@@ -9,10 +9,16 @@ import { SOCKET_URL } from '../constants';
 let _signalingSocket: Socket | null = null;
 let _chatSocket: Socket | null = null;
 
+function readToken(): string {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem('accessToken') ?? '';
+}
+
 function getSocket(namespace: string): Socket {
   return io(`${SOCKET_URL}${namespace}`, {
     autoConnect: true,
     transports: ['websocket'],
+    auth: { token: readToken() },
   });
 }
 

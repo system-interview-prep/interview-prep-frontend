@@ -10,12 +10,26 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach auth token to every request
+function readAccessTokenFromCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const m = document.cookie.match(/(?:^|; )access_token=([^;]*)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+// Attach auth token: localStorage (needed for cross-origin API :5000 — cookies stay on :3000)
 api.interceptors.request.use(config => {
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (typeof window !== 'undefined') {
+    const token =
+      localStorage.getItem('accessToken') ?? readAccessTokenFromCookie();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Let the browser set multipart boundary for CV upload
+    if (config.data instanceof FormData && config.headers) {
+      const h = config.headers as Record<string, unknown> & { delete?: (n: string) => void };
+      if (typeof h.delete === 'function') h.delete('Content-Type');
+      else delete h['Content-Type'];
+    }
   }
   return config;
 });
@@ -41,11 +55,31 @@ export const interviewApi = {
 };
 
 // ── User ──────────────────────────────────────────────────────────────────────
+export type UserProfile = {
+  id: string;
+  email: string;
+  name?: string;
+  role?: string;
+  provider?: string;
+  dob?: string;
+  picture?: string;
+  created_at?: string;
+};
+
+export type UpdateUserProfilePayload = Partial<
+  Pick<UserProfile, 'name' | 'dob'>
+>;
+
 export const userApi = {
   getProfile: () =>
-    api.get('/user/profile'),
-  updateProfile: (data: Record<string, any>) =>
-    api.patch('/user/profile', data),
+    api.get<UserProfile>('/user/profile'),
+  updateProfile: (data: UpdateUserProfilePayload) =>
+    api.patch<UserProfile>('/user/profile', data),
+  uploadProfilePicture: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<UserProfile>('/user/profile/picture', formData);
+  },
 };
 
 export default api;

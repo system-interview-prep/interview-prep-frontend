@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { SimliClient } from 'simli-client';
+import { useLanguage } from '../../i18n/LanguageProvider';
 
 interface Props {
   // Bật/tắt mic của user (tuỳ chọn)
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function SimliAvatar({ isMicMuted }: Props) {
+  const { t } = useLanguage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [client, setClient] = useState<SimliClient | null>(null);
@@ -31,14 +33,14 @@ export default function SimliAvatar({ isMicMuted }: Props) {
         });
         
         if (!response.ok) {
-          throw new Error('Không thể tạo Simli Session từ Backend');
+          throw new Error('SIMLI_SESSION_FAILED');
         }
         
         const data = await response.json();
         const sessionToken = data.session_token;
 
         if (!sessionToken) {
-          throw new Error('API không trả về session_token hợp lệ');
+          throw new Error('SIMLI_TOKEN_MISSING');
         }
 
         if (videoRef.current && audioRef.current) {
@@ -70,9 +72,9 @@ export default function SimliAvatar({ isMicMuted }: Props) {
           setIsLoading(false);
           console.log('Simli Avatar Loaded');
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Simli Error:', err);
-        setError(err.message || 'Lỗi kết nối Simli');
+        setError(t('room.simliError'));
         setIsLoading(false);
       }
     }
@@ -96,6 +98,8 @@ export default function SimliAvatar({ isMicMuted }: Props) {
         }
       }
     };
+    // Simli must initialize once; including `t` would reconnect on locale change
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
   }, []);
 
   // Lắng nghe tín hiệu âm thanh AI từ hook Socket để nhép môi
@@ -129,9 +133,18 @@ export default function SimliAvatar({ isMicMuted }: Props) {
   }, [client]);
 
   return (
-    <div className="relative w-full h-full bg-black rounded-lg overflow-hidden flex items-center justify-center">
-      {isLoading && <div className="absolute text-white">Đang tải Avatar...</div>}
-      {error && <div className="absolute text-red-500">{error}</div>}
+    <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border border-outline-variant/25 bg-inverse-surface shadow-[0_16px_48px_-20px_rgba(0,61,155,0.2)]">
+      {isLoading && (
+        <div className="absolute z-10 flex items-center gap-2 rounded-full bg-inverse-surface/80 px-4 py-2 font-body text-sm text-inverse-on-surface backdrop-blur-sm">
+          <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
+          {t('room.loadingAvatar')}
+        </div>
+      )}
+      {error && (
+        <div className="absolute z-10 max-w-[90%] rounded-xl bg-error-container/95 px-4 py-3 text-center text-sm text-on-error-container border border-error/20">
+          {error}
+        </div>
+      )}
       
       {/* Video stream của Avatar */}
       <video
@@ -145,8 +158,8 @@ export default function SimliAvatar({ isMicMuted }: Props) {
       <audio ref={audioRef} autoPlay />
       
       {/* Label cho giao diện */}
-      <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 rounded text-white text-xs">
-        AI Interviewer
+      <div className="absolute bottom-3 left-3 rounded-lg bg-inverse-surface/75 px-2.5 py-1 font-headline text-xs font-semibold text-inverse-on-surface backdrop-blur-sm">
+        {t('voice.labelAiInterviewer')}
       </div>
     </div>
   );
