@@ -1057,6 +1057,9 @@ export default function AdminJobProfileCreateView() {
     </div>
   </div>
 
+  {renderAiReviewForm() ?? null}
+        
+
   {/* Meta fields */}
   {!isEditMode && (
     <div className="mb-5 rounded-xl border border-outline-variant/20 bg-surface-container/30 p-4">
@@ -1130,20 +1133,6 @@ export default function AdminJobProfileCreateView() {
     {/* header */}
     <div className="flex items-center justify-between border-b border-outline-variant/20 px-4 py-2">
       <span className="text-sm font-semibold">Job Description</span>
-
-      <div className="flex items-center gap-2">
-        {!isEditMode && (
-          <button
-            type="button"
-            onClick={handleGenerateDescriptionPreview}
-            disabled={!uploadId || jpStatus !== "DONE" || descriptionPreviewBusy}
-            className="flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
-            {descriptionPreviewBusy ? "Generating..." : "Generate AI"}
-          </button>
-        )}
-      </div>
     </div>
     <div data-color-mode="light" className="rounded-b-xl">
       <MDEditor
