@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import LanguageToggleButton from "../src/components/LanguageToggleButton";
-import { useLanguage } from "../src/i18n/LanguageProvider";
+import LanguageToggleButton from "./LanguageToggleButton";
+import { useLanguage } from "../i18n/LanguageProvider";
 import { useGoogleLogin } from "@react-oauth/google";
-import { readAuthProfile, writeAuthProfile } from "../src/auth/authProfile";
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+import { readAuthProfile, writeAuthProfile } from "../auth/authProfile";
+import { authApi } from "../services/api";
+import { API_BASE_URL } from "../constants";
 
 function pickUserPicture(user: unknown): string | null {
   if (!user || typeof user !== "object") return null;
@@ -83,9 +83,6 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
     return next.startsWith("/") ? next : `/${next}`;
   }, [searchParams]);
 
-  const ADMIN_EMAIL = "admin@curator.ai";
-  const ADMIN_PASSWORD = "Admin@123";
-
   function getCookie(name: string) {
     if (typeof document === "undefined") return null;
     const m = document.cookie.match(new RegExp(`(?:^|; )${name.replace(/[-[\]/{}()*+?.\\^$|]/g, "\\$&")}=([^;]*)`));
@@ -117,18 +114,9 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
         setGoogleError(null);
         setGoogleLoading(true);
 
-        const r = await fetch(`${API_BASE_URL}/auth/google`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accessToken: tokenResponse.access_token }),
-        });
+        const response = await authApi.googleLogin(tokenResponse.access_token);
+        const data = response.data;
         
-        if (!r.ok) {
-           const errData = await r.json();
-           throw new Error(errData.message || "Google Auth Failed");
-        }
-        
-        const data = await r.json();
         const backendPicture = pickUserPicture(data?.user);
         const googlePicture = backendPicture || (await fetchGooglePicture(tokenResponse.access_token));
         const profilePicture = data.access_token ? await fetchUserProfilePicture(data.access_token) : null;
@@ -149,8 +137,8 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
         setRoleCookie(String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "admin" : "user");
 
         router.replace(nextUrl ?? (String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "/admin/dashboard" : "/dashboard"));
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : t("auth.error.googleFailed");
+      } catch (err: any) {
+        const message = err.response?.data?.message || err.message || t("auth.error.googleFailed");
         setGoogleError(message || t("auth.error.googleFailed"));
       } finally {
         setGoogleLoading(false);
@@ -186,18 +174,9 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
         return;
       }
 
-      const r = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await authApi.login(email, password);
+      const data = response.data;
       
-      if (!r.ok) {
-         const errData = await r.json();
-         throw new Error(errData.message || "Login Failed");
-      }
-
-      const data = await r.json();
       const loginPicture = pickUserPicture(data?.user);
       const profilePicture = data.access_token ? await fetchUserProfilePicture(data.access_token) : null;
       const existingPicture = readAuthProfile()?.picture?.trim() || null;
@@ -216,8 +195,8 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
       setRoleCookie(String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "admin" : "user");
 
       router.replace(nextUrl ?? (String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "/admin/dashboard" : "/dashboard"));
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to login";
+    } catch (err: any) {
+      const message = err.response?.data?.message || err.message || "Failed to login";
       setLoginError(message || "Failed to login");
     } finally {
       setLoginLoading(false);
@@ -239,21 +218,12 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
         return;
       }
 
-      const r = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name, dob: signupDob, role: signupType || 'CANDIDATE' }),
-      });
-      
-      if (!r.ok) {
-         const errData = await r.json();
-         throw new Error(errData.message || "Registration Failed");
-      }
+      await authApi.register(name, email, password, signupDob, signupType || 'CANDIDATE');
 
-      // Instead of forcing login again, maybe redirect to login page.
+      // Instead of forcing login again, redirect to login page.
       window.location.href = '/login';
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to register";
+    } catch (err: any) {
+      const message = err.response?.data?.message || err.message || "Failed to register";
       setSignupError(message || "Failed to register");
     } finally {
       setSignupLoading(false);
@@ -369,14 +339,6 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                 <p className="text-on-surface-variant text-sm mt-1">
                   {t("auth.welcomeBack.subtitle")}
                 </p>
-                <div className="mt-4 rounded-xl border border-outline-variant/20 bg-surface-container-lowest px-4 py-3 text-xs text-on-surface-variant">
-                  <p className="font-bold text-on-surface">{t("auth.adminPreset")}</p>
-                  <p className="mt-1">
-                    Email: <span className="font-mono text-on-surface">{ADMIN_EMAIL}</span>
-                    {" • "}
-                    Password: <span className="font-mono text-on-surface">{ADMIN_PASSWORD}</span>
-                  </p>
-                </div>
               </div>
               <form className="space-y-6" onSubmit={onLoginSubmit}>
                 <div className="space-y-4">
@@ -452,7 +414,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                   disabled={googleLoading}
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
-                    <path
+                     <path
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                       fill="#4285F4"
                     ></path>

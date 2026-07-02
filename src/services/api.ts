@@ -37,9 +37,11 @@ api.interceptors.request.use(config => {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 export const authApi = {
   login: (email: string, password: string) =>
-    api.post<{ accessToken: string }>('/auth/login', { email, password }),
-  register: (name: string, email: string, password: string) =>
-    api.post('/auth/register', { name, email, password }),
+    api.post<{ access_token: string; user: any }>('/auth/login', { email, password }),
+  register: (name: string, email: string, password: string, dob?: string, role?: string) =>
+    api.post<{ message: string; access_token?: string }>('/auth/register', { name, email, password, dob, role }),
+  googleLogin: (accessToken: string) =>
+    api.post<{ access_token: string; user: any }>('/auth/google', { accessToken }),
 };
 
 // ── Interview ─────────────────────────────────────────────────────────────────
