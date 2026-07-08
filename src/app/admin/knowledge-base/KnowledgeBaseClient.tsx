@@ -9,24 +9,39 @@ import LanguageToggleButton from "../../../components/LanguageToggleButton";
 
 const RAG_API_URL = process.env.NEXT_PUBLIC_RAG_API_URL || "http://localhost:5001";
 
-type SourceStatus = "processed" | "analyzing" | "syncing" | "failed";
-
-type KnowledgeSource = {
+type IngestedDocument = {
   id: string;
-  icon: string;
-  iconClassName: string;
-  title: string;
-  subtitle: string;
-  subtitleParams?: Record<string, string>;
-  status: SourceStatus;
+  topic: string;
+  difficulty: string;
+  status: "success" | "failed";
+  timestamp: string;
+  details?: string;
 };
 
-type RecentQa = {
+type SearchResultChunk = {
   id: string;
-  tag: string;
-  tagClassName: string;
-  question: string;
-  answer?: string;
+  text: string;
+  score: number;
+  metadata: {
+    chunk_id?: string;
+    chunk_type?: string;
+    topic?: string;
+    difficulty?: string;
+    document_id?: string;
+    roles?: string[];
+    job_levels?: string[];
+    quality_score?: number;
+    combined_quality_score?: number;
+    raw_similarity_score?: number;
+  };
+};
+
+type RAGRetrievalStats = {
+  original_count: number;
+  duplicates_removed: number;
+  topic_mismatches_removed: number;
+  difficulty_mismatches_removed: number;
+  final_count: number;
 };
 
 interface KnowledgeBaseClientProps {
@@ -40,60 +55,39 @@ export default function KnowledgeBaseClient({
 }: KnowledgeBaseClientProps) {
   const t = (key: string) => dictionary[key] ?? key;
 
-  // Local state
-  const [sources, setSources] = useState<KnowledgeSource[]>([
-    {
-      id: "pdf-guidelines",
-      icon: "picture_as_pdf",
-      iconClassName: "text-red-500",
-      title: "2024_Hiring_Guidelines.pdf",
-      subtitle: "admin.knowledge.source.uploadedHoursAgo",
-      subtitleParams: { count: "2", size: "14.2 MB", chunks: "42 Chunks" },
-      status: "processed",
-    },
-    {
-      id: "docx-arch",
-      icon: "description",
-      iconClassName: "text-blue-500",
-      title: "Product_Architecture_V2.docx",
-      subtitle: "admin.knowledge.source.uploadedMinsAgoProcessing",
-      subtitleParams: { count: "5", size: "2.8 MB", status: "admin.knowledge.source.processing" },
-      status: "processed",
-    },
-  ]);
-
-  const [recentQas, setRecentQas] = useState<RecentQa[]>([
-    {
-      id: "culture",
-      tag: "admin.knowledge.qaTag.companyCulture",
-      tagClassName: "text-primary",
-      question: "admin.knowledge.recentQa.culture",
-    },
-    {
-      id: "stack",
-      tag: "admin.knowledge.qaTag.technicalStack",
-      tagClassName: "text-tertiary",
-      question: "admin.knowledge.recentQa.stack",
-    },
-    {
-      id: "security",
-      tag: "admin.knowledge.qaTag.security",
-      tagClassName: "text-amber-600",
-      question: "admin.knowledge.recentQa.security",
-    },
-  ]);
-
-  // Search
+  // Search States
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [difficultyFilter, setDifficultyFilter] = useState("all");
+  const [topicFilter, setTopicFilter] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResultChunk[]>([]);
+  const [followUpsResults, setFollowUpsResults] = useState<SearchResultChunk[]>([]);
+  const [deliverablesResults, setDeliverablesResults] = useState<SearchResultChunk[]>([]);
+  const [retrievalStats, setRetrievalStats] = useState<RAGRetrievalStats | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
-  // Manual QA
-  const [topicInput, setTopicInput] = useState("");
-  const [questionInput, setQuestionInput] = useState("");
-  const [answerInput, setAnswerInput] = useState("");
+  // Form Fields for full Interview Document upsert
+  const [docId, setDocId] = useState("");
+  const [version, setVersion] = useState("1.0.0");
+  const [docStatus, setDocStatus] = useState("approved");
+  const [docLang, setDocLang] = useState(lang === "vi" ? "vi" : "en");
+  const [domain, setDomain] = useState("backend");
+  const [topicName, setTopicName] = useState("");
+  const [roleTargets, setRoleTargets] = useState("");
+  const [jobLevels, setJobLevels] = useState("");
+  const [difficultyLevel, setDifficultyLevel] = useState("intermediate");
+  const [knowledgeSummary, setKnowledgeSummary] = useState("");
+  const [knowledgeConcepts, setKnowledgeConcepts] = useState("");
+  const [expectedPoints, setExpectedPoints] = useState("");
+  const [commonMistakes, setCommonMistakes] = useState("");
+  const [followUpQuestions, setFollowUpQuestions] = useState("");
+  const [deliverables, setDeliverables] = useState("");
+  const [qualityScore, setQualityScore] = useState(0.8);
   const [savingManual, setSavingManual] = useState(false);
 
-  // File Upload
+  // Session Ingestion Log
+  const [ingestedDocs, setIngestedDocs] = useState<IngestedDocument[]>([]);
+
+  // File Upload State
   const [uploading, setUploading] = useState(false);
   const [notification, setNotification] = useState<{
     type: "success" | "error";
@@ -102,64 +96,126 @@ export default function KnowledgeBaseClient({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSearchChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setSearchQuery(val);
-    if (!val.trim()) {
+  const showNotification = (type: "success" | "error", message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => {
+      setNotification(null);
+    }, 6000);
+  };
+
+  // Perform search / retrieve
+  const performSearch = async (query: string, diff: string, topic: string) => {
+    if (!query.trim() && !topic.trim()) {
       setSearchResults([]);
+      setFollowUpsResults([]);
+      setDeliverablesResults([]);
+      setRetrievalStats(null);
       return;
     }
 
+    setIsSearching(true);
     try {
-      const response = await axios.post(`${RAG_API_URL}/retrieve`, {
-        query_text: val,
-        k: 6,
-      });
+      const payload: Record<string, any> = {
+        query_text: query.trim() || undefined,
+        topic: topic.trim() || undefined,
+        difficulty: diff !== "all" ? diff : undefined,
+        k: 10,
+      };
 
-      if (response.data?.success && response.data?.data?.ranked_chunks) {
-        setSearchResults(response.data.data.ranked_chunks);
+      const response = await axios.post(`${RAG_API_URL}/retrieve`, payload);
+
+      if (response.data?.success && response.data?.data) {
+        const { ranked_chunks, follow_ups, deliverables: delivs, metadata } = response.data.data;
+        setSearchResults(ranked_chunks || []);
+        setFollowUpsResults(follow_ups || []);
+        setDeliverablesResults(delivs || []);
+        setRetrievalStats(metadata || null);
       }
     } catch (err) {
-      console.error("Error retrieving search results:", err);
+      console.error("Error retrieving RAG context:", err);
+    } finally {
+      setIsSearching(false);
     }
   };
 
-  const handleManualQASubmit = async (e: React.FormEvent) => {
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+    performSearch(val, difficultyFilter, topicFilter);
+  };
+
+  const handleDifficultyFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setDifficultyFilter(val);
+    performSearch(searchQuery, val, topicFilter);
+  };
+
+  const handleTopicFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setTopicFilter(val);
+    performSearch(searchQuery, difficultyFilter, val);
+  };
+
+  // Helper to split text values by semicolon or newline
+  const parseListField = (val: string): string[] => {
+    if (!val) return [];
+    return val
+      .split(/[;\n]/)
+      .map((x) => x.trim())
+      .filter((x) => x.length > 0);
+  };
+
+  // Submit manual document form
+  const handleManualDocSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!questionInput.trim() || !answerInput.trim()) {
-      showNotification("error", "Vui lòng nhập đầy đủ câu hỏi và câu trả lời.");
+    if (!docId.trim()) {
+      showNotification("error", "Vui lòng nhập Document ID.");
+      return;
+    }
+    if (!topicName.trim()) {
+      showNotification("error", "Vui lòng nhập Tên chủ đề.");
       return;
     }
 
     setSavingManual(true);
-    const manualDocId = `manual_qa_${Date.now()}`;
-    const cleanTopic = topicInput.trim() || "general";
 
     const payload = {
       document: {
-        document_id: manualDocId,
-        version: "1.0.0",
-        status: "approved",
-        language: lang === "vi" ? "vi" : "en",
+        document_id: docId.trim(),
+        version: version.trim() || "1.0.0",
+        status: docStatus,
+        language: docLang,
+        updated_at: new Date().toISOString(),
       },
       topic: {
-        domain: "backend",
-        topic_name: cleanTopic,
+        domain: domain.trim() || "general",
+        topic_name: topicName.trim(),
+        role_targets: parseListField(roleTargets),
+        job_levels: parseListField(jobLevels),
       },
       difficulty: {
-        level: "intermediate",
+        level: difficultyLevel,
       },
       knowledge: {
-        summary: answerInput.trim(),
-        concepts: [questionInput.trim()],
+        summary: knowledgeSummary.trim(),
+        concepts: parseListField(knowledgeConcepts),
       },
       expected_points: {
-        must_have: [answerInput.trim()],
+        must_have: parseListField(expectedPoints),
+      },
+      common_mistakes: {
+        mistakes: parseListField(commonMistakes),
+      },
+      follow_up: {
+        questions: parseListField(followUpQuestions),
+      },
+      deliverables: {
+        action_items: parseListField(deliverables),
       },
       metadata: {
         retrieval: {
           is_active: true,
-          quality_score: 1.0,
+          quality_score: qualityScore,
         },
       },
     };
@@ -167,37 +223,39 @@ export default function KnowledgeBaseClient({
     try {
       const response = await axios.post(`${RAG_API_URL}/upsert-document`, payload);
       if (response.data?.success) {
-        showNotification("success", `Đã lưu câu hỏi thủ công thành công!`);
+        showNotification(
+          "success",
+          `Tài liệu '${docId}' đã được nạp thành công và chia thành ${response.data.records || 0} chunks.`
+        );
 
-        // Add to recent list
-        const newQa: RecentQa = {
-          id: manualDocId,
-          tag: cleanTopic,
-          tagClassName: "text-green-600",
-          question: questionInput.trim(),
-          answer: answerInput.trim(),
+        // Add to Ingested log
+        const logDoc: IngestedDocument = {
+          id: docId.trim(),
+          topic: topicName.trim(),
+          difficulty: difficultyLevel,
+          status: "success",
+          timestamp: new Date().toLocaleTimeString(),
         };
-        setRecentQas((prev) => [newQa, ...prev.slice(0, 4)]);
+        setIngestedDocs((prev) => [logDoc, ...prev]);
 
-        // Clear input
-        setQuestionInput("");
-        setAnswerInput("");
+        // Reset form partially
+        setDocId("");
+        setTopicName("");
+        setKnowledgeSummary("");
+        setKnowledgeConcepts("");
+        setExpectedPoints("");
+        setCommonMistakes("");
+        setFollowUpQuestions("");
+        setDeliverables("");
       } else {
-        showNotification("error", response.data?.error || "Không thể lưu câu hỏi.");
+        showNotification("error", response.data?.error || "Không thể nạp tài liệu.");
       }
     } catch (err: any) {
-      console.error("Error saving manual QA:", err);
-      showNotification("error", err.response?.data?.error || "Lỗi máy chủ khi lưu câu hỏi.");
+      console.error("Error upserting manual doc:", err);
+      showNotification("error", err.response?.data?.error || "Lỗi máy chủ khi nạp tài liệu.");
     } finally {
       setSavingManual(false);
     }
-  };
-
-  const showNotification = (type: "success" | "error", message: string) => {
-    setNotification({ type, message });
-    setTimeout(() => {
-      setNotification(null);
-    }, 6000);
   };
 
   const handleFileUploadClick = () => {
@@ -221,7 +279,7 @@ export default function KnowledgeBaseClient({
     }
 
     setUploading(true);
-    showNotification("success", `Đang tải lên và xử lý tệp ${fileName}...`);
+    showNotification("success", `Đang tải lên và phân tích tệp ${fileName}...`);
 
     if (isCsv) {
       const formData = new FormData();
@@ -235,18 +293,20 @@ export default function KnowledgeBaseClient({
         });
 
         if (response.data?.success) {
-          showNotification("success", `Nạp thành công ${response.data.imported_document_ids?.length || 0} tài liệu từ tệp CSV!`);
-          
-          const newSource: KnowledgeSource = {
-            id: `csv-${Date.now()}`,
-            icon: "table_chart",
-            iconClassName: "text-green-500",
-            title: fileName,
-            subtitle: "admin.knowledge.source.uploadedMinsAgoProcessing",
-            subtitleParams: { count: "1", size: `${(file.size / 1024).toFixed(1)} KB`, status: t("admin.knowledge.status.processed") },
-            status: "processed",
-          };
-          setSources((prev) => [newSource, ...prev]);
+          const count = response.data.imported_document_ids?.length || 0;
+          showNotification("success", `Nạp thành công ${count} tài liệu từ tệp CSV!`);
+
+          // Add to log
+          const newLogs: IngestedDocument[] = (response.data.imported_document_ids || []).map(
+            (id: string) => ({
+              id,
+              topic: "Imported via CSV",
+              difficulty: "Dynamic",
+              status: "success",
+              timestamp: new Date().toLocaleTimeString(),
+            })
+          );
+          setIngestedDocs((prev) => [...newLogs, ...prev]);
         } else {
           showNotification("error", response.data?.error || "Lỗi khi nạp tệp CSV.");
         }
@@ -257,7 +317,6 @@ export default function KnowledgeBaseClient({
         setUploading(false);
       }
     } else {
-      // JSON file parsing client-side and posting to /upsert-document
       const reader = new FileReader();
       reader.onload = async (event) => {
         try {
@@ -266,18 +325,17 @@ export default function KnowledgeBaseClient({
 
           const response = await axios.post(`${RAG_API_URL}/upsert-document`, docObj);
           if (response.data?.success) {
-            showNotification("success", `Nạp thành công tài liệu JSON: ${docObj.document?.document_id || fileName}`);
-            
-            const newSource: KnowledgeSource = {
-              id: docObj.document?.document_id || `json-${Date.now()}`,
-              icon: "settings_ethernet",
-              iconClassName: "text-amber-500",
-              title: fileName,
-              subtitle: "admin.knowledge.source.uploadedMinsAgoProcessing",
-              subtitleParams: { count: "1", size: `${(file.size / 1024).toFixed(1)} KB`, status: t("admin.knowledge.status.processed") },
-              status: "processed",
+            const docIdVal = docObj.document?.document_id || fileName;
+            showNotification("success", `Nạp thành công tài liệu JSON: ${docIdVal}`);
+
+            const logDoc: IngestedDocument = {
+              id: docIdVal,
+              topic: docObj.topic?.topic_name || "JSON Upload",
+              difficulty: docObj.difficulty?.level || "Dynamic",
+              status: "success",
+              timestamp: new Date().toLocaleTimeString(),
             };
-            setSources((prev) => [newSource, ...prev]);
+            setIngestedDocs((prev) => [logDoc, ...prev]);
           } else {
             showNotification("error", response.data?.error || "Lỗi khi nạp tài liệu JSON.");
           }
@@ -303,28 +361,24 @@ export default function KnowledgeBaseClient({
     await processAndUploadFile(file);
   };
 
-  function statusBadge(status: SourceStatus) {
-    if (status === "processed") {
-      return (
-        <span className="flex items-center gap-2 text-xs font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full">
-          <span className="w-2 h-2 bg-green-500 rounded-full"></span> {t("admin.knowledge.status.processed")}
-        </span>
-      );
-    }
-    if (status === "analyzing") {
-      return (
-        <span className="flex items-center gap-2 text-xs font-bold text-primary bg-primary/5 px-3 py-1 rounded-full">
-          <span className="w-2 h-2 bg-tertiary rounded-full animate-pulse"></span>{" "}
-          {t("admin.knowledge.status.analyzing")}
-        </span>
-      );
-    }
-    return (
-      <span className="flex items-center gap-2 text-xs font-bold text-on-surface-variant bg-surface-container px-3 py-1 rounded-full">
-        {t("admin.knowledge.status.activeSync")}
-      </span>
-    );
-  }
+  // Helper to trigger template download client-side
+  const downloadCsvTemplate = () => {
+    const csvContent =
+      "document_id,version,status,language,domain,topic_name,role_targets,job_levels,difficulty_level,knowledge_summary,knowledge_concepts,expected_points_must_have,common_mistakes,follow_up_questions,deliverables_action_items,is_active,quality_score\n" +
+      'int_doc_python_oop_01,1.0.0,approved,vi,backend,python-oop,"backend-engineer;python-developer","junior;mid",intermediate,"Hiểu về các nguyên lý hướng đối tượng (OOP) trong Python bao gồm kế thừa, đóng gói, đa hình và trừu tượng.","MRO (Method Resolution Order);Abstract Class;Interface;super()","Giải thích cơ chế đa kế thừa và thứ tự Method Resolution Order (MRO);Phân biệt classmethod và staticmethod;Sử dụng đúng hàm super() để khởi tạo lớp cha","Nhầm lẫn cơ chế đa kế thừa chạy theo chiều rộng thuần túy thay vì thuật toán C3 Linearization;Dùng đối tượng mutable làm giá trị mặc định cho tham số của phương thức","Làm thế nào để tạo một singleton class thread-safe trong Python?;Sự khác biệt giữa __new__ và __init__ là gì và khi nào nên ghi đè __new__?","Xây dựng một Class Decorator tự động log thời gian chạy và lưu vết cuộc gọi của mọi phương thức trong Class.",true,0.95\n' +
+      'int_doc_caching_01,1.0.0,approved,vi,backend,caching-strategies,"backend-engineer;devops","mid;senior",advanced,"Nắm vững các chiến lược Caching phổ biến (Cache-Aside, Write-Through, Write-Behind) và cơ chế dọn dẹp bộ nhớ đệm.","Cache-Aside;Write-Through;Write-Behind;Eviction Policies (LRU, LFU);Cache Stampede","Mô tả chi tiết cách hoạt động của Cache-Aside và Write-Through;So sánh ưu nhược điểm về độ trễ và tính nhất quán dữ liệu giữa các chiến lược;Giải thích cách phòng tránh hiện tượng Cache Stampede / Thundering Herd","Không xử lý trường hợp Cache Stampede dẫn đến sập DB khi key hết hạn;Đặt TTL quá dài gây lệch dữ liệu giữa Cache và DB","Cơ chế dọn dẹp bộ nhớ LRU hoạt động thế nào và cách tối ưu hóa Redis khi bộ nhớ bị đầy?;Làm thế nào để triển khai phân tán khóa (Distributed Lock) sử dụng Redis?","Thiết kế kiến trúc Cache-Aside kết hợp cơ chế khóa phân tán Redlock bằng mã giả để đảm bảo tính nhất quán.",true,0.90\n';
+
+    const blob = new Blob([new Uint8Array([0xef, 0xbb, 0xbf]), csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "interview_docs_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="bg-surface font-body text-on-surface antialiased">
@@ -344,9 +398,7 @@ export default function KnowledgeBaseClient({
             <p className="font-bold text-sm">
               {notification.type === "success" ? "Thành công" : "Lỗi xử lý"}
             </p>
-            <p className="text-xs opacity-90 leading-relaxed mt-1">
-              {notification.message}
-            </p>
+            <p className="text-xs opacity-90 leading-relaxed mt-1">{notification.message}</p>
           </div>
         </div>
       )}
@@ -361,75 +413,55 @@ export default function KnowledgeBaseClient({
               className="flex items-center gap-4 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
               href="/admin/dashboard"
             >
-              <span className="material-symbols-outlined" data-icon="dashboard">
-                dashboard
-              </span>
+              <span className="material-symbols-outlined">dashboard</span>
               <span>{t("common.dashboard")}</span>
             </Link>
             <Link
               className="flex items-center gap-4 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
               href="/admin/interviews"
             >
-              <span className="material-symbols-outlined" data-icon="video_chat">
-                video_chat
-              </span>
+              <span className="material-symbols-outlined">video_chat</span>
               <span>{t("admin.interviews")}</span>
             </Link>
             <Link
               className="flex items-center gap-4 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
               href="/admin/insights"
             >
-              <span className="material-symbols-outlined" data-icon="psychology">
-                psychology
-              </span>
+              <span className="material-symbols-outlined">psychology</span>
               <span>{t("admin.aiInsights")}</span>
             </Link>
             <Link
               className="flex items-center gap-4 px-4 py-3 rounded-lg text-[#003d9b] dark:text-blue-400 font-bold border-r-4 border-[#003d9b] dark:border-blue-400 bg-white/50 dark:bg-white/5"
               href="/admin/knowledge-base"
             >
-              <span className="material-symbols-outlined" data-icon="library_books">
-                library_books
-              </span>
+              <span className="material-symbols-outlined">library_books</span>
               <span>{t("admin.knowledgeBase")}</span>
             </Link>
             <Link
               className="flex items-center gap-4 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
               href="/admin/settings"
             >
-              <span className="material-symbols-outlined" data-icon="settings">
-                settings
-              </span>
+              <span className="material-symbols-outlined">settings</span>
               <span>{t("common.settings")}</span>
             </Link>
           </nav>
 
           <div className="mt-auto space-y-2 pt-6 border-t border-outline-variant/20">
-            <AdminButton
-              variant="gradient"
-              size="md"
-              icon="auto_awesome"
-              iconFill
-              className="w-full mb-6"
-            >
+            <AdminButton variant="gradient" size="md" icon="auto_awesome" iconFill className="w-full mb-6">
               {t("admin.settings.startAiAnalysis")}
             </AdminButton>
             <Link
               className="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-[#e0e3e5] transition-colors duration-200"
               href="/admin/help"
             >
-              <span className="material-symbols-outlined" data-icon="help">
-                help
-              </span>
+              <span className="material-symbols-outlined">help</span>
               <span>{t("common.helpCenter")}</span>
             </Link>
             <Link
               className="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-[#e0e3e5] transition-colors duration-200"
               href="/logout"
             >
-              <span className="material-symbols-outlined" data-icon="logout">
-                logout
-              </span>
+              <span className="material-symbols-outlined">logout</span>
               <span>{t("common.logout")}</span>
             </Link>
           </div>
@@ -444,20 +476,36 @@ export default function KnowledgeBaseClient({
             <h2 className="text-xl font-black text-[#191c1e] dark:text-white font-headline">
               {t("admin.topbar.title")}
             </h2>
-            <div className="relative group">
-              <span
-                className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-lg"
-                data-icon="search"
-              >
-                search
-              </span>
+            <div className="relative group flex items-center gap-2">
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-lg">
+                  search
+                </span>
+                <input
+                  className="bg-surface-container-highest border-none rounded-xl py-2 pl-12 pr-4 w-72 text-sm font-medium focus:ring-2 focus:ring-surface-tint focus:bg-white transition-all outline-none"
+                  placeholder={t("admin.search.knowledge")}
+                  type="text"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                />
+              </div>
               <input
-                className="bg-surface-container-highest border-none rounded-xl py-2 pl-12 pr-4 w-80 text-sm font-medium focus:ring-2 focus:ring-surface-tint focus:bg-white transition-all outline-none"
-                placeholder={t("admin.search.knowledge")}
+                className="bg-surface-container-highest border-none rounded-xl py-2 px-3 w-40 text-sm font-medium focus:ring-2 focus:ring-surface-tint focus:bg-white transition-all outline-none"
+                placeholder="Topic..."
                 type="text"
-                value={searchQuery}
-                onChange={handleSearchChange}
+                value={topicFilter}
+                onChange={handleTopicFilterChange}
               />
+              <select
+                className="bg-surface-container-highest border-none rounded-xl py-2 px-3 text-sm font-medium focus:ring-2 focus:ring-surface-tint focus:bg-white outline-none cursor-pointer"
+                value={difficultyFilter}
+                onChange={handleDifficultyFilterChange}
+              >
+                <option value="all">Tất cả độ khó</option>
+                <option value="basic">Basic</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
             </div>
           </div>
           <div className="flex items-center gap-6">
@@ -488,19 +536,268 @@ export default function KnowledgeBaseClient({
               </p>
             </div>
             <div className="flex gap-4">
-              <AdminButton variant="outline" size="md">
-                {t("admin.knowledge.viewAuditLogs")}
-              </AdminButton>
-              <AdminButton variant="gradient" size="md" icon="bolt" iconFill>
-                {t("admin.knowledge.retrainFoundation")}
+              <AdminButton variant="outline" size="md" onClick={downloadCsvTemplate}>
+                Tải CSV Template
               </AdminButton>
             </div>
           </section>
 
+          {/* Stats Bar if search occurred */}
+          {retrievalStats && (
+            <div className="grid grid-cols-5 gap-4 p-6 bg-blue-50/50 dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-xl">
+              <div className="text-center border-r border-outline-variant/20">
+                <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Tổng số Chunks tìm thấy</p>
+                <p className="text-2xl font-black mt-1 text-primary">{retrievalStats.original_count}</p>
+              </div>
+              <div className="text-center border-r border-outline-variant/20">
+                <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Trùng lặp đã loại</p>
+                <p className="text-2xl font-black mt-1 text-amber-600">{retrievalStats.duplicates_removed}</p>
+              </div>
+              <div className="text-center border-r border-outline-variant/20">
+                <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Lọc sai lệch Topic</p>
+                <p className="text-2xl font-black mt-1 text-red-500">{retrievalStats.topic_mismatches_removed}</p>
+              </div>
+              <div className="text-center border-r border-outline-variant/20">
+                <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Lọc sai lệch Độ khó</p>
+                <p className="text-2xl font-black mt-1 text-orange-500">{retrievalStats.difficulty_mismatches_removed}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Số lượng hiển thị (k)</p>
+                <p className="text-2xl font-black mt-1 text-green-600">{retrievalStats.final_count}</p>
+              </div>
+            </div>
+          )}
+
           {/* Bento Grid Layout */}
           <div className="grid grid-cols-12 gap-8">
-            {/* File Upload & Sources (Left Column) */}
+            {/* File Ingestion & Manual Entry Form (Left Column) */}
             <div className="col-span-12 lg:col-span-8 space-y-8">
+              {/* Document Editor Form (RAG Full Form) */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl p-8 border border-outline-variant/10 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold font-headline text-on-surface">
+                    Biên tập tài liệu phỏng vấn tri thức
+                  </h3>
+                  <span className="material-symbols-outlined text-primary">edit_document</span>
+                </div>
+                <form onSubmit={handleManualDocSubmit} className="space-y-6">
+                  {/* Basic Metadata */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                        {t("admin.knowledge.field.documentId")} *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-outline-variant/20 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
+                        placeholder="VD: int_doc_python_oop_01"
+                        value={docId}
+                        onChange={(e) => setDocId(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                        {t("admin.knowledge.field.topicName")} *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-outline-variant/20 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
+                        placeholder="VD: python-oop"
+                        value={topicName}
+                        onChange={(e) => setTopicName(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                        {t("admin.knowledge.field.domain")}
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-outline-variant/20 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
+                        value={domain}
+                        onChange={(e) => setDomain(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                        {t("admin.knowledge.field.difficulty")}
+                      </label>
+                      <select
+                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-outline-variant/20 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all cursor-pointer"
+                        value={difficultyLevel}
+                        onChange={(e) => setDifficultyLevel(e.target.value)}
+                      >
+                        <option value="basic">Basic</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                        Phiên bản (Version)
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-outline-variant/20 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
+                        value={version}
+                        onChange={(e) => setVersion(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                        Ngôn ngữ (Language)
+                      </label>
+                      <select
+                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-outline-variant/20 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all cursor-pointer"
+                        value={docLang}
+                        onChange={(e) => setDocLang(e.target.value)}
+                      >
+                        <option value="vi">Tiếng Việt</option>
+                        <option value="en">Tiếng Anh</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Target Audience & Stack */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                        {t("admin.knowledge.field.roleTargets")}
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-outline-variant/20 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
+                        placeholder="VD: backend-engineer;python-developer"
+                        value={roleTargets}
+                        onChange={(e) => setRoleTargets(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                        {t("admin.knowledge.field.jobLevels")}
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-outline-variant/20 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
+                        placeholder="VD: junior;mid"
+                        value={jobLevels}
+                        onChange={(e) => setJobLevels(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Knowledge Unit Content */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                      {t("admin.knowledge.field.knowledgeSummary")}
+                    </label>
+                    <textarea
+                      rows={3}
+                      className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-outline-variant/20 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all resize-y"
+                      placeholder="VD: Hiểu về Kế thừa, Đóng gói, Đa hình và Trừu tượng trong Python."
+                      value={knowledgeSummary}
+                      onChange={(e) => setKnowledgeSummary(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                      {t("admin.knowledge.field.concepts")}
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-outline-variant/20 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
+                      placeholder="VD: MRO (Method Resolution Order);Abstract Class;Interface"
+                      value={knowledgeConcepts}
+                      onChange={(e) => setKnowledgeConcepts(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Expected Criteria, Mistakes, Followups */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                        {t("admin.knowledge.field.mustHave")}
+                      </label>
+                      <textarea
+                        rows={3}
+                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-outline-variant/20 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all resize-y"
+                        placeholder="Mỗi tiêu chí nằm trên một dòng riêng biệt..."
+                        value={expectedPoints}
+                        onChange={(e) => setExpectedPoints(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                        {t("admin.knowledge.field.commonMistakes")}
+                      </label>
+                      <textarea
+                        rows={3}
+                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-outline-variant/20 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all resize-y"
+                        placeholder="Mỗi sai lầm nằm trên một dòng riêng biệt..."
+                        value={commonMistakes}
+                        onChange={(e) => setCommonMistakes(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                        {t("admin.knowledge.field.followUp")}
+                      </label>
+                      <textarea
+                        rows={3}
+                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-outline-variant/20 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all resize-y"
+                        placeholder="Mỗi câu hỏi bổ trợ nằm trên một dòng riêng biệt..."
+                        value={followUpQuestions}
+                        onChange={(e) => setFollowUpQuestions(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                        {t("admin.knowledge.field.deliverables")}
+                      </label>
+                      <textarea
+                        rows={3}
+                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-outline-variant/20 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all resize-y"
+                        placeholder="Mỗi bài tập thực hành/sản phẩm nằm trên một dòng riêng biệt..."
+                        value={deliverables}
+                        onChange={(e) => setDeliverables(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quality rating slider */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                        {t("admin.knowledge.field.qualityScore")}
+                      </label>
+                      <span className="text-sm font-bold text-primary">{qualityScore.toFixed(2)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                      value={qualityScore}
+                      onChange={(e) => setQualityScore(parseFloat(e.target.value))}
+                    />
+                  </div>
+
+                  <AdminButton variant="primary" size="lg" className="w-full" type="submit" disabled={savingManual}>
+                    {savingManual ? "Đang huấn luyện & nạp RAG..." : "Huấn luyện & lưu tài liệu"}
+                  </AdminButton>
+                </form>
+              </div>
+
               {/* Upload Dropzone */}
               <div className="bg-surface-container-lowest rounded-xl p-8 border border-outline-variant/10 shadow-sm group">
                 <div className="flex items-center justify-between mb-8">
@@ -535,179 +832,151 @@ export default function KnowledgeBaseClient({
                   <p className="text-on-surface font-semibold mb-1">
                     {uploading ? "Đang xử lý tệp..." : t("admin.knowledge.dragDrop")}
                   </p>
-                  <p className="text-on-surface-variant text-sm">
-                    {t("admin.knowledge.maxPerFile")}
-                  </p>
-                </div>
-              </div>
-
-              {/* Source List */}
-              <div className="bg-surface-container-lowest rounded-xl p-8 border border-outline-variant/10 shadow-sm">
-                <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-xl font-bold font-headline text-on-surface">
-                    {t("admin.knowledge.sources")}
-                  </h3>
-                  <div className="flex gap-2">
-                    <button className="text-xs font-bold uppercase tracking-widest text-primary">
-                      All
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {sources.map((s) => (
-                    <div
-                      key={s.id}
-                      className="flex items-center p-4 bg-surface-container-low/30 rounded-xl hover:bg-surface-container transition-colors group"
-                    >
-                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center border border-outline-variant/10 mr-4">
-                        <span
-                          className={`material-symbols-outlined ${s.iconClassName}`}
-                          data-icon={s.icon}
-                        >
-                          {s.icon}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-bold text-on-surface">{s.title}</h4>
-                        <p className="text-xs text-on-surface-variant">
-                          {Object.entries(s.subtitleParams ?? {}).reduce(
-                            (acc, [k, v]) => {
-                              const value = v.startsWith("admin.") ? t(v) : v;
-                              return acc.replace(`{${k}}`, value);
-                            },
-                            t(s.subtitle)
-                          )}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3 px-4">
-                        {statusBadge(s.status)}
-                      </div>
-                    </div>
-                  ))}
+                  <p className="text-on-surface-variant text-sm">{t("admin.knowledge.maxPerFile")}</p>
                 </div>
               </div>
             </div>
 
-            {/* QA Refinement & Statistics (Right Column) */}
+            {/* QA Ingestion Log & Search Results (Right Column) */}
             <div className="col-span-12 lg:col-span-4 space-y-8">
-              {/* Manual QA Editor */}
-              <div className="bg-surface-container-highest rounded-xl p-8 border border-outline-variant/10 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold font-headline text-on-surface">
-                    {t("admin.knowledge.overrideQa")}
-                  </h3>
-                  <span className="material-symbols-outlined text-primary" data-icon="edit_note">
-                    edit_note
-                  </span>
-                </div>
-                <p className="text-sm text-on-surface-variant mb-6 leading-relaxed">
-                  {t("admin.knowledge.overrideQaDesc")}
-                </p>
-                <form onSubmit={handleManualQASubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
-                      Chủ đề (Topic)
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full bg-surface-container-lowest border-none rounded-lg text-sm focus:ring-2 focus:ring-surface-tint p-3 outline-none"
-                      placeholder="Ví dụ: python-oop, concurrency, caching..."
-                      value={topicInput}
-                      onChange={(e) => setTopicInput(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
-                      {t("admin.knowledge.promptQuestion")}
-                    </label>
-                    <textarea
-                      className="w-full bg-surface-container-lowest border-none rounded-lg text-sm focus:ring-2 focus:ring-surface-tint p-4 outline-none resize-none"
-                      placeholder={t("admin.knowledge.promptPlaceholder")}
-                      rows={2}
-                      value={questionInput}
-                      onChange={(e) => setQuestionInput(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
-                      {t("admin.knowledge.modelAnswer")}
-                    </label>
-                    <textarea
-                      className="w-full bg-surface-container-lowest border-none rounded-lg text-sm focus:ring-2 focus:ring-surface-tint p-4 outline-none resize-none"
-                      placeholder={t("admin.knowledge.answerPlaceholder")}
-                      rows={4}
-                      value={answerInput}
-                      onChange={(e) => setAnswerInput(e.target.value)}
-                    />
-                  </div>
-                  <AdminButton
-                    variant="primary"
-                    size="lg"
-                    className="w-full"
-                    type="submit"
-                    disabled={savingManual}
-                  >
-                    {savingManual ? "Đang lưu..." : t("admin.knowledge.savePair")}
-                  </AdminButton>
-                </form>
-              </div>
-
-              {/* RAG Context Results / QA Pairs list */}
-              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 overflow-hidden">
-                <div className="p-6 border-b border-outline-variant/10 flex justify-between items-center">
-                  <h4 className="font-bold">
-                    {searchQuery.trim() ? "Kết quả tìm kiếm RAG" : t("admin.knowledge.recentQaPairs")}
-                  </h4>
-                  <span className="material-symbols-outlined text-primary">
-                    {searchQuery.trim() ? "travel_explore" : "library_books"}
-                  </span>
-                </div>
-                <div className="divide-y divide-outline-variant/10 max-h-[360px] overflow-y-auto">
-                  {searchQuery.trim() ? (
-                    searchResults.length > 0 ? (
-                      searchResults.map((chunk: any, idx: number) => (
-                        <div key={idx} className="p-4 hover:bg-surface-container transition-colors">
-                          <div className="flex justify-between items-center mb-1">
-                            <p className="text-xs font-bold text-primary uppercase">
-                              {chunk.metadata?.topic || "RAG Chunk"}
-                            </p>
-                            <span className="text-[10px] text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-full font-bold">
-                              Score: {Math.round(chunk.score * 100)}%
-                            </span>
-                          </div>
-                          <p className="text-sm font-semibold truncate mb-1">
-                            {chunk.text}
-                          </p>
-                          <p className="text-[10px] text-on-surface-variant italic">
-                            Source: {chunk.metadata?.document_id || "RAG Core"} (Type: {chunk.metadata?.chunk_type || "knowledge"})
+              {/* Session Ingested Log */}
+              <div className="bg-surface-container-lowest rounded-xl p-8 border border-outline-variant/10 shadow-sm">
+                <h3 className="text-xl font-bold font-headline mb-6 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-green-500">history_edu</span>
+                  Tài liệu nạp gần đây
+                </h3>
+                <div className="space-y-4 max-h-[300px] overflow-y-auto">
+                  {ingestedDocs.length === 0 ? (
+                    <p className="text-sm text-on-surface-variant italic text-center py-6">
+                      Chưa nạp tài liệu nào trong phiên này.
+                    </p>
+                  ) : (
+                    ingestedDocs.map((doc, idx) => (
+                      <div
+                        key={idx}
+                        className="flex justify-between items-start p-3 bg-surface-container-low/30 border border-outline-variant/10 rounded-lg"
+                      >
+                        <div className="flex-1 min-w-0 pr-2">
+                          <p className="text-sm font-bold text-on-surface truncate">{doc.id}</p>
+                          <p className="text-xs text-on-surface-variant mt-0.5">
+                            Topic: {doc.topic} • Lvl: {doc.difficulty}
                           </p>
                         </div>
-                      ))
-                    ) : (
-                      <div className="p-8 text-center text-sm text-on-surface-variant">
-                        Không tìm thấy chunk nào khớp với từ khóa.
-                      </div>
-                    )
-                  ) : (
-                    recentQas.map((qa) => (
-                      <div
-                        key={qa.id}
-                        className="p-4 hover:bg-surface-container transition-colors cursor-pointer"
-                      >
-                        <p className={`text-xs font-bold mb-1 ${qa.tagClassName}`}>
-                          {qa.tag.startsWith("admin.") ? t(qa.tag) : qa.tag}
-                        </p>
-                        <p className="text-sm font-semibold truncate">
-                          {qa.question.startsWith("admin.") ? t(qa.question) : qa.question}
-                        </p>
-                        {qa.answer && (
-                          <p className="text-xs text-on-surface-variant truncate mt-1">
-                            {qa.answer}
-                          </p>
-                        )}
+                        <div className="text-right">
+                          <span className="text-[10px] text-on-surface-variant block">{doc.timestamp}</span>
+                          <span className="inline-block w-2 h-2 rounded-full bg-green-500 mt-1"></span>
+                        </div>
                       </div>
                     ))
+                  )}
+                </div>
+              </div>
+
+              {/* RAG Core Chunks */}
+              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 overflow-hidden">
+                <div className="p-6 border-b border-outline-variant/10 flex justify-between items-center">
+                  <h4 className="font-bold flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">data_object</span>
+                    {searchQuery.trim() || topicFilter.trim() ? "Tri thức cốt lõi (Chunks)" : "Tìm kiếm để xem Chunks"}
+                  </h4>
+                </div>
+                <div className="divide-y divide-outline-variant/10 max-h-[360px] overflow-y-auto">
+                  {isSearching ? (
+                    <div className="p-8 text-center text-sm text-on-surface-variant animate-pulse">
+                      Đang tìm kiếm dữ liệu...
+                    </div>
+                  ) : searchResults.length > 0 ? (
+                    searchResults.map((chunk, idx) => {
+                      const cType = chunk.metadata?.chunk_type || "knowledge";
+                      return (
+                        <div key={idx} className="p-4 hover:bg-surface-container transition-colors">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-[10px] font-bold text-primary uppercase px-2 py-0.5 bg-blue-50 dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded">
+                              {t(`admin.knowledge.chunkType.${cType}`)}
+                            </span>
+                            <span className="text-[10px] text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-full font-bold">
+                              Khớp: {Math.round(chunk.score * 100)}%
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium leading-relaxed my-2 whitespace-pre-line bg-[#fafafa] dark:bg-slate-950 p-2.5 rounded border border-outline-variant/5">
+                            {chunk.text}
+                          </p>
+                          <div className="text-[10px] text-on-surface-variant flex flex-wrap gap-x-2 gap-y-1 italic border-t border-outline-variant/10 pt-1.5 mt-1">
+                            <span>Nguồn: {chunk.metadata?.document_id}</span>
+                            <span>• Topic: {chunk.metadata?.topic}</span>
+                            <span>• Điểm chất lượng: {chunk.metadata?.quality_score ?? 0.8}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="p-8 text-center text-sm text-on-surface-variant italic">
+                      Nhập từ khóa tìm kiếm hoặc lọc chủ đề ở trên.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* RAG Follow-up Chunks */}
+              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 overflow-hidden">
+                <div className="p-6 border-b border-outline-variant/10 flex justify-between items-center bg-purple-50/20">
+                  <h4 className="font-bold flex items-center gap-2">
+                    <span className="material-symbols-outlined text-purple-600">question_answer</span>
+                    Câu hỏi bổ trợ (Follow-up)
+                  </h4>
+                </div>
+                <div className="divide-y divide-outline-variant/10 max-h-[360px] overflow-y-auto">
+                  {isSearching ? (
+                    <div className="p-8 text-center text-sm text-on-surface-variant animate-pulse">
+                      Đang tải câu hỏi...
+                    </div>
+                  ) : followUpsResults.length > 0 ? (
+                    followUpsResults.map((chunk, idx) => (
+                      <div key={idx} className="p-4 hover:bg-surface-container transition-colors">
+                        <p className="text-sm font-semibold whitespace-pre-line text-purple-900 bg-purple-50/50 p-2.5 rounded border border-purple-100">
+                          {chunk.text}
+                        </p>
+                        <div className="text-[10px] text-on-surface-variant mt-2">
+                          Nguồn: {chunk.metadata?.document_id} (Topic: {chunk.metadata?.topic})
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center text-sm text-on-surface-variant italic">
+                      Chưa có câu hỏi bổ trợ.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* RAG Deliverables Chunks */}
+              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 overflow-hidden">
+                <div className="p-6 border-b border-outline-variant/10 flex justify-between items-center bg-green-50/20">
+                  <h4 className="font-bold flex items-center gap-2">
+                    <span className="material-symbols-outlined text-green-600">task</span>
+                    Bài tập thực hành (Deliverables)
+                  </h4>
+                </div>
+                <div className="divide-y divide-outline-variant/10 max-h-[360px] overflow-y-auto">
+                  {isSearching ? (
+                    <div className="p-8 text-center text-sm text-on-surface-variant animate-pulse">
+                      Đang tải bài tập...
+                    </div>
+                  ) : deliverablesResults.length > 0 ? (
+                    deliverablesResults.map((chunk, idx) => (
+                      <div key={idx} className="p-4 hover:bg-surface-container transition-colors">
+                        <p className="text-sm font-semibold whitespace-pre-line text-green-900 bg-green-50/50 p-2.5 rounded border border-green-100">
+                          {chunk.text}
+                        </p>
+                        <div className="text-[10px] text-on-surface-variant mt-2">
+                          Nguồn: {chunk.metadata?.document_id} (Topic: {chunk.metadata?.topic})
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center text-sm text-on-surface-variant italic">
+                      Chưa có yêu cầu sản phẩm/bài tập.
+                    </div>
                   )}
                 </div>
               </div>
