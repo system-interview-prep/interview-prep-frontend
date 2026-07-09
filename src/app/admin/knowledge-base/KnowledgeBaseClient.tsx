@@ -39,6 +39,7 @@ type SearchResultChunk = {
     topic?: string;
     difficulty?: string;
     document_id?: string;
+    knowledge_unit_id?: string;
     roles?: string[];
     job_levels?: string[];
     quality_score?: number;
