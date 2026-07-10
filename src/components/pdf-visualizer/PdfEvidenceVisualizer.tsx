@@ -49,7 +49,7 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, onPageRendered }: PdfPageProps
         if (!active) return;
 
         const pdfJS = await import("pdfjs-dist");
-        
+
         const textLayerObj = new pdfJS.TextLayer({
           textContentSource: textContent,
           container: textLayer,
@@ -178,7 +178,7 @@ export default function PdfEvidenceVisualizer({
 
     const spans = containerRef.current.querySelectorAll("span");
     let foundSpan: HTMLSpanElement | null = null;
-    
+
     for (let i = 0; i < spans.length; i++) {
       const span = spans[i];
       const text = span.textContent?.toLowerCase() || "";
@@ -190,13 +190,13 @@ export default function PdfEvidenceVisualizer({
 
     if (foundSpan) {
       foundSpan.scrollIntoView({ behavior: "smooth", block: "center" });
-      
+
       const originalBg = foundSpan.style.backgroundColor;
       const originalBorder = foundSpan.style.borderBottom;
-      
+
       foundSpan.style.backgroundColor = "rgba(245, 158, 11, 0.45)"; // Highlight Amber
       foundSpan.style.borderBottom = "2px solid #f59e0b";
-      
+
       setTimeout(() => {
         if (foundSpan) {
           foundSpan.style.backgroundColor = originalBg;
@@ -216,7 +216,8 @@ export default function PdfEvidenceVisualizer({
 
   return (
     <div className="relative flex flex-col items-center w-full h-full min-h-[35rem] max-h-[45rem] overflow-y-auto bg-slate-100/70 p-4 rounded-3xl border border-slate-200/80">
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .textLayer {
           position: absolute;
           left: 0;
@@ -233,6 +234,9 @@ export default function PdfEvidenceVisualizer({
           white-space: pre;
           cursor: text;
           transform-origin: 0% 0%;
+        }
+        .textLayer mark {
+          color: transparent;
         }
       `}} />
 

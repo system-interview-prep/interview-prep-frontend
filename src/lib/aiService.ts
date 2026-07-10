@@ -66,6 +66,7 @@ export type CvScoringResponse = {
     weaknesses: string[];
     suggestions: string[];
   };
+  overallFeedback?: string;
   evidence?: {
     must_have: Array<{ requirement: string; status: "matched" | "missing"; snippets: string[] }>;
     nice_to_have: Array<{ requirement: string; status: "matched" | "missing"; snippets: string[] }>;

@@ -730,6 +730,17 @@ export default function CvScorePage() {
                 </span>
               </div>
 
+              {result.overallFeedback && (
+                <div className="mb-5 p-6 rounded-[1.5rem] border border-slate-200/80 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.03)]">
+                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">
+                    Nhận xét chung từ AI
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-700 font-semibold">
+                    {result.overallFeedback}
+                  </p>
+                </div>
+              )}
+
               <div className="mt-4 grid gap-3 xl:grid-cols-3 md:grid-cols-2">
                 <SummaryPanel title={t("interview.cvAnalysis.summaryStrengthsTitle")} tone="emerald" items={normalized?.strengths ?? []} />
                 <SummaryPanel title={t("interview.cvAnalysis.summaryWeaknessesTitle")} tone="amber" items={normalized?.weaknesses ?? []} />
