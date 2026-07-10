@@ -12,6 +12,8 @@ import {
   type CvScoringResponse,
 } from "@/lib/aiService";
 import { jobProfileApi, type JobProfile } from "@/services/jobProfileApi";
+import PdfEvidenceVisualizer from "@/components/pdf-visualizer/PdfEvidenceVisualizer";
+import EvidenceComparePanel from "@/components/pdf-visualizer/EvidenceComparePanel";
 import { userCvApi, type UserCvDto } from "@/services/userCvApi";
 import { startDemoVideoInterviewRoom } from "@/utils/demoInterviewSession";
 import { resolveBackendErrorMessage } from "@/utils/backendError";
@@ -171,8 +173,37 @@ export default function CvScorePage() {
   const [context, setContext] = useState<ScoreContext | null>(null);
   const [startingRoom, setStartingRoom] = useState(false);
   const [modeModalOpen, setModeModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"overview" | "visual">("overview");
+  const [activeSnippet, setActiveSnippet] = useState<string | null>(null);
 
   const normalized = useMemo(() => (result ? normalizeResult(result) : null), [result]);
+
+  const allMatchedSnippets = useMemo(() => {
+    if (!result?.evidence) return [];
+    const snippets = new Set<string>();
+    
+    const groups = [
+      result.evidence.must_have,
+      result.evidence.nice_to_have,
+      result.evidence.constraints,
+    ];
+    
+    groups.forEach((group) => {
+      if (Array.isArray(group)) {
+        group.forEach((item: any) => {
+          if (item?.status === "matched" && Array.isArray(item.snippets)) {
+            item.snippets.forEach((s: any) => {
+              if (typeof s === "string" && s.trim()) {
+                snippets.add(s.trim());
+              }
+            });
+          }
+        });
+      }
+    });
+    
+    return Array.from(snippets);
+  }, [result]);
   const isPass = result?.decision === "PASS";
   const score = safeNumber(result?.score?.percentage, 0);
 
@@ -496,6 +527,30 @@ export default function CvScorePage() {
                   <h1 className="mt-2 font-headline text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
                     {jobProfile?.title || context?.jobTitle || title}
                   </h1>
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("overview")}
+                      className={`text-xs font-bold px-4 py-2 rounded-xl border transition-all ${
+                        viewMode === "overview"
+                          ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      Tổng quan chấm điểm
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("visual")}
+                      className={`text-xs font-bold px-4 py-2 rounded-xl border transition-all ${
+                        viewMode === "visual"
+                          ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      Đối chiếu trực quan PDF
+                    </button>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -508,7 +563,8 @@ export default function CvScorePage() {
               </div>
             </div>
 
-            <div className="grid gap-0 lg:grid-cols-[1fr_0.88fr]">
+            {viewMode === "overview" ? (
+              <div className="grid gap-0 lg:grid-cols-[1fr_0.88fr]">
               <section className="border-b border-slate-200 p-5 sm:p-6 lg:border-b-0 lg:border-r">
               <div className={`mb-5 rounded-[1.5rem] border p-5 ${isPass ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"}`}>
                 <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] ${isPass ? "border-emerald-200 bg-white text-emerald-700" : "border-amber-200 bg-white text-amber-800"}`}>
@@ -637,7 +693,25 @@ export default function CvScorePage() {
                   </div>
                 </section>
               </aside>
-            </div>
+              </div>
+            ) : (
+              <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] p-5 sm:p-6 bg-slate-50/30">
+                <div className="w-full">
+                  <PdfEvidenceVisualizer
+                    candidateId={context!.candidateId}
+                    matchedSnippets={allMatchedSnippets}
+                    scrollToSnippet={activeSnippet}
+                    onScrollToSnippetEnd={() => setActiveSnippet(null)}
+                  />
+                </div>
+                <div className="w-full">
+                  <EvidenceComparePanel
+                    evidence={result?.evidence || null}
+                    onSnippetClick={(snippet) => setActiveSnippet(snippet)}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="border-t border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
               <div className="flex items-center justify-between gap-3">

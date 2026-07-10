@@ -2,7 +2,7 @@ FROM node:20-bookworm AS deps
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 FROM deps AS build
 
@@ -23,7 +23,7 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
 COPY package*.json ./
-RUN npm ci --include=dev
+RUN npm ci --include=dev --legacy-peer-deps
 ENV NODE_ENV=production
 
 COPY --from=build /app/.next ./.next
