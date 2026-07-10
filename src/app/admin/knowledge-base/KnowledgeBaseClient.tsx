@@ -70,10 +70,19 @@ export default function KnowledgeBaseClient({
   // Active Tab: catalog | editor | playground
   const [activeTab, setActiveTab] = useState<"catalog" | "editor" | "playground">("catalog");
 
+  // Multi-select & Domain categorization states
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+
   // Document list states
   const [documents, setDocuments] = useState<DocumentInfo[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState("");
+
+  // Reset selection on filter changes
+  useEffect(() => {
+    setSelectedDocIds([]);
+  }, [activeTab, selectedDomain, catalogSearch]);
 
   // Edit Mode states
   const [isEditMode, setIsEditMode] = useState(false);
@@ -194,6 +203,85 @@ export default function KnowledgeBaseClient({
     } catch (err) {
       console.error("Error toggling active status:", err);
       showNotification("error", "Không thể cập nhật trạng thái hoạt động.");
+    }
+  };
+
+  // Toggle selection for individual document
+  const handleToggleSelectDoc = (documentId: string) => {
+    setSelectedDocIds((prev) =>
+      prev.includes(documentId)
+        ? prev.filter((id) => id !== documentId)
+        : [...prev, documentId]
+    );
+  };
+
+  // Toggle selection for all visible documents
+  const handleToggleSelectAll = (visibleIds: string[]) => {
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedDocIds.includes(id));
+    if (allSelected) {
+      setSelectedDocIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
+    } else {
+      setSelectedDocIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  // Bulk delete documents
+  const handleBulkDeleteDocs = async () => {
+    if (selectedDocIds.length === 0) return;
+    if (
+      !confirm(
+        `Bạn có chắc chắn muốn xóa ${selectedDocIds.length} tài liệu đã chọn? Tất cả các chunks liên quan sẽ bị xóa.`
+      )
+    ) {
+      return;
+    }
+    setIsLoadingDocs(true);
+    try {
+      const response = await axios.post(`${RAG_API_URL}/api/v1/rag/documents/bulk-delete`, {
+        document_ids: selectedDocIds,
+      });
+      if (response.data?.success) {
+        showNotification("success", `Đã xóa thành công ${selectedDocIds.length} tài liệu!`);
+        setSelectedDocIds([]);
+        fetchDocuments();
+        if (searchQuery || topicFilter) {
+          performSearch(searchQuery, difficultyFilter, topicFilter);
+        }
+      }
+    } catch (err) {
+      console.error("Error bulk deleting documents:", err);
+      showNotification("error", "Lỗi khi xóa hàng loạt tài liệu.");
+    } finally {
+      setIsLoadingDocs(false);
+    }
+  };
+
+  // Bulk toggle active status
+  const handleBulkToggleActive = async () => {
+    if (selectedDocIds.length === 0) return;
+    const firstSelected = documents.find((d) => d.document_id === selectedDocIds[0]);
+    if (!firstSelected) return;
+    const targetState = !firstSelected.is_active;
+
+    setIsLoadingDocs(true);
+    try {
+      const response = await axios.post(`${RAG_API_URL}/api/v1/rag/documents/bulk-toggle`, {
+        document_ids: selectedDocIds,
+        is_active: targetState,
+      });
+      if (response.data?.success) {
+        showNotification(
+          "success",
+          `Đã ${targetState ? "kích hoạt" : "vô hiệu hóa"} thành công ${selectedDocIds.length} tài liệu!`
+        );
+        setSelectedDocIds([]);
+        fetchDocuments();
+      }
+    } catch (err) {
+      console.error("Error bulk toggling active status:", err);
+      showNotification("error", "Lỗi khi cập nhật trạng thái hàng loạt.");
+    } finally {
+      setIsLoadingDocs(false);
     }
   };
 
@@ -579,14 +667,18 @@ export default function KnowledgeBaseClient({
     document.body.removeChild(link);
   };
 
+  // Get all unique domains dynamically from documents
+  const domains = Array.from(new Set(documents.map((d) => d.domain).filter(Boolean)));
+
   // Filter documents in client table based on search
   const filteredDocs = documents.filter((doc) => {
     const q = catalogSearch.toLowerCase();
-    return (
+    const matchesSearch =
       doc.document_id.toLowerCase().includes(q) ||
       doc.topic.toLowerCase().includes(q) ||
-      doc.domain.toLowerCase().includes(q)
-    );
+      doc.domain.toLowerCase().includes(q);
+    const matchesDomain = !selectedDomain || doc.domain === selectedDomain;
+    return matchesSearch && matchesDomain;
   });
 
   return (
@@ -761,111 +853,221 @@ export default function KnowledgeBaseClient({
                 </div>
               </div>
 
-              {/* Filtering bar */}
-              <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex gap-4 items-center">
-                <span className="material-symbols-outlined text-slate-400">search</span>
-                <input
-                  type="text"
-                  placeholder="Tìm tài liệu theo ID, chủ đề, domain..."
-                  value={catalogSearch}
-                  onChange={(e) => setCatalogSearch(e.target.value)}
-                  className="bg-transparent border-none outline-none text-sm w-full font-medium"
-                />
-              </div>
+              <div className="grid grid-cols-12 gap-8 items-start">
+                {/* Left Category Column */}
+                <div className="col-span-12 lg:col-span-3 space-y-4">
+                  <div className="bg-[#f8fafc] dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-sm">category</span>
+                      Phân loại theo Domain
+                    </h3>
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => setSelectedDomain(null)}
+                        className={`w-full flex justify-between items-center px-4 py-2.5 rounded-xl text-left text-xs font-bold transition-all duration-200 ${
+                          selectedDomain === null
+                            ? "bg-[#003d9b] text-white shadow-md shadow-blue-500/20"
+                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-sm">folder_open</span>
+                          Tất cả tri thức
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                          selectedDomain === null ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                        }`}>
+                          {documents.length}
+                        </span>
+                      </button>
 
-              {/* Catalog Table */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                {isLoadingDocs ? (
-                  <div className="p-12 text-center text-slate-500 font-medium animate-pulse">
-                    Đang tải danh sách tri thức từ máy chủ...
-                  </div>
-                ) : filteredDocs.length === 0 ? (
-                  <div className="p-12 text-center text-slate-500 italic">
-                    {catalogSearch ? "Không tìm thấy tài liệu phù hợp." : "Chưa có tài liệu tri thức nào. Hãy nạp tài liệu mới ở Tab bên cạnh."}
-                  </div>
-                ) : (
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 dark:bg-slate-800 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-100 dark:border-slate-700">
-                        <th className="p-4">Document ID</th>
-                        <th className="p-4">Topic / Domain</th>
-                        <th className="p-4">Độ khó</th>
-                        <th className="p-4 text-center">Ngôn ngữ</th>
-                        <th className="p-4 text-center">Số Chunks</th>
-                        <th className="p-4 text-center">Điểm Chất lượng</th>
-                        <th className="p-4 text-center">Trạng thái</th>
-                        <th className="p-4 text-right">Hành động</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
-                      {filteredDocs.map((doc) => (
-                        <tr key={doc.document_id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                          <td className="p-4 font-bold text-slate-950 dark:text-slate-100">
-                            {doc.document_id}
-                          </td>
-                          <td className="p-4">
-                            <span className="inline-block px-2.5 py-0.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded text-xs font-bold mr-1.5">
-                              {doc.topic}
+                      {domains.map((dom) => {
+                        const count = documents.filter((d) => d.domain === dom).length;
+                        return (
+                          <button
+                            key={dom}
+                            onClick={() => setSelectedDomain(dom)}
+                            className={`w-full flex justify-between items-center px-4 py-2.5 rounded-xl text-left text-xs font-bold transition-all duration-200 capitalize ${
+                              selectedDomain === dom
+                                ? "bg-[#003d9b] text-white shadow-md shadow-blue-500/20"
+                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className="material-symbols-outlined text-sm">folder</span>
+                              {dom}
                             </span>
-                            <span className="text-slate-400 text-xs font-medium">({doc.domain})</span>
-                          </td>
-                          <td className="p-4">
-                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-extrabold capitalize ${
-                              doc.difficulty === "basic"
-                                ? "bg-green-50 text-green-700 dark:bg-green-900/30"
-                                : doc.difficulty === "intermediate"
-                                ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30"
-                                : "bg-red-50 text-red-700 dark:bg-red-900/30"
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                              selectedDomain === dom ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
                             }`}>
-                              {doc.difficulty}
+                              {count}
                             </span>
-                          </td>
-                          <td className="p-4 text-center capitalize font-semibold">{doc.language}</td>
-                          <td className="p-4 text-center font-bold text-slate-600 dark:text-slate-400">{doc.chunk_count}</td>
-                          <td className="p-4 text-center">
-                            <span className="font-extrabold text-primary px-2 py-0.5 bg-primary/5 rounded border border-primary/20 text-xs">
-                              {(doc.quality_score ?? 0.8).toFixed(2)}
-                            </span>
-                          </td>
-                          <td className="p-4 text-center">
-                            <label className="relative inline-flex items-center cursor-pointer">
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Main Table Column */}
+                <div className="col-span-12 lg:col-span-9 space-y-6">
+                  {/* Filtering bar */}
+                  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex gap-4 items-center shadow-sm">
+                    <span className="material-symbols-outlined text-slate-400">search</span>
+                    <input
+                      type="text"
+                      placeholder="Tìm tài liệu theo ID, chủ đề, domain..."
+                      value={catalogSearch}
+                      onChange={(e) => setCatalogSearch(e.target.value)}
+                      className="bg-transparent border-none outline-none text-sm w-full font-medium"
+                    />
+                  </div>
+
+                  {/* Bulk Actions Alert Bar */}
+                  {selectedDocIds.length > 0 && (
+                    <div className="bg-blue-50 dark:bg-slate-900 border border-blue-100 dark:border-slate-800 p-4 rounded-xl flex flex-wrap justify-between items-center gap-3 animate-fade-in shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-primary">check_box</span>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                          Đã chọn <strong className="text-primary">{selectedDocIds.length}</strong> tài liệu
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleBulkToggleActive}
+                          className="px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+                        >
+                          <span className="material-symbols-outlined text-sm">toggle_on</span>
+                          Bật/Tắt trạng thái
+                        </button>
+                        <button
+                          onClick={handleBulkDeleteDocs}
+                          className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+                        >
+                          <span className="material-symbols-outlined text-sm">delete</span>
+                          Xóa nhanh ({selectedDocIds.length})
+                        </button>
+                        <button
+                          onClick={() => setSelectedDocIds([])}
+                          className="px-3.5 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold rounded-lg text-xs transition-colors"
+                        >
+                          Bỏ chọn
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Catalog Table */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                    {isLoadingDocs ? (
+                      <div className="p-12 text-center text-slate-500 font-medium animate-pulse">
+                        Đang tải danh sách tri thức từ máy chủ...
+                      </div>
+                    ) : filteredDocs.length === 0 ? (
+                      <div className="p-12 text-center text-slate-500 italic">
+                        {catalogSearch ? "Không tìm thấy tài liệu phù hợp." : "Chưa có tài liệu tri thức nào. Hãy nạp tài liệu mới ở Tab bên cạnh."}
+                      </div>
+                    ) : (
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 dark:bg-slate-800 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-100 dark:border-slate-700">
+                            <th className="p-4 w-12 text-center">
                               <input
                                 type="checkbox"
-                                checked={doc.is_active}
-                                onChange={() => handleToggleActive(doc.document_id, doc.is_active)}
-                                className="sr-only peer"
+                                checked={filteredDocs.length > 0 && filteredDocs.every((d) => selectedDocIds.includes(d.document_id))}
+                                onChange={() => handleToggleSelectAll(filteredDocs.map((d) => d.document_id))}
+                                className="rounded border-gray-300 dark:border-slate-700 text-[#003d9b] focus:ring-primary h-4 w-4 cursor-pointer"
                               />
-                              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                            </label>
-                          </td>
-                          <td className="p-4 text-right space-x-2">
-                            <button
-                              onClick={() => handleEvaluateDoc(doc.document_id)}
-                              title="Đánh giá chất lượng tự động bằng AI"
-                              className="p-1.5 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 rounded-lg transition-colors inline-flex items-center"
-                            >
-                              <span className="material-symbols-outlined text-lg">psychology</span>
-                            </button>
-                            <button
-                              onClick={() => handleLoadEdit(doc.document_id)}
-                              title="Chỉnh sửa nội dung"
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-lg transition-colors inline-flex items-center"
-                            >
-                              <span className="material-symbols-outlined text-lg">edit</span>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteDoc(doc.document_id)}
-                              title="Xóa tài liệu"
-                              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors inline-flex items-center"
-                            >
-                              <span className="material-symbols-outlined text-lg">delete</span>
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
+                            </th>
+                            <th className="p-4">Document ID</th>
+                            <th className="p-4">Topic / Domain</th>
+                            <th className="p-4">Độ khó</th>
+                            <th className="p-4 text-center">Ngôn ngữ</th>
+                            <th className="p-4 text-center">Số Chunks</th>
+                            <th className="p-4 text-center">Điểm Chất lượng</th>
+                            <th className="p-4 text-center">Trạng thái</th>
+                            <th className="p-4 text-right">Hành động</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                          {filteredDocs.map((doc) => (
+                            <tr key={doc.document_id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                              <td className="p-4 w-12 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedDocIds.includes(doc.document_id)}
+                                  onChange={() => handleToggleSelectDoc(doc.document_id)}
+                                  className="rounded border-gray-300 dark:border-slate-700 text-[#003d9b] focus:ring-primary h-4 w-4 cursor-pointer"
+                                />
+                              </td>
+                              <td className="p-4 font-bold text-slate-950 dark:text-slate-100">
+                                {doc.document_id}
+                              </td>
+                              <td className="p-4">
+                                <span className="inline-block px-2.5 py-0.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded text-xs font-bold mr-1.5">
+                                  {doc.topic}
+                                </span>
+                                <span className="text-slate-400 text-xs font-medium">({doc.domain})</span>
+                              </td>
+                              <td className="p-4">
+                                <span className={`inline-block px-2 py-0.5 rounded text-xs font-extrabold capitalize ${
+                                  doc.difficulty === "basic"
+                                    ? "bg-green-50 text-green-700 dark:bg-green-900/30"
+                                    : doc.difficulty === "intermediate"
+                                    ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30"
+                                    : "bg-red-50 text-red-700 dark:bg-red-900/30"
+                                }`}>
+                                  {doc.difficulty}
+                                </span>
+                              </td>
+                              <td className="p-4 text-center capitalize font-semibold">{doc.language}</td>
+                              <td className="p-4 text-center font-bold text-slate-600 dark:text-slate-400">{doc.chunk_count}</td>
+                              <td className="p-4 text-center">
+                                <span className="font-extrabold text-primary px-2 py-0.5 bg-primary/5 rounded border border-primary/20 text-xs">
+                                  {(doc.quality_score ?? 0.8).toFixed(2)}
+                                </span>
+                              </td>
+                              <td className="p-4 text-center">
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={doc.is_active}
+                                    onChange={() => handleToggleActive(doc.document_id, doc.is_active)}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </td>
+                              <td className="p-4 text-right space-x-2">
+                                <button
+                                  onClick={() => handleEvaluateDoc(doc.document_id)}
+                                  title="Đánh giá chất lượng tự động bằng AI"
+                                  className="p-1.5 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 rounded-lg transition-colors inline-flex items-center"
+                                >
+                                  <span className="material-symbols-outlined text-lg">psychology</span>
+                                </button>
+                                <button
+                                  onClick={() => handleLoadEdit(doc.document_id)}
+                                  title="Chỉnh sửa nội dung"
+                                  className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-lg transition-colors inline-flex items-center"
+                                >
+                                  <span className="material-symbols-outlined text-lg">edit</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteDoc(doc.document_id)}
+                                  title="Xóa tài liệu"
+                                  className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors inline-flex items-center"
+                                >
+                                  <span className="material-symbols-outlined text-lg">delete</span>
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
