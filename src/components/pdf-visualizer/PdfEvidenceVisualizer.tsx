@@ -3,17 +3,27 @@
 import { useEffect, useRef, useState } from "react";
 import { downloadCvPdf } from "@/lib/aiService";
 
+interface HighlightBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 interface PdfPageProps {
   pdf: any;
   pageNum: number;
   matchedSnippets: string[];
-  onPageRendered: (pageNum: number, textLayerElement: HTMLDivElement) => void;
+  enableTextSelection: boolean;
+  onPageRendered: (pageNum: number, textLayerElement: HTMLDivElement | null) => void;
 }
 
-const PdfPage = ({ pdf, pageNum, matchedSnippets, onPageRendered }: PdfPageProps) => {
+const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRendered }: PdfPageProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [highlights, setHighlights] = useState<HighlightBox[]>([]);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     let active = true;
@@ -32,39 +42,71 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, onPageRendered }: PdfPageProps
 
         canvas.height = viewport.height;
         canvas.width = viewport.width;
+        setDimensions({ width: viewport.width, height: viewport.height });
 
         // Render Canvas
         await page.render({ canvasContext: context, viewport }).promise;
         if (!active) return;
 
-        // Render Text Layer
-        const textLayer = textLayerRef.current;
-        if (!textLayer) return;
-
-        textLayer.innerHTML = "";
-        textLayer.style.height = `${viewport.height}px`;
-        textLayer.style.width = `${viewport.width}px`;
-
         const textContent = await page.getTextContent();
         if (!active) return;
 
-        const pdfJS = await import("pdfjs-dist");
+        // Render Text Layer (only if enabled for text selection/copying)
+        const textLayer = textLayerRef.current;
+        if (textLayer) {
+          textLayer.innerHTML = "";
+          if (enableTextSelection) {
+            textLayer.style.height = `${viewport.height}px`;
+            textLayer.style.width = `${viewport.width}px`;
 
-        const textLayerObj = new pdfJS.TextLayer({
-          textContentSource: textContent,
-          container: textLayer,
-          viewport,
-        });
+            const pdfJS = await import("pdfjs-dist");
 
-        await textLayerObj.render();
+            const textLayerObj = new pdfJS.TextLayer({
+              textContentSource: textContent,
+              container: textLayer,
+              viewport,
+            });
 
+            await textLayerObj.render();
+          }
+        }
         if (!active) return;
 
-        // Highlight matching text layer spans
-        highlightSpans(textLayer, matchedSnippets);
+        // Calculate highlights coordinates using viewport transformation matrix (1C & 2A)
+        const foundHighlights: HighlightBox[] = [];
+        const items = textContent.items;
+
+        for (const snippet of matchedSnippets) {
+          const cleanSnippet = snippet.toLowerCase().trim();
+          if (cleanSnippet.length < 2) continue;
+
+          for (const item of items) {
+            if (!item.str) continue;
+            const itemText = item.str.toLowerCase();
+
+            if (itemText.includes(cleanSnippet)) {
+              const tx = item.transform; // [scaleX, skewX, skewY, scaleY, translateX, translateY]
+              const x = tx[4];
+              const y = tx[5];
+
+              // Convert PDF-space coordinates to absolute viewport pixels
+              const [left, top] = viewport.convertToViewportPoint(x, y);
+              const [right, bottom] = viewport.convertToViewportPoint(x + item.width, y + item.height);
+
+              foundHighlights.push({
+                left: Math.min(left, right),
+                top: Math.min(top, bottom),
+                width: Math.max(1, Math.abs(right - left)),
+                height: Math.max(1, Math.abs(bottom - top)),
+              });
+            }
+          }
+        }
+
+        setHighlights(foundHighlights);
 
         // Notify parent
-        onPageRendered(pageNum, textLayer);
+        onPageRendered(pageNum, textLayerRef.current);
 
       } catch (err) {
         console.error(`Error rendering page ${pageNum}:`, err);
@@ -76,40 +118,50 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, onPageRendered }: PdfPageProps
     return () => {
       active = false;
     };
-  }, [pdf, pageNum, matchedSnippets]);
+  }, [pdf, pageNum, matchedSnippets, enableTextSelection]);
 
   return (
-    <div ref={containerRef} className="relative mx-auto mb-6 shadow-lg border border-slate-200/60 bg-white rounded-xl overflow-hidden" style={{ maxWidth: "max-content" }}>
+    <div
+      ref={containerRef}
+      className="relative mx-auto mb-6 shadow-lg border border-slate-200/60 bg-white rounded-xl overflow-hidden"
+      style={{
+        width: dimensions.width || "auto",
+        height: dimensions.height || "auto",
+        maxWidth: "max-content",
+      }}
+    >
+      {/* Canvas Layer */}
       <canvas ref={canvasRef} className="block" />
-      <div
-        ref={textLayerRef}
-        className="textLayer absolute inset-0 select-text"
-        style={{ pointerEvents: "auto" }}
-      />
+
+      {/* SVG Highlight Overlay (1C & 2A) */}
+      {dimensions.width > 0 && (
+        <svg className="absolute inset-0 pointer-events-none w-full h-full z-10">
+          {highlights.map((h, idx) => (
+            <rect
+              key={idx}
+              x={h.left}
+              y={h.top}
+              width={h.width}
+              height={h.height}
+              fill="rgba(16, 185, 129, 0.28)" // Soft Translucent Green
+              stroke="#10b981" // Green Border
+              strokeWidth="1.5"
+              rx="2"
+            />
+          ))}
+        </svg>
+      )}
+
+      {/* HTML Selection Text Layer */}
+      {enableTextSelection && (
+        <div
+          ref={textLayerRef}
+          className="textLayer absolute inset-0 select-text z-20 pointer-events-auto"
+        />
+      )}
     </div>
   );
 };
-
-function highlightSpans(container: HTMLDivElement, snippets: string[]) {
-  if (!snippets.length) return;
-  const spans = container.querySelectorAll("span");
-  spans.forEach((span) => {
-    const text = span.textContent?.toLowerCase() || "";
-    if (text.trim().length < 2) return;
-
-    snippets.forEach((snippet) => {
-      const cleanSnippet = snippet.toLowerCase().trim();
-      if (cleanSnippet.length < 2) return;
-
-      if (text.includes(cleanSnippet) || (cleanSnippet.includes(text) && text.length > 3)) {
-        span.style.backgroundColor = "rgba(16, 185, 129, 0.28)"; // Soft Translucent Green
-        span.style.borderBottom = "2px solid #10b981";
-        span.style.borderRadius = "2px";
-        span.setAttribute("data-snippet", cleanSnippet);
-      }
-    });
-  });
-}
 
 interface PdfEvidenceVisualizerProps {
   candidateId: string;
@@ -129,6 +181,7 @@ export default function PdfEvidenceVisualizer({
   const [numPages, setNumPages] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [enableTextSelection, setEnableTextSelection] = useState(false);
 
   useEffect(() => {
     if (!candidateId) return;
@@ -210,7 +263,7 @@ export default function PdfEvidenceVisualizer({
     }
   }, [scrollToSnippet]);
 
-  const handlePageRendered = (pageNum: number, el: HTMLDivElement) => {
+  const handlePageRendered = (pageNum: number, el: HTMLDivElement | null) => {
     // optional page logging
   };
 
@@ -240,6 +293,21 @@ export default function PdfEvidenceVisualizer({
         }
       `}} />
 
+      {/* Toolbar */}
+      {!loading && !error && (
+        <div className="w-full flex justify-end mb-4 px-2">
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-white shadow-sm border border-slate-200/60 rounded-full px-3 py-1.5 cursor-pointer hover:bg-slate-50 transition-colors">
+            <input
+              type="checkbox"
+              checked={enableTextSelection}
+              onChange={(e) => setEnableTextSelection(e.target.checked)}
+              className="accent-emerald-600"
+            />
+            <span>Cho phép chọn văn bản (Copy Text)</span>
+          </label>
+        </div>
+      )}
+
       {loading ? (
         <div className="my-auto flex flex-col items-center">
           <span className="material-symbols-outlined animate-spin text-[36px] text-slate-400">progress_activity</span>
@@ -259,6 +327,7 @@ export default function PdfEvidenceVisualizer({
               pdf={pdf}
               pageNum={index + 1}
               matchedSnippets={matchedSnippets}
+              enableTextSelection={enableTextSelection}
               onPageRendered={handlePageRendered}
             />
           ))}
@@ -267,3 +336,4 @@ export default function PdfEvidenceVisualizer({
     </div>
   );
 }
+
