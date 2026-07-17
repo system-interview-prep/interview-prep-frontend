@@ -261,7 +261,7 @@ export default function PdfEvidenceVisualizer({
     if (onScrollToSnippetEnd) {
       onScrollToSnippetEnd();
     }
-  }, [scrollToSnippet]);
+  }, [scrollToSnippet, onScrollToSnippetEnd]);
 
   const handlePageRendered = (pageNum: number, el: HTMLDivElement | null) => {
     // optional page logging
