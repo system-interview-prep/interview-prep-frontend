@@ -149,7 +149,7 @@ export default function KnowledgeBaseClient({
   const fetchDocuments = async () => {
     setIsLoadingDocs(true);
     try {
-      const response = await axios.get(`${RAG_API_URL}/api/v1/rag/documents`);
+      const response = await axios.get(`${RAG_API_URL}/api/v1/rag/documents?t=${Date.now()}`);
       if (response.data?.success) {
         setDocuments(response.data.data || []);
       }
