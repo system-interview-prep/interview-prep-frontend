@@ -66,6 +66,12 @@ export type CvScoringResponse = {
     weaknesses: string[];
     suggestions: string[];
   };
+  overallFeedback?: string;
+  evidence?: {
+    must_have: Array<{ requirement: string; status: "matched" | "missing"; snippets: string[] }>;
+    nice_to_have: Array<{ requirement: string; status: "matched" | "missing"; snippets: string[] }>;
+    constraints: Array<{ requirement: string; status: "matched" | "missing"; snippets: string[] }>;
+  };
   metadata?: {
     scoringVersion?: string;
     timestamp?: string;
@@ -272,4 +278,14 @@ export async function generateInterviewQuestions(params: {
   );
   if (!res.ok) throw new Error("Network response was not ok");
   return res.json();
+}
+
+export async function downloadCvPdf(candidateId: string): Promise<ArrayBuffer> {
+  const res = await fetch(`${API_BASE_URL}/users/me/cvs/${encodeURIComponent(candidateId)}/download`, {
+    headers: {
+      ...getAuthHeaders(),
+    },
+  });
+  if (!res.ok) throw new Error("Failed to download CV PDF");
+  return res.arrayBuffer();
 }
