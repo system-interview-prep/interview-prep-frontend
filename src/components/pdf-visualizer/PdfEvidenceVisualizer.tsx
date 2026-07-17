@@ -118,7 +118,7 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRen
     return () => {
       active = false;
     };
-  }, [pdf, pageNum, matchedSnippets, enableTextSelection]);
+  }, [pdf, pageNum, matchedSnippets, enableTextSelection, onPageRendered]);
 
   return (
     <div
