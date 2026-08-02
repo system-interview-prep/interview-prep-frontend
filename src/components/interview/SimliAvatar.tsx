@@ -23,29 +23,28 @@ export default function SimliAvatar({ isMicMuted }: Props) {
     async function initSimli() {
       try {
         setIsLoading(true);
-        // Bước 1: Gọi backend API để lấy session token bảo mật
-        // Gọi lên backend NestJS (port 3000 hoặc /api/ai/simli-session tuỳ cấu hình proxy)
+        // Gọi lên backend NestJS (ví dụ /ai/avatar-session)
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-        const response = await fetch(`${baseUrl}/ai/simli-session`, {
+        const response = await fetch(`${baseUrl}/ai/avatar-session`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
         });
         
         if (!response.ok) {
-          throw new Error('SIMLI_SESSION_FAILED');
+          throw new Error('AVATAR_SESSION_FAILED');
         }
         
         const data = await response.json();
         const sessionToken = data.session_token;
 
         if (!sessionToken) {
-          throw new Error('SIMLI_TOKEN_MISSING');
+          throw new Error('AVATAR_TOKEN_MISSING');
         }
 
         if (videoRef.current && audioRef.current) {
           // Bước 1b: Lấy ICE Servers từ Backend API
-          const iceResp = await fetch(`${baseUrl}/ai/simli-ice-servers`, {
+          const iceResp = await fetch(`${baseUrl}/ai/avatar-ice-servers`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({}),
