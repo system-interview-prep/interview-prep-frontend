@@ -1,12 +1,14 @@
-"use client";
+﻿"use client";
 
 import axios from "axios";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import LanguageToggleButton from "@/components/LanguageToggleButton";
+import CareerClassificationSummary from "@/components/cv/CareerClassificationSummary";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useCvProcessingStatus } from "@/hooks/useCvProcessingStatus";
 import { userCvApi, type UserCvDto } from "@/services/userCvApi";
 import type { CvProcessingStatus } from "@/types/cvProcessing";
+import type { CareerTaxonomyItem, ParsedCvData } from "@/types/careerClassification";
 import { resolveBackendErrorMessage } from "@/utils/backendError";
 
 type CvFile = {
@@ -18,6 +20,7 @@ type CvFile = {
   status?: CvProcessingStatus;
   error?: string;
   score?: number;
+  parsedData?: ParsedCvData;
 };
 
 const STORAGE_KEY = "demo.cvFiles";
@@ -47,14 +50,14 @@ function extIcon(name: string | undefined, mime?: string) {
 function displayName(name: string | undefined) {
   const n = name ?? "";
   const base = n.replace(/\.(pdf|docx?)$/i, "").replace(/[._-]+/g, " ").trim();
-  return base || n || "—";
+  return base || n || "â€”";
 }
 
 function dtoToCvFile(d: UserCvDto): CvFile {
   const name = d.originalName?.trim() || "document";
   const uploadedAt = d.createdAt ?? new Date().toISOString();
   const contentType = d.contentType?.trim() || undefined;
-  return { id: d.id, name, uploadedAt, contentType, status: d.status, error: d.error?.trim() || undefined, score: d.score };
+  return { id: d.id, name, uploadedAt, contentType, status: d.status, error: d.error?.trim() || undefined, score: d.score, parsedData: d.parsedData };
 }
 
 function syncDemoCvFiles(items: CvFile[]) {
@@ -129,6 +132,8 @@ export default function UserMyCvsPage() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [sort, setSort] = useState<SortKey>("newest");
+  const [careerCode, setCareerCode] = useState("");
+  const [careerTaxonomy, setCareerTaxonomy] = useState<CareerTaxonomyItem[]>([]);
   const inputPdfRef = useRef<HTMLInputElement>(null);
   const inputWordRef = useRef<HTMLInputElement>(null);
   const [trackingCvId, setTrackingCvId] = useState<string | null>(null);
@@ -145,7 +150,7 @@ export default function UserMyCvsPage() {
       return;
     }
     try {
-      const { data } = await userCvApi.list(50);
+      const { data } = await userCvApi.list(50, careerCode || undefined);
       const mapped = data.items.map(dtoToCvFile);
       setFiles(mapped);
       syncDemoCvFiles(mapped);
@@ -160,7 +165,7 @@ export default function UserMyCvsPage() {
         setListError(t("userDash.myCvs.apiListError"));
       }
     }
-  }, [t]);
+  }, [careerCode, t]);
 
   const finishCvTracking = useCallback(() => {
     setTrackingCvId(null);
@@ -178,7 +183,7 @@ export default function UserMyCvsPage() {
     }
   );
 
-  /** Legacy: cookie-only sessions could not send Bearer to :5000 — copy into localStorage once. */
+  /** Legacy: cookie-only sessions could not send Bearer to :5000 â€” copy into localStorage once. */
   useEffect(() => {
     if (typeof window === "undefined") return;
     const m = document.cookie.match(/(?:^|; )access_token=([^;]*)/);
@@ -191,6 +196,24 @@ export default function UserMyCvsPage() {
     }
   }, []);
 
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    if (!token) {
+      setCareerTaxonomy([]);
+      return;
+    }
+    let cancelled = false;
+    void userCvApi.getCareerTaxonomy()
+      .then(({ data }) => {
+        if (!cancelled) setCareerTaxonomy(data.items);
+      })
+      .catch(() => {
+        if (!cancelled) setCareerTaxonomy([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -341,7 +364,7 @@ export default function UserMyCvsPage() {
     const k = fileKind(f.name, f.contentType);
     if (k === "pdf") return t("userDash.myCvs.typePdf");
     if (k === "word") return t("userDash.myCvs.typeWord");
-    return "—";
+    return "â€”";
   };
 
   const typeBadgeClass = (f: CvFile) => {
@@ -515,6 +538,18 @@ export default function UserMyCvsPage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <select
+                  value={careerCode}
+                  onChange={(event) => setCareerCode(event.target.value)}
+                  className={selectClass}
+                  aria-label="Lọc theo nhóm nghề nghiệp"
+                  disabled={!apiConnected || careerTaxonomy.length === 0}
+                >
+                  <option value="">Tất cả nhóm nghề</option>
+                  {careerTaxonomy.map((item) => (
+                    <option key={item.code} value={item.code}>{item.label} · {item.dimension}</option>
+                  ))}
+                </select>
+                <select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
                   className={selectClass}
@@ -577,6 +612,7 @@ export default function UserMyCvsPage() {
                               <div className="min-w-0">
                                 <p className="font-semibold text-on-surface">{displayName(f.name)}</p>
                                   <p className="truncate text-xs text-on-surface-variant">{f.name}</p>
+                                  <CareerClassificationSummary status={effectiveCvStatus(f) ?? undefined} parsedData={f.parsedData} compact />
                                   {effectiveCvStatus(f) ? (
                                     <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(effectiveCvStatus(f))}`}>
                                       {labelForCvStatus(t, effectiveCvStatus(f))}
@@ -622,6 +658,7 @@ export default function UserMyCvsPage() {
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-on-surface">{displayName(f.name)}</p>
                           <p className="truncate text-xs text-on-surface-variant">{f.name}</p>
+                          <CareerClassificationSummary status={effectiveCvStatus(f) ?? undefined} parsedData={f.parsedData} compact />
                           {effectiveCvStatus(f) ? (
                             <div className="mt-2">
                               <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(effectiveCvStatus(f))}`}>

@@ -1,438 +1,142 @@
-import Link from "next/link";
-import MarketingNav from "../components/MarketingNav";
-import { cookies } from "next/headers";
-import { getDictionary, normalizeLang } from "../i18n/i18n";
+"use client";
 
-export default async function LandingPage() {
-  const cookieStore = await cookies();
-  const lang = normalizeLang(cookieStore.get("lang")?.value);
-  const t = (key: string) => getDictionary(lang)[key] ?? key;
+import Footer from "@/components/Footer";
+
+import Link from "next/link";
+import { motion } from "framer-motion";
+import {
+  ArrowRight, BarChart3, Check, ChevronDown, CirclePlay, Database, FileSearch,
+  Headphones, Mic2, Play, QrCode, ShieldCheck, Sparkles, Upload, Volume2, X,
+} from "lucide-react";
+import { useState } from "react";
+import MarketingNav from "@/components/MarketingNav";
+
+const roastSamples = {
+  data: {
+    label: "Data Analyst",
+    old: "Quản lý dữ liệu bán hàng và lập báo cáo tuần cho ban giám đốc.",
+    fresh: "Thiết lập pipeline SQL tự động hóa báo cáo doanh thu, giảm 40% thời gian tổng hợp số liệu tuần.",
+    gaps: ["Không có công cụ", "Thiếu quy mô", "Chưa có tác động"],
+  },
+  product: {
+    label: "Product Manager",
+    old: "Phụ trách phát triển tính năng mới cho ứng dụng.",
+    fresh: "Dẫn dắt discovery và ra mắt luồng onboarding mới, tăng 24% tỷ lệ kích hoạt người dùng trong 6 tuần.",
+    gaps: ["Vai trò mơ hồ", "Thiếu phương pháp", "Chưa định lượng"],
+  },
+} as const;
+
+const chapters = [
+  { time: "0:00 – 0:20", title: "Quét đối soát ngữ nghĩa CV–JD", kind: "match" },
+  { time: "0:21 – 0:40", title: "Luyện phỏng vấn WebRTC không độ trễ", kind: "voice" },
+  { time: "0:41 – 1:00", title: "Phân tích biên bản STAR & nhịp thở", kind: "report" },
+] as const;
+
+const steps = [
+  { icon: Upload, title: "Tải CV & dán JD mục tiêu", text: "AI bóc tách thực thể ngữ nghĩa và bối cảnh năng lực, không đếm từ khóa thô sơ." },
+  { icon: FileSearch, title: "Tối ưu hóa nội dung (Live Diff)", text: "Điền số liệu thực tế để AI lắp ghép thành thành tựu chuẩn ATS, không bịa kinh nghiệm." },
+  { icon: Mic2, title: "Bật micro & luyện phản xạ", text: "Đàm thoại với phỏng vấn viên AI khó tính để rèn trí nhớ cơ bắp và sự tự tin." },
+];
+
+const faqs = [
+  ["Hệ thống có tự động bịa đặt kinh nghiệm không có thật vào CV của tôi không?", "Không. Career · Studio chỉ cấu trúc lại dữ liệu thật bạn cung cấp và luôn yêu cầu xác nhận trước khi thêm số liệu."],
+  ["Phỏng vấn giọng nói có hiểu thuật ngữ tiếng Anh kết hợp tiếng Việt không?", "Có. Hệ thống nạp trước từ vựng chuyên ngành từ chính JD để nhận diện chính xác ngữ cảnh Việt–Anh."],
+  ["Nếu tôi ngắt lời AI khi đang phỏng vấn thì sao?", "Cơ chế WebRTC Barge-in lập tức hạ âm lượng AI và chuyển về trạng thái lắng nghe, tự nhiên như người thật."],
+  ["Tôi có bị trừ tiền tự động vào tháng sau không?", "Không. Đây là gói thời hạn thanh toán một lần qua VietQR; nền tảng không lưu thẻ tín dụng và không tự động gia hạn."],
+];
+
+const reveal = { initial: { opacity: 0, y: 24 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: "-80px" }, transition: { duration: .5 } };
+
+export default function LandingPage() {
+  const [sample, setSample] = useState<keyof typeof roastSamples>("data");
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [chapter, setChapter] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const current = roastSamples[sample];
 
   return (
-    <div className="min-h-screen bg-surface font-body text-on-surface">
+    <div className="min-h-screen overflow-hidden bg-white text-[#234196]">
       <MarketingNav active="platform" />
 
       <main>
-        <section className="relative mx-auto w-full max-w-[1600px] overflow-hidden px-6 pb-24 pt-20 sm:px-8 md:pb-28 md:pt-24 lg:px-16">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="z-10">
-              <span className="inline-block px-4 py-1.5 mb-6 text-xs font-bold tracking-widest text-on-tertiary-fixed bg-tertiary-fixed rounded-full uppercase">
-                {t("landing.badge")}
-              </span>
-              <h1 className="font-headline text-6xl md:text-7xl font-extrabold tracking-tighter text-on-surface mb-8 leading-[0.95]">
-                {t("landing.hero.titleA")}{" "}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-tertiary">
-                  {t("landing.hero.titleB")}
-                </span>
-              </h1>
-              <p className="text-on-surface-variant text-xl md:text-2xl mb-10 max-w-xl leading-relaxed">
-                {t("landing.hero.subtitle")}
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link
-                  className="bg-gradient-to-r from-primary to-tertiary text-white px-8 py-4 rounded-xl font-bold text-lg shadow-xl shadow-primary/20 active:scale-95 transition-transform text-center"
-                  href="/signup"
-                >
-                  {t("landing.hero.ctaPrimary")}
-                </Link>
-                <Link
-                  href="/demo"
-                  className="flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-bold text-lg text-primary border border-outline-variant/20 hover:bg-surface-container transition-colors"
-                >
-                  <span className="material-symbols-outlined">play_circle</span>
-                  {t("landing.hero.ctaSecondary")}
-                </Link>
-              </div>
+        <section className="paper-dots px-5 pb-20 pt-16 text-center sm:px-8 md:pb-28 md:pt-24" id="hero">
+          <motion.div {...reveal} className="mx-auto max-w-6xl">
+            <span className="sticker -rotate-2 bg-[#FCB625]"><Sparkles size={14} /> Nền tảng chuẩn bị ứng tuyển thực chiến 2026</span>
+            <h1 className="mx-auto mt-8 max-w-5xl text-[clamp(3.2rem,7vw,7rem)] leading-[.9] tracking-[-.055em]">Đừng để hồ sơ của bạn bị hệ thống ATS loại bỏ trong <span className="marker">5 giây</span> đầu tiên.</h1>
+            <p className="mx-auto mt-7 max-w-3xl text-lg leading-8 text-[#5A6B8F] sm:text-xl">So khớp ngữ nghĩa CV–JD theo thời gian thực và diễn tập phỏng vấn giọng nói hai chiều phản hồi dưới 500ms. Rèn phản xạ thực chất, kiên quyết nói không với nhắc bài gian lận.</p>
+            <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link href="/interview/cv-score" className="chunky-primary px-6 py-4">Mở Không Gian So Khớp & Tải CV <ArrowRight size={18} /></Link>
+              <a href="#video-demo" className="chunky-secondary px-6 py-4"><CirclePlay size={18} /> Xem Video Trải nghiệm (60s)</a>
             </div>
-            <div className="relative">
-              <div className="absolute -top-20 -right-20 w-96 h-96 bg-tertiary/10 rounded-full blur-[100px]"></div>
-              <div className="absolute -bottom-20 -left-20 w-96 h-96 bg-primary/10 rounded-full blur-[100px]"></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-4">
-                  <div className="bg-surface-container-lowest p-4 rounded-3xl shadow-sm border border-outline-variant/10">
-                    <img
-                      className="w-full h-48 object-cover rounded-2xl mb-4"
-                      alt="professional woman smiling confidently during a video conference in a modern brightly lit office space"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSqeZrQ5uHSHv6d5S2vpVcmrwqjmhKFNQdXpQ4HPTY3VEAtWvriz08FNoWklZV9T3hEW9C8MGNhVHjbVyLTZGwpNgq16MsF9NOB-qWuQt90yBjuGGwTZeeXb22wRm_SV5J5xoHp1EM5lWcybbPVcaNEJ0RKKCl3l0dKghyy-9ItOvRr2upWRkmJsZsPSoGzEJP_Ztk7M4-hoUSj712dyak0r-5gEHFRbblgFUx5HOrsPnvbQ1Aq6NxPMmoMVtsciZEe6LgJDXyMzHr"
-                    />
-                    <div className="flex items-center gap-2 text-primary font-bold">
-                      <span className="material-symbols-outlined ai-pulse">
-                        videocam
-                      </span>
-                      <span className="text-sm">{t("landing.hero.card.liveVideoMode")}</span>
-                    </div>
-                  </div>
-                  <div className="bg-primary text-white p-6 rounded-3xl h-40 flex flex-col justify-end">
-                    <p className="font-headline font-bold text-lg">{t("landing.hero.card.accuracy")}</p>
-                    <p className="text-xs opacity-70">
-                      {t("landing.hero.card.sentimentEngine")}
-                    </p>
-                  </div>
-                </div>
-                <div className="pt-12 space-y-4">
-                  <div className="bg-surface-container-low p-6 rounded-3xl h-56 border border-outline-variant/10 flex flex-col justify-center">
-                    <div className="flex gap-1 mb-4">
-                      <div className="w-1 h-8 bg-tertiary rounded-full"></div>
-                      <div className="w-1 h-12 bg-tertiary rounded-full"></div>
-                      <div className="w-1 h-6 bg-tertiary rounded-full"></div>
-                      <div className="w-1 h-10 bg-tertiary rounded-full"></div>
-                    </div>
-                    <p className="text-on-surface font-bold">
-                      {t("landing.hero.card.voiceTranscription.title")}
-                    </p>
-                    <p className="text-sm text-on-surface-variant">
-                      {t("landing.hero.card.voiceTranscription.desc")}
-                    </p>
-                  </div>
-                  <div className="bg-surface-container-lowest p-4 rounded-3xl shadow-sm border border-outline-variant/10 overflow-hidden">
-                    <img
-                      className="w-full h-32 object-cover rounded-2xl"
-                      alt="close up of a high tech computer screen showing abstract data visualization and ai neural network connections"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuDedDBH3BHTRJY2TjzV4DCjdqeSXLUKtz3J-zlomUXtVBNF3wCQ8hR31jhexfbGZ_-f3hQs3EAVHFWpqcVkHtW4MCv4pDA49wk2n_Mgr7t-2LLmxtb8iJJA43HN9ypTdzJZqtLkvvluHsmSPzaFTfCIqrcUhTKtVNpsBjeTi5lJeUHhWndRu91bO9IJKd7p3DGbbO4jpU5USfZX42IUSWYLatM8mfdkAdR_6pQrhueLc-_UcqDY20-vZnYkLFUpH6YGqFUdRHHD85xu"
-                    />
-                  </div>
-                </div>
-              </div>
+          </motion.div>
+
+          <motion.div {...reveal} className="storybook-card mx-auto mt-12 max-w-4xl p-5 text-left sm:p-7">
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(roastSamples) as Array<keyof typeof roastSamples>).map((key) => <button key={key} type="button" onClick={() => { setSample(key); setShowAnalysis(false); }} className={`rounded-xl border-2 border-[#234196] px-4 py-2 text-sm font-bold ${sample === key ? "bg-[#FCB625]" : "bg-white hover:bg-[#F0F4FC]"}`}>Thử câu mẫu {roastSamples[key].label}</button>)}
             </div>
-          </div>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border-2 border-dashed border-[#D32F2F] bg-[#FFEBEE] p-5"><span className="sticker -rotate-1 border-[#D32F2F] bg-white text-[#D32F2F]"><X size={14} /> 85% nguy cơ ATS đánh rớt</span><p className="mt-5 leading-7 text-[#5A6B8F]">{current.old}</p></div>
+              <div className="rounded-xl border-2 border-[#2E7D32] bg-[#E8F5E9] p-5"><span className="sticker rotate-1 border-[#2E7D32] bg-[#FCB625] text-[#2E7D32]"><Check size={14} /> Chuẩn ATS</span><p className="mt-5 font-semibold leading-7">{current.fresh}</p></div>
+            </div>
+            <button type="button" onClick={() => setShowAnalysis((value) => !value)} className="mt-5 font-bold underline decoration-[#FCB625] decoration-4 underline-offset-4">{showAnalysis ? "Ẩn phân tích" : "Bấm để xem AI phân tích lỗ hổng…"}</button>
+            {showAnalysis && <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-4 flex flex-wrap gap-2">{current.gaps.map((gap) => <span key={gap} className="sticker border-[#D32F2F] bg-[#FFEBEE] text-[#D32F2F]">{gap}</span>)}</motion.div>}
+          </motion.div>
         </section>
 
-        <section className="bg-surface-container-low py-20 md:py-24">
-          <div className="mx-auto w-full max-w-[1600px] px-6 sm:px-8 lg:px-16">
-            <div className="mb-16 text-center">
-              <h2 className="font-headline text-4xl font-extrabold mb-4">
-                {t("landing.section.modes.title")}
-              </h2>
-              <p className="text-on-surface-variant max-w-2xl mx-auto">
-                {t("landing.section.modes.subtitle")}
-              </p>
+        <section id="video-demo" className="border-y-2 border-[#234196] bg-[#F0F4FC] px-5 py-20 sm:px-8 md:py-28">
+          <motion.div {...reveal} className="mx-auto max-w-6xl">
+            <div className="text-center"><span className="font-metadata text-xs font-bold text-[#E59E10]">Xem hệ thống vận hành</span><h2 className="mt-3 text-4xl tracking-tight sm:text-6xl">Trải nghiệm trước khi bạn nộp đơn ứng tuyển.</h2></div>
+            <div className="mt-10 overflow-hidden rounded-2xl border-2 border-[#234196] bg-white shadow-[8px_8px_0_#234196]">
+              <div className="flex h-11 items-center gap-2 border-b-2 border-[#234196] bg-[#FEF9EE] px-4"><span className="h-3 w-3 rounded-full border-2 border-[#234196] bg-[#FCB625]" /><span className="h-3 w-3 rounded-full border-2 border-[#234196] bg-white" /><span className="h-3 w-3 rounded-full border-2 border-[#234196] bg-[#234196]" /><span className="ml-3 font-metadata text-[9px]">career.studio/demo</span></div>
+              <div className="relative aspect-video overflow-hidden bg-[#F0F4FC]">
+                <div className="absolute inset-0 grid md:grid-cols-[.42fr_.58fr]">
+                  <div className="border-r-2 border-[#234196] p-5 text-left"><span className="sticker bg-[#FCB625]">AI reasoning</span><h3 className="mt-5 text-2xl">{chapters[chapter].title}</h3><div className="mt-6 space-y-3">{[1,2,3].map((item) => <div key={item} className="h-3 rounded-full bg-[#B7C6E6]" style={{ width: `${90 - item * 13}%` }} />)}</div></div>
+                  <div className="grid place-items-center bg-white p-6">{chapters[chapter].kind === "voice" ? <motion.div animate={{ borderRadius: ["40% 60% 55% 45% / 45% 40% 60% 55%","60% 40% 45% 55% / 55% 60% 40% 45%"], scale: [1,.92,1] }} transition={{ repeat: Infinity, duration: 1.4 }} className="grid h-36 w-36 place-items-center border-2 border-[#234196] bg-[#FCB625] shadow-[6px_6px_0_#234196]"><Volume2 size={44} /></motion.div> : chapters[chapter].kind === "match" ? <div className="w-full max-w-md"><div className="font-headline text-6xl">78%</div><div className="mt-5 flex flex-wrap gap-2">{["SQL","Python","Power BI","dbt?"].map((skill, i) => <span key={skill} className={`sticker ${i === 3 ? "border-[#D32F2F] bg-[#FFEBEE] text-[#D32F2F]" : "border-[#2E7D32] bg-[#E8F5E9] text-[#2E7D32]"}`}>{skill}</span>)}</div></div> : <div className="grid w-full max-w-md grid-cols-3 gap-3">{[82,68,91].map((score) => <div key={score} className="rounded-xl border-2 border-[#234196] bg-[#FEF9EE] p-4 text-center"><strong className="font-headline text-3xl">{score}</strong><p className="mt-1 font-metadata text-[8px]">STAR score</p></div>)}</div>}</div>
+                </div>
+                <button type="button" onClick={() => setPlaying((value) => !value)} className="chunky-primary absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full" aria-label={playing ? "Tạm dừng" : "Phát video"}>{playing ? <span className="text-xl">Ⅱ</span> : <Play size={25} fill="currentColor" />}</button>
+              </div>
+              <div className="grid md:grid-cols-3">{chapters.map((item, index) => <button key={item.time} type="button" onClick={() => { setChapter(index); setPlaying(true); }} className={`border-t-2 border-[#234196] p-4 text-left md:border-l-2 ${index === 0 ? "md:border-l-0" : ""} ${chapter === index ? "bg-[#FCB625]" : "bg-white hover:bg-[#FEF9EE]"}`}><span className="font-metadata text-[9px]">{item.time}</span><strong className="mt-1 block text-sm">{item.title}</strong></button>)}</div>
             </div>
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="group bg-surface-container-lowest p-8 rounded-3xl hover:translate-y-[-8px] transition-all duration-300">
-                <div className="w-16 h-16 bg-secondary-container rounded-2xl flex items-center justify-center mb-6 text-primary">
-                  <span className="material-symbols-outlined text-4xl">
-                    forum
-                  </span>
-                </div>
-                <h3 className="text-2xl font-bold mb-3">{t("landing.mode.chat.title")}</h3>
-                <p className="text-on-surface-variant mb-6">
-                  {t("landing.mode.chat.desc")}
-                </p>
-                <div className="h-1 bg-surface-container rounded-full overflow-hidden">
-                  <div className="h-full bg-primary w-1/3 transition-all duration-700 group-hover:w-full"></div>
-                </div>
-              </div>
-
-              <div className="group bg-surface-container-lowest p-8 rounded-3xl hover:translate-y-[-8px] transition-all duration-300">
-                <div className="w-16 h-16 bg-tertiary-fixed rounded-2xl flex items-center justify-center mb-6 text-tertiary">
-                  <span className="material-symbols-outlined text-4xl">
-                    call
-                  </span>
-                </div>
-                <h3 className="text-2xl font-bold mb-3">{t("landing.mode.voice.title")}</h3>
-                <p className="text-on-surface-variant mb-6">
-                  {t("landing.mode.voice.desc")}
-                </p>
-                <div className="h-1 bg-surface-container rounded-full overflow-hidden">
-                  <div className="h-full bg-tertiary w-1/3 transition-all duration-700 group-hover:w-full"></div>
-                </div>
-              </div>
-
-              <div className="group bg-surface-container-lowest p-8 rounded-3xl hover:translate-y-[-8px] transition-all duration-300">
-                <div className="w-16 h-16 bg-primary-fixed rounded-2xl flex items-center justify-center mb-6 text-primary">
-                  <span className="material-symbols-outlined text-4xl">
-                    videocam
-                  </span>
-                </div>
-                <h3 className="text-2xl font-bold mb-3">{t("landing.mode.video.title")}</h3>
-                <p className="text-on-surface-variant mb-6">
-                  {t("landing.mode.video.desc")}
-                </p>
-                <div className="h-1 bg-surface-container rounded-full overflow-hidden">
-                  <div className="h-full bg-primary-container w-1/3 transition-all duration-700 group-hover:w-full"></div>
-                </div>
-              </div>
-            </div>
-          </div>
+          </motion.div>
         </section>
 
-        <section className="mx-auto w-full max-w-[1600px] px-6 py-20 sm:px-8 md:py-24 lg:px-16">
-          <div className="flex flex-col lg:flex-row items-center gap-16">
-            <div className="lg:w-1/2">
-              <img
-                className="rounded-[2.5rem] shadow-2xl"
-                alt="minimalist modern office interior with large windows and clean workspace featuring a sleek laptop on a wooden desk"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDltl6LOsClo0AdcojJaHxuNwxG8GYZlP7_y2Kex87P5hPvtACBWHVZB-R9bi6DpRdSV9FSdVj9rlD8g9lcTm02JqnWj7fxPcFtQnwkQ7YnzFl6Vmbkac53T7vAsibxbmKOG3NdZPVk-5sy5aN8l0jmoQe9vgz_5HCob8oiKW5ygPn4JCCAsMLHpIym2hVlrg87Zg_SOV3DdrB4EcbGE6kdOMTB99og3d-V1fi0j7WV9XMyJACpxYvZEznpNp3piOxH5i_SECq7Dqjo"
-              />
-            </div>
-            <div className="lg:w-1/2 space-y-12">
-              <div>
-                <h2 className="font-headline text-5xl font-extrabold mb-6">
-                  {t("landing.section.how.title")}
-                </h2>
-                <p className="text-xl text-on-surface-variant leading-relaxed">
-                  {t("landing.section.how.subtitle")}
-                </p>
-              </div>
-              <div className="space-y-8">
-                <div className="flex gap-6">
-                  <span className="text-4xl font-headline font-black text-outline-variant/30">
-                    01
-                  </span>
-                  <div>
-                    <h4 className="text-xl font-bold mb-2">
-                      {t("landing.how.step1.title")}
-                    </h4>
-                    <p className="text-on-surface-variant">
-                      {t("landing.how.step1.desc")}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-6">
-                  <span className="text-4xl font-headline font-black text-outline-variant/30">
-                    02
-                  </span>
-                  <div>
-                    <h4 className="text-xl font-bold mb-2">
-                      {t("landing.how.step2.title")}
-                    </h4>
-                    <p className="text-on-surface-variant">
-                      {t("landing.how.step2.desc")}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-6">
-                  <span className="text-4xl font-headline font-black text-outline-variant/30">
-                    03
-                  </span>
-                  <div>
-                    <h4 className="text-xl font-bold mb-2">{t("landing.how.step3.title")}</h4>
-                    <p className="text-on-surface-variant">
-                      {t("landing.how.step3.desc")}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <section className="px-5 py-20 sm:px-8 md:py-28" id="how">
+          <motion.div {...reveal} className="mx-auto max-w-6xl"><div className="max-w-3xl"><span className="sticker -rotate-1 bg-[#FCB625]">Cách hoạt động</span><h2 className="mt-6 text-4xl tracking-tight sm:text-6xl">3 bước đơn giản để chinh phục vòng phỏng vấn.</h2></div>
+            <div className="mt-12 grid gap-6 md:grid-cols-3">{steps.map(({ icon: Icon, title, text }, index) => <article key={title} className="storybook-card relative p-6"><span className={`sticker absolute -top-4 right-5 bg-[#FCB625] ${index % 2 ? "rotate-2" : "-rotate-2"}`}>#0{index + 1}</span><Icon size={32} /><h3 className="mt-7 text-3xl">{title}</h3><p className="mt-4 leading-7 text-[#5A6B8F]">{text}</p></article>)}</div>
+          </motion.div>
         </section>
 
-        <section className="bg-surface-dim/20 py-20 md:py-24">
-          <div className="mx-auto w-full max-w-[1600px] px-6 sm:px-8 lg:px-16">
-            <h2 className="font-headline text-3xl font-bold mb-12 text-center">
-              {t("landing.section.testimonials.title")}
-            </h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              <div className="bg-surface-container-lowest p-8 rounded-3xl border border-outline-variant/10">
-                <div className="flex gap-1 text-tertiary mb-4">
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                </div>
-                <p className="italic text-on-surface mb-6">
-                  {t("landing.testimonials.quote1")}
-                </p>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-primary-fixed overflow-hidden">
-                    <img
-                      className="w-full h-full object-cover"
-                      alt="portrait of a confident man with short hair wearing a professional navy blue shirt"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFe8SRdQXrbOy3Y7zHT7QAkJUHMOwPhB3_ILdGTJWrr-j0qc_9J0kAD0Tj1VATbA3Ds9r-26i6_HSIZ0M5piYPyHeVpsoGPvnPF2R1L4UsingSY3wBIay2U89-pvD6qUPBMbX-dCxYdOlrTHieXa2UmV5mB2LY6LfuR3-Sy48lGz0VygxnBX6lUGcwKDaoP6SDC0i0EjOl4ig7edEgvn_xvznHBT6nVd-JvFc3jvbrLGNbK1T2JarA5u67nPUb0mUrxaXTO8j5a9OQ"
-                    />
-                  </div>
-                  <div>
-                    <p className="font-bold">{t("landing.testimonials.person1.name")}</p>
-                    <p className="text-xs text-on-surface-variant">
-                      {t("landing.testimonials.person1.role")}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-surface-container-lowest p-8 rounded-3xl border border-outline-variant/10">
-                <div className="flex gap-1 text-tertiary mb-4">
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                </div>
-                <p className="italic text-on-surface mb-6">
-                  {t("landing.testimonials.quote2")}
-                </p>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-secondary-fixed overflow-hidden">
-                    <img
-                      className="w-full h-full object-cover"
-                      alt="close up headshot of a smiling woman with long dark hair in a professional studio setting"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6v0u4dXiMcG4uoy57zQbNUridLNjOQHyHwuhS4zUhVRfLIng6elWlB1sSMmGzuSGQv-edIMynHdEhn8WmdAzh_tr8Ef4R40Nrr_X5JesKrt_6y1j9SRgQg7wifBTUtGUwsjJm5rJmXrQx_oPxDXGVRSIljZ2ZPIOVXCnQ1rd9fBkz3A44ZPn9yoy8-GuuWP7fKUfpJo3dIbqhOtstUY1b8uZhECK9IH5wipnWnkQUR4gskOQnfd6ZHVzsuPEsb-lz1JFKj2FcJZeN"
-                    />
-                  </div>
-                  <div>
-                    <p className="font-bold">{t("landing.testimonials.person2.name")}</p>
-                    <p className="text-xs text-on-surface-variant">
-                      {t("landing.testimonials.person2.role")}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-surface-container-lowest p-8 rounded-3xl border border-outline-variant/10">
-                <div className="flex gap-1 text-tertiary mb-4">
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    star
-                  </span>
-                </div>
-                <p className="italic text-on-surface mb-6">
-                  {t("landing.testimonials.quote3")}
-                </p>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-tertiary-fixed overflow-hidden">
-                    <img
-                      className="w-full h-full object-cover"
-                      alt="professional man in his thirties with glasses and a friendly expression in a modern office background"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYecQ0JpKYG-mIn5LMHRgfLTm3GjWz3T7NrxYOUsfe3o0Z9XnvXLUr5B6GE5-KftETiey8q-q-oMnxCrg1oANdDnlEZ7KZHdyIbPLF5Rp75G09SyFAExewLeEZXAic-rDfBRHIO6e30pL0Dq_LEFbg5SHHDJ_Y_mQ9UAs1rq8iBY0mbMV8P9q1t5t7Uw20a8oJsfclm2Dc0cr_XF1b_GMzlDr-Df9fPR_1dqfwGPH5ufSKKUUPVRW-NXyBW6hlwzLEd9JOkDIKjmXG"
-                    />
-                  </div>
-                  <div>
-                    <p className="font-bold">{t("landing.testimonials.person3.name")}</p>
-                    <p className="text-xs text-on-surface-variant">
-                      {t("landing.testimonials.person3.role")}
-                    </p>
-                  </div>
-                </div>
-              </div>
+        <section className="border-y-2 border-[#234196] bg-[#FEF9EE] px-5 py-20 sm:px-8 md:py-28" id="features">
+          <motion.div {...reveal} className="mx-auto max-w-6xl"><div className="text-center"><span className="font-metadata text-xs font-bold text-[#E59E10]">Bộ công cụ thực chiến</span><h2 className="mt-3 text-4xl sm:text-6xl">Không chỉ sửa CV. Xây năng lực thật.</h2></div>
+            <div className="mt-12 grid gap-5 lg:grid-cols-2">
+              <article className="storybook-card bg-white p-7"><Database size={30} /><h3 className="mt-5 text-4xl">Đối soát Ngữ nghĩa Đa chiều</h3><p className="mt-4 leading-7 text-[#5A6B8F]">Ma trận kỹ năng đáp ứng và lỗ hổng cần chứng minh, có dẫn chứng trực tiếp từ CV.</p><div className="mt-6 flex flex-wrap gap-2"><span className="sticker border-[#2E7D32] bg-[#E8F5E9] text-[#2E7D32]">SQL · Match</span><span className="sticker border-[#D32F2F] bg-[#FFEBEE] text-[#D32F2F]">Airflow · Gap</span></div></article>
+              <article className="storybook-card bg-[#F0F4FC] p-7"><Headphones size={30} /><h3 className="mt-5 text-4xl">Buồng Diễn tập WebRTC</h3><p className="mt-4 leading-7 text-[#5A6B8F]">Độ trễ dưới 500ms, Graceful Barge‑in và sóng âm phản hồi âm lượng thực tế.</p><div className="mt-6 flex items-end gap-1">{[20,40,68,34,55,76,42,26].map((height, i) => <motion.span key={i} animate={{ height: [height * .5, height, height * .7] }} transition={{ repeat: Infinity, duration: .7 + i * .05 }} className="w-3 rounded-full bg-[#234196]" />)}</div></article>
+              <article className="rounded-2xl border-2 border-[#234196] bg-white p-7 shadow-[4px_4px_0_#234196]"><BarChart3 size={28} /><h3 className="mt-4 text-3xl">Biên bản STAR/SPAR</h3><p className="mt-3 leading-7 text-[#5A6B8F]">Chấm bối cảnh, hành động, kết quả và đếm từ đệm như “ừm”, “kiểu như”.</p></article>
+              <article className="rounded-2xl border-2 border-[#234196] bg-[#FCB625] p-7 shadow-[4px_4px_0_#234196]"><ShieldCheck size={28} /><h3 className="mt-4 text-3xl">Đạo đức Tuyển dụng</h3><p className="mt-3 leading-7">Rèn luyện năng lực thật, không nhắc bài trong phỏng vấn và được HR tin cậy.</p></article>
             </div>
-          </div>
+          </motion.div>
         </section>
 
-        <section className="mx-auto w-full max-w-[1600px] px-6 py-20 sm:px-8 md:py-24 lg:px-16">
-          <div className="relative overflow-hidden rounded-[3rem] bg-[#7029e1] p-10 text-center text-white shadow-2xl sm:p-12 lg:p-16">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
-            <div className="relative z-10">
-              <h2 className="font-headline text-5xl font-extrabold mb-8 tracking-tighter">
-                {t("landing.section.cta.title")}
-              </h2>
-              <p className="text-white/80 text-xl mb-12 max-w-xl mx-auto">
-                {t("landing.section.cta.subtitle")}
-              </p>
-              <div className="flex flex-col sm:flex-row justify-center gap-6">
-                <Link
-                  className="bg-white text-tertiary px-10 py-5 rounded-2xl font-black text-lg hover:scale-105 transition-transform active:scale-95 shadow-xl text-center"
-                  href="/signup"
-                >
-                  {t("landing.section.cta.primary")}
-                </Link>
-                <Link
-                  href="/pricing"
-                  className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-10 py-5 rounded-2xl font-black text-lg hover:bg-white/20 transition-all text-center"
-                >
-                  {t("landing.section.cta.secondary")}
-                </Link>
-              </div>
-            </div>
-          </div>
+        <section className="px-5 py-20 sm:px-8 md:py-28" id="pricing">
+          <motion.div {...reveal} className="mx-auto max-w-6xl"><div className="mx-auto max-w-3xl text-center"><span className="sticker rotate-1 bg-[#FCB625]"><QrCode size={14} /> VietQR · Thanh toán một lần</span><h2 className="mt-6 text-4xl sm:text-6xl">Chi phí minh bạch cho đúng chu kỳ tìm việc.</h2><p className="mt-4 text-lg text-[#5A6B8F]">Không tự động trừ tiền gia hạn định kỳ.</p></div>
+            <div className="mt-12 grid gap-6 md:grid-cols-3">{[["Gói Khởi Đầu","99.000","14 ngày","Fresher & sinh viên mới ra trường"],["Gói Chuyên Nghiệp","249.000","30 ngày","Không giới hạn so khớp · 10 mock interview"],["Gói Nạp Lượt","49.000","Linh hoạt","5 lượt so khớp hoặc 1 mock interview"]].map(([name, price, period, desc], index) => <article key={name} className={`relative flex flex-col rounded-2xl border-2 border-[#234196] p-6 ${index === 1 ? "bg-[#FEF9EE] shadow-[6px_6px_0_#234196] md:-translate-y-3" : "bg-white shadow-[3px_3px_0_#234196]"}`}>{index === 1 && <span className="sticker absolute -top-4 left-5 rotate-1 bg-[#FCB625]">Đề xuất nhiều nhất</span>}<h3 className="mt-3 text-3xl">{name}</h3><p className="mt-5"><strong className="font-headline text-5xl">{price}</strong> VNĐ</p><span className="mt-1 font-metadata text-[10px]">{period}</span><p className="mt-6 flex-1 leading-7 text-[#5A6B8F]">{desc}</p><Link href="/pricing" className={`${index === 1 ? "chunky-primary" : "chunky-secondary"} mt-7 px-5 py-3`}>Chọn gói</Link></article>)}</div>
+            <div className="mt-12 flex flex-wrap items-center justify-center gap-4 rounded-2xl border-2 border-[#234196] bg-[#F0F4FC] p-5 text-center text-sm font-bold"><ShieldCheck size={20} /> MB Bank · Vietcombank · MoMo · ZaloPay <span className="marker">Kích hoạt trong 3 giây</span></div>
+          </motion.div>
+        </section>
+
+        <section className="border-y-2 border-[#234196] bg-[#F0F4FC] px-5 py-20 sm:px-8 md:py-28" id="faq">
+          <motion.div {...reveal} className="mx-auto max-w-4xl"><div className="text-center"><span className="font-metadata text-xs font-bold text-[#E59E10]">Không né câu hỏi khó</span><h2 className="mt-3 text-4xl sm:text-6xl">Câu hỏi thường gặp.</h2></div>
+            <div className="mt-10 space-y-4">{faqs.map(([question, answer], index) => <div key={question} className="overflow-hidden rounded-2xl border-2 border-[#234196] bg-white shadow-[3px_3px_0_#234196]"><button type="button" onClick={() => setOpenFaq(openFaq === index ? null : index)} className="flex w-full items-center justify-between gap-4 p-5 text-left font-bold" aria-expanded={openFaq === index}><span>{question}</span><ChevronDown className={`shrink-0 transition-transform ${openFaq === index ? "rotate-180" : ""}`} /></button>{openFaq === index && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="border-t-2 border-[#234196] bg-[#FEF9EE] p-5 leading-7 text-[#5A6B8F]">{answer}</motion.p>}</div>)}</div>
+          </motion.div>
+        </section>
+
+        <section className="px-5 py-20 sm:px-8 md:py-28">
+          <motion.div {...reveal} className="mx-auto max-w-6xl rounded-2xl border-2 border-[#234196] bg-[#FCB625] p-8 text-center shadow-[6px_6px_0_#234196] sm:p-14"><Sparkles className="mx-auto" size={32} /><h2 className="mx-auto mt-5 max-w-3xl text-4xl sm:text-6xl">Sẵn sàng nhận lời mời phỏng vấn tiếp theo?</h2><Link href="/interview/cv-score" className="mt-8 inline-flex items-center gap-2 rounded-xl border-2 border-[#234196] bg-[#234196] px-7 py-4 font-bold text-white shadow-[3px_3px_0_white] transition-transform active:translate-x-1 active:translate-y-1 active:shadow-none">Bắt đầu So Khớp Hồ Sơ Ngay <ArrowRight size={19} /></Link></motion.div>
         </section>
       </main>
 
-      <footer className="w-full border-t border-[#c3c6d6]/20 bg-[#f7f9fb] py-12 dark:bg-slate-950">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-col items-center justify-between space-y-8 px-6 md:flex-row md:space-y-0 sm:px-8 lg:px-16">
-          <div className="flex flex-col items-center md:items-start space-y-4">
-            <div className="flex items-center gap-3 font-manrope font-bold text-[#191c1e] text-xl">
-              <div className="w-8 h-8 overflow-hidden rounded-lg flex items-center justify-center">
-                <img src="/logo.jpg" alt="INTERVIA Logo" className="w-full h-full object-cover" />
-              </div>
-              INTERVIA
-            </div>
-            <p className="font-inter text-xs text-[#434654] dark:text-slate-500 max-w-xs text-center md:text-left">
-              {t("footer.copyright")}
-            </p>
-          </div>
-          <div className="flex gap-8 font-inter text-xs text-[#434654] dark:text-slate-500">
-            <a className="hover:underline transition-all" href="#">
-              {t("footer.privacy")}
-            </a>
-            <a className="hover:underline transition-all" href="#">
-              {t("footer.terms")}
-            </a>
-            <a className="hover:underline transition-all" href="#">
-              {t("footer.cookies")}
-            </a>
-            <a className="hover:underline transition-all" href="#">
-              {t("footer.security")}
-            </a>
-          </div>
-          <div className="flex gap-4">
-            <div className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-[#434654] hover:bg-primary-container hover:text-white cursor-pointer transition-colors">
-              <span className="material-symbols-outlined text-sm">share</span>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-[#434654] hover:bg-primary-container hover:text-white cursor-pointer transition-colors">
-              <span className="material-symbols-outlined text-sm">mail</span>
-            </div>
-          </div>
-        </div>
-      </footer>
-
-      <nav className="md:hidden bg-[#7029e1]/85 backdrop-blur-xl fixed bottom-8 left-1/2 -translate-x-1/2 rounded-full px-8 py-3 w-fit min-w-[320px] flex items-center justify-around gap-6 z-50 shadow-[0_40px_60px_rgba(25,28,30,0.04)] border-[#c3c6d6]/20">
-        <div className="flex flex-col items-center gap-1 text-white/70 hover:text-white transition-all cursor-pointer">
-          <span className="material-symbols-outlined">mic</span>
-          <span className="font-inter text-[10px] uppercase tracking-widest">
-            Mic
-          </span>
-        </div>
-        <div className="flex flex-col items-center gap-1 text-white/70 hover:text-white transition-all cursor-pointer">
-          <span className="material-symbols-outlined">videocam</span>
-          <span className="font-inter text-[10px] uppercase tracking-widest">
-            Video
-          </span>
-        </div>
-        <div className="flex flex-col items-center gap-1 text-white/70 hover:text-white transition-all cursor-pointer">
-          <span className="material-symbols-outlined">history</span>
-          <span className="font-inter text-[10px] uppercase tracking-widest">
-            History
-          </span>
-        </div>
-        <div className="flex flex-col items-center gap-1 text-white/70 hover:text-white transition-all cursor-pointer bg-white/20 rounded-full p-3">
-          <span className="material-symbols-outlined">call_end</span>
-          <span className="font-inter text-[10px] uppercase tracking-widest">
-            End
-          </span>
-        </div>
-      </nav>
+      <Footer />
     </div>
   );
 }

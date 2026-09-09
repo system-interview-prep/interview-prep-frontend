@@ -48,16 +48,17 @@ export default function DashboardPage() {
 
   return (
     <UserDashboardShell>
-      <main className="min-h-screen p-6 md:p-12 bg-surface md:pb-12">
+      <main className="min-h-screen bg-[#FAF9F5] p-6 md:p-12 md:pb-12">
         <header
           id="user-profile"
           className="flex flex-col gap-6 sm:flex-row sm:justify-between sm:items-end mb-12 scroll-mt-24"
         >
           <div>
-            <h2 className="font-headline font-extrabold text-on-surface text-3xl md:text-4xl tracking-tighter">
+            <p className="font-metadata text-[10px] uppercase tracking-[.16em] text-[#87867F]">Your practice desk</p>
+            <h2 className="mt-3 font-headline text-3xl font-medium tracking-tight text-[#141413] md:text-4xl">
               {welcomeTitle}
             </h2>
-            <p className="text-on-surface-variant mt-2 font-body text-lg">
+            <p className="mt-2 font-body text-lg text-[#5E5D59]">
               {t("userDash.welcomeSubtitle")}
             </p>
           </div>
@@ -91,18 +92,18 @@ export default function DashboardPage() {
 
         <section className="mb-16">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="group relative overflow-hidden bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10 hover:shadow-xl transition-all duration-300">
-              <div className="w-14 h-14 rounded-xl bg-primary-fixed flex items-center justify-center text-primary mb-6 group-hover:scale-110 transition-transform">
+            <div className="group relative overflow-hidden border border-[#E8E6DC] bg-white p-8 transition-colors hover:bg-[#FFFEFB]">
+              <div className="mb-6 flex h-12 w-12 items-center justify-center bg-[#EFF3EA] text-[#566844]">
                 <span className="material-symbols-outlined text-3xl">chat_bubble</span>
               </div>
-              <h3 className="font-headline font-bold text-xl mb-3">{t("userDash.mode.chat.title")}</h3>
-              <p className="text-on-surface-variant body-md leading-relaxed mb-8">
+              <h3 className="mb-3 font-headline text-2xl">{t("userDash.mode.chat.title")}</h3>
+              <p className="body-md mb-8 leading-relaxed text-[#5E5D59]">
                 {t("userDash.mode.chat.desc")}
               </p>
               <button
                 type="button"
                 onClick={goToChat}
-                className="inline-flex items-center gap-2 border-0 bg-transparent p-0 text-primary font-bold group/btn"
+                className="group/btn inline-flex items-center gap-2 border-0 bg-transparent p-0 font-metadata text-xs uppercase tracking-wider text-[#D97757]"
               >
                 {t("userDash.mode.chat.cta")}
                 <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
@@ -114,18 +115,18 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="group relative overflow-hidden bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10 hover:shadow-xl transition-all duration-300">
-              <div className="w-14 h-14 rounded-xl bg-secondary-container flex items-center justify-center text-primary mb-6 group-hover:scale-110 transition-transform">
+            <div className="group relative overflow-hidden border border-[#E8E6DC] bg-white p-8 transition-colors hover:bg-[#FFFEFB]">
+              <div className="mb-6 flex h-12 w-12 items-center justify-center bg-[#FBE8EC] text-[#A34A69]">
                 <span className="material-symbols-outlined text-3xl">settings_voice</span>
               </div>
-              <h3 className="font-headline font-bold text-xl mb-3">{t("userDash.mode.voice.title")}</h3>
-              <p className="text-on-surface-variant body-md leading-relaxed mb-8">
+              <h3 className="mb-3 font-headline text-2xl">{t("userDash.mode.voice.title")}</h3>
+              <p className="body-md mb-8 leading-relaxed text-[#5E5D59]">
                 {t("userDash.mode.voice.desc")}
               </p>
               <button
                 type="button"
                 onClick={goToVoice}
-                className="inline-flex items-center gap-2 border-0 bg-transparent p-0 text-primary font-bold group/btn"
+                className="group/btn inline-flex items-center gap-2 border-0 bg-transparent p-0 font-metadata text-xs uppercase tracking-wider text-[#D97757]"
               >
                 {t("userDash.mode.voice.cta")}
                 <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
@@ -137,26 +138,26 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="group relative overflow-hidden ai-glass-gradient p-8 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 text-white">
-              <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-6 group-hover:scale-110 transition-transform">
+            <div className="group relative overflow-hidden border border-[#E8E6DC] bg-[#141413] p-8 text-white transition-colors hover:bg-[#2A2A28]">
+              <div className="mb-6 flex h-12 w-12 items-center justify-center bg-white/10 text-white">
                 <span className="material-symbols-outlined text-3xl">videocam</span>
               </div>
-              <h3 className="font-headline font-bold text-xl mb-3">{t("userDash.mode.video.title")}</h3>
+              <h3 className="mb-3 font-headline text-2xl">{t("userDash.mode.video.title")}</h3>
               <p className="text-white/90 body-md leading-relaxed mb-8">
                 {t("userDash.mode.video.desc")}
               </p>
               <button
                 type="button"
                 onClick={goToRoom}
-                className="inline-flex items-center gap-2 text-white font-bold group/btn"
+                className="group/btn inline-flex items-center gap-2 font-metadata text-xs uppercase tracking-wider text-white"
               >
                 {t("userDash.mode.video.cta")}
                 <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
                   arrow_forward
                 </span>
               </button>
-              <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full backdrop-blur-sm">
-                <div className="w-2 h-2 rounded-full bg-tertiary animate-pulse" />
+              <div className="absolute right-4 top-4 flex items-center gap-2 border border-white/15 px-3 py-1">
+                <div className="h-2 w-2 rounded-full bg-[#D97757] animate-pulse" />
                 <span className="text-[10px] font-bold uppercase tracking-tighter">
                   {t("userDash.mode.video.badge")}
                 </span>
@@ -166,30 +167,30 @@ export default function DashboardPage() {
         </section>
 
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch mb-16">
-          <div className="bg-surface-container p-8 rounded-xl flex flex-col justify-center">
-            <span className="text-tertiary font-bold uppercase text-[10px] tracking-widest mb-4">
+          <div className="flex flex-col justify-center border border-[#E8E6DC] bg-[#F0EEE6] p-8">
+            <span className="mb-4 font-metadata text-[10px] uppercase tracking-widest text-[#D97757]">
               {t("userDash.training.label")}
             </span>
-            <h3 className="font-headline font-extrabold text-3xl mb-4 leading-tight">
+            <h3 className="mb-4 font-headline text-3xl leading-tight">
               {t("userDash.training.title")}
             </h3>
             <p className="text-on-surface-variant mb-8 max-w-md">{t("userDash.training.desc")}</p>
             <div className="flex flex-wrap gap-4">
               <Link
                 href="/practice"
-                className="px-8 py-4 bg-tertiary text-white rounded-xl font-bold hover:bg-tertiary-container transition-colors shadow-lg shadow-tertiary/20 text-center"
+                className="rounded-md bg-[#D97757] px-6 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-[#C15F3C]"
               >
                 {t("userDash.training.quiz")}
               </Link>
               <Link
                 href="/resources"
-                className="px-8 py-4 bg-transparent text-tertiary border-2 border-tertiary/20 rounded-xl font-bold hover:bg-tertiary/5 transition-colors text-center"
+                className="rounded-md border border-[#D8D5C9] bg-white px-6 py-3 text-center text-sm font-medium text-[#141413] transition-colors hover:bg-[#FAF9F5]"
               >
                 {t("userDash.training.explore")}
               </Link>
             </div>
           </div>
-          <div className="bg-surface-container-lowest p-8 rounded-xl border border-outline-variant/10 flex flex-col sm:flex-row items-stretch sm:items-center gap-8">
+          <div className="flex flex-col items-stretch gap-8 border border-[#E8E6DC] bg-white p-8 sm:flex-row sm:items-center">
             <div className="flex-1">
               <h4 className="font-headline font-bold text-xl mb-2">{t("userDash.progress.title")}</h4>
               <div className="space-y-4">

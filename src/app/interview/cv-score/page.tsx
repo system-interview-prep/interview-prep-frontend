@@ -12,14 +12,44 @@ import {
   type CvScoringResponse,
 } from "@/lib/aiService";
 import { jobProfileApi, type JobProfile } from "@/services/jobProfileApi";
-import PdfEvidenceVisualizer from "@/components/pdf-visualizer/PdfEvidenceVisualizer";
-import EvidenceComparePanel from "@/components/pdf-visualizer/EvidenceComparePanel";
 import { userCvApi, type UserCvDto } from "@/services/userCvApi";
 import { startDemoVideoInterviewRoom } from "@/utils/demoInterviewSession";
 import { resolveBackendErrorMessage } from "@/utils/backendError";
 
 const SELECTED_CV_SESSION_KEY = "interview.selectedCvId";
 const SCORE_CONTEXT_SESSION_KEY = "interview.cvScoreContext";
+
+const SAMPLE_CONTEXT: ScoreContext = {
+  candidateId: "sample-cv-senior-data-analyst",
+  jobId: "sample-jd-fintech",
+  jobTitle: "Senior Data Analyst Â· FinTech Corp",
+};
+
+const SAMPLE_SCORE: CvScoringResponse = {
+  candidateId: SAMPLE_CONTEXT.candidateId,
+  jobId: SAMPLE_CONTEXT.jobId,
+  score: { raw: 7.8, max: 10, normalized: 0.78, percentage: 78 },
+  decision: "PASS",
+  hardFilters: { passed: true, reasons: [] },
+  criteriaBreakdown: [
+    { name: "SQL và phân tích dữ liệu", type: "must_have", importance: 1, match: 0.92, score: 0.92, evidence: "Có kinh nghiệm xây dựng dashboard và tối ưu báo cáo vận hành." },
+    { name: "Funnel & cohort analysis", type: "must_have", importance: 0.9, match: 0.81, score: 0.81, evidence: "Đã phân tích hành vi người dùng, cần bổ sung kết quả định lượng." },
+    { name: "Data modeling với dbt", type: "gap", importance: 0.7, match: 0.28, score: 0.28, evidence: "Chưa có bằng chứng trực tiếp; có thể bù đắp bằng dự án mô phỏng." },
+    { name: "Bối cảnh FinTech", type: "gap", importance: 0.65, match: 0.35, score: 0.35, evidence: "Nêu rõ các bài toán có yếu tố giao dịch, rủi ro hoặc tăng trưởng." },
+  ],
+  summary: {
+    strengths: ["SQL và dashboard tự phục vụ", "Tư duy funnel, cohort và hành vi người dùng"],
+    weaknesses: ["Phụ trách báo cáo hiệu suất kinh doanh hằng tuần cho các phòng ban.", "Hỗ trợ đội ngũ sản phẩm phân tích hành vi người dùng."],
+    suggestions: ["Xây dựng dashboard tự phục vụ cho 6 phòng ban, chuẩn hóa 14 chỉ số vận hành và giảm thời gian tổng hợp báo cáo xuống", "Phân tích funnel kích hoạt của 120.000 người dùng mới, đề xuất thử nghiệm giúp tỷ lệ hoàn tất onboarding tăng"],
+  },
+  overallFeedback: "Hồ sơ có nền tảng phù hợp. Ưu tiên nâng các câu kinh nghiệm theo công thức Hành động – Bối cảnh – Kết quả đo lường trước khi đầu tư thêm công cụ mới.",
+  evidence: {
+    must_have: [{ requirement: "SQL nâng cao", status: "matched", snippets: ["SQL", "dashboard"] }],
+    nice_to_have: [{ requirement: "dbt", status: "missing", snippets: [] }],
+    constraints: [{ requirement: "Kinh nghiệm FinTech", status: "missing", snippets: [] }],
+  },
+  metadata: { scoringVersion: "sample-v2", timestamp: "2026-09-08T00:00:00Z" },
+};
 
 type NormalizedCriterion = {
   key: string;
@@ -164,56 +194,23 @@ export default function CvScorePage() {
   const searchParams = useSearchParams();
   const { showNavigationLoading, hideNavigationLoading } = useNavigationLoading();
 
-  const [mounted, setMounted] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<CvScoringResponse | null>(null);
+  const [result, setResult] = useState<CvScoringResponse | null>(SAMPLE_SCORE);
   const [jobProfile, setJobProfile] = useState<JobProfile | null>(null);
   const [candidate, setCandidate] = useState<UserCvDto | null>(null);
-  const [context, setContext] = useState<ScoreContext | null>(null);
+  const [context, setContext] = useState<ScoreContext | null>(SAMPLE_CONTEXT);
   const [startingRoom, setStartingRoom] = useState(false);
   const [modeModalOpen, setModeModalOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"overview" | "visual">("overview");
-  const [activeSnippet, setActiveSnippet] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"overview" | "diff">("overview");
+  const [metricInputs, setMetricInputs] = useState<Record<number, string>>({});
 
   const normalized = useMemo(() => (result ? normalizeResult(result) : null), [result]);
 
-  const allMatchedSnippets = useMemo(() => {
-    if (!result?.evidence) return [];
-    const snippets = new Set<string>();
-    
-    const groups = [
-      result.evidence.must_have,
-      result.evidence.nice_to_have,
-      result.evidence.constraints,
-    ];
-    
-    groups.forEach((group) => {
-      if (Array.isArray(group)) {
-        group.forEach((item: any) => {
-          if (item?.status === "matched" && Array.isArray(item.snippets)) {
-            item.snippets.forEach((s: any) => {
-              if (typeof s === "string" && s.trim()) {
-                snippets.add(s.trim());
-              }
-            });
-          }
-        });
-      }
-    });
-    
-    return Array.from(snippets);
-  }, [result]);
   const isPass = result?.decision === "PASS";
   const score = safeNumber(result?.score?.percentage, 0);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-
     const queryCandidateId = searchParams.get("candidateId")?.trim() ?? "";
     const queryJobId = searchParams.get("jobId")?.trim() ?? "";
     const queryJobTitle = searchParams.get("jobTitle")?.trim() ?? "";
@@ -240,7 +237,9 @@ export default function CvScorePage() {
     const jobTitle = queryJobTitle || fallbackContext?.jobTitle || "";
 
     if (!candidateId || !jobId) {
-      setError(t("interview.cvAnalysis.missingJob"));
+      setContext(SAMPLE_CONTEXT);
+      setResult(SAMPLE_SCORE);
+      setError(null);
       setLoading(false);
       return;
     }
@@ -297,7 +296,7 @@ export default function CvScorePage() {
         setLoading(false);
       }
     })();
-  }, [mounted, searchParams, t]);
+  }, [searchParams, t]);
 
   const continueToChat = () => {
     if (!context) return;
@@ -388,8 +387,6 @@ export default function CvScorePage() {
     }
   };
 
-  if (!mounted) return null;
-
   const title = isPass ? t("interview.cvAnalysis.passTitle") : t("interview.cvAnalysis.failTitle");
   const description = isPass
     ? t("interview.cvAnalysis.passDescription").replace("{score}", String(score))
@@ -465,21 +462,17 @@ export default function CvScorePage() {
       : null;
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,_#f8fafc_0%,_#eef2f7_100%)] text-slate-900">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_55%)]" />
-      <div className="pointer-events-none absolute right-0 top-24 h-72 w-72 translate-x-1/3 rounded-full bg-amber-100/70 blur-3xl" />
-      <div className="pointer-events-none absolute left-0 top-48 h-80 w-80 -translate-x-1/3 rounded-full bg-sky-100/80 blur-3xl" />
+    <main className="relative min-h-screen overflow-hidden bg-[#FAF9F5] text-[#141413]">
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8">
         {modeModal}
-        <div className="mb-6 flex items-center justify-between gap-3 rounded-3xl border border-slate-200/80 bg-white/80 px-4 py-3 shadow-[0_12px_30px_-20px_rgba(15,23,42,0.25)] backdrop-blur-xl">
+        <div className="mb-4 flex items-center justify-between gap-3 border-b border-[#E8E6DC] bg-[#FAF9F5] px-1 py-3">
           <button
             type="button"
-            onClick={() => router.push("/dashboard/jobs")}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            onClick={() => router.push("/studio")}
+            className="inline-flex items-center gap-1.5 font-metadata text-[10px] text-[#87867F] transition-colors hover:text-[#141413]"
           >
-            <span className="material-symbols-outlined text-[18px] text-slate-500">arrow_back</span>
-            {t("userDash.jobCvModal.backToCv")}
+            ← Quay lại Studio
           </button>
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
             <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 font-semibold uppercase tracking-[0.24em] text-slate-500">
@@ -519,7 +512,7 @@ export default function CvScorePage() {
             </div>
           </section>
         ) : result ? (
-          <section className="mx-auto w-full max-w-6xl overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-[0_28px_80px_-35px_rgba(15,23,42,0.28)]">
+          <section className="mx-auto w-full max-w-7xl overflow-hidden rounded-2xl border border-[#E8E6DC] bg-[#FFFEFA]">
             <div className="border-b border-slate-200 px-5 py-4 sm:px-6">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -533,22 +526,22 @@ export default function CvScorePage() {
                       onClick={() => setViewMode("overview")}
                       className={`text-xs font-bold px-4 py-2 rounded-xl border transition-all ${
                         viewMode === "overview"
-                          ? "bg-slate-900 text-white border-slate-900 shadow-sm"
-                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                          ? "border-[#141413] bg-[#141413] text-white"
+                          : "border-[#E8E6DC] bg-[#FAF9F5] text-[#5E5D59] hover:text-[#141413]"
                       }`}
                     >
-                      Tổng quan chấm điểm
+                      Đối soát năng lực
                     </button>
                     <button
                       type="button"
-                      onClick={() => setViewMode("visual")}
+                      onClick={() => setViewMode("diff")}
                       className={`text-xs font-bold px-4 py-2 rounded-xl border transition-all ${
-                        viewMode === "visual"
-                          ? "bg-slate-900 text-white border-slate-900 shadow-sm"
-                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                        viewMode === "diff"
+                          ? "border-[#141413] bg-[#141413] text-white"
+                          : "border-[#E8E6DC] bg-[#FAF9F5] text-[#5E5D59] hover:text-[#141413]"
                       }`}
                     >
-                      Đối chiếu trực quan PDF
+                      CV Live Diff
                     </button>
                   </div>
                 </div>
@@ -564,7 +557,7 @@ export default function CvScorePage() {
             </div>
 
             {viewMode === "overview" ? (
-              <div className="grid gap-0 lg:grid-cols-[1fr_0.88fr]">
+              <div className="grid gap-0 lg:grid-cols-[minmax(20rem,40%)_minmax(0,60%)]">
               <section className="border-b border-slate-200 p-5 sm:p-6 lg:border-b-0 lg:border-r">
               <div className={`mb-5 rounded-[1.5rem] border p-5 ${isPass ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"}`}>
                 <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] ${isPass ? "border-emerald-200 bg-white text-emerald-700" : "border-amber-200 bg-white text-amber-800"}`}>
@@ -629,6 +622,21 @@ export default function CvScorePage() {
                     )}
                   </div>
                 </section>
+                <details className="mt-5 border-t border-[#E8E6DC] pt-4 text-sm text-[#5E5D59]">
+                  <summary className="cursor-pointer font-semibold text-[#141413]">
+                    Tại sao tiêu chí này quan trọng với HR?
+                  </summary>
+                  <p className="mt-3 leading-6">
+                    Nhà tuyển dụng tìm bằng chứng cụ thể về phạm vi công việc, cách bạn hành động và kết quả đo được. Điểm số chỉ là tín hiệu; bằng chứng rõ ràng mới tạo niềm tin.
+                  </p>
+                </details>
+                <label className="mt-5 block text-xs font-semibold uppercase tracking-[0.16em] text-[#5E5D59]">
+                  Trao đổi với AI
+                  <textarea
+                    className="mt-2 min-h-24 w-full resize-none rounded-xl border border-[#E8E6DC] bg-[#FAF9F5] p-3 text-sm normal-case tracking-normal text-[#141413] outline-none focus:border-[#D97757]"
+                    placeholder="Hỏi vì sao CV cần sửa hoặc yêu cầu một cách diễn đạt khác…"
+                  />
+                </label>
               </div>
               </section>
 
@@ -695,20 +703,41 @@ export default function CvScorePage() {
               </aside>
               </div>
             ) : (
-              <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] p-5 sm:p-6 bg-slate-50/30">
-                <div className="w-full">
-                  <PdfEvidenceVisualizer
-                    candidateId={context!.candidateId}
-                    matchedSnippets={allMatchedSnippets}
-                    scrollToSnippet={activeSnippet}
-                    onScrollToSnippetEnd={() => setActiveSnippet(null)}
-                  />
+              <div className="bg-[#FAF9F5] p-5 sm:p-8">
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-[#E8E6DC] pb-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5E5D59]">Living artifact</p>
+                    <h2 className="mt-1 font-headline text-3xl font-semibold">Các câu thành tựu được đề xuất</h2>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-[#5E5D59]">
+                    <span>v2 · Đã đồng bộ JD</span>
+                    <button type="button" className="rounded-lg border border-[#E8E6DC] px-3 py-2 font-semibold text-[#141413]">Hoàn tác v1</button>
+                    <button type="button" className="rounded-lg bg-[#141413] px-3 py-2 font-semibold text-white">Xuất PDF</button>
+                  </div>
                 </div>
-                <div className="w-full">
-                  <EvidenceComparePanel
-                    evidence={result?.evidence || null}
-                    onSnippetClick={(snippet) => setActiveSnippet(snippet)}
-                  />
+
+                <div className="space-y-5">
+                  {(normalized?.suggestions.length ? normalized.suggestions : ["Bổ sung một kết quả có thể đo lường cho kinh nghiệm nổi bật nhất."]).map((suggestion, index) => {
+                    const oldLine = normalized?.weaknesses[index] || "Phụ trách các công việc và hỗ trợ nhóm hoàn thành mục tiêu.";
+                    const metric = metricInputs[index]?.trim();
+                    return (
+                      <article key={`${suggestion}-${index}`} className="rounded-xl border border-[#E8E6DC] bg-[#FFFEFA] p-4 sm:p-5">
+                        <p className="rounded-lg bg-[#FBE8EC] px-3 py-2 text-sm leading-6 text-[#5E5D59] line-through">{oldLine}</p>
+                        <p className="mt-2 rounded-lg bg-[#EFF3EA] px-3 py-2 text-sm font-medium leading-6 text-[#141413]">
+                          {suggestion}{metric ? ` â€” ${metric}` : ""}
+                        </p>
+                        <label className="mt-3 block text-xs font-medium text-[#5E5D59]">
+                          Bạn đạt được kết quả này trong bao lâu hoặc quy mô bao nhiêu?
+                          <input
+                            value={metricInputs[index] || ""}
+                            onChange={(event) => setMetricInputs((current) => ({ ...current, [index]: event.target.value }))}
+                            className="mt-2 w-full rounded-lg border border-[#E8E6DC] bg-[#FAF9F5] px-3 py-2.5 text-sm text-[#141413] outline-none focus:border-[#D97757]"
+                            placeholder="Ví dụ: trong 3 tháng, tăng 24%, phục vụ 10.000 người dùng"
+                          />
+                        </label>
+                      </article>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -846,3 +875,5 @@ function ModeCard({
     </button>
   );
 }
+
+

@@ -1,79 +1,26 @@
 "use client";
-
-import React from "react";
-import LanguageToggleButton from "../../components/LanguageToggleButton";
-import { useLanguage } from "../../i18n/LanguageProvider";
+import Link from "next/link";
+import { ArrowLeft, FileCheck2, Volume2, VolumeX } from "lucide-react";
 
 type VoiceHeaderProps = {
-  voiceEnabled: boolean;
-  supportsVoice: boolean;
-  onToggleVoicePlayback: () => void;
-  onSubmit: () => void;
-  onEndSession: () => void;
-  busy?: boolean;
+  voiceEnabled: boolean; supportsVoice: boolean; onToggleVoicePlayback: () => void;
+  onSubmit: () => void; onEndSession: () => void; busy?: boolean;
 };
 
-/**
- * Slim toolbar for /voice only — no duplicate branding (sidebar already shows Curator).
- */
-export function VoiceHeader({
-  voiceEnabled,
-  supportsVoice,
-  onToggleVoicePlayback,
-  onSubmit,
-  onEndSession,
-  busy,
-}: VoiceHeaderProps) {
-  const { t } = useLanguage();
-
-  const playbackLabel = !supportsVoice
-    ? t("voice.voiceUnsupported")
-    : voiceEnabled
-      ? t("voice.voiceOn")
-      : t("voice.voiceOff");
-
+export function VoiceHeader({ voiceEnabled, supportsVoice, onToggleVoicePlayback, onSubmit, onEndSession, busy }: VoiceHeaderProps) {
   return (
-    <header className="shrink-0 border-b border-outline-variant/15 bg-surface-container-lowest z-40">
-      <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
-        <h1 className="font-headline min-w-0 text-base font-semibold tracking-tight text-on-surface sm:text-[17px]">
-          {t("voice.arenaTitle")}
-        </h1>
-
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={Boolean(busy)}
-            className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-on-primary transition-opacity hover:opacity-90 disabled:opacity-60"
-          >
-            Nộp bài
-          </button>
-          <button
-            type="button"
-            onClick={onEndSession}
-            disabled={Boolean(busy)}
-            className="rounded-xl bg-error px-3 py-2 text-sm font-semibold text-on-error transition-opacity hover:opacity-90 disabled:opacity-60"
-          >
-            Kết thúc
-          </button>
-          <LanguageToggleButton />
-          <button
-            type="button"
-            onClick={onToggleVoicePlayback}
-            disabled={!supportsVoice}
-            title={playbackLabel}
-            aria-label={playbackLabel}
-            className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${
-              !supportsVoice
-                ? "border-outline-variant/25 bg-surface-container text-on-surface-variant opacity-50 cursor-not-allowed"
-                : voiceEnabled
-                  ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
-                  : "border-outline-variant/35 bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
-            }`}
-          >
-            <span className="material-symbols-outlined text-[22px]">
-              {voiceEnabled ? "volume_up" : "volume_off"}
-            </span>
+    <header className="z-40 h-14 shrink-0 border-b-2 border-[#234196] bg-white">
+      <div className="flex h-full items-center justify-between gap-3 px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-4">
+          <Link href="/studio" className="inline-flex items-center gap-1.5 text-xs font-bold hover:underline"><ArrowLeft size={15} /> Quay lại Studio</Link>
+          <span className="hidden text-[#B7C6E6] md:block">/</span>
+          <span className="hidden truncate font-headline text-lg font-semibold md:block">Phòng luyện phản xạ</span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button type="button" onClick={onSubmit} disabled={Boolean(busy)} className="chunky-secondary px-3 py-2 text-xs"><FileCheck2 size={15} /> <span className="hidden sm:inline">Nộp bài</span></button>
+          <button type="button" onClick={onEndSession} disabled={Boolean(busy)} className="chunky-primary px-3 py-2 text-xs">Kết thúc</button>
+          <button type="button" onClick={onToggleVoicePlayback} disabled={!supportsVoice} aria-label={voiceEnabled ? "Tắt giọng AI" : "Bật giọng AI"} className="grid h-10 w-10 place-items-center rounded-xl border-2 border-[#234196] bg-white disabled:opacity-40">
+            {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
         </div>
       </div>

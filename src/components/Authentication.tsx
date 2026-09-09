@@ -3,48 +3,37 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import LanguageToggleButton from "./LanguageToggleButton";
+import { ArrowLeft, Check, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, ShieldCheck, Sparkles, User } from "lucide-react";
 import { useLanguage } from "../i18n/LanguageProvider";
 import { useGoogleLogin } from "@react-oauth/google";
 import { readAuthProfile, writeAuthProfile } from "../auth/authProfile";
 import { authApi } from "../services/api";
 import { API_BASE_URL } from "../constants";
 
+type AuthMode = "login" | "signup";
+type AuthUser = { email?: string | null; name?: string | null; role?: string; picture?: string | null; avatar?: string | null };
+type AuthPayload = { access_token?: string; user?: AuthUser };
+
 function pickUserPicture(user: unknown): string | null {
   if (!user || typeof user !== "object") return null;
-  const u = user as Record<string, unknown>;
-  const candidates = [
-    u.picture,
-    u.avatar,
-    u.avatarUrl,
-    u.photoURL,
-    u.photo_url,
-    u.image,
-  ];
-  for (const candidate of candidates) {
+  const value = user as Record<string, unknown>;
+  for (const candidate of [value.picture, value.avatar, value.avatarUrl, value.photoURL, value.photo_url, value.image]) {
     if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
   }
   return null;
 }
 
-async function fetchGooglePicture(accessToken: string): Promise<string | null> {
-  try {
-    const response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!response.ok) return null;
-    const profile = await response.json();
-    return typeof profile?.picture === "string" && profile.picture.trim() ? profile.picture.trim() : null;
-  } catch {
-    return null;
+function errorMessage(error: unknown, fallback: string) {
+  if (typeof error === "object" && error) {
+    const value = error as { message?: string; response?: { data?: { message?: string } } };
+    return value.response?.data?.message || value.message || fallback;
   }
+  return fallback;
 }
 
-async function fetchUserProfilePicture(accessToken: string): Promise<string | null> {
+async function fetchPicture(url: string, accessToken: string): Promise<string | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/user/profile`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
     if (!response.ok) return null;
     const profile = await response.json();
     return pickUserPicture(profile);
@@ -53,29 +42,31 @@ async function fetchUserProfilePicture(accessToken: string): Promise<string | nu
   }
 }
 
-export default function Authentication({ defaultMode = "login" }: { defaultMode?: "login" | "signup" }) {
+function GoogleMark() {
+  return (
+    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden>
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.07 5.07 0 0 1-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77a6.59 6.59 0 0 1-9.87-3.47H2.18v2.84A11 11 0 0 0 12 23Z" fill="#34A853"/>
+      <path d="M5.84 14.09A6.5 6.5 0 0 1 5.49 12c0-.73.13-1.43.35-2.09V7.07H2.18A11 11 0 0 0 1 12c0 1.78.43 3.45 1.18 4.93l3.66-2.84Z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A10.95 10.95 0 0 0 2.18 7.07l3.66 2.84A6.58 6.58 0 0 1 12 5.38Z" fill="#EA4335"/>
+    </svg>
+  );
+}
+
+export default function Authentication({ defaultMode = "login" }: { defaultMode?: AuthMode }) {
   const { t } = useLanguage();
-  const isLogin = defaultMode === "login";
   const router = useRouter();
   const searchParams = useSearchParams();
-  const googleConfigured = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const [loginLoading, setLoginLoading] = useState(false);
-  
-  const [signupName, setSignupName] = useState("");
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupDob, setSignupDob] = useState("");
-  const [signupType, setSignupType] = useState("");
-  const [signupPassword, setSignupPassword] = useState("");
-  const [signupLoading, setSignupLoading] = useState(false);
-  const [signupError, setSignupError] = useState<string | null>(null);
-
+  const googleConfigured = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
+  const [mode, setMode] = useState<AuthMode>(defaultMode);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [googleError, setGoogleError] = useState<string | null>(null);
-  
 
   const nextUrl = useMemo(() => {
     const next = searchParams.get("next");
@@ -83,555 +74,380 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
     return next.startsWith("/") ? next : `/${next}`;
   }, [searchParams]);
 
+  const passwordStrength = useMemo(() => {
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
+    if (/\d/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+    return score;
+  }, [password]);
+
   function getCookie(name: string) {
-    if (typeof document === "undefined") return null;
-    const m = document.cookie.match(new RegExp(`(?:^|; )${name.replace(/[-[\]/{}()*+?.\\^$|]/g, "\\$&")}=([^;]*)`));
-    return m ? decodeURIComponent(m[1]) : null;
+    const match = document.cookie.match(new RegExp(`(?:^|; )${name.replace(/[-[\]/{}()*+?.\\^$|]/g, "\\$&")}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : null;
   }
 
   function setRoleCookie(role: "admin" | "user") {
-    // Frontend-only demo auth: set cookie for middleware checks.
-    // NOTE: in production, role should come from backend/session.
     document.cookie = `role=${role}; Path=/; SameSite=Lax; Max-Age=31536000`;
   }
 
+  async function completeAuth(data: AuthPayload, googleToken?: string) {
+    const accessToken = data.access_token ?? "";
+    const apiPicture = accessToken ? await fetchPicture(`${API_BASE_URL}/user/profile`, accessToken) : null;
+    const googlePicture = googleToken ? await fetchPicture("https://www.googleapis.com/oauth2/v3/userinfo", googleToken) : null;
+    const picture = apiPicture || pickUserPicture(data.user) || googlePicture || readAuthProfile()?.picture?.trim() || null;
+    if (accessToken) {
+      localStorage.setItem("accessToken", accessToken);
+      document.cookie = `access_token=${accessToken}; Path=/; SameSite=Lax; Max-Age=31536000`;
+    }
+    if (data.user) writeAuthProfile({ email: data.user.email ?? null, name: data.user.name ?? null, picture });
+    const admin = String(data.user?.role ?? "").toUpperCase() === "ADMIN";
+    setRoleCookie(admin ? "admin" : "user");
+    router.replace(nextUrl ?? (admin ? "/admin/dashboard" : "/dashboard"));
+  }
+
   useEffect(() => {
-    const role = getCookie("role");
-    if (role?.toLowerCase() === "admin") {
-      router.replace(nextUrl ?? "/admin/dashboard");
-      return;
-    }
-    if (role?.toLowerCase() === "user") {
-      router.replace(nextUrl ?? "/dashboard");
-    }
+    const role = getCookie("role")?.toLowerCase();
+    if (role === "admin") router.replace(nextUrl ?? "/admin/dashboard");
+    if (role === "user") router.replace(nextUrl ?? "/dashboard");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startGoogleLogin = useGoogleLogin({
     flow: "implicit",
-    onSuccess: async (tokenResponse) => {
+    onSuccess: async (token) => {
       try {
-        setGoogleError(null);
         setGoogleLoading(true);
-
-        const response = await authApi.googleLogin(tokenResponse.access_token);
-        const data = response.data;
-        
-        const backendPicture = pickUserPicture(data?.user);
-        const googlePicture = backendPicture || (await fetchGooglePicture(tokenResponse.access_token));
-        const profilePicture = data.access_token ? await fetchUserProfilePicture(data.access_token) : null;
-        const existingPicture = readAuthProfile()?.picture?.trim() || null;
-        const finalPicture = profilePicture || googlePicture || existingPicture;
-
-        if (data.access_token) {
-          localStorage.setItem("accessToken", data.access_token);
-        }
-        if (data?.user) {
-          writeAuthProfile({
-            email: data.user.email ?? null,
-            name: data.user.name ?? null,
-            picture: finalPicture,
-          });
-        }
-        document.cookie = `access_token=${data.access_token}; Path=/; SameSite=Lax; Max-Age=31536000`;
-        setRoleCookie(String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "admin" : "user");
-
-        router.replace(nextUrl ?? (String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "/admin/dashboard" : "/dashboard"));
-      } catch (err: any) {
-        const message = err.response?.data?.message || err.message || t("auth.error.googleFailed");
-        setGoogleError(message || t("auth.error.googleFailed"));
+        setFormErrors({});
+        const response = await authApi.googleLogin(token.access_token);
+        await completeAuth(response.data, token.access_token);
+      } catch (error) {
+        setFormErrors({ form: errorMessage(error, t("auth.error.googleFailed")) });
       } finally {
         setGoogleLoading(false);
       }
     },
     onError: () => {
-      setGoogleError(t("auth.error.googleFailed"));
+      setFormErrors({ form: t("auth.error.googleFailed") });
       setGoogleLoading(false);
     },
   });
 
+  function switchMode(next: AuthMode) {
+    setMode(next);
+    setFormErrors({});
+    window.history.replaceState(null, "", next === "login" ? "/login" : "/signup");
+  }
+
   function onGoogleClick() {
     if (!googleConfigured) {
-      setGoogleError(t("auth.error.googleNotConfigured"));
+      setFormErrors({ form: t("auth.error.googleNotConfigured") });
       return;
     }
-    setGoogleError(null);
     setGoogleLoading(true);
     startGoogleLogin();
   }
 
-  async function onLoginSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoginError(null);
-    setLoginLoading(true);
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const errors: Record<string, string> = {};
+    if (mode === "signup" && !name.trim()) errors.name = "Vui lòng nhập họ và tên.";
+    if (!email.trim()) errors.email = "Vui lòng nhập email.";
+    if (!password) errors.password = "Vui lòng nhập mật khẩu.";
+    if (mode === "signup" && passwordStrength < 2) errors.password = "Mật khẩu cần ít nhất 8 ký tự, gồm chữ hoa/thường hoặc số.";
+    if (mode === "signup" && !agreed) errors.agreed = "Bạn cần đồng ý với điều khoản và cam kết bảo mật.";
+    if (Object.keys(errors).length) {
+      setFormErrors(errors);
+      return;
+    }
 
     try {
-      const email = loginEmail.trim().toLowerCase();
-      const password = loginPassword;
-
-      if (!email || !password) {
-        setLoginError(t("auth.error.requiredEmailPassword"));
-        return;
+      setLoading(true);
+      setFormErrors({});
+      const normalizedEmail = email.trim().toLowerCase();
+      if (mode === "signup") {
+        await authApi.register(name.trim(), normalizedEmail, password, "", "CANDIDATE");
       }
-
-      const response = await authApi.login(email, password);
-      const data = response.data;
-      
-      const loginPicture = pickUserPicture(data?.user);
-      const profilePicture = data.access_token ? await fetchUserProfilePicture(data.access_token) : null;
-      const existingPicture = readAuthProfile()?.picture?.trim() || null;
-      const finalPicture = profilePicture || loginPicture || existingPicture;
-      if (data.access_token) {
-        localStorage.setItem("accessToken", data.access_token);
-      }
-      if (data?.user) {
-        writeAuthProfile({
-          email: data.user.email ?? null,
-          name: data.user.name ?? null,
-          picture: finalPicture,
-        });
-      }
-      document.cookie = `access_token=${data.access_token}; Path=/; SameSite=Lax; Max-Age=31536000`;
-      setRoleCookie(String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "admin" : "user");
-
-      router.replace(nextUrl ?? (String(data.user.role ?? "").toUpperCase() === "ADMIN" ? "/admin/dashboard" : "/dashboard"));
-    } catch (err: any) {
-      const message = err.response?.data?.message || err.message || "Failed to login";
-      setLoginError(message || "Failed to login");
+      const response = await authApi.login(normalizedEmail, password);
+      await completeAuth(response.data);
+    } catch (error) {
+      setFormErrors({ form: errorMessage(error, mode === "login" ? "Đăng nhập thất bại." : "Không thể tạo tài khoản.") });
     } finally {
-      setLoginLoading(false);
+      setLoading(false);
     }
   }
 
-  async function onSignupSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setSignupError(null);
-    setSignupLoading(true);
-
-    try {
-      const email = signupEmail.trim().toLowerCase();
-      const password = signupPassword;
-      const name = signupName.trim();
-
-      if (!email || !password || !name) {
-        setSignupError("Please fill required fields");
-        return;
-      }
-
-      await authApi.register(name, email, password, signupDob, signupType || 'CANDIDATE');
-
-      // Instead of forcing login again, redirect to login page.
-      window.location.href = '/login';
-    } catch (err: any) {
-      const message = err.response?.data?.message || err.message || "Failed to register";
-      setSignupError(message || "Failed to register");
-    } finally {
-      setSignupLoading(false);
-    }
-  }
+  const strengthColor = passwordStrength <= 1 ? "bg-[#D32F2F]" : passwordStrength <= 3 ? "bg-[#FCB625]" : "bg-[#2E7D32]";
+  const strengthLabel = passwordStrength <= 1 ? "Yếu" : passwordStrength <= 3 ? "Tốt" : "Mạnh";
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-surface font-body text-on-surface antialiased overflow-x-hidden">
-      {/* Left Side: Editorial Branding & AI Visualization */}
-      <section className="hidden md:flex md:w-1/2 ai-gradient-bg relative flex-col justify-between p-16 overflow-hidden">
-        {/* Decorative Elements */}
-        <div className="absolute top-0 right-0 w-full h-full opacity-20 pointer-events-none">
-          <img
-            alt=""
-            className="w-full h-full object-cover mix-blend-overlay"
-            data-alt="Abstract fluid 3D shapes with iridescent metallic texture, glowing neon highlights in deep blue and purple hues, cinematic studio lighting"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRYp_T0XcVsv9CPN1X1QOwg4uFeV4VVy7eHB8eKVmZgvyVoK5EQ8J09FGqK2-Wsk534JIRCCfPRbJfwkeAmeyMVbUOyNbQNzTVNN5tMdajhfZHzaloIM2rVvCkoC4SvUiYyJyatceB76t-X300mIMa30wC6ZN8nahSsuxK627ojP4L0TQYsB3zXddtld6Q8BgvLd0eQWIr4tjsxCZLeeicGQ87RCbgDeSjpbwpoP_gO2qbnlsh8BZIDm1RCFsFrbE3VERdY2_4v8eO"
-          />
-        </div>
-        <div className="relative z-10">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 overflow-hidden rounded-lg flex items-center justify-center">
-              <img src="/logo.jpg" alt="INTERVIA Logo" className="w-full h-full object-cover" />
-            </div>
-            <h1 className="font-headline font-black text-white text-4xl tracking-tighter">
-              INTERVIA
-            </h1>
+    <main className="grid min-h-screen grid-cols-1 bg-white text-[#234196] font-sans lg:grid-cols-12">
+      {/* CỘT TRÁI: BẰNG CHỨNG GIÁ TRỊ & CAM KẾT BẢO MẬT */}
+      <section className="relative flex flex-col justify-between overflow-hidden border-b-2 border-[#234196] bg-[#F0F4FC] p-7 sm:p-10 lg:col-span-5 lg:border-b-0 lg:border-r-2 lg:p-12 xl:p-16">
+        <div className="flex items-center justify-between gap-4">
+          <Link href="/" className="inline-flex items-center gap-2.5 font-serif text-2xl font-bold tracking-tight text-[#234196]">
+            <span className="grid h-9 w-9 place-items-center rounded-lg border-2 border-[#234196] bg-[#FCB625] shadow-[2px_2px_0_#234196]">
+              <Sparkles size={18} className="text-[#234196]" />
+            </span>
+            Career · Studio
           </Link>
-          <p className="text-on-primary-container/80 mt-2 font-medium tracking-wide">
-            {t("auth.brandTagline")}
+          <Link href="/" className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider text-[#5A6B8F] hover:text-[#234196] transition-colors">
+            <ArrowLeft size={14} /> Trang chủ
+          </Link>
+        </div>
+
+        <div className="my-10 lg:my-8">
+          <span className="inline-flex items-center gap-1.5 -rotate-2 rounded-lg border-2 border-[#234196] bg-[#FCB625] px-3 py-1 font-mono text-xs font-bold uppercase tracking-wider text-[#234196] shadow-[2px_2px_0_#234196]">
+            <Sparkles size={14} /> Gia nhập 15.000+ ứng viên đã tối ưu CV
+          </span>
+          <h1 className="mt-6 max-w-2xl font-serif text-3xl font-extrabold leading-[1.1] tracking-normal text-[#234196] sm:text-4xl xl:text-5xl">
+            Rèn luyện phản xạ phỏng vấn thực chất và mở khóa tiềm năng nghề nghiệp.
+          </h1>
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-[#5A6B8F]">
+            Không chiêu trò qua mặt, không mẹo rập khuôn. Chỉ có sự chuẩn bị kỹ lưỡng và năng lực thật được thể hiện đúng cách.
+          </p>
+
+          <article className="relative my-7 rounded-2xl border-2 border-[#234196] bg-white p-5 shadow-[5px_5px_0_#234196] sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <span className="inline-flex -rotate-1 rounded-md border-2 border-[#234196] bg-[#FEF9EE] px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-wider text-[#234196]">
+                Senior Data Analyst
+              </span>
+              <span className="inline-flex rotate-1 rounded-md border-2 border-[#2E7D32] bg-[#E8F5E9] px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-wider text-[#2E7D32]">
+                88% Đạt chuẩn ATS
+              </span>
+            </div>
+            <blockquote className="mt-5 font-serif text-lg leading-relaxed text-[#234196]">
+              “Hệ thống chỉ ra đúng 3 lỗ hổng số liệu trong CV. Sau 2 buổi mock voice, mình tự tin hơn hẳn và đã pass offer tại Tech Corp.”
+            </blockquote>
+            <p className="mt-4 font-mono text-[11px] font-bold text-[#5A6B8F]">
+              Minh Trang · Chuyển việc thành công sau 3 tuần
+            </p>
+          </article>
+
+          <div className="flex flex-wrap gap-2">
+            {[
+              "100% Bảo mật CV",
+              "Không lưu file ghi âm",
+              "Không cần thẻ tín dụng"
+            ].map((badge) => (
+              <span key={badge} className="inline-flex items-center gap-1 rounded-lg border-2 border-[#2E7D32] bg-[#E8F5E9] px-2.5 py-1 font-mono text-[11px] font-bold text-[#2E7D32] shadow-[2px_2px_0_#2E7D32]">
+                <Check size={13} /> {badge}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <p className="font-mono text-xs text-[#5A6B8F]">© 2026 Intervia · Luyện thật, tiến xa</p>
+      </section>
+
+      {/* CỘT PHẢI: FORM XÁC THỰC TỐI GIẢN */}
+      <section className="flex items-center justify-center bg-white p-6 sm:p-10 lg:col-span-7 lg:p-12 xl:p-16">
+        <div className="w-full max-w-[440px]">
+          {/* TAB CHUYỂN ĐỔI CHẾ ĐỘ DẬP NỔI */}
+          <div className="mb-8 flex w-full gap-1 rounded-xl border-2 border-[#234196] bg-[#FEF9EE] p-1 shadow-[3px_3px_0_#234196]" role="tablist" aria-label="Chế độ xác thực">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "login"}
+              onClick={() => switchMode("login")}
+              className={`flex-1 rounded-lg py-2.5 text-sm font-bold transition-all ${
+                mode === "login"
+                  ? "border-2 border-[#234196] bg-[#FCB625] text-[#234196] shadow-[2px_2px_0_#234196]"
+                  : "border-2 border-transparent text-[#5A6B8F] hover:text-[#234196]"
+              }`}
+            >
+              Đăng nhập
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "signup"}
+              onClick={() => switchMode("signup")}
+              className={`flex-1 rounded-lg py-2.5 text-sm font-bold transition-all ${
+                mode === "signup"
+                  ? "border-2 border-[#234196] bg-[#FCB625] text-[#234196] shadow-[2px_2px_0_#234196]"
+                  : "border-2 border-transparent text-[#5A6B8F] hover:text-[#234196]"
+              }`}
+            >
+              Tạo tài khoản
+            </button>
+          </div>
+
+          <h2 className="font-serif text-3xl font-extrabold tracking-normal text-[#234196] sm:text-4xl">
+            {mode === "login" ? "Chào mừng bạn trở lại." : "Bắt đầu chiến dịch mới."}
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-[#5A6B8F]">
+            {mode === "login" ? "Không gian luyện tập của bạn đang sẵn sàng." : "Nhận 3 lượt quét CV đối soát miễn phí, không cần thẻ."}
+          </p>
+
+          {/* NÚT GOOGLE CHUNKY ĐÃ FIX TOÀN DIỆN */}
+          <button
+            type="button"
+            onClick={onGoogleClick}
+            disabled={googleLoading || loading}
+            className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border-2 border-[#234196] bg-white py-3.5 px-4 font-bold text-[#234196] shadow-[3px_3px_0_#234196] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-[#F0F4FC] hover:shadow-[4px_4px_0_#234196] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-60 cursor-pointer"
+          >
+            {googleLoading ? <LoaderCircle className="animate-spin text-[#FCB625]" size={20} /> : <GoogleMark />}
+            <span>{mode === "login" ? "Tiếp tục với Google" : "Đăng ký nhanh với Google"}</span>
+          </button>
+
+          <div className="relative my-7 flex items-center">
+            <span className="w-full border-t-2 border-dashed border-[#234196]/30" />
+            <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border-2 border-[#234196]/20 bg-white px-3 py-0.5 font-mono text-[11px] font-bold text-[#5A6B8F]">
+              hoặc dùng email
+            </span>
+          </div>
+
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="space-y-4">
+              {mode === "signup" && (
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-bold text-[#234196]">Họ và tên</span>
+                  <span className="relative block">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5A6B8F]" size={18} />
+                    <input
+                      type="text"
+                      autoComplete="name"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      className="w-full rounded-xl border-2 border-[#234196] bg-white py-3 pl-11 pr-4 text-sm font-medium text-[#234196] placeholder:text-[#5A6B8F]/70 focus:outline-none focus:shadow-[4px_4px_0_#234196] transition-all"
+                      placeholder="Nguyễn Minh Anh"
+                      aria-invalid={Boolean(formErrors.name)}
+                    />
+                  </span>
+                  {formErrors.name && <span className="mt-1 block text-xs font-bold text-[#D32F2F]">{formErrors.name}</span>}
+                </label>
+              )}
+
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-bold text-[#234196]">Email công việc hoặc cá nhân</span>
+                <span className="relative block">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5A6B8F]" size={18} />
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    className="w-full rounded-xl border-2 border-[#234196] bg-white py-3 pl-11 pr-4 text-sm font-medium text-[#234196] placeholder:text-[#5A6B8F]/70 focus:outline-none focus:shadow-[4px_4px_0_#234196] transition-all"
+                    placeholder="ban@congty.com"
+                    aria-invalid={Boolean(formErrors.email)}
+                  />
+                </span>
+                {formErrors.email && <span className="mt-1 block text-xs font-bold text-[#D32F2F]">{formErrors.email}</span>}
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 flex items-center justify-between gap-3 text-sm font-bold text-[#234196]">
+                  <span>Mật khẩu</span>
+                  {mode === "login" && (
+                    <Link href="#" className="text-xs font-semibold text-[#234196] underline decoration-[#FCB625] decoration-2 underline-offset-4 hover:text-[#D97757]">
+                      Quên mật khẩu?
+                    </Link>
+                  )}
+                </span>
+                <span className="relative block">
+                  <LockKeyhole className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5A6B8F]" size={18} />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    autoComplete={mode === "login" ? "current-password" : "new-password"}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    className="w-full rounded-xl border-2 border-[#234196] bg-white py-3 pl-11 pr-12 text-sm font-medium text-[#234196] placeholder:text-[#5A6B8F]/70 focus:outline-none focus:shadow-[4px_4px_0_#234196] transition-all"
+                    placeholder="••••••••"
+                    aria-invalid={Boolean(formErrors.password)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[#5A6B8F] hover:bg-[#F0F4FC] hover:text-[#234196] transition-colors"
+                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </span>
+                {formErrors.password && <span className="mt-1 block text-xs font-bold text-[#D32F2F]">{formErrors.password}</span>}
+              </label>
+
+              {mode === "signup" && (
+                <div>
+                  <div className="flex gap-1.5">
+                    {[1, 2, 3, 4].map((segment) => (
+                      <span
+                        key={segment}
+                        className={`h-2 flex-1 rounded-full border border-[#234196] transition-all ${
+                          segment <= passwordStrength ? strengthColor : "bg-white"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-1.5 font-mono text-[11px] font-bold text-[#5A6B8F]">Độ mạnh mật khẩu: {strengthLabel}</p>
+                </div>
+              )}
+
+              {mode === "signup" && (
+                <label className="flex cursor-pointer items-start gap-3 text-xs leading-relaxed text-[#5A6B8F]">
+                  <div className="relative flex items-center pt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={agreed}
+                      onChange={(event) => setAgreed(event.target.checked)}
+                      className="peer h-5 w-5 appearance-none rounded-md border-2 border-[#234196] bg-white checked:bg-[#FCB625] transition-all cursor-pointer"
+                    />
+                    <Check
+                      size={14}
+                      className="pointer-events-none absolute left-0.5 top-1 text-[#234196] opacity-0 peer-checked:opacity-100 transition-opacity"
+                    />
+                  </div>
+                  <span>
+                    Tôi đồng ý với{" "}
+                    <Link href="#" className="font-bold text-[#234196] underline decoration-1 underline-offset-2">
+                      Điều khoản Dịch vụ
+                    </Link>{" "}
+                    và Cam kết Bảo mật Dữ liệu Tuyển dụng.
+                  </span>
+                </label>
+              )}
+
+              {formErrors.agreed && <p className="text-xs font-bold text-[#D32F2F]">{formErrors.agreed}</p>}
+              {formErrors.form && (
+                <div className="rounded-xl border-2 border-[#D32F2F] bg-[#FFEBEE] px-4 py-3 text-xs font-bold text-[#D32F2F]" role="alert">
+                  {formErrors.form}
+                </div>
+              )}
+            </div>
+
+            {/* NÚT SUBMIT CHUNKY ĐÃ ĐƯỢC TỐI ƯU RESPONSIVE */}
+            <button
+              type="submit"
+              disabled={loading || googleLoading}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#234196] bg-[#FCB625] py-3.5 px-4 font-serif text-base font-bold text-[#234196] shadow-[4px_4px_0_#234196] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#234196] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-60 cursor-pointer"
+            >
+              {loading ? (
+                <>
+                  <LoaderCircle size={20} className="animate-spin text-[#234196]" />
+                  <span>Đang mở không gian…</span>
+                </>
+              ) : mode === "login" ? (
+                <>
+                  <span>Đăng Nhập Vào Không Gian Làm Việc</span>
+                  <Sparkles size={16} />
+                </>
+              ) : (
+                <>
+                  <span>Tạo Tài Khoản & Nhận 3 Lượt Quét</span>
+                  <Sparkles size={16} />
+                </>
+              )}
+            </button>
+          </form>
+
+          <p className="mt-6 flex items-center justify-center gap-2 text-center text-xs leading-5 text-[#5A6B8F]">
+            <ShieldCheck size={16} className="shrink-0 text-[#2E7D32]" />
+            <span>Mã hóa SSL 256-bit chuẩn ngân hàng. Dữ liệu CV của bạn chỉ thuộc về bạn.</span>
           </p>
         </div>
-        <div className="relative z-10 max-w-lg">
-          <div className="mb-8">
-            <span className="inline-block w-12 h-1 bg-tertiary-fixed mb-6"></span>
-            <h2 className="font-headline font-extrabold text-white text-5xl leading-tight tracking-tight">
-              {t("auth.heroTitle.line1")} <br />
-              {t("auth.heroTitle.line2")} <br />
-              {t("auth.heroTitle.line3")}
-            </h2>
-            <p className="text-white/70 mt-6 text-lg leading-relaxed">
-              {t("auth.heroDesc")}
-            </p>
-          </div>
-          {/* Bento-style feature highlight */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="glass-panel p-6 rounded-xl border border-outline-variant/20">
-              <span
-                className="material-symbols-outlined text-white mb-3"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                psychology
-              </span>
-              <p className="text-white font-bold text-sm">{t("auth.feature.aiInsights.title")}</p>
-              <p className="text-white/60 text-xs mt-1">
-                {t("auth.feature.aiInsights.desc")}
-              </p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl border border-outline-variant/10">
-              <span
-                className="material-symbols-outlined text-white mb-3"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                database
-              </span>
-              <p className="text-white font-bold text-sm">{t("auth.feature.smartCuration.title")}</p>
-              <p className="text-white/60 text-xs mt-1">{t("auth.feature.smartCuration.desc")}</p>
-            </div>
-          </div>
-        </div>
-        <div className="relative z-10 text-white/40 text-xs">
-          {t("auth.rights")}
-        </div>
       </section>
-
-      {/* Right Side: Forms Container */}
-      <section className="w-full md:w-1/2 flex items-center justify-center p-8 md:p-12 lg:p-24 bg-surface">
-        <div className="w-full max-w-md space-y-12">
-          {/* Toggle Navigation */}
-          <div className="flex space-x-8 border-b border-outline-variant/20">
-            <Link
-              href="/login"
-              className={`pb-4 font-headline text-lg tracking-tight ${
-                isLogin
-                  ? "text-primary font-bold border-b-2 border-primary"
-                  : "text-on-surface-variant font-medium hover:text-on-surface transition-colors"
-              }`}
-            >
-              {t("auth.tab.login")}
-            </Link>
-            <Link
-              href="/signup"
-              className={`pb-4 font-headline text-lg tracking-tight ${
-                !isLogin
-                  ? "text-primary font-bold border-b-2 border-primary"
-                  : "text-on-surface-variant font-medium hover:text-on-surface transition-colors"
-              }`}
-            >
-              {t("auth.tab.signup")}
-            </Link>
-            <div className="ml-auto pb-3">
-              <LanguageToggleButton />
-            </div>
-          </div>
-
-          {/* Login Form Section */}
-          {isLogin && (
-            <div className="space-y-8 animate-in fade-in" id="login-section">
-              <div>
-                <h3 className="text-2xl font-headline font-extrabold text-on-surface tracking-tight">
-                  {t("auth.welcomeBack")}
-                </h3>
-                <p className="text-on-surface-variant text-sm mt-1">
-                  {t("auth.welcomeBack.subtitle")}
-                </p>
-              </div>
-              <form className="space-y-6" onSubmit={onLoginSubmit}>
-                <div className="space-y-4">
-                  <div className="group">
-                    <label
-                      className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 ml-1"
-                      htmlFor="login-email"
-                    >
-                      {t("auth.email")}
-                    </label>
-                    <input
-                      className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none"
-                      id="login-email"
-                      placeholder="name@company.com"
-                      type="email"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                    />
-                  </div>
-                  <div className="group">
-                    <div className="flex justify-between items-center mb-2">
-                      <label
-                        className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest ml-1"
-                        htmlFor="login-password"
-                      >
-                        {t("auth.password")}
-                      </label>
-                      <Link
-                        className="text-xs font-semibold text-primary hover:underline"
-                        href="#"
-                      >
-                        {t("auth.forgotPassword")}
-                      </Link>
-                    </div>
-                    <input
-                      className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none"
-                      id="login-password"
-                      placeholder="••••••••"
-                      type="password"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                    />
-                  </div>
-                </div>
-                {loginError ? (
-                  <div className="rounded-xl border border-error/20 bg-error-container/20 px-4 py-3 text-sm text-error">
-                    {loginError}
-                  </div>
-                ) : null}
-                {googleError ? (
-                  <div className="rounded-xl border border-error/20 bg-error-container/20 px-4 py-3 text-sm text-error">
-                    {googleError}
-                  </div>
-                ) : null}
-                <button
-                  className="w-full py-4 bg-primary text-white font-bold rounded-xl hover:bg-primary-container active:scale-[0.98] transition-all shadow-lg shadow-primary/10"
-                  type="submit"
-                  disabled={loginLoading}
-                >
-                  {loginLoading ? t("auth.signingIn") : t("auth.signIn")}
-                </button>
-                <div className="relative flex items-center py-2">
-                  <div className="flex-grow border-t border-outline-variant/30"></div>
-                  <span className="flex-shrink mx-4 text-xs font-bold text-outline uppercase tracking-tighter">
-                    {t("auth.orContinueWith")}
-                  </span>
-                  <div className="flex-grow border-t border-outline-variant/30"></div>
-                </div>
-                <button
-                  className="w-full py-4 flex items-center justify-center gap-3 bg-surface-container-lowest border border-outline-variant/30 text-on-surface font-semibold rounded-xl hover:bg-surface-container-low active:scale-[0.98] transition-all"
-                  type="button"
-                  onClick={onGoogleClick}
-                  disabled={googleLoading}
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24">
-                     <path
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      fill="#4285F4"
-                    ></path>
-                    <path
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      fill="#34A853"
-                    ></path>
-                    <path
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-                      fill="#FBBC05"
-                    ></path>
-                    <path
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                      fill="#EA4335"
-                    ></path>
-                  </svg>
-                  {googleLoading ? t("auth.signingInWithGoogle") : t("auth.loginWithGoogle")}
-                </button>
-              </form>
-            </div>
-          )}
-
-          {/* Sign Up Form Section */}
-          {!isLogin && (
-            <div
-              className="space-y-8 animate-in fade-in"
-              id="signup-section"
-            >
-              <div>
-                <h3 className="text-2xl font-headline font-extrabold text-on-surface tracking-tight">
-                  {t("auth.createAccount")}
-                </h3>
-                <p className="text-on-surface-variant text-sm mt-1">
-                  {t("auth.createAccount.subtitle")}
-                </p>
-              </div>
-              <form className="space-y-6" onSubmit={onSignupSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="group">
-                    <label
-                      className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 ml-1"
-                      htmlFor="signup-name"
-                    >
-                      {t("auth.fullName")}
-                    </label>
-                    <input
-                      className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none"
-                      id="signup-name"
-                      placeholder="John Doe"
-                      type="text"
-                      value={signupName}
-                      onChange={(e) => setSignupName(e.target.value)}
-                    />
-                  </div>
-                  <div className="group">
-                    <label
-                      className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 ml-1"
-                      htmlFor="signup-email"
-                    >
-                      {t("auth.email")}
-                    </label>
-                    <input
-                      className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none"
-                      id="signup-email"
-                      placeholder="name@company.com"
-                      type="email"
-                      value={signupEmail}
-                      onChange={(e) => setSignupEmail(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="group">
-                    <label
-                      className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 ml-1"
-                      htmlFor="signup-dob"
-                    >
-                      {t("auth.dateOfBirth")}
-                    </label>
-                    <input
-                      className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none"
-                      id="signup-dob"
-                      type="date"
-                      value={signupDob}
-                      onChange={(e) => setSignupDob(e.target.value)}
-                    />
-                  </div>
-                  <div className="group">
-                    <label
-                      className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 ml-1"
-                      htmlFor="signup-type"
-                    >
-                      {t("auth.userType")}
-                    </label>
-                    <select
-                      className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none appearance-none cursor-pointer"
-                      id="signup-type"
-                      value={signupType}
-                      onChange={(e) => setSignupType(e.target.value)}
-                    >
-                      <option disabled value="">
-                        {t("auth.userType.placeholder")}
-                      </option>
-                      <option value="student">{t("auth.userType.student")}</option>
-                      <option value="candidate">{t("auth.userType.candidate")}</option>
-                      <option value="employed">{t("auth.userType.employed")}</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="group">
-                  <label
-                    className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 ml-1"
-                    htmlFor="signup-password"
-                  >
-                    {t("auth.password")}
-                  </label>
-                  <input
-                    className="w-full px-5 py-4 bg-surface-container-highest border-none rounded-xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-surface-tint focus:bg-surface-container-lowest transition-all outline-none"
-                    id="signup-password"
-                    placeholder={t("auth.passwordHint")}
-                    type="password"
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                  />
-                </div>
-                {signupError ? (
-                  <div className="rounded-xl border border-error/20 bg-error-container/20 px-4 py-3 text-sm text-error">
-                    {signupError}
-                  </div>
-                ) : null}
-                <button
-                  className="w-full py-4 bg-tertiary text-white font-bold rounded-xl hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-tertiary/10"
-                  type="submit"
-                  disabled={signupLoading}
-                >
-                  {signupLoading ? "Signing Up..." : t("auth.createAccount.cta")}
-                </button>
-
-                <div className="relative flex items-center py-2">
-                  <div className="flex-grow border-t border-outline-variant/30"></div>
-                  <span className="flex-shrink mx-4 text-xs font-bold text-outline uppercase tracking-tighter">
-                    {t("auth.orContinueWith")}
-                  </span>
-                  <div className="flex-grow border-t border-outline-variant/30"></div>
-                </div>
-                {googleError ? (
-                  <div className="rounded-xl border border-error/20 bg-error-container/20 px-4 py-3 text-sm text-error">
-                    {googleError}
-                  </div>
-                ) : null}
-
-                <button
-                  className="w-full py-4 flex items-center justify-center gap-3 bg-surface-container-lowest border border-outline-variant/30 text-on-surface font-semibold rounded-xl hover:bg-surface-container-low active:scale-[0.98] transition-all"
-                  type="button"
-                  onClick={onGoogleClick}
-                  disabled={googleLoading}
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24">
-                    <path
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      fill="#4285F4"
-                    ></path>
-                    <path
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      fill="#34A853"
-                    ></path>
-                    <path
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-                      fill="#FBBC05"
-                    ></path>
-                    <path
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                      fill="#EA4335"
-                    ></path>
-                  </svg>
-                  {googleLoading ? t("auth.signingInWithGoogle") : t("auth.signUpWithGoogle")}
-                </button>
-              </form>
-            </div>
-          )}
-
-          {/* Subtle Help Footer */}
-          <div className="text-center">
-            <p className="text-xs text-on-surface-variant">
-              {t("auth.byContinuing")}{" "}
-              <Link
-                href="#"
-                className="text-primary font-semibold hover:underline"
-              >
-                {t("footer.terms")}
-              </Link>{" "}
-              and{" "}
-              <Link
-                href="#"
-                className="text-primary font-semibold hover:underline"
-              >
-                {t("footer.privacy")}
-              </Link>
-              .
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Floating Branding Anchor (Mobile Only) */}
-      <div className="md:hidden fixed top-6 left-6 z-50">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 overflow-hidden rounded-lg flex items-center justify-center">
-            <img src="/logo.jpg" alt="INTERVIA Logo" className="w-full h-full object-cover" />
-          </div>
-          <h1 className="font-headline font-black text-primary text-2xl tracking-tighter">
-            INTERVIA
-          </h1>
-        </Link>
-      </div>
-    </div>
+    </main>
   );
 }
