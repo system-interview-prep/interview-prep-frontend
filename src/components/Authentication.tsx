@@ -7,12 +7,9 @@ import { ArrowLeft, Check, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, ShieldC
 import { useLanguage } from "../i18n/LanguageProvider";
 import { useGoogleLogin } from "@react-oauth/google";
 import { readAuthProfile, writeAuthProfile } from "../auth/authProfile";
-import { authApi } from "../services/api";
-import { API_BASE_URL } from "../constants";
+import { authApi, type AuthResponse } from "../services/api";
 
 type AuthMode = "login" | "signup";
-type AuthUser = { email?: string | null; name?: string | null; role?: string; picture?: string | null; avatar?: string | null };
-type AuthPayload = { access_token?: string; user?: AuthUser };
 
 function pickUserPicture(user: unknown): string | null {
   if (!user || typeof user !== "object") return null;
@@ -29,17 +26,6 @@ function errorMessage(error: unknown, fallback: string) {
     return value.response?.data?.message || value.message || fallback;
   }
   return fallback;
-}
-
-async function fetchPicture(url: string, accessToken: string): Promise<string | null> {
-  try {
-    const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-    if (!response.ok) return null;
-    const profile = await response.json();
-    return pickUserPicture(profile);
-  } catch {
-    return null;
-  }
 }
 
 function GoogleMark() {
@@ -71,7 +57,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
   const nextUrl = useMemo(() => {
     const next = searchParams.get("next");
     if (!next) return null;
-    return next.startsWith("/") ? next : `/${next}`;
+    return next.startsWith("/") && !next.startsWith("//") ? next : "/" + next.replace(/^\/+/, "");
   }, [searchParams]);
 
   const passwordStrength = useMemo(() => {
@@ -89,20 +75,16 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
   }
 
   function setRoleCookie(role: "admin" | "user") {
-    document.cookie = `role=${role}; Path=/; SameSite=Lax; Max-Age=31536000`;
+    document.cookie = "role=" + role + "; Path=/; SameSite=Lax; Max-Age=604800";
   }
 
-  async function completeAuth(data: AuthPayload, googleToken?: string) {
-    const accessToken = data.access_token ?? "";
-    const apiPicture = accessToken ? await fetchPicture(`${API_BASE_URL}/user/profile`, accessToken) : null;
-    const googlePicture = googleToken ? await fetchPicture("https://www.googleapis.com/oauth2/v3/userinfo", googleToken) : null;
-    const picture = apiPicture || pickUserPicture(data.user) || googlePicture || readAuthProfile()?.picture?.trim() || null;
-    if (accessToken) {
-      localStorage.setItem("accessToken", accessToken);
-      document.cookie = `access_token=${accessToken}; Path=/; SameSite=Lax; Max-Age=31536000`;
-    }
-    if (data.user) writeAuthProfile({ email: data.user.email ?? null, name: data.user.name ?? null, picture });
-    const admin = String(data.user?.role ?? "").toUpperCase() === "ADMIN";
+  async function completeAuth(data: AuthResponse) {
+    const accessToken = data.access_token;
+    const picture = pickUserPicture(data.user) || readAuthProfile()?.picture?.trim() || null;
+    localStorage.setItem("accessToken", accessToken);
+    document.cookie = "access_token=" + accessToken + "; Path=/; SameSite=Lax; Max-Age=604800";
+    writeAuthProfile({ email: data.user.email, name: data.user.name, picture });
+    const admin = data.user.role === "ADMIN";
     setRoleCookie(admin ? "admin" : "user");
     router.replace(nextUrl ?? (admin ? "/admin/dashboard" : "/dashboard"));
   }
@@ -121,7 +103,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
         setGoogleLoading(true);
         setFormErrors({});
         const response = await authApi.googleLogin(token.access_token);
-        await completeAuth(response.data, token.access_token);
+        await completeAuth(response.data);
       } catch (error) {
         setFormErrors({ form: errorMessage(error, t("auth.error.googleFailed")) });
       } finally {
@@ -155,7 +137,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
     if (mode === "signup" && !name.trim()) errors.name = "Vui lòng nhập họ và tên.";
     if (!email.trim()) errors.email = "Vui lòng nhập email.";
     if (!password) errors.password = "Vui lòng nhập mật khẩu.";
-    if (mode === "signup" && passwordStrength < 2) errors.password = "Mật khẩu cần ít nhất 8 ký tự, gồm chữ hoa/thường hoặc số.";
+    if (mode === "signup" && !(password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /\d/.test(password))) errors.password = "Mật khẩu cần ít nhất 8 ký tự, gồm chữ hoa, chữ thường và số.";
     if (mode === "signup" && !agreed) errors.agreed = "Bạn cần đồng ý với điều khoản và cam kết bảo mật.";
     if (Object.keys(errors).length) {
       setFormErrors(errors);
@@ -166,10 +148,10 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
       setLoading(true);
       setFormErrors({});
       const normalizedEmail = email.trim().toLowerCase();
-      if (mode === "signup") {
-        await authApi.register(name.trim(), normalizedEmail, password, "", "CANDIDATE");
-      }
-      const response = await authApi.login(normalizedEmail, password);
+      const response =
+        mode === "signup"
+          ? await authApi.register(name.trim(), normalizedEmail, password)
+          : await authApi.login(normalizedEmail, password);
       await completeAuth(response.data);
     } catch (error) {
       setFormErrors({ form: errorMessage(error, mode === "login" ? "Đăng nhập thất bại." : "Không thể tạo tài khoản.") });

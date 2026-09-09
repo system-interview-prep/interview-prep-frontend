@@ -225,7 +225,6 @@ export default function AdminJobProfilesPanel() {
     startTransition(() => {
       router.replace("/admin/dashboard?page=1", { scroll: false });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch, categoryFilter, sort]);
 
   useEffect(() => {
