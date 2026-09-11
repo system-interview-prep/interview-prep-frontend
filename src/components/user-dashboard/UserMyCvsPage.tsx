@@ -2,7 +2,6 @@
 
 import axios from "axios";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import LanguageToggleButton from "@/components/LanguageToggleButton";
 import CareerClassificationSummary from "@/components/cv/CareerClassificationSummary";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useCvProcessingStatus } from "@/hooks/useCvProcessingStatus";
@@ -107,16 +106,16 @@ function effectiveCvStatus(file: CvFile): CvProcessingStatus | null {
 function statusBadgeClass(status: CvProcessingStatus | null | undefined) {
   switch (status) {
     case "DONE":
-      return "bg-emerald-100 text-emerald-700";
+      return "bg-emerald-100 text-emerald-800";
     case "FAILED":
-      return "bg-red-100 text-red-700";
+      return "bg-red-100 text-red-800";
     case "AI_PROCESSING":
-      return "bg-amber-100 text-amber-700";
+      return "bg-amber-100 text-amber-800";
     case "PARSING":
-      return "bg-sky-100 text-sky-700";
+      return "bg-sky-100 text-sky-800";
     case "PENDING":
     default:
-      return "bg-surface-container-high text-on-surface-variant";
+      return "bg-[#E8EDF8] text-[#5A6B8F]";
   }
 }
 
@@ -369,9 +368,9 @@ export default function UserMyCvsPage() {
 
   const typeBadgeClass = (f: CvFile) => {
     const k = fileKind(f.name, f.contentType);
-    if (k === "pdf") return "bg-error-container text-error";
-    if (k === "word") return "bg-primary/12 text-primary";
-    return "bg-surface-container text-on-surface-variant";
+    if (k === "pdf") return "bg-[#FFEBEE] text-[#C9362B]";
+    if (k === "word") return "bg-[#E8EDF8] text-[#234196]";
+    return "bg-[#EEF1F6] text-[#5A6B8F]";
   };
 
   const typeIconClass = (f: CvFile) => {
@@ -393,23 +392,28 @@ export default function UserMyCvsPage() {
   };
 
   const selectClass =
-    "rounded-xl border border-outline-variant/25 bg-surface-container-lowest px-3 py-2 text-sm font-medium text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15";
+    "h-11 w-full min-w-0 rounded-lg border border-[#AAB8D6] bg-white px-3 text-sm font-semibold text-[#234196] outline-none transition-colors focus:border-[#234196] focus:ring-2 focus:ring-[#FCB625]/50 disabled:cursor-not-allowed disabled:bg-[#E5EAF5] disabled:text-[#7A87A5]";
+  const filterLabelClass =
+    "mb-1.5 block h-4 truncate text-[10px] font-bold uppercase leading-4 tracking-[0.14em] text-[#5A6B8F]";
+  const badgeClass =
+    "inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-bold uppercase";
 
   return (
-    <main className="min-h-screen bg-surface p-4 md:p-8">
-      <header className="mb-8 flex flex-col gap-4 border-b border-outline-variant/15 pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="font-headline text-xl font-extrabold tracking-tight text-on-surface md:text-2xl">
+    <main className="paper-dots min-h-screen bg-[#FEF9EE] px-4 py-6 text-[#234196] sm:px-6 md:px-8 md:py-10 lg:px-10 xl:px-12">
+      <div className="mx-auto max-w-[1120px]">
+      <header className="mb-8 border-b-2 border-[#234196] pb-7">
+        <div className="max-w-2xl">
+          <span className="sticker -rotate-1 bg-[#FCB625]">{t("userDash.myCvs.eyebrow")}</span>
+          <h1 className="mt-4 font-headline text-4xl font-extrabold tracking-tight md:text-5xl">
             {t("userDash.myCvs.headerTitle")}
           </h1>
-          <p className="mt-1 text-sm text-on-surface-variant">{t("userDash.myCvs.headerSubtitle")}</p>
+          <p className="mt-3 text-sm leading-6 text-[#5A6B8F]">{t("userDash.myCvs.headerSubtitle")}</p>
         </div>
-        <LanguageToggleButton />
       </header>
 
-      <div className="mx-auto max-w-4xl">
+      <div>
         <div className="space-y-8">
-          <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-white/80 p-1 shadow-sm backdrop-blur-md dark:border-outline-variant/30 dark:bg-surface-container-lowest/90">
+          <div className="overflow-hidden rounded-2xl border-2 border-[#234196] bg-white p-1 shadow-[5px_5px_0_#234196]">
             <div
               role="region"
               aria-label={t("userDash.myCvs.uploadDropRegionAria")}
@@ -424,37 +428,37 @@ export default function UserMyCvsPage() {
               onDragOver={(e) => e.preventDefault()}
               onDrop={onDrop}
               className={`group flex flex-col items-center rounded-[calc(1rem-4px)] border-2 border-dashed p-8 text-center transition-colors md:p-12 ${
-                dragOver ? "border-primary bg-primary/5" : "border-outline-variant/35"
+                dragOver ? "border-[#234196] bg-[#FCB625]/20" : "border-[#234196] bg-[#F0F4FC]"
               }`}
             >
-              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-primary-fixed/50 transition-transform duration-300 group-hover:scale-110 dark:bg-primary-fixed/25 motion-reduce:transform-none">
+              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-[#234196] bg-[#FCB625] transition-transform duration-300 group-hover:-rotate-2 motion-reduce:transform-none">
                 <span
-                  className="material-symbols-outlined text-4xl text-primary"
+                  className="material-symbols-outlined text-4xl text-[#234196]"
                   style={{ fontVariationSettings: "'FILL' 1" }}
                 >
                   upload_file
                 </span>
               </div>
-              <h3 className="font-headline text-2xl font-bold text-on-surface">{t("userDash.myCvs.uploadTitle")}</h3>
-              <p className="mb-8 max-w-sm text-on-surface-variant">{t("userDash.myCvs.uploadHint")}</p>
+              <h2 className="font-headline text-3xl font-bold">{t("userDash.myCvs.uploadTitle")}</h2>
+              <p className="mb-8 mt-2 max-w-md text-sm leading-6 text-[#5A6B8F]">{t("userDash.myCvs.uploadHint")}</p>
               <div className="mb-8 flex flex-wrap justify-center gap-3">
                 <button
                   type="button"
                   onClick={() => inputPdfRef.current?.click()}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container/50 px-4 py-2 transition-colors hover:border-primary/40 hover:bg-primary/5 dark:bg-surface-container-low/80"
+                  className="chunky-secondary min-h-11 cursor-pointer px-4 text-sm"
                   aria-label={t("userDash.myCvs.pickPdf")}
                 >
                   <span className="material-symbols-outlined text-sm text-error">picture_as_pdf</span>
-                  <span className="text-sm font-semibold text-on-surface">PDF</span>
+                  <span className="font-bold">PDF</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => inputWordRef.current?.click()}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container/50 px-4 py-2 transition-colors hover:border-primary/40 hover:bg-primary/5 dark:bg-surface-container-low/80"
+                  className="chunky-primary min-h-11 cursor-pointer px-4 text-sm"
                   aria-label={t("userDash.myCvs.pickWord")}
                 >
                   <span className="material-symbols-outlined text-sm text-primary">description</span>
-                  <span className="text-sm font-semibold text-on-surface">DOCX</span>
+                  <span className="font-bold">DOCX</span>
                 </button>
               </div>
               <input
@@ -472,7 +476,7 @@ export default function UserMyCvsPage() {
                 onChange={onUpload}
               />
               {analyzeError && (
-                <p className="mt-4 text-sm text-error" role="alert">
+                <p className="mt-4 rounded-xl border-2 border-[#D32F2F] bg-[#FFEBEE] px-4 py-3 text-sm text-[#8F1D1D]" role="alert">
                   {analyzeError}
                 </p>
               )}
@@ -481,16 +485,16 @@ export default function UserMyCvsPage() {
 
           {trackingCvId ? (
             <div
-              className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-on-surface"
+              className="flex items-start gap-3 rounded-xl border-2 border-[#234196] bg-[#FCB625]/20 px-4 py-3 shadow-[3px_3px_0_#234196]"
               role="status"
               aria-live="polite"
             >
-              <span className="material-symbols-outlined mt-0.5 shrink-0 animate-spin text-primary">
+              <span className="material-symbols-outlined mt-0.5 shrink-0 animate-spin text-[#234196] motion-reduce:animate-none">
                 progress_activity
               </span>
               <div className="min-w-0 flex-1">
                 <p className="font-headline text-sm font-bold">{t("userDash.myCvs.processingTitle")}</p>
-                <p className="mt-0.5 text-sm text-on-surface-variant">
+                <p className="mt-0.5 text-sm text-[#5A6B8F]">
                   {labelForCvStatus(t, cvProcessStatus)}
                 </p>
                 {cvStatusPayload?.status === "FAILED" && cvStatusPayload.error ? (
@@ -500,81 +504,107 @@ export default function UserMyCvsPage() {
             </div>
           ) : null}
 
-          <section className="rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-4 shadow-sm md:p-6">
+          <section className="rounded-2xl border border-[#C8D2E8] bg-white p-4 shadow-[0_12px_32px_rgba(35,65,150,0.08)] md:p-6">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="font-headline text-lg font-bold text-on-surface">{t("userDash.myCvs.listTitle")}</h2>
-                <p className="mt-0.5 text-xs text-on-surface-variant">
+                <h2 className="font-headline text-2xl font-bold">{t("userDash.myCvs.listTitle")}</h2>
+                <p className="mt-1 text-xs text-[#5A6B8F]">
                   {apiConnected ? t("userDash.myCvs.listHintApi") : t("userDash.myCvs.listHint")}
                 </p>
               </div>
-              <p className="text-xs font-medium text-on-surface-variant">
+              <p className="w-fit rounded-full bg-[#FCB625] px-3 py-1.5 font-metadata text-[9px] font-bold uppercase tracking-[0.12em] text-[#234196]">
                 {t("userDash.myCvs.listCount").replace("{count}", String(filtered.length))}
               </p>
             </div>
 
             {listError && (
               <div
-                className="mb-4 rounded-lg border border-error/25 bg-error-container/15 px-3 py-2 text-sm text-error"
+                className="mb-4 rounded-xl border-2 border-[#D32F2F] bg-[#FFEBEE] px-4 py-3 text-sm text-[#8F1D1D]"
                 role="alert"
               >
                 {listError}
               </div>
             )}
 
-            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
-              <div className="relative min-w-0 flex-1 lg:min-w-[220px]">
-                <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant/70">
-                  search
-                </span>
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={t("userDash.myCvs.searchPlaceholder")}
-                  className="w-full rounded-xl border border-outline-variant/25 bg-surface py-2.5 pl-10 pr-3 text-sm text-on-surface shadow-sm placeholder:text-on-surface-variant/55 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10"
-                  aria-label={t("userDash.myCvs.searchPlaceholder")}
-                />
+            <div className="mb-6 grid grid-cols-1 gap-3 rounded-xl bg-[#F0F4FC] p-4 sm:grid-cols-2 xl:grid-cols-[minmax(180px,1.1fr)_minmax(220px,1.35fr)_minmax(115px,.65fr)_minmax(145px,.8fr)_minmax(125px,.7fr)]">
+              <div className="min-w-0 sm:col-span-2 xl:col-span-1">
+                <label htmlFor="cv-search" className={filterLabelClass}>
+                  {t("userDash.myCvs.searchLabel")}
+                </label>
+                <div className="relative">
+                  <span
+                    className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center text-[20px] leading-none text-[#5A6B8F]"
+                    aria-hidden="true"
+                  >
+                    search
+                  </span>
+                  <input
+                    id="cv-search"
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder={t("userDash.myCvs.searchPlaceholder")}
+                    className="h-11 w-full rounded-lg border border-[#AAB8D6] bg-white pl-10 pr-3 text-sm font-semibold text-[#234196] outline-none transition-colors placeholder:font-normal placeholder:text-[#7A87A5] focus:border-[#234196] focus:ring-2 focus:ring-[#FCB625]/50"
+                  />
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="min-w-0">
+                <label htmlFor="cv-career-filter" className={filterLabelClass}>
+                  {t("userDash.myCvs.filterCareerLabel")}
+                </label>
                 <select
+                  id="cv-career-filter"
                   value={careerCode}
                   onChange={(event) => setCareerCode(event.target.value)}
                   className={selectClass}
-                  aria-label="Lọc theo nhóm nghề nghiệp"
                   disabled={!apiConnected || careerTaxonomy.length === 0}
                 >
-                  <option value="">Tất cả nhóm nghề</option>
+                  <option value="">{t("userDash.myCvs.filterCareerAll")}</option>
                   {careerTaxonomy.map((item) => (
                     <option key={item.code} value={item.code}>{item.label} · {item.dimension}</option>
                   ))}
                 </select>
+              </div>
+              <div className="min-w-0">
+                <label htmlFor="cv-type-filter" className={filterLabelClass}>
+                  {t("userDash.myCvs.filterTypeLabel")}
+                </label>
                 <select
+                  id="cv-type-filter"
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
                   className={selectClass}
-                  aria-label={t("userDash.myCvs.filterTypeLabel")}
                 >
                   <option value="all">{t("userDash.myCvs.filterTypeAll")}</option>
                   <option value="pdf">{t("userDash.myCvs.filterTypePdf")}</option>
                   <option value="word">{t("userDash.myCvs.filterTypeWord")}</option>
                 </select>
+              </div>
+              <div className="min-w-0">
+                <label htmlFor="cv-date-filter" className={filterLabelClass}>
+                  {t("userDash.myCvs.filterDateLabel")}
+                </label>
                 <select
+                  id="cv-date-filter"
                   value={dateFilter}
                   onChange={(e) => setDateFilter(e.target.value as DateFilter)}
                   className={selectClass}
-                  aria-label={t("userDash.myCvs.filterDateLabel")}
                 >
                   <option value="all">{t("userDash.myCvs.filterDateAll")}</option>
                   <option value="7d">{t("userDash.myCvs.filterDate7d")}</option>
                   <option value="30d">{t("userDash.myCvs.filterDate30d")}</option>
                   <option value="90d">{t("userDash.myCvs.filterDate90d")}</option>
                 </select>
+              </div>
+              <div className="min-w-0">
+                <label htmlFor="cv-sort" className={filterLabelClass}>
+                  {t("userDash.myCvs.sortLabel")}
+                </label>
                 <select
+                  id="cv-sort"
                   value={sort}
                   onChange={(e) => setSort(e.target.value as SortKey)}
                   className={selectClass}
-                  aria-label={t("userDash.myCvs.sortLabel")}
                 >
                   <option value="newest">{t("userDash.myCvs.sortNewest")}</option>
                   <option value="oldest">{t("userDash.myCvs.sortOldest")}</option>
@@ -584,90 +614,101 @@ export default function UserMyCvsPage() {
             </div>
 
             {initialLoading ? (
-              <p className="py-10 text-center text-sm text-on-surface-variant">{t("admin.jobProfile.loading")}</p>
+              <div className="space-y-3 py-3" role="status" aria-label={t("admin.jobProfile.loading")}>{[0, 1, 2].map((item) => <div key={item} className="h-20 animate-pulse rounded-xl bg-[#F0F4FC] motion-reduce:animate-none" />)}</div>
             ) : files.length === 0 ? (
-              <p className="py-10 text-center text-sm text-on-surface-variant">{t("userDash.myCvs.emptyList")}</p>
+              <div className="rounded-xl border-2 border-dashed border-[#234196] bg-[#F0F4FC] px-5 py-12 text-center"><span className="material-symbols-outlined text-4xl" aria-hidden="true">description</span><p className="mt-3 text-sm text-[#5A6B8F]">{t("userDash.myCvs.emptyList")}</p></div>
             ) : filtered.length === 0 ? (
-              <p className="py-10 text-center text-sm text-on-surface-variant">{t("userDash.myCvs.emptyFiltered")}</p>
+              <div className="rounded-xl border-2 border-dashed border-[#234196] bg-[#FEF9EE] px-5 py-12 text-center"><span className="material-symbols-outlined text-4xl" aria-hidden="true">search_off</span><p className="mt-3 text-sm text-[#5A6B8F]">{t("userDash.myCvs.emptyFiltered")}</p></div>
             ) : (
               <>
-                <div className="hidden overflow-x-auto md:block">
-                  <table className="w-full min-w-[560px] border-collapse text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-outline-variant/15 text-xs font-bold uppercase tracking-wider text-on-surface-variant">
-                        <th className="py-3 pr-4">{t("userDash.myCvs.colCandidate")}</th>
-                        <th className="py-3 pr-4">{t("userDash.myCvs.colType")}</th>
-                        <th className="py-3 pr-4">{t("userDash.myCvs.colUploaded")}</th>
-                        <th className="w-24 py-3 text-right">{t("userDash.myCvs.colActions")}</th>
+                <div className="hidden overflow-hidden rounded-xl border border-[#C8D2E8] md:block">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[780px] border-collapse text-left text-sm">
+                      <thead>
+                      <tr className="border-b border-[#C8D2E8] bg-[#F0F4FC] text-xs font-bold uppercase tracking-[0.12em] text-[#234196]">
+                        <th className="px-4 py-3">{t("userDash.myCvs.colCandidate")}</th>
+                        <th className="px-4 py-3">{t("userDash.myCvs.colType")}</th>
+                        <th className="px-4 py-3">{t("userDash.myCvs.colStatus")}</th>
+                        <th className="px-4 py-3">{t("userDash.myCvs.colUploaded")}</th>
+                        <th className="w-24 px-4 py-3 text-center">{t("userDash.myCvs.colActions")}</th>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-outline-variant/10">
+                      </thead>
+                      <tbody className="divide-y divide-[#DCE3F1] bg-white">
                       {filtered.map((f) => (
-                        <tr key={f.id} className="hover:bg-surface-container/40">
-                          <td className="py-3 pr-4 align-top">
-                            <div className="flex items-start gap-2">
-                              <span className={`material-symbols-outlined mt-0.5 shrink-0 ${typeIconClass(f)}`}>
-                                {extIcon(f.name, f.contentType)}
+                        <tr key={f.id} className="transition-colors hover:bg-[#FEF9EE]">
+                          <td className="px-4 py-4 align-middle">
+                            <div className="flex items-start gap-3">
+                              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F0F4FC]" aria-hidden="true">
+                                <span className={`material-symbols-outlined inline-block select-none text-[22px] leading-none ${typeIconClass(f)}`}>
+                                  {extIcon(f.name, f.contentType)}
+                                </span>
                               </span>
                               <div className="min-w-0">
-                                <p className="font-semibold text-on-surface">{displayName(f.name)}</p>
-                                  <p className="truncate text-xs text-on-surface-variant">{f.name}</p>
+                                <p className="font-semibold text-[#234196]">{displayName(f.name)}</p>
+                                  <p className="truncate text-xs text-[#5A6B8F]">{f.name}</p>
                                   <CareerClassificationSummary status={effectiveCvStatus(f) ?? undefined} parsedData={f.parsedData} compact />
-                                  {effectiveCvStatus(f) ? (
-                                    <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(effectiveCvStatus(f))}`}>
-                                      {labelForCvStatus(t, effectiveCvStatus(f))}
-                                    </span>
-                                  ) : null}
                               </div>
                             </div>
                           </td>
-                          <td className="py-3 pr-4 align-top">
-                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${typeBadgeClass(f)}`}>
+                          <td className="px-4 py-4 align-middle">
+                            <span className={`${badgeClass} ${typeBadgeClass(f)}`}>
                               {typeLabel(f)}
                             </span>
                           </td>
-                          <td className="py-3 pr-4 align-top text-on-surface-variant whitespace-nowrap">
+                          <td className="px-4 py-4 align-middle">
+                            {effectiveCvStatus(f) ? (
+                              <span className={`${badgeClass} whitespace-nowrap ${statusBadgeClass(effectiveCvStatus(f))}`}>
+                                {labelForCvStatus(t, effectiveCvStatus(f))}
+                              </span>
+                            ) : (
+                              <span className="text-[#7A87A5]">—</span>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-4 align-middle text-[#5A6B8F]">
                             {formatDate(f.uploadedAt)}
                           </td>
-                          <td className="py-3 text-right align-top">
+                          <td className="px-4 py-4 text-center align-middle">
                             <button
                               type="button"
                               onClick={() => confirmRemoveFile(f.id)}
-                              className="inline-flex rounded-lg p-2 text-error hover:bg-error-container/20"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#C9362B] transition-colors hover:bg-[#FFF0EE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FCB625]"
                               aria-label={t("profile.removeAria")}
                             >
-                              <span className="material-symbols-outlined text-[20px]">delete</span>
+                              <span className="material-symbols-outlined text-[20px] leading-none" aria-hidden="true">delete</span>
                             </button>
                           </td>
                         </tr>
                       ))}
-                    </tbody>
-                  </table>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
                 <ul className="space-y-3 md:hidden">
                   {filtered.map((f) => (
                     <li
                       key={f.id}
-                      className="rounded-xl border border-outline-variant/15 bg-surface-container p-4"
+                      className="rounded-xl border border-[#C8D2E8] bg-white p-4 shadow-sm"
                     >
                       <div className="flex items-start gap-3">
-                        <span className={`material-symbols-outlined ${typeIconClass(f)}`}>
-                          {extIcon(f.name, f.contentType)}
+                        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F0F4FC]" aria-hidden="true">
+                          <span className={`material-symbols-outlined inline-block select-none text-[22px] leading-none ${typeIconClass(f)}`}>
+                            {extIcon(f.name, f.contentType)}
+                          </span>
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-on-surface">{displayName(f.name)}</p>
-                          <p className="truncate text-xs text-on-surface-variant">{f.name}</p>
+                          <p className="font-semibold text-[#234196]">{displayName(f.name)}</p>
+                          <p className="truncate text-xs text-[#5A6B8F]">{f.name}</p>
                           <CareerClassificationSummary status={effectiveCvStatus(f) ?? undefined} parsedData={f.parsedData} compact />
                           {effectiveCvStatus(f) ? (
                             <div className="mt-2">
-                              <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(effectiveCvStatus(f))}`}>
+                              <span className={`${badgeClass} ${statusBadgeClass(effectiveCvStatus(f))}`}>
                                 {labelForCvStatus(t, effectiveCvStatus(f))}
                               </span>
                             </div>
                           ) : null}
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
-                            <span className={`rounded-full px-2 py-0.5 font-bold uppercase ${typeBadgeClass(f)}`}>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#5A6B8F]">
+                            <span className={`${badgeClass} ${typeBadgeClass(f)}`}>
                               {typeLabel(f)}
                             </span>
                             <span>{formatDate(f.uploadedAt)}</span>
@@ -676,10 +717,10 @@ export default function UserMyCvsPage() {
                         <button
                           type="button"
                           onClick={() => confirmRemoveFile(f.id)}
-                          className="shrink-0 rounded-lg p-2 text-error hover:bg-error-container/20"
+                          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-[#C9362B] transition-colors hover:bg-[#FFF0EE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FCB625]"
                           aria-label={t("profile.removeAria")}
                         >
-                          <span className="material-symbols-outlined text-[20px]">delete</span>
+                          <span className="material-symbols-outlined text-[20px] leading-none" aria-hidden="true">delete</span>
                         </button>
                       </div>
                     </li>
@@ -699,15 +740,18 @@ export default function UserMyCvsPage() {
             onClick={closeDeleteModal}
             aria-label={t("interview.cvUpload.cancel")}
           />
-          <div className="relative z-10 w-full max-w-md rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-2xl">
-            <h3 className="font-headline text-lg font-bold text-on-surface">{t("userDash.myCvs.confirmDelete")}</h3>
-            <p className="mt-2 text-sm text-on-surface-variant">{deleteTarget.name}</p>
-            <div className="mt-5 flex justify-end gap-2">
+          <div className="relative z-10 w-full max-w-md rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[6px_6px_0_#234196]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg border-2 border-[#C9362B] bg-[#FFF0EE] text-[#C9362B]">
+              <span className="material-symbols-outlined" aria-hidden="true">delete</span>
+            </div>
+            <h3 className="mt-4 font-headline text-xl font-bold text-[#234196]">{t("userDash.myCvs.confirmDelete")}</h3>
+            <p className="mt-2 break-all rounded-lg border border-[#234196]/25 bg-[#F0F4FC] px-3 py-2 text-sm text-[#5A6B8F]">{deleteTarget.name}</p>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={closeDeleteModal}
                 disabled={deleting}
-                className="rounded-lg border border-outline-variant/30 px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:opacity-60"
+                className="chunky-secondary min-h-11 px-5 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {t("interview.cvUpload.cancel")}
               </button>
@@ -715,7 +759,7 @@ export default function UserMyCvsPage() {
                 type="button"
                 onClick={() => void handleConfirmDelete()}
                 disabled={deleting}
-                className="rounded-lg bg-error px-4 py-2 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60"
+                className="min-h-11 rounded-lg border-2 border-[#8F251E] bg-[#C9362B] px-5 py-2 text-sm font-bold text-white shadow-[3px_3px_0_#8F251E] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
               >
                 {deleting ? t("admin.jobProfile.loading") : t("profile.removeAria")}
               </button>
@@ -723,6 +767,7 @@ export default function UserMyCvsPage() {
           </div>
         </div>
       ) : null}
+      </div>
     </main>
   );
 }

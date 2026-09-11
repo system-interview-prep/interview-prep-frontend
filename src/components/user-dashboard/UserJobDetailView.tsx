@@ -66,22 +66,25 @@ export default function UserJobDetailView() {
 
   if (loading) {
     return (
-      <p className="py-12 text-center text-sm text-on-surface-variant">{t("admin.jobProfile.loading")}</p>
+      <div className="space-y-5" role="status" aria-label={t("admin.jobProfile.loading")}>
+        <div className="h-64 animate-pulse rounded-2xl border-2 border-[#234196] bg-[#F0F4FC] motion-reduce:animate-none" />
+        <div className="h-80 animate-pulse rounded-2xl border-2 border-[#234196] bg-white motion-reduce:animate-none" />
+      </div>
     );
   }
 
   if (error && !profile) {
     return (
       <div className="min-w-0 space-y-4">
-        <div className="rounded-xl border border-error/30 bg-error-container/20 px-4 py-3 text-sm text-error" role="alert">
+        <div className="rounded-xl border-2 border-[#D32F2F] bg-[#FFEBEE] px-4 py-3 text-sm text-[#8F1D1D] shadow-[3px_3px_0_#D32F2F]" role="alert">
           {error}
         </div>
         <Link
           href="/dashboard/jobs"
-          className="inline-flex items-center gap-2 font-semibold text-primary hover:underline"
+          className="inline-flex min-h-11 items-center gap-2 font-bold"
         >
-          <span className="material-symbols-outlined text-lg">arrow_back</span>
-          {t("userDash.jobProfiles.detailBack")}
+          <span className="material-symbols-outlined text-lg" aria-hidden="true">arrow_back</span>
+          <span className="underline decoration-[#FCB625] decoration-4 underline-offset-4">{t("userDash.jobProfiles.detailBack")}</span>
         </Link>
       </div>
     );
@@ -93,37 +96,37 @@ export default function UserJobDetailView() {
   const keywords = profile.keywords?.filter(Boolean) ?? [];
 
   return (
-    <div className="min-w-0 space-y-8">
+    <div className="min-w-0 space-y-8 text-[#234196]">
       <Link
         href="/dashboard/jobs"
-        className="inline-flex w-fit items-center gap-1 text-sm font-semibold text-primary hover:underline"
+        className="inline-flex min-h-11 w-fit items-center gap-1 text-sm font-bold"
       >
-        <span className="material-symbols-outlined text-lg">arrow_back</span>
-        {t("userDash.jobProfiles.detailBack")}
+        <span className="material-symbols-outlined text-lg" aria-hidden="true">arrow_back</span>
+        <span className="underline decoration-[#FCB625] decoration-4 underline-offset-4">{t("userDash.jobProfiles.detailBack")}</span>
       </Link>
 
-      <header className="border-b border-outline-variant/15 pb-6">
+      <header className="rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[5px_5px_0_#234196] sm:p-8">
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="inline-flex rounded-full bg-primary/12 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-primary">
+          <span className="sticker -rotate-1 bg-[#FCB625] text-[9px]">
             {categoryName}
           </span>
           {profile.status && profile.status !== "ACTIVE" && (
-            <span className="rounded-full bg-surface-container-high px-3 py-1 text-[10px] font-bold uppercase text-on-surface-variant">
+            <span className="sticker bg-[#F0F4FC] text-[9px]">
               {profile.status}
             </span>
           )}
         </div>
-        <h1 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface md:text-3xl">
+        <h1 className="mt-5 font-headline text-4xl font-extrabold tracking-tight md:text-5xl">
           {profile.title}
         </h1>
-        <p className="mt-2 text-sm text-on-surface-variant">
+        <p className="mt-3 text-sm text-[#5A6B8F]">
           {t("userDash.jobProfiles.detailUpdated")}:{" "}
           {formatDetailDate(profile.updatedAt ?? profile.createdAt, lang)}
         </p>
         <button
           type="button"
           onClick={() => setCvModalOpen(true)}
-          className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-on-primary shadow-md transition hover:opacity-95"
+          className="chunky-primary mt-6 min-h-12 px-6 text-sm"
         >
           {t("userDash.jobProfiles.interviewNow")}
           <span className="material-symbols-outlined text-[22px]">play_arrow</span>
@@ -132,14 +135,14 @@ export default function UserJobDetailView() {
 
       {keywords.length > 0 && (
         <section>
-          <h2 className="mb-3 font-headline text-sm font-bold uppercase tracking-wide text-on-surface-variant">
+          <h2 className="mb-4 font-headline text-2xl font-bold">
             {t("userDash.jobProfiles.detailKeywords")}
           </h2>
           <div className="flex flex-wrap gap-2">
             {keywords.map((k) => (
               <span
                 key={k}
-                className="rounded-lg border border-outline-variant/20 bg-surface-container-low px-3 py-1.5 text-sm font-medium text-on-surface"
+                className="sticker bg-[#F0F4FC] text-[9px]"
               >
                 {k}
               </span>
@@ -149,15 +152,15 @@ export default function UserJobDetailView() {
       )}
 
       {keywords.length === 0 && (
-        <p className="text-sm text-on-surface-variant">{t("userDash.jobProfiles.detailEmpty")}</p>
+        <p className="rounded-2xl border-2 border-dashed border-[#234196] bg-[#F0F4FC] p-6 text-sm text-[#5A6B8F]">{t("userDash.jobProfiles.detailEmpty")}</p>
       )}
 
       {String(profile.description || "").trim() && (
-        <section className="rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-5">
-          <h2 className="mb-3 font-headline text-sm font-bold uppercase tracking-wide text-on-surface-variant">
-            Job description
+        <section className="rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[3px_3px_0_#234196] sm:p-8">
+          <h2 className="mb-5 font-headline text-2xl font-bold">
+            {t("userDash.jobProfiles.detailDescription")}
           </h2>
-          <div className="text-sm leading-relaxed text-on-surface">
+          <div className="text-sm leading-7 text-[#234196]">
             <ReactMarkdown
               components={{
                 h2: (p) => <h3 className="mt-5 mb-2 text-base font-extrabold" {...p} />,

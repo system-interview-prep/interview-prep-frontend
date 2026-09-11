@@ -25,14 +25,17 @@ export default function CareerClassificationSummary({
   const evidence = resolveClassificationEvidence(primary, parsedData?.evidence ?? []);
 
   return (
-    <div className={compact ? "mt-2" : "border border-[#E8E6DC] bg-white p-5"}>
+    <div className={compact ? "mt-3" : "border-2 border-[#234196] bg-white p-5"}>
       <div className="flex flex-wrap items-center gap-1.5" aria-label="Phân loại nghề nghiệp từ nội dung CV">
+        <span className="inline-flex items-center gap-1 rounded-md bg-[#EFF6E9] px-2 py-1 text-[11px] font-bold text-[#476038]">
+          <span className="material-symbols-outlined text-[14px] leading-none" aria-hidden="true">work</span>
+          {primary.label}
+        </span>
         {supporting.map((item) => (
-          <span key={item.code} className="font-metadata text-[9px] text-[#87867F]">
-            {item.label}<span className="ml-1 text-[#C9C6BA]">/</span>
+          <span key={item.code} className="rounded-md bg-[#F0F4FC] px-2 py-1 font-metadata text-[9px] text-[#5A6B8F]">
+            {item.label}
           </span>
         ))}
-        <span className="bg-[#EFF3EA] px-2 py-1 text-xs font-medium text-[#566844]">{primary.label}</span>
       </div>
 
       {!compact && (
@@ -40,9 +43,9 @@ export default function CareerClassificationSummary({
       )}
 
       {evidence.length > 0 && (
-        <details className="mt-2 text-xs text-[#5E5D59]">
-          <summary className="cursor-pointer select-none font-medium text-[#87867F] hover:text-[#141413]">Vì sao có nhãn này?</summary>
-          <ul className="mt-2 space-y-2 border-l border-[#E8E6DC] pl-3">
+        <details className="group mt-2 text-xs text-[#5A6B8F]">
+          <summary className="w-fit cursor-pointer select-none font-medium text-[#5A6B8F] hover:text-[#234196]">Vì sao có nhãn này?</summary>
+          <ul className="mt-2 space-y-2 border-l border-[#FCB625] pl-3">
             {evidence.map((item) => (
               <li key={item.evidenceId}>
                 <span>{item.text}</span>

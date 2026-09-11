@@ -27,7 +27,7 @@ export default function AdminButton({
   disabled?: boolean;
 }) {
   const base =
-    "inline-flex items-center justify-center gap-2 font-bold tracking-tight transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none";
+    "inline-flex items-center justify-center gap-2 border-2 border-[#234196] font-bold tracking-tight transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:pointer-events-none disabled:opacity-50";
 
   const sizeClass =
     size === "sm"
@@ -38,14 +38,14 @@ export default function AdminButton({
 
   const variantClass =
     variant === "gradient"
-      ? "bg-gradient-to-r from-primary to-tertiary text-white shadow-lg shadow-primary/20 hover:opacity-95"
+      ? "bg-[#FCB625] text-[#234196] shadow-[3px_3px_0_#234196] hover:bg-[#FFC33F]"
       : variant === "primary"
-        ? "bg-primary text-white shadow-lg shadow-primary/10 hover:bg-primary-container"
+        ? "bg-[#FCB625] text-[#234196] shadow-[3px_3px_0_#234196] hover:bg-[#FFC33F]"
         : variant === "outline"
-          ? "border border-outline-variant/20 bg-transparent text-primary hover:bg-surface-container"
+          ? "bg-white text-[#234196] shadow-[3px_3px_0_#234196] hover:bg-[#F0F4FC]"
           : variant === "surface"
-            ? "bg-surface-container-lowest text-on-primary-fixed-variant border border-outline-variant/20 hover:bg-surface-container"
-            : "bg-error-container/30 text-error hover:bg-error-container/50";
+            ? "bg-white text-[#234196] shadow-[3px_3px_0_#234196] hover:bg-[#F0F4FC]"
+            : "border-[#D32F2F] bg-[#FFEBEE] text-[#D32F2F] shadow-[3px_3px_0_#D32F2F] hover:bg-[#FFE1E5]";
 
   const cls = `${base} ${sizeClass} ${variantClass} ${className}`.trim();
 

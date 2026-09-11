@@ -28,18 +28,18 @@ export default function AdminAuthBadge({
   return (
     <Link href={href} className="flex items-center gap-3" aria-label="Admin profile">
       <div
-        className={`${box} shrink-0 overflow-hidden rounded-full bg-primary-container ring-2 ring-primary/10 flex items-center justify-center text-on-primary`}
+        className={`${box} flex shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-[#234196] bg-[#FCB625] text-[#234196]`}
       >
         {profile?.picture ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img className="h-full w-full object-cover" alt="" src={profile.picture} />
         ) : (
-          <span className="font-headline font-bold text-primary">{initials}</span>
+          <span className="font-headline font-bold text-[#234196]">{initials}</span>
         )}
       </div>
       <div className="min-w-0">
-        <p className={`truncate font-bold text-on-surface ${textName}`}>{displayName || "—"}</p>
-        {roleLabel ? <p className="text-xs text-on-surface-variant">{roleLabel}</p> : null}
+        <p className={`truncate font-bold text-[#234196] ${textName}`}>{displayName || "—"}</p>
+        {roleLabel ? <p className="text-xs text-[#5A6B8F]">{roleLabel}</p> : null}
       </div>
     </Link>
   );
