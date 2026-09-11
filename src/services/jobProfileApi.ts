@@ -16,10 +16,10 @@ export type JobProfile = {
   category?: JobProfileCategory;
   keywords?: string[];
   description?: string | null;
-  /** canonical UI schema (label/value, stringified JSON) */
-  aiProfileUiJson?: string | null;
-  /** extras (label/value, stringified JSON) */
-  aiExtrasJson?: string | null;
+  /** schema-validated canonical JD returned by the parser */
+  structuredData?: Record<string, unknown> | null;
+  /** extractor metadata retained for audit and troubleshooting */
+  extractedMetadata?: Record<string, unknown> | null;
   rawJdText?: string | null;
   status?: JobProfileStatus;
   createdAt?: string;
@@ -42,10 +42,10 @@ export type JobProfileUpload = {
   parseSource?: string | null;
   rawText?: string | null;
   description?: string | null;
-  /** canonical UI schema (label/value, stringified JSON) */
-  aiProfileUiJson?: string | null;
-  /** extras (label/value, stringified JSON) */
-  aiExtrasJson?: string | null;
+  /** schema-validated canonical JD returned by the parser */
+  structuredData?: Record<string, unknown> | null;
+  /** extractor metadata retained for audit and troubleshooting */
+  extractedMetadata?: Record<string, unknown> | null;
   error?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -138,13 +138,11 @@ export async function fetchJobProfileListAggregates(
       { signal: options?.signal }
     );
     const items = data.items ?? [];
-    for (const p of items) {
-      total++;
-      // Deprecated fields; keep shape for dashboard stats compatibility.
-      // Upload-based JP no longer uses description/requirements in FE types.
-      withDescription += 0;
-      withRequirements += 0;
-    }
+    total += items.length;
+    // Deprecated fields; keep shape for dashboard stats compatibility.
+    // Upload-based JP no longer uses description/requirements in FE types.
+    withDescription += 0;
+    withRequirements += 0;
     cursor = data.nextCursor;
     if (!cursor) break;
   }
@@ -154,24 +152,24 @@ export async function fetchJobProfileListAggregates(
 
 export const jobProfileApi = {
   list: (params?: ListJobProfilesParams, config?: { signal?: AbortSignal }) =>
-    api.get<JobProfileListResponse>("/admin/job-profiles", { params, ...config }),
-  get: (id: string) => api.get<JobProfile>(`/admin/job-profiles/${id}`),
+    api.get<JobProfileListResponse>("/admin/job-descriptions", { params, ...config }),
+  get: (id: string) => api.get<JobProfile>(`/admin/job-descriptions/${id}`),
   update: (id: string, body: { description?: string | null }) =>
-    api.patch<JobProfile>(`/admin/job-profiles/${id}`, body),
-  delete: (id: string) => api.delete<void>(`/admin/job-profiles/${id}`),
+    api.patch<JobProfile>(`/admin/job-descriptions/${id}`, body),
+  delete: (id: string) => api.delete<void>(`/admin/job-descriptions/${id}`),
 
   uploadJd: async (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
-    return api.post<JobProfileUpload>("/admin/job-profiles/uploads", fd);
+    return api.post<JobProfileUpload>("/admin/job-descriptions/uploads", fd);
   },
-  getUpload: (id: string) => api.get<JobProfileUpload>(`/admin/job-profiles/uploads/${id}`),
+  getUpload: (id: string) => api.get<JobProfileUpload>(`/admin/job-descriptions/uploads/${id}`),
+  reparseUpload: (id: string) =>
+    api.post<JobProfileUpload>(`/admin/job-descriptions/uploads/${id}/reparse`),
   updateUpload: (
     id: string,
-    body: { aiProfileUiJson?: Record<string, unknown> | null; aiExtrasJson?: Record<string, unknown> | null }
-  ) => api.patch<JobProfileUpload>(`/admin/job-profiles/uploads/${id}`, body),
-  previewUploadDescription: (id: string, body?: { title?: string }) =>
-    api.post<{ description: string }>(`/admin/job-profiles/uploads/${id}/description-preview`, body || {}),
+    body: { structuredData?: Record<string, unknown> | null; extractedMetadata?: Record<string, unknown> | null }
+  ) => api.patch<JobProfileUpload>(`/admin/job-descriptions/uploads/${id}`, body),
   finalizeUpload: (
     id: string,
     body: {
@@ -181,5 +179,5 @@ export const jobProfileApi = {
       status?: JobProfileStatus;
       description?: string;
     }
-  ) => api.post<{ id: string }>(`/admin/job-profiles/uploads/${id}/finalize`, body),
+  ) => api.post<{ id: string }>(`/admin/job-descriptions/uploads/${id}/finalize`, body),
 };
