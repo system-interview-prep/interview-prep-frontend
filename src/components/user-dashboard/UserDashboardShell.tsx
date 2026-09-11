@@ -34,38 +34,38 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
   );
 
   const navBase =
-    "flex items-center gap-3 rounded-md px-4 py-3 font-sans text-sm transition-colors";
+    "flex items-center gap-3 rounded-xl border-2 border-transparent px-4 py-3 font-sans text-sm transition-all duration-150 motion-reduce:transition-none";
   const navInactive =
-    "text-[#5E5D59] hover:bg-[#F0EEE6] hover:text-[#141413]";
+    "text-[#5A6B8F] hover:border-[#234196] hover:bg-[#F0F4FC] hover:text-[#234196]";
   const navActive =
-    "border border-[#E8E6DC] bg-white text-[#141413] font-medium";
+    "border-[#234196] bg-[#FCB625] font-bold text-[#234196] shadow-[2px_2px_0_#234196]";
 
   const linkClass = (active: boolean) =>
     `${navBase} ${navReady && active ? navActive : navInactive}`;
 
   return (
-    <div className="min-h-screen bg-surface font-body text-on-surface">
-      <aside className="fixed left-0 top-0 z-40 hidden h-dvh w-80 flex-col justify-between overflow-y-auto overscroll-contain border-r border-[#E8E6DC] bg-[#FAF9F5] md:flex xl:w-96">
+    <div className="min-h-screen bg-white font-body text-[#234196]">
+      <aside className="fixed left-0 top-0 z-40 hidden h-dvh w-80 flex-col justify-between overflow-y-auto overscroll-contain border-r-2 border-[#234196] bg-white md:flex xl:w-96">
         <div className="space-y-6 p-6">
           <Link
             href="/dashboard"
-            className="flex items-center gap-3 rounded-xl px-2 py-1 transition-colors hover:bg-black/[0.04] dark:hover:bg-white/5"
+            className="flex items-center gap-3 rounded-xl px-2 py-1 transition-colors hover:bg-[#F0F4FC]"
             aria-label={t("interview.select.backDashboard")}
           >
-            <div className="w-10 h-10 overflow-hidden rounded-lg flex items-center justify-center">
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border-2 border-[#234196]">
               <img src="/logo.jpg" alt="INTERVIA" className="w-full h-full object-cover" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tighter text-[#191c1e] dark:text-white">
+              <h1 className="text-2xl font-bold tracking-tighter text-[#234196]">
                 {t("userDash.sidebar.brand")}
               </h1>
-              <p className="text-xs text-on-surface-variant">AI Interview Suite</p>
+              <p className="text-xs text-[#5A6B8F]">{t("userDash.sidebar.tagline")}</p>
             </div>
           </Link>
 
           <Link
             href="/interview/select"
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-[#141413] px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-[#2A2A28]"
+            className="chunky-primary flex min-h-12 w-full items-center justify-center gap-2 px-4 py-3 text-sm"
           >
             <span className="material-symbols-outlined text-lg">add</span>
             {t("userDash.nav.newInterview")}
@@ -123,7 +123,7 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
             </Link>
           </nav>
 
-          <div className="border-t border-outline-variant/20 pt-6 space-y-2">
+          <div className="space-y-2 border-t-2 border-[#234196] pt-6">
             <Link
               href="/resources"
               className={linkClass(isActive.help)}
@@ -133,7 +133,7 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
             </Link>
             <Link
               href="/logout"
-              className={`${navBase} text-error hover:bg-error-container/20`}
+              className={`${navBase} text-[#D32F2F] hover:border-[#D32F2F] hover:bg-[#FFEBEE]`}
             >
               <span className="material-symbols-outlined">logout</span>
               <span className="font-inter text-sm font-medium">{t("userDash.nav.logout")}</span>
@@ -144,39 +144,39 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
 
       <div className="ml-0 min-h-screen pb-28 md:ml-80 md:pb-0 xl:ml-96">{children}</div>
 
-      <nav className="fixed bottom-4 left-4 right-4 z-50 flex items-center justify-around gap-2 rounded-xl border border-[#E8E6DC] bg-white px-3 py-2 md:hidden">
+      <nav className="fixed bottom-4 left-4 right-4 z-50 flex items-center justify-around gap-2 rounded-xl border-2 border-[#234196] bg-white px-3 py-2 shadow-[4px_4px_0_#234196] md:hidden">
         <Link
           href="/interview/select"
-          className="rounded-md bg-[#141413] p-3 text-white transition-colors"
+          className="rounded-lg border-2 border-[#234196] bg-[#FCB625] p-3 text-[#234196] transition-colors"
           aria-label={t("userDash.nav.newInterview")}
         >
           <span className="material-symbols-outlined">add_circle</span>
         </Link>
         <Link
           href="/voice"
-          className="rounded-md p-3 text-[#5E5D59] transition-colors hover:bg-[#F0EEE6] hover:text-[#141413]"
-          aria-label="Voice"
+          className="rounded-lg p-3 text-[#5A6B8F] transition-colors hover:bg-[#F0F4FC] hover:text-[#234196]"
+          aria-label={t("userDash.mode.voice.title")}
         >
           <span className="material-symbols-outlined">mic</span>
         </Link>
         <Link
           href="/practice"
-          className="rounded-md p-3 text-[#5E5D59] transition-colors hover:bg-[#F0EEE6] hover:text-[#141413]"
+          className="rounded-lg p-3 text-[#5A6B8F] transition-colors hover:bg-[#F0F4FC] hover:text-[#234196]"
           aria-label={t("userDash.nav.practice")}
         >
           <span className="material-symbols-outlined">quiz</span>
         </Link>
         <Link
           href="/dashboard/cvs"
-          className="rounded-md p-3 text-[#5E5D59] transition-colors hover:bg-[#F0EEE6] hover:text-[#141413]"
+          className="rounded-lg p-3 text-[#5A6B8F] transition-colors hover:bg-[#F0F4FC] hover:text-[#234196]"
           aria-label={t("userDash.nav.myCvs")}
         >
           <span className="material-symbols-outlined">description</span>
         </Link>
         <Link
           href="/logout"
-          className="rounded-md p-3 text-[#5E5D59] transition-colors hover:bg-[#F0EEE6] hover:text-[#141413]"
-          aria-label="Logout"
+          className="rounded-lg p-3 text-[#D32F2F] transition-colors hover:bg-[#FFEBEE]"
+          aria-label={t("userDash.nav.logout")}
         >
           <span className="material-symbols-outlined">call_end</span>
         </Link>

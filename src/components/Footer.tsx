@@ -41,7 +41,7 @@ export default function Footer() {
   };
 
   return (
-    <footer className="border-t-2 border-[#234196] bg-white text-[#234196]">
+    <footer className="border-t-2 border-[#234196] bg-white text-[#234196] [content-visibility:auto] [contain-intrinsic-size:1px_400px]">
       <div className="border-b-2 border-[#234196] bg-[#FEF9EE] px-5 py-7 sm:px-8 lg:px-12">
         <div className="mx-auto grid max-w-7xl gap-5 md:grid-cols-3">
           {trust.map(({ icon: Icon, badge, tone, text }, index) => (
@@ -59,7 +59,7 @@ export default function Footer() {
         <div className="lg:col-span-4">
           <Link href="/" className="inline-flex items-center gap-2 font-headline text-3xl font-semibold"><span className="grid h-9 w-9 place-items-center rounded-lg border-2 border-[#234196] bg-[#FCB625] shadow-[2px_2px_0_#234196]"><Sparkles size={18} /></span>Career · Studio</Link>
           <p className="mt-5 max-w-sm leading-7 text-[#5A6B8F]">{vi ? "Nền tảng đối soát ngữ nghĩa CV–JD và diễn tập phỏng vấn phản xạ thời gian thực." : "Semantic CV–JD matching and real-time voice interview practice for ambitious candidates."}</p>
-          <div className="mt-6 inline-flex items-center gap-2 rounded-full border-2 border-[#234196] bg-white px-3 py-2 shadow-[2px_2px_0_#234196]"><span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#2E7D32]" /><span className="font-metadata text-[9px] font-bold sm:text-[10px]">WebRTC Engine: 420ms · 99.98% Uptime</span></div>
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full border-2 border-[#234196] bg-white px-3 py-2 shadow-[2px_2px_0_#234196]"><span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#2E7D32] [will-change:opacity]" /><span className="font-metadata text-[9px] font-bold sm:text-[10px]">WebRTC Engine: 420ms · 99.98% Uptime</span></div>
         </div>
 
         <div className="grid gap-9 sm:grid-cols-3 lg:col-span-8">
