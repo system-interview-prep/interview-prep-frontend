@@ -90,6 +90,14 @@ export default function UserProfilePage() {
     return `${profile.picture}${joiner}v=${avatarCacheKey}`;
   }, [avatarCacheKey, avatarPreviewUrl, profile?.picture]);
 
+  const isDirty = useMemo(() => {
+    if (!profile) return false;
+    return (
+      form.name !== (profile.name || "") ||
+      form.dob !== normalizeDobForInput(profile.dob)
+    );
+  }, [form.dob, form.name, profile]);
+
   async function loadProfile() {
     try {
       setErrorMessage(null);
@@ -135,6 +143,7 @@ export default function UserProfilePage() {
   function setField<K extends keyof EditState>(key: K, value: EditState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
     setSuccessMessage(null);
+    setErrorMessage(null);
   }
 
   async function onAvatarFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -145,20 +154,21 @@ export default function UserProfilePage() {
     }
 
     if (!ALLOWED_AVATAR_MIME.has(file.type.toLowerCase())) {
-      setErrorMessage("Only jpeg, jpg, png, gif, and webp images are supported.");
+      setErrorMessage(t("profile.avatarTypeError"));
       e.target.value = "";
       return;
     }
 
     const maxBytes = 5 * 1024 * 1024;
     if (file.size > maxBytes) {
-      setErrorMessage("Image is too large. Please choose a file smaller than 5MB.");
+      setErrorMessage(t("profile.avatarSizeError"));
       e.target.value = "";
       return;
     }
 
+    let previewUrl: string | null = null;
     try {
-      const previewUrl = URL.createObjectURL(file);
+      previewUrl = URL.createObjectURL(file);
       setAvatarPreviewUrl(previewUrl);
       setErrorMessage(null);
       setSuccessMessage(null);
@@ -178,10 +188,10 @@ export default function UserProfilePage() {
         name: updated.name || null,
         picture: updated.picture || null,
       });
-      setSuccessMessage("Avatar updated successfully.");
+      setSuccessMessage(t("profile.avatarSuccess"));
     } catch (error) {
-      if (avatarPreviewUrl) {
-        URL.revokeObjectURL(avatarPreviewUrl);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
       }
       setAvatarPreviewUrl(null);
       setErrorMessage(readApiError(error));
@@ -205,7 +215,7 @@ export default function UserProfilePage() {
 
     const payload: Partial<Pick<UserProfile, "name" | "dob">> = {};
     if (form.name !== (profile.name || "")) payload.name = form.name;
-    if (form.dob !== (profile.dob || "")) payload.dob = form.dob;
+    if (form.dob !== normalizeDobForInput(profile.dob)) payload.dob = form.dob;
 
     try {
       setErrorMessage(null);
@@ -223,7 +233,7 @@ export default function UserProfilePage() {
         name: updated.name || null,
         picture: updated.picture || null,
       });
-      setSuccessMessage("Profile updated successfully.");
+      setSuccessMessage(t("profile.updateSuccess"));
     } catch (error) {
       setErrorMessage(readApiError(error));
     } finally {
@@ -231,71 +241,194 @@ export default function UserProfilePage() {
     }
   }
 
+  function openAvatarPicker() {
+    isAvatarPickerOpeningRef.current = true;
+    avatarInputRef.current?.click();
+  }
+
+  function resetForm() {
+    if (!profile) return;
+    setForm({
+      name: profile.name || "",
+      dob: normalizeDobForInput(profile.dob),
+    });
+    setErrorMessage(null);
+    setSuccessMessage(null);
+  }
+
   return (
     <UserDashboardShell>
-      <main className="min-h-screen bg-surface p-6 pb-28 md:p-12 md:pb-10">
-        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <span className="mb-2 inline-block text-[10px] font-bold uppercase tracking-widest text-tertiary">
-              {t("profile.eyebrow")}
-            </span>
-            <h1 className="font-headline text-3xl font-extrabold tracking-tighter text-on-surface md:text-4xl">
-              {t("profile.title")}
-            </h1>
-            <p className="mt-2 text-on-surface-variant">{t("profile.subtitle")}</p>
-          </div>
+      <main className="paper-dots min-h-screen bg-[#FEF9EE] px-4 pb-28 pt-6 text-[#234196] sm:px-6 md:px-8 md:py-10 lg:px-10 xl:px-12">
+        <div className="mx-auto max-w-5xl">
+          {/* Header */}
+          <header className="mb-8 flex flex-col gap-5 border-b-2 border-[#234196] pb-6 sm:flex-row sm:items-end sm:justify-between">
+            <div className="max-w-2xl">
+              <span className="sticker -rotate-1 bg-[#FCB625] text-[10px] text-[#234196]">
+                {t("profile.settingsBadge")}
+              </span>
+              <h1 className="mt-3 font-headline text-3xl font-extrabold tracking-tight text-[#234196] sm:text-4xl md:text-5xl">
+                {t("profile.title")}
+              </h1>
+              <p className="mt-2 text-sm leading-relaxed text-[#5A6B8F] sm:text-base">
+                {t("profile.subtitle")}
+              </p>
+            </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <LanguageToggleButton />
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 rounded-full border border-outline-variant/20 bg-surface px-4 py-2.5 text-sm font-semibold text-on-surface transition-transform hover:-translate-y-0.5"
-              aria-label={t("interview.select.backDashboard")}
-              title={t("interview.select.backDashboard")}
+            <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+              <LanguageToggleButton className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-[#234196] bg-white text-[#234196] shadow-[2px_2px_0_#234196] transition-all hover:bg-[#F0F4FC] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none" />
+              <Link
+                href="/dashboard"
+                className="chunky-secondary inline-flex min-h-11 items-center gap-2 px-4 py-2 text-sm font-bold"
+                aria-label={t("interview.select.backDashboard")}
+                title={t("interview.select.backDashboard")}
+              >
+                <span className="material-symbols-outlined select-none text-[18px] leading-none" aria-hidden="true">
+                  arrow_back
+                </span>
+                <span>{t("interview.select.backDashboard")}</span>
+              </Link>
+            </div>
+          </header>
+
+          {/* Feedback alerts */}
+          {errorMessage && (
+            <div
+              className="mb-6 flex items-start gap-3 rounded-xl border-2 border-[#D32F2F] bg-[#FFEBEE] p-4 text-sm text-[#8F1D1D] shadow-[3px_3px_0_#D32F2F]"
+              role="alert"
             >
-              <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-              <span>{t("interview.select.backDashboard")}</span>
-            </Link>
-          </div>
-        </header>
+              <span className="material-symbols-outlined shrink-0 text-xl text-[#D32F2F]" aria-hidden="true">
+                error
+              </span>
+              <div className="min-w-0 flex-1 font-medium">{errorMessage}</div>
+              <button
+                type="button"
+                onClick={() => setErrorMessage(null)}
+                className="shrink-0 text-[#8F1D1D] transition-opacity hover:opacity-75"
+                aria-label="Dismiss error"
+              >
+                <span className="material-symbols-outlined text-lg leading-none" aria-hidden="true">
+                  close
+                </span>
+              </button>
+            </div>
+          )}
 
-        {loading ? (
-          <section className="rounded-2xl border border-outline-variant/10 bg-surface-container-lowest p-6 text-on-surface-variant">
-            Loading profile...
-          </section>
-        ) : !profile ? (
-          <section className="rounded-2xl border border-error/20 bg-error-container/10 p-6 text-error">
-            {errorMessage || "Could not load profile."}
-          </section>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-            <section className="rounded-2xl border border-outline-variant/10 bg-surface-container-lowest shadow-sm">
-              <div className="rounded-t-2xl bg-gradient-to-br from-primary to-tertiary p-6 text-white">
-                <div className="flex items-center gap-4">
-                  <div
-                    className="group relative h-16 w-16 overflow-hidden rounded-full border border-white/20 bg-white/15"
-                    aria-label="Change avatar"
-                    title="Change avatar"
-                  >
-                    {displayedAvatar ? (
-                      <img
-                        alt=""
-                        className="h-16 w-16 object-cover"
-                        src={displayedAvatar}
-                      />
-                    ) : (
-                      <div className="flex h-16 w-16 items-center justify-center font-headline text-xl font-black">
-                        {currentDisplayName !== "—" ? initialsFromName(currentDisplayName) : "?"}
-                      </div>
-                    )}
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity group-hover:opacity-100">
-                      <span className="material-symbols-outlined text-lg text-white">photo_camera</span>
-                    </span>
+          {successMessage && (
+            <div
+              className="mb-6 flex items-start gap-3 rounded-xl border-2 border-emerald-600 bg-emerald-50 p-4 text-sm text-emerald-900 shadow-[3px_3px_0_#059669]"
+              role="status"
+            >
+              <span className="material-symbols-outlined shrink-0 text-xl text-emerald-600" aria-hidden="true">
+                check_circle
+              </span>
+              <div className="min-w-0 flex-1 font-medium">{successMessage}</div>
+              <button
+                type="button"
+                onClick={() => setSuccessMessage(null)}
+                className="shrink-0 text-emerald-900 transition-opacity hover:opacity-75"
+                aria-label="Dismiss success"
+              >
+                <span className="material-symbols-outlined text-lg leading-none" aria-hidden="true">
+                  close
+                </span>
+              </button>
+            </div>
+          )}
+
+          {/* Main content area */}
+          {loading ? (
+            <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]" role="status" aria-label={t("profile.loading")}>
+              <div className="animate-pulse rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[4px_4px_0_#234196]">
+                <div className="mx-auto h-24 w-24 rounded-full bg-[#E8EDF8]" />
+                <div className="mx-auto mt-4 h-6 w-36 rounded-lg bg-[#E8EDF8]" />
+                <div className="mx-auto mt-2 h-4 w-24 rounded-lg bg-[#E8EDF8]" />
+                <div className="mt-8 space-y-4">
+                  <div className="h-8 rounded-lg bg-[#F0F4FC]" />
+                  <div className="h-8 rounded-lg bg-[#F0F4FC]" />
+                  <div className="h-8 rounded-lg bg-[#F0F4FC]" />
+                </div>
+              </div>
+              <div className="animate-pulse rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[4px_4px_0_#234196]">
+                <div className="h-7 w-40 rounded-lg bg-[#E8EDF8]" />
+                <div className="mt-2 h-4 w-64 rounded-lg bg-[#E8EDF8]" />
+                <div className="mt-8 space-y-6">
+                  <div className="h-11 rounded-xl bg-[#F0F4FC]" />
+                  <div className="h-11 rounded-xl bg-[#F0F4FC]" />
+                  <div className="h-11 rounded-xl bg-[#F0F4FC]" />
+                  <div className="h-11 w-32 rounded-xl bg-[#E8EDF8]" />
+                </div>
+              </div>
+            </section>
+          ) : !profile ? (
+            <section
+              className="rounded-2xl border-2 border-[#D32F2F] bg-[#FFEBEE] p-8 text-center text-[#8F1D1D] shadow-[4px_4px_0_#D32F2F]"
+              role="alert"
+            >
+              <span className="material-symbols-outlined text-4xl text-[#D32F2F]" aria-hidden="true">
+                cloud_off
+              </span>
+              <h2 className="mt-2 font-headline text-xl font-bold">{t("profile.loadError")}</h2>
+              <button
+                type="button"
+                onClick={loadProfile}
+                className="chunky-primary mt-4 px-5 py-2.5 text-sm"
+              >
+                Thử lại
+              </button>
+            </section>
+          ) : (
+            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+              {/* Cột trái: Identity & Avatar Card */}
+              <section className="rounded-2xl border-2 border-[#234196] bg-white shadow-[4px_4px_0_#234196] overflow-hidden">
+                <div className="border-b-2 border-[#234196] bg-[#F0F4FC] p-6 text-center sm:p-7">
+                  <div className="relative mx-auto inline-block">
+                    {/* Avatar Container 24x24 (96px) */}
+                    <div
+                      className="group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-[#234196] bg-[#E8EDF8] shadow-[2px_2px_0_#234196]"
+                      aria-label="User avatar"
+                    >
+                      {displayedAvatar ? (
+                        <img
+                          alt={currentDisplayName}
+                          className="h-full w-full object-cover"
+                          src={displayedAvatar}
+                        />
+                      ) : (
+                        <span className="font-headline text-3xl font-extrabold tracking-wider text-[#234196]">
+                          {currentDisplayName !== "—" ? initialsFromName(currentDisplayName) : "?"}
+                        </span>
+                      )}
+
+                      {/* Uploading indicator overlay */}
+                      {uploadingAvatar && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-[#234196]/50 text-white">
+                          <span className="material-symbols-outlined animate-spin text-2xl" aria-hidden="true">
+                            progress_activity
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Camera action badge button */}
+                    <button
+                      type="button"
+                      onClick={openAvatarPicker}
+                      disabled={uploadingAvatar}
+                      className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#234196] bg-[#FCB625] text-[#234196] shadow-[2px_2px_0_#234196] transition-transform hover:scale-110 hover:bg-[#ffc33f] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:opacity-60"
+                      aria-label={t("profile.avatarChange")}
+                      title={t("profile.avatarChange")}
+                    >
+                      <span className="material-symbols-outlined text-[19px] leading-none" aria-hidden="true">
+                        photo_camera
+                      </span>
+                    </button>
+
+                    {/* Hidden input file */}
                     <input
                       ref={avatarInputRef}
                       type="file"
-                      accept="image/*"
-                      className="absolute inset-0 z-10 cursor-pointer opacity-0"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      className="hidden"
                       onClick={(e) => {
                         isAvatarPickerOpeningRef.current = true;
                         e.currentTarget.value = "";
@@ -303,101 +436,207 @@ export default function UserProfilePage() {
                       onChange={onAvatarFileChange}
                     />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-white/75">
-                      {t("profile.identityTitle")}
-                    </p>
-                    <h2 className="truncate font-headline text-2xl font-bold">{currentDisplayName}</h2>
-                    <p className="mt-1 text-xs text-white/80">{roleLabel}</p>
-                    <p className="mt-1 text-[11px] text-white/75">
-                      {uploadingAvatar ? "Uploading avatar..." : "Click avatar to change photo"}
-                    </p>
+
+                  <h2 className="mt-4 truncate font-headline text-2xl font-bold text-[#234196]">
+                    {currentDisplayName}
+                  </h2>
+                  <div className="mt-1 flex items-center justify-center gap-2">
+                    <span className="sticker bg-white text-[9px] text-[#234196]">
+                      {profile.role || roleLabel}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs font-medium text-[#5A6B8F]">
+                    {uploadingAvatar ? t("profile.avatarUploading") : t("profile.avatarHint")}
+                  </p>
+                </div>
+
+                {/* Key-Value Details */}
+                <div className="p-6">
+                  <h3 className="mb-3 font-headline text-xs font-bold uppercase tracking-wider text-[#5A6B8F]">
+                    {t("profile.accountDetails")}
+                  </h3>
+                  <div className="divide-y divide-[#E8EDF8] rounded-xl border-2 border-[#234196]/20 bg-[#FEF9EE]/50">
+                    <div className="flex items-center justify-between gap-4 p-3.5 text-sm">
+                      <span className="flex items-center gap-2 font-medium text-[#5A6B8F]">
+                        <span className="material-symbols-outlined text-[18px] text-[#234196]" aria-hidden="true">
+                          mail
+                        </span>
+                        {t("profile.field.email")}
+                      </span>
+                      <span className="text-right font-semibold text-[#234196] break-all">
+                        {profile.email || "—"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 p-3.5 text-sm">
+                      <span className="flex items-center gap-2 font-medium text-[#5A6B8F]">
+                        <span className="material-symbols-outlined text-[18px] text-[#234196]" aria-hidden="true">
+                          badge
+                        </span>
+                        {t("profile.field.role")}
+                      </span>
+                      <span className="text-right font-semibold text-[#234196]">
+                        {profile.role || roleLabel}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 p-3.5 text-sm">
+                      <span className="flex items-center gap-2 font-medium text-[#5A6B8F]">
+                        <span className="material-symbols-outlined text-[18px] text-[#234196]" aria-hidden="true">
+                          key
+                        </span>
+                        {t("profile.field.provider")}
+                      </span>
+                      <span className="inline-flex items-center rounded-md border border-[#234196] bg-white px-2 py-0.5 text-xs font-bold uppercase text-[#234196]">
+                        {profile.provider || "LOCAL"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 p-3.5 text-sm">
+                      <span className="flex items-center gap-2 font-medium text-[#5A6B8F]">
+                        <span className="material-symbols-outlined text-[18px] text-[#234196]" aria-hidden="true">
+                          event
+                        </span>
+                        {t("profile.field.joined")}
+                      </span>
+                      <span className="text-right font-semibold text-[#234196]">
+                        {formatDate(profile.created_at)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              <div className="space-y-4 p-6 text-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-on-surface-variant">Email</span>
-                  <span className="text-right font-semibold text-on-surface">{profile.email || "—"}</span>
+              {/* Cột phải: Form cập nhật thông tin (Edit Profile Card) */}
+              <section className="rounded-2xl border-2 border-[#234196] bg-white p-6 sm:p-7 shadow-[4px_4px_0_#234196]">
+                <div className="mb-6 border-b-2 border-[#234196]/15 pb-4">
+                  <h2 className="font-headline text-2xl font-bold text-[#234196]">
+                    {t("profile.editTitle")}
+                  </h2>
+                  <p className="mt-1 text-sm text-[#5A6B8F]">
+                    {t("profile.editHint")}
+                  </p>
                 </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-on-surface-variant">Role</span>
-                  <span className="text-right font-semibold text-on-surface">{profile.role || "—"}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-on-surface-variant">Provider</span>
-                  <span className="text-right font-semibold text-on-surface">{profile.provider || "—"}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-on-surface-variant">Created at</span>
-                  <span className="text-right font-semibold text-on-surface">{formatDate(profile.created_at)}</span>
-                </div>
-              </div>
-            </section>
 
-            <section className="rounded-2xl border border-outline-variant/10 bg-surface-container-lowest p-6 shadow-sm">
-              <h3 className="font-headline text-xl font-bold text-on-surface">Edit profile</h3>
-              <p className="mt-1 text-sm text-on-surface-variant">
-                Edit basic profile info. Change avatar directly by clicking your photo.
-              </p>
+                <form onSubmit={onSubmit} className="space-y-5">
+                  {/* Họ và tên */}
+                  <label className="block space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#234196]">
+                      {t("profile.field.name")}
+                    </span>
+                    <div className="relative flex items-center">
+                      <span
+                        className="material-symbols-outlined pointer-events-none absolute left-3.5 text-[20px] text-[#5A6B8F]"
+                        aria-hidden="true"
+                      >
+                        person
+                      </span>
+                      <input
+                        id="profile-name-input"
+                        type="text"
+                        className="h-11 w-full rounded-xl border-2 border-[#234196] bg-white pl-11 pr-4 text-sm font-medium text-[#234196] placeholder:text-[#8DA3D2] transition-colors focus:border-[#234196] focus:outline-none focus:ring-2 focus:ring-[#FCB625]"
+                        value={form.name}
+                        onChange={(e) => setField("name", e.target.value)}
+                        placeholder={t("profile.field.namePlaceholder")}
+                      />
+                    </div>
+                  </label>
 
-              {errorMessage ? (
-                <div className="mt-4 rounded-lg border border-error/30 bg-error-container/15 px-3 py-2 text-sm text-error">
-                  {errorMessage}
-                </div>
-              ) : null}
+                  {/* Ngày sinh */}
+                  <label className="block space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#234196]">
+                      {t("profile.field.dob")}
+                    </span>
+                    <div className="relative flex items-center">
+                      <span
+                        className="material-symbols-outlined pointer-events-none absolute left-3.5 text-[20px] text-[#5A6B8F]"
+                        aria-hidden="true"
+                      >
+                        calendar_month
+                      </span>
+                      <input
+                        id="profile-dob-input"
+                        type="date"
+                        className="h-11 w-full rounded-xl border-2 border-[#234196] bg-white pl-11 pr-4 text-sm font-medium text-[#234196] transition-colors focus:border-[#234196] focus:outline-none focus:ring-2 focus:ring-[#FCB625]"
+                        value={form.dob}
+                        onChange={(e) => setField("dob", e.target.value)}
+                      />
+                    </div>
+                  </label>
 
-              {successMessage ? (
-                <div className="mt-4 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary">
-                  {successMessage}
-                </div>
-              ) : null}
+                  {/* Email (Read-only) */}
+                  <label className="block space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#5A6B8F]">
+                      {t("profile.field.emailReadonly")}
+                    </span>
+                    <div className="relative flex items-center">
+                      <span
+                        className="material-symbols-outlined pointer-events-none absolute left-3.5 text-[20px] text-[#5A6B8F]"
+                        aria-hidden="true"
+                      >
+                        mail
+                      </span>
+                      <input
+                        id="profile-email-input"
+                        type="email"
+                        className="h-11 w-full cursor-not-allowed rounded-xl border-2 border-[#234196]/40 bg-[#F0F4FC] pl-11 pr-4 text-sm font-medium text-[#5A6B8F] select-none"
+                        value={profile.email || ""}
+                        readOnly
+                        aria-readonly="true"
+                      />
+                    </div>
+                    <p className="text-[11px] text-[#5A6B8F]">
+                      Tài khoản được liên kết với email này và không thể sửa đổi trực tiếp.
+                    </p>
+                  </label>
 
-              <form onSubmit={onSubmit} className="mt-5 space-y-4">
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Name</span>
-                  <input
-                    className="w-full rounded-xl border border-outline-variant/20 bg-surface px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10"
-                    value={form.name}
-                    onChange={(e) => setField("name", e.target.value)}
-                    placeholder="Your full name"
-                  />
-                </label>
+                  {/* Form actions */}
+                  <div className="flex flex-wrap items-center gap-3 pt-4 border-t-2 border-[#234196]/10">
+                    <button
+                      type="submit"
+                      disabled={saving || !isDirty}
+                      className="chunky-primary min-h-11 px-6 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {saving ? (
+                        <>
+                          <span className="material-symbols-outlined animate-spin text-[18px]" aria-hidden="true">
+                            progress_activity
+                          </span>
+                          <span>{t("profile.saving")}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+                            save
+                          </span>
+                          <span>{t("profile.save")}</span>
+                        </>
+                      )}
+                    </button>
 
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Date of birth</span>
-                  <input
-                    type="date"
-                    className="w-full rounded-xl border border-outline-variant/20 bg-surface px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10"
-                    value={form.dob}
-                    onChange={(e) => setField("dob", e.target.value)}
-                  />
-                </label>
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      disabled={saving || !isDirty}
+                      className="chunky-secondary min-h-11 px-5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+                        restart_alt
+                      </span>
+                      <span>{t("profile.reset")}</span>
+                    </button>
 
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Email (read-only)</span>
-                  <input
-                    className="w-full cursor-not-allowed rounded-xl border border-outline-variant/20 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface-variant"
-                    value={profile.email || ""}
-                    readOnly
-                    aria-readonly="true"
-                  />
-                </label>
-
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-on-primary shadow-sm transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {saving ? "Saving..." : "Save changes"}
-                  </button>
-                </div>
-              </form>
-            </section>
-          </div>
-        )}
+                    {isDirty && (
+                      <span className="sticker ml-auto bg-[#FCB625] text-[9px] text-[#234196]">
+                        Có thay đổi chưa lưu
+                      </span>
+                    )}
+                  </div>
+                </form>
+              </section>
+            </div>
+          )}
+        </div>
       </main>
     </UserDashboardShell>
   );
