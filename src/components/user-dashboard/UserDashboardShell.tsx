@@ -27,8 +27,12 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
         pathname.startsWith("/interview/"),
       practice: pathname.startsWith("/practice"),
       profile: pathname.startsWith("/dashboard/profile"),
-      settings: pathname.startsWith("/pricing"),
-      help: pathname.startsWith("/resources"),
+      settings:
+        pathname === "/dashboard/settings" ||
+        pathname.startsWith("/dashboard/settings/"),
+      help:
+        pathname === "/dashboard/help" ||
+        pathname.startsWith("/dashboard/help/"),
     }),
     [pathname],
   );
@@ -39,6 +43,7 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
     "text-[#5A6B8F] hover:border-[#234196] hover:bg-[#F0F4FC] hover:text-[#234196]";
   const navActive =
     "border-[#234196] bg-[#FCB625] font-bold text-[#234196] shadow-[2px_2px_0_#234196]";
+
 
   const linkClass = (active: boolean) =>
     `${navBase} ${navReady && active ? navActive : navInactive}`;
@@ -115,7 +120,7 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
               <span className="font-inter text-sm font-medium">{t("userDash.nav.profile")}</span>
             </Link>
             <Link
-              href="/pricing"
+              href="/dashboard/settings"
               className={linkClass(isActive.settings)}
             >
               <span className="material-symbols-outlined">settings</span>
@@ -125,7 +130,7 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
 
           <div className="space-y-2 border-t-2 border-[#234196] pt-6">
             <Link
-              href="/resources"
+              href="/dashboard/help"
               className={linkClass(isActive.help)}
             >
               <span className="material-symbols-outlined">help</span>
@@ -146,39 +151,57 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
 
       <nav className="fixed bottom-4 left-4 right-4 z-50 flex items-center justify-around gap-2 rounded-xl border-2 border-[#234196] bg-white px-3 py-2 shadow-[4px_4px_0_#234196] md:hidden">
         <Link
-          href="/interview/select"
-          className="rounded-lg border-2 border-[#234196] bg-[#FCB625] p-3 text-[#234196] transition-colors"
-          aria-label={t("userDash.nav.newInterview")}
+          href="/dashboard"
+          className={`rounded-lg p-2.5 transition-colors ${
+            pathname === "/dashboard"
+              ? "border-2 border-[#234196] bg-[#FCB625] text-[#234196] font-bold"
+              : "text-[#5A6B8F] hover:bg-[#F0F4FC] hover:text-[#234196]"
+          }`}
+          aria-label={t("userDash.nav.dashboard")}
         >
-          <span className="material-symbols-outlined">add_circle</span>
+          <span className="material-symbols-outlined text-2xl">dashboard</span>
         </Link>
         <Link
-          href="/voice"
-          className="rounded-lg p-3 text-[#5A6B8F] transition-colors hover:bg-[#F0F4FC] hover:text-[#234196]"
-          aria-label={t("userDash.mode.voice.title")}
+          href="/interview/select"
+          className={`rounded-lg border-2 border-[#234196] bg-[#FCB625] p-2.5 text-[#234196] transition-colors shadow-[2px_2px_0_#234196] ${
+            pathname.startsWith("/interview") ? "ring-2 ring-[#234196] ring-offset-1" : ""
+          }`}
+          aria-label={t("userDash.nav.newInterview")}
         >
-          <span className="material-symbols-outlined">mic</span>
+          <span className="material-symbols-outlined text-2xl">add_circle</span>
         </Link>
         <Link
           href="/practice"
-          className="rounded-lg p-3 text-[#5A6B8F] transition-colors hover:bg-[#F0F4FC] hover:text-[#234196]"
+          className={`rounded-lg p-2.5 transition-colors ${
+            pathname.startsWith("/practice")
+              ? "border-2 border-[#234196] bg-[#FCB625] text-[#234196] font-bold"
+              : "text-[#5A6B8F] hover:bg-[#F0F4FC] hover:text-[#234196]"
+          }`}
           aria-label={t("userDash.nav.practice")}
         >
-          <span className="material-symbols-outlined">quiz</span>
+          <span className="material-symbols-outlined text-2xl">school</span>
         </Link>
         <Link
           href="/dashboard/cvs"
-          className="rounded-lg p-3 text-[#5A6B8F] transition-colors hover:bg-[#F0F4FC] hover:text-[#234196]"
+          className={`rounded-lg p-2.5 transition-colors ${
+            pathname.startsWith("/dashboard/cvs")
+              ? "border-2 border-[#234196] bg-[#FCB625] text-[#234196] font-bold"
+              : "text-[#5A6B8F] hover:bg-[#F0F4FC] hover:text-[#234196]"
+          }`}
           aria-label={t("userDash.nav.myCvs")}
         >
-          <span className="material-symbols-outlined">description</span>
+          <span className="material-symbols-outlined text-2xl">description</span>
         </Link>
         <Link
-          href="/logout"
-          className="rounded-lg p-3 text-[#D32F2F] transition-colors hover:bg-[#FFEBEE]"
-          aria-label={t("userDash.nav.logout")}
+          href="/dashboard/profile"
+          className={`rounded-lg p-2.5 transition-colors ${
+            pathname.startsWith("/dashboard/profile")
+              ? "border-2 border-[#234196] bg-[#FCB625] text-[#234196] font-bold"
+              : "text-[#5A6B8F] hover:bg-[#F0F4FC] hover:text-[#234196]"
+          }`}
+          aria-label={t("userDash.nav.profile")}
         >
-          <span className="material-symbols-outlined">call_end</span>
+          <span className="material-symbols-outlined text-2xl">person</span>
         </Link>
       </nav>
     </div>

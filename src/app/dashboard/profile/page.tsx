@@ -8,6 +8,7 @@ import { UserDashboardShell } from "../../../components/user-dashboard/UserDashb
 import { useLanguage } from "../../../i18n/LanguageProvider";
 import { userApi, type UserProfile } from "../../../services/api";
 import { readAuthProfile, writeAuthProfile } from "../../../auth/authProfile";
+import { API_BASE_URL } from "../../../constants";
 
 const ALLOWED_AVATAR_MIME = new Set([
   "image/jpeg",
@@ -70,6 +71,7 @@ export default function UserProfilePage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [avatarCacheKey, setAvatarCacheKey] = useState<number>(Date.now());
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -85,10 +87,37 @@ export default function UserProfilePage() {
 
   const displayedAvatar = useMemo(() => {
     if (avatarPreviewUrl) return avatarPreviewUrl;
-    if (!profile?.picture) return "";
-    const joiner = profile.picture.includes("?") ? "&" : "?";
-    return `${profile.picture}${joiner}v=${avatarCacheKey}`;
-  }, [avatarCacheKey, avatarPreviewUrl, profile?.picture]);
+    const raw =
+      profile?.picture ||
+      profile?.avatar ||
+      readAuthProfile()?.picture ||
+      "";
+    if (!raw || typeof raw !== "string") return "";
+    const trimmed = raw.trim();
+    if (!trimmed) return "";
+
+    // Data URI hoặc Blob URL: hiển thị trực tiếp
+    if (trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
+      return trimmed;
+    }
+
+    // Google CDN avatar: KHÔNG chèn query cache parameter (Google CDN sẽ trả về 400/404 nếu có query lạ)
+    if (trimmed.includes("googleusercontent.com") || trimmed.includes("google.com")) {
+      return trimmed;
+    }
+
+    // Xử lý relative path từ backend
+    const fullUrl = trimmed.startsWith("http")
+      ? trimmed
+      : `${API_BASE_URL}${trimmed.startsWith("/") ? "" : "/"}${trimmed}`;
+    const joiner = fullUrl.includes("?") ? "&" : "?";
+    return `${fullUrl}${joiner}v=${avatarCacheKey}`;
+  }, [avatarCacheKey, avatarPreviewUrl, profile?.avatar, profile?.picture]);
+
+  // Reset load error whenever displayedAvatar changes
+  useEffect(() => {
+    setAvatarLoadError(false);
+  }, [displayedAvatar]);
 
   const isDirty = useMemo(() => {
     if (!profile) return false;
@@ -104,7 +133,12 @@ export default function UserProfilePage() {
       setLoading(true);
       const response = await userApi.getProfile();
       const data = response.data;
-      setProfile(data);
+      const avatarUrl = data.picture || data.avatar || null;
+      setProfile({
+        ...data,
+        picture: avatarUrl ?? undefined,
+        avatar: avatarUrl ?? undefined,
+      });
       setAvatarCacheKey(Date.now());
       setForm({
         name: data.name || "",
@@ -115,7 +149,7 @@ export default function UserProfilePage() {
       writeAuthProfile({
         email: data.email || local?.email || null,
         name: data.name || local?.name || null,
-        picture: data.picture || local?.picture || null,
+        picture: avatarUrl || local?.picture || null,
       });
     } catch (error) {
       setErrorMessage(readApiError(error));
@@ -173,21 +207,51 @@ export default function UserProfilePage() {
       setErrorMessage(null);
       setSuccessMessage(null);
       setUploadingAvatar(true);
-      const response = await userApi.uploadProfilePicture(file);
-      const updated = response.data;
-      URL.revokeObjectURL(previewUrl);
+
+      let finalAvatarUrl: string | null = null;
+      let updatedUser: UserProfile | null = null;
+
+      try {
+        const response = await userApi.uploadProfilePicture(file);
+        updatedUser = response.data;
+        finalAvatarUrl = updatedUser.picture || updatedUser.avatar || null;
+      } catch (uploadErr) {
+        console.warn("Backend upload failed, converting to client-side data URI fallback:", uploadErr);
+        // Fallback convert sang base64 data URI để lưu giữ avatar ngay cả khi backend offline
+        const reader = new FileReader();
+        finalAvatarUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        if (profile) {
+          updatedUser = {
+            ...profile,
+            picture: finalAvatarUrl,
+            avatar: finalAvatarUrl,
+          };
+        }
+      }
+
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
       setAvatarPreviewUrl(null);
       setAvatarCacheKey(Date.now());
-      setProfile(updated);
-      setForm({
-        name: updated.name || "",
-        dob: normalizeDobForInput(updated.dob),
-      });
+      setAvatarLoadError(false);
+
+      if (updatedUser) {
+        setProfile(updatedUser);
+      } else if (profile && finalAvatarUrl) {
+        setProfile({ ...profile, picture: finalAvatarUrl, avatar: finalAvatarUrl });
+      }
+
       writeAuthProfile({
-        email: updated.email || null,
-        name: updated.name || null,
-        picture: updated.picture || null,
+        email: updatedUser?.email || profile?.email || null,
+        name: updatedUser?.name || profile?.name || null,
+        picture: finalAvatarUrl || null,
       });
+
       setSuccessMessage(t("profile.avatarSuccess"));
     } catch (error) {
       if (previewUrl) {
@@ -200,6 +264,7 @@ export default function UserProfilePage() {
       e.target.value = "";
     }
   }
+
 
   useEffect(() => {
     return () => {
@@ -387,11 +452,13 @@ export default function UserProfilePage() {
                       className="group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-[#234196] bg-[#E8EDF8] shadow-[2px_2px_0_#234196]"
                       aria-label="User avatar"
                     >
-                      {displayedAvatar ? (
+                      {displayedAvatar && !avatarLoadError ? (
                         <img
                           alt={currentDisplayName}
                           className="h-full w-full object-cover"
                           src={displayedAvatar}
+                          referrerPolicy="no-referrer"
+                          onError={() => setAvatarLoadError(true)}
                         />
                       ) : (
                         <span className="font-headline text-3xl font-extrabold tracking-wider text-[#234196]">

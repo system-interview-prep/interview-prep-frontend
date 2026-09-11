@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import LanguageToggleButton from "../../components/LanguageToggleButton";
@@ -21,6 +22,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const { showNavigationLoading, hideNavigationLoading } = useNavigationLoading();
   const [videoError, setVideoError] = useState(false);
+
+  const [avatarError, setAvatarError] = useState(false);
 
   const navigate = (href: string) => {
     showNavigationLoading();
@@ -49,17 +52,32 @@ export default function DashboardPage() {
               <p className="mt-2 max-w-xl text-sm leading-6 text-[#5A6B8F] sm:text-base">{t("userDash.workspace.subtitle")}</p>
             </div>
             <div className="flex min-w-0 items-center rounded-2xl border-2 border-[#234196] bg-white p-2 shadow-[3px_3px_0_#234196] lg:max-w-sm">
-              {profile?.picture ? (
-                <img alt="" className="h-11 w-11 shrink-0 rounded-xl border-2 border-[#234196] object-cover" src={profile.picture} />
-              ) : (
-                <div aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FCB625] text-sm font-bold text-[#234196]">
-                  {displayName ? initialsFromName(displayName) : "?"}
+              <Link
+                href="/dashboard/profile"
+                className="group flex min-w-0 flex-1 items-center rounded-xl p-0.5 transition-all hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FCB625]"
+                aria-label={t("userDash.nav.profile")}
+                title={t("userDash.nav.profile")}
+              >
+                {profile?.picture && !avatarError ? (
+                  <img
+                    alt=""
+                    className="h-11 w-11 shrink-0 rounded-xl border-2 border-[#234196] object-cover"
+                    src={profile.picture}
+                    referrerPolicy="no-referrer"
+                    onError={() => setAvatarError(true)}
+                  />
+                ) : (
+                  <div aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FCB625] text-sm font-bold text-[#234196]">
+                    {displayName ? initialsFromName(displayName) : "?"}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1 px-3">
+                  <p className="truncate text-sm font-bold text-[#234196] group-hover:underline decoration-[#FCB625] decoration-2 underline-offset-2">
+                    {displayName || t("userDash.profile.guest")}
+                  </p>
+                  <p className="mt-0.5 font-metadata text-[8px] text-[#5A6B8F]">{t("userDash.roleFallback")}</p>
                 </div>
-              )}
-              <div className="min-w-0 flex-1 px-3">
-                <p className="truncate text-sm font-bold">{displayName || t("userDash.profile.guest")}</p>
-                <p className="mt-0.5 font-metadata text-[8px] text-[#5A6B8F]">{t("userDash.roleFallback")}</p>
-              </div>
+              </Link>
               <div className="h-8 w-px shrink-0 bg-[#B7C6E6]" aria-hidden="true" />
               <LanguageToggleButton className="ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#234196] transition-colors hover:bg-[#F0F4FC]" />
             </div>

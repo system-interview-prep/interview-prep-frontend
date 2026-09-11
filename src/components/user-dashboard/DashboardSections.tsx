@@ -101,8 +101,27 @@ export function RecentActivity({
                     </time>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-[#5A6B8F]"><span>{meta.label}</span><span aria-hidden="true">·</span><span>{t("userDash.activity.started")}</span><span className="sr-only">{t("userDash.activity.scoreUnavailable")}</span></div>
-                <button type="button" onClick={() => onNavigate(`/interview/room/${session.roomId}`)} className="chunky-secondary min-h-11 justify-self-start px-4 text-sm sm:justify-self-end">{t("userDash.activity.continue")}</button>
+                <div className="flex items-center gap-2 text-xs text-[#5A6B8F]">
+                  <span>{meta.label}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{t("userDash.activity.started")}</span>
+                  <span className="sr-only">{t("userDash.activity.scoreUnavailable")}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (session.mode === "chat") {
+                      onNavigate("/chat");
+                    } else if (session.mode === "voice") {
+                      onNavigate("/voice");
+                    } else {
+                      onNavigate(`/interview/room/${session.roomId}`);
+                    }
+                  }}
+                  className="chunky-secondary min-h-11 justify-self-start px-4 text-sm sm:justify-self-end"
+                >
+                  {t("userDash.activity.continue")}
+                </button>
               </article>
             );
           })}
