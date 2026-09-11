@@ -46,133 +46,133 @@ export default function InterviewSelectPage() {
 
   return (
     <UserDashboardShell>
-      <main className="min-h-screen p-6 md:p-12 bg-surface md:pb-12">
-        <header className="relative flex flex-col gap-6 sm:flex-row sm:justify-between sm:items-end mb-12 scroll-mt-24">
-          <div className="pointer-events-none absolute -right-8 -top-12 h-64 w-64 rounded-full bg-primary/5 blur-[80px] dark:bg-primary/10" aria-hidden />
-          <div className="relative z-[1]">
-            <span className="text-tertiary font-bold uppercase text-[10px] tracking-widest mb-3 inline-block">
+      <main className="paper-dots min-h-screen bg-[#FEF9EE] px-4 pb-8 pt-6 text-[#234196] sm:px-6 md:px-8 md:py-10 lg:px-10 xl:px-12">
+        <div className="mx-auto max-w-[1440px]">
+        <header className="mb-8 grid gap-6 border-b-2 border-[#234196] pb-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="max-w-2xl">
+            <span className="mb-2 inline-block font-metadata text-[10px] font-bold uppercase tracking-[.18em] text-[#E59E10]">
               {t("interview.select.eyebrow")}
             </span>
-            <h1 className="font-headline font-extrabold text-on-surface text-3xl md:text-4xl tracking-tighter">
+            <h1 className="font-headline text-[clamp(2rem,3vw,2.75rem)] font-semibold leading-tight tracking-[-.03em] text-[#234196]">
               {t("interview.select.title")}
             </h1>
-            <p className="text-on-surface-variant mt-2 font-body text-lg max-w-2xl">
+            <p className="mt-2 max-w-xl text-sm leading-6 text-[#5A6B8F] sm:text-base">
               {t("interview.select.subtitle")}
             </p>
           </div>
-          <div className="relative z-[1] flex flex-wrap items-center gap-4 justify-between sm:justify-end">
-            <LanguageToggleButton />
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="font-headline font-bold text-on-surface">{displayName || "—"}</p>
-                <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                  {roleLabel}
-                </p>
-              </div>
-              <Link
-                href="/dashboard"
-                className="shrink-0 rounded-full ring-2 ring-primary/10 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-                aria-label={t("interview.select.backDashboard")}
-                title={t("interview.select.backDashboard")}
-              >
-                {profile?.picture ? (
+          <div className="flex min-w-0 items-center rounded-2xl border-2 border-[#234196] bg-white p-2 shadow-[3px_3px_0_#234196] lg:max-w-sm">
+            <Link
+              href="/dashboard"
+              className="shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FCB625]"
+              aria-label={t("interview.select.backDashboard")}
+              title={t("interview.select.backDashboard")}
+            >
+              {profile?.picture ? (
                   <img
                     alt=""
-                    className="h-12 w-12 rounded-full object-cover"
+                    className="h-11 w-11 rounded-xl border-2 border-[#234196] object-cover"
                     src={profile.picture}
                   />
                 ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-fixed font-headline text-sm font-bold text-primary">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FCB625] font-headline text-sm font-bold text-[#234196]">
                     {initials}
                   </div>
                 )}
-              </Link>
+            </Link>
+            <div className="min-w-0 flex-1 px-3">
+              <p className="truncate text-sm font-bold text-[#234196]">{displayName || t("userDash.profile.guest")}</p>
+              <p className="mt-0.5 font-metadata text-[8px] text-[#5A6B8F]">{roleLabel}</p>
             </div>
+            <div className="h-8 w-px shrink-0 bg-[#B7C6E6]" aria-hidden="true" />
+            <LanguageToggleButton className="ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#234196] transition-colors hover:bg-[#F0F4FC]" />
           </div>
         </header>
 
-        <section className="mb-16">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            <div className="group relative overflow-hidden rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-8 shadow-sm transition-all duration-300 hover:shadow-xl">
-              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-fixed text-primary transition-transform group-hover:scale-110">
-                <span className="material-symbols-outlined text-3xl">chat_bubble</span>
+        <section className="mb-16" aria-label={t("interview.select.eyebrow")}>
+          <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-3 lg:gap-8">
+            <button
+              type="button"
+              onClick={goToChat}
+              className="group relative flex h-full min-h-[310px] w-full flex-col justify-between overflow-hidden rounded-2xl border-2 border-[#234196] bg-white p-7 text-left shadow-[3px_3px_0_#234196] transition-all duration-200 hover:-translate-y-1.5 hover:bg-[#F8FAFF] hover:shadow-[6px_6px_0_#234196] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FCB625]/50 motion-reduce:transform-none md:p-8"
+            >
+              <div className="relative z-[1]">
+                <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#F0F4FC] text-[#234196] transition-transform duration-200 group-hover:-rotate-2">
+                  <span className="material-symbols-outlined select-none text-3xl leading-none" aria-hidden="true">chat_bubble</span>
+                </div>
+                <h2 className="mb-3 font-headline text-xl font-bold text-[#17244A]">
+                  {t("userDash.mode.chat.title")}
+                </h2>
+                <p className="body-md leading-relaxed text-[#5A6B8F]">
+                  {t("userDash.mode.chat.desc")}
+                </p>
               </div>
-              <h3 className="mb-3 font-headline text-xl font-bold text-on-surface">
-                {t("userDash.mode.chat.title")}
-              </h3>
-              <p className="mb-8 text-on-surface-variant body-md leading-relaxed">
-                {t("userDash.mode.chat.desc")}
-              </p>
-              <button
-                type="button"
-                onClick={goToChat}
-                className="group/btn inline-flex items-center gap-2 border-0 bg-transparent p-0 font-bold text-primary"
-              >
+              <span className="relative z-[1] mt-8 flex min-h-11 items-center justify-between gap-2 border-t-2 border-[#234196] pt-4 font-bold text-[#234196]">
                 {t("userDash.mode.chat.cta")}
-                <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
+                <span className="material-symbols-outlined select-none text-[18px] leading-none transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true">
                   arrow_forward
                 </span>
-              </button>
-              <div className="pointer-events-none absolute -bottom-4 -right-4 opacity-5 transition-opacity group-hover:opacity-10">
-                <span className="material-symbols-outlined text-9xl">chat_bubble</span>
-              </div>
-            </div>
+              </span>
+              <span className="material-symbols-outlined pointer-events-none absolute -bottom-5 -right-4 select-none text-9xl leading-none text-[#234196] opacity-[0.04] transition-opacity group-hover:opacity-[0.08]" aria-hidden="true">chat_bubble</span>
+            </button>
 
-            <div className="group relative overflow-hidden rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-8 shadow-sm transition-all duration-300 hover:shadow-xl">
-              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-secondary-container text-primary transition-transform group-hover:scale-110">
-                <span className="material-symbols-outlined text-3xl">settings_voice</span>
+            <button
+              type="button"
+              onClick={goToVoice}
+              className="group relative flex h-full min-h-[310px] w-full flex-col justify-between overflow-hidden rounded-2xl border-2 border-[#234196] bg-[#F0F4FC] p-7 text-left shadow-[3px_3px_0_#234196] transition-all duration-200 hover:-translate-y-1.5 hover:bg-[#E8EEFA] hover:shadow-[6px_6px_0_#234196] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FCB625]/50 motion-reduce:transform-none md:p-8"
+            >
+              <div className="relative z-[1]">
+                <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#EEEAFE] text-[#6552C7] transition-transform duration-200 group-hover:-rotate-2">
+                  <span className="material-symbols-outlined select-none text-3xl leading-none" aria-hidden="true">settings_voice</span>
+                </div>
+                <h2 className="mb-3 font-headline text-xl font-bold text-[#17244A]">
+                  {t("userDash.mode.voice.title")}
+                </h2>
+                <p className="body-md leading-relaxed text-[#5A6B8F]">
+                  {t("userDash.mode.voice.desc")}
+                </p>
               </div>
-              <h3 className="mb-3 font-headline text-xl font-bold text-on-surface">
-                {t("userDash.mode.voice.title")}
-              </h3>
-              <p className="mb-8 text-on-surface-variant body-md leading-relaxed">
-                {t("userDash.mode.voice.desc")}
-              </p>
-              <button
-                type="button"
-                onClick={goToVoice}
-                className="group/btn inline-flex items-center gap-2 border-0 bg-transparent p-0 font-bold text-primary"
-              >
+              <span className="relative z-[1] mt-8 flex min-h-11 items-center justify-between gap-2 border-t-2 border-[#234196] pt-4 font-bold text-[#6552C7]">
                 {t("userDash.mode.voice.cta")}
-                <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
+                <span className="material-symbols-outlined select-none text-[18px] leading-none transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true">
                   arrow_forward
                 </span>
-              </button>
-              <div className="pointer-events-none absolute -bottom-4 -right-4 opacity-5 transition-opacity group-hover:opacity-10">
-                <span className="material-symbols-outlined text-9xl">settings_voice</span>
-              </div>
-            </div>
+              </span>
+              <span className="material-symbols-outlined pointer-events-none absolute -bottom-5 -right-4 select-none text-9xl leading-none text-[#6552C7] opacity-[0.04] transition-opacity group-hover:opacity-[0.08]" aria-hidden="true">settings_voice</span>
+            </button>
 
-            <div className="group relative overflow-hidden rounded-xl ai-glass-gradient p-8 text-white shadow-lg transition-all duration-300 hover:shadow-2xl">
-              <div className="absolute right-4 top-4 flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 backdrop-blur-sm">
-                <div className="h-2 w-2 animate-pulse rounded-full bg-tertiary" />
-                <span className="text-[10px] font-bold uppercase tracking-tighter">
-                  {t("userDash.mode.video.badge")}
-                </span>
+            <button
+              type="button"
+              onClick={goToRoom}
+              className="group relative flex h-full min-h-[310px] w-full flex-col justify-between overflow-hidden rounded-2xl border-2 border-[#234196] bg-[#FEF9EE] p-7 text-left shadow-[3px_3px_0_#234196] transition-all duration-200 hover:-translate-y-1.5 hover:bg-[#FFF4D9] hover:shadow-[6px_6px_0_#234196] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FCB625]/50 motion-reduce:transform-none md:p-8"
+            >
+              <span className="sticker absolute right-4 top-4 z-[2] bg-[#FCB625] text-[8px]">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#E29000] motion-reduce:animate-none" aria-hidden="true" />
+                {t("userDash.mode.video.badge")}
+              </span>
+              <div className="relative z-[1]">
+                <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FCB625] text-[#234196] transition-transform duration-200 group-hover:-rotate-2">
+                  <span className="material-symbols-outlined select-none text-3xl leading-none" aria-hidden="true">videocam</span>
+                </div>
+                <h2 className="mb-3 font-headline text-xl font-bold text-[#17244A]">
+                  {t("userDash.mode.video.title")}
+                </h2>
+                <p className="body-md leading-relaxed text-[#5A6B8F]">
+                  {t("userDash.mode.video.desc")}
+                </p>
               </div>
-              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-md transition-transform group-hover:scale-110">
-                <span className="material-symbols-outlined text-3xl">videocam</span>
-              </div>
-              <h3 className="mb-3 font-headline text-xl font-bold">{t("userDash.mode.video.title")}</h3>
-              <p className="mb-8 text-white/90 body-md leading-relaxed">{t("userDash.mode.video.desc")}</p>
-              <button
-                type="button"
-                onClick={goToRoom}
-                className="group/btn inline-flex items-center gap-2 font-bold text-white"
-              >
+              <span className="relative z-[1] mt-8 flex min-h-11 items-center justify-between gap-2 border-t-2 border-[#234196] pt-4 font-bold text-[#B76B00]">
                 {t("userDash.mode.video.cta")}
-                <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
+                <span className="material-symbols-outlined select-none text-[18px] leading-none transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true">
                   arrow_forward
                 </span>
-              </button>
-              <div className="pointer-events-none absolute -bottom-4 -right-4 text-white opacity-[0.07] transition-opacity group-hover:opacity-[0.12]">
-                <span className="material-symbols-outlined text-9xl">videocam</span>
-              </div>
-            </div>
+              </span>
+              <span className="material-symbols-outlined pointer-events-none absolute -bottom-5 -right-4 select-none text-9xl leading-none text-[#B76B00] opacity-[0.04] transition-opacity group-hover:opacity-[0.08]" aria-hidden="true">videocam</span>
+            </button>
           </div>
         </section>
 
         <DemoSessionsHistory variant="full" />
+        </div>
       </main>
     </UserDashboardShell>
   );

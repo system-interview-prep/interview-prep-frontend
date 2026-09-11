@@ -93,52 +93,52 @@ export function DemoSessionsHistory({ variant }: DemoSessionsHistoryProps) {
 
   return (
     <section
-      className={`mb-16 ${variant === "full" ? "border-t border-outline-variant/20 pt-10" : ""}`}
+      className={`mb-16 ${variant === "full" ? "border-t-2 border-[#234196] pt-10" : ""}`}
     >
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center">
-        <h3 className="font-headline text-2xl font-bold text-on-surface">{t("userDash.history.title")}</h3>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+        <h3 className="font-headline text-3xl font-semibold text-[#234196]">{t("userDash.history.title")}</h3>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-outline-variant/10 bg-surface-container-lowest shadow-sm overflow-x-auto">
+      <div className="overflow-x-auto rounded-2xl border-2 border-[#234196] bg-white shadow-[3px_3px_0_#234196]">
         <table className="w-full min-w-[640px] border-collapse text-left">
           <thead>
-            <tr className="bg-surface-container-low text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
+            <tr className="border-b-2 border-[#234196] bg-[#F0F4FC] font-metadata text-[9px] font-bold uppercase tracking-[0.16em] text-[#234196]">
               <th className="px-6 py-4 md:px-8 md:py-5">{t("userDash.table.candidateDate")}</th>
               <th className="px-6 py-4 md:px-8 md:py-5">{t("userDash.table.mode")}</th>
               <th className="px-6 py-4 text-center md:px-8 md:py-5">{t("userDash.table.score")}</th>
               <th className="px-6 py-4 text-right md:px-8 md:py-5">{t("userDash.table.actions")}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-outline-variant/10">
+          <tbody className="divide-y-2 divide-[#234196]/15 bg-white">
             {sessions.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-10 text-center text-on-surface-variant md:px-8">
+                <td colSpan={4} className="px-6 py-12 text-center text-[#5A6B8F] md:px-8">
                   {t("dashboard.empty")}
                 </td>
               </tr>
             ) : (
               rows.map((s) => (
-                <tr key={s.roomId} className="transition-colors hover:bg-surface-container/50">
+                <tr key={s.roomId} className="transition-colors hover:bg-[#FEF9EE]">
                   <td className="px-6 py-5 md:px-8 md:py-6">
                     <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-sm font-bold text-on-surface-variant">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FCB625] text-sm font-bold text-[#234196]">
                         {initialsFromTopic(s.topic)}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-bold text-on-surface">{s.topic}</p>
-                        <p className="text-xs text-on-surface-variant">
+                        <p className="font-bold text-[#234196]">{s.topic}</p>
+                        <p className="text-xs text-[#5A6B8F]">
                           {new Date(s.startedAt).toLocaleString()}
                         </p>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-5 md:px-8 md:py-6">
-                    <div className="flex items-center gap-2 text-sm font-medium text-on-surface-variant">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[#5A6B8F]">
                       {(() => {
                         const meta = modeMeta(s.mode, t);
                         return (
                           <>
-                            <span className="material-symbols-outlined text-lg">{meta.icon}</span>
+                            <span className="material-symbols-outlined select-none text-lg leading-none text-[#234196]" aria-hidden="true">{meta.icon}</span>
                             {meta.label}
                           </>
                         );
@@ -147,7 +147,7 @@ export function DemoSessionsHistory({ variant }: DemoSessionsHistoryProps) {
                   </td>
                   <td className="px-6 py-5 md:px-8 md:py-6">
                     <div className="flex items-center justify-center">
-                      <span className="rounded-full bg-surface-container px-3 py-1 text-xs font-bold text-on-surface-variant ring-1 ring-outline-variant/30">
+                      <span className="rounded-md bg-[#F0F4FC] px-3 py-1 text-xs font-bold text-[#5A6B8F]">
                         —
                       </span>
                     </div>
@@ -156,7 +156,7 @@ export function DemoSessionsHistory({ variant }: DemoSessionsHistoryProps) {
                     {interactive ? (
                       <Link
                         href={`/interview/room/${s.roomId}`}
-                        className="inline-block rounded-lg px-4 py-2 text-sm font-bold text-primary hover:bg-primary/5"
+                        className="inline-flex min-h-11 items-center rounded-lg px-4 py-2 text-sm font-bold text-[#234196] underline decoration-[#FCB625] decoration-4 underline-offset-4 hover:bg-[#F0F4FC]"
                       >
                         {t("userDash.table.viewSummary")}
                       </Link>
@@ -173,7 +173,7 @@ export function DemoSessionsHistory({ variant }: DemoSessionsHistoryProps) {
 
       {interactive && sessions.length > 0 ? (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-on-surface-variant">
+          <p className="text-xs font-medium text-[#5A6B8F]">
             {Math.min((pageSafe - 1) * PAGE_SIZE_FULL + 1, sessions.length)}–
             {Math.min(pageSafe * PAGE_SIZE_FULL, sessions.length)} / {sessions.length}
           </p>
@@ -182,11 +182,11 @@ export function DemoSessionsHistory({ variant }: DemoSessionsHistoryProps) {
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={pageSafe <= 1}
-              className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:opacity-50"
+              className="chunky-secondary min-h-11 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t("userDash.jobProfiles.pagePrev")}
             </button>
-            <span className="min-w-[5rem] text-center text-sm font-semibold text-on-surface">
+            <span className="min-w-[5rem] text-center text-sm font-bold text-[#234196]">
               {t("userDash.history.pageLabel")
                 .replace("{n}", String(pageSafe))
                 .replace("{total}", String(totalPages))}
@@ -195,7 +195,7 @@ export function DemoSessionsHistory({ variant }: DemoSessionsHistoryProps) {
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={pageSafe >= totalPages}
-              className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:opacity-50"
+              className="chunky-secondary min-h-11 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t("userDash.jobProfiles.pageNext")}
             </button>
@@ -204,7 +204,7 @@ export function DemoSessionsHistory({ variant }: DemoSessionsHistoryProps) {
       ) : null}
 
       {!interactive && sessions.length > PREVIEW_MAX ? (
-        <p className="mt-3 text-xs text-on-surface-variant">
+        <p className="mt-3 text-xs text-[#5A6B8F]">
           {t("userDash.history.previewTruncated").replace("{n}", String(PREVIEW_MAX))}
         </p>
       ) : null}

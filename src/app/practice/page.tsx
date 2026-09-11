@@ -56,9 +56,8 @@ export default function PracticePage() {
   }, [answers, step, picked]);
 
   const progressPct = useMemo(() => {
-    const base = step / QUESTION_IDS.length;
-    const bump = picked !== null ? 0.22 / QUESTION_IDS.length : 0.08 / QUESTION_IDS.length;
-    return Math.min(100, (base + bump) * 100);
+    const completedQuestions = step + (picked !== null ? 1 : 0);
+    return Math.min(100, (completedQuestions / QUESTION_IDS.length) * 100);
   }, [step, picked]);
 
   const roleLabel = t("userDash.roleFallback");
@@ -98,72 +97,69 @@ export default function PracticePage() {
   }
 
   function dotState(i: number): "done-ok" | "done-bad" | "current" | "todo" {
+    if (i === step) return "current";
     const a = answers[i];
     if (a !== null && a !== undefined) {
       return a === CORRECT[QUESTION_IDS[i]] ? "done-ok" : "done-bad";
     }
-    if (i === step) return "current";
     return "todo";
   }
 
   return (
     <UserDashboardShell>
-      <main className="min-h-screen bg-surface p-6 pb-28 md:pb-12 md:p-12">
-        <header className="relative mb-10 flex flex-col gap-6 sm:mb-12 sm:flex-row sm:items-end sm:justify-between">
-          <div className="pointer-events-none absolute -right-8 -top-12 h-64 w-64 rounded-full bg-tertiary/10 blur-[80px]" aria-hidden />
-          <div className="relative z-[1]">
-            <span className="mb-3 inline-block text-[10px] font-bold uppercase tracking-widest text-tertiary">
+      <main className="paper-dots min-h-screen bg-[#FEF9EE] px-4 pb-28 pt-6 text-[#234196] sm:px-6 md:px-8 md:py-10 lg:px-10 xl:px-12">
+        <div className="mx-auto max-w-[1440px]">
+        <header className="mb-8 grid gap-6 border-b-2 border-[#234196] pb-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="max-w-2xl">
+            <span className="mb-2 inline-block font-metadata text-[10px] font-bold uppercase tracking-[.18em] text-[#E59E10]">
               {t("practice.eyebrow")}
             </span>
-            <h1 className="font-headline text-3xl font-extrabold tracking-tighter text-on-surface md:text-4xl">
+            <h1 className="font-headline text-[clamp(2rem,3vw,2.75rem)] font-semibold leading-tight tracking-[-.03em] text-[#234196]">
               {t("practice.title")}
             </h1>
-            <p className="mt-2 max-w-2xl font-body text-lg text-on-surface-variant">{t("practice.subtitle")}</p>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-[#5A6B8F] sm:text-base">{t("practice.subtitle")}</p>
           </div>
-          <div className="relative z-[1] flex flex-wrap items-center gap-4 sm:justify-end">
-            <LanguageToggleButton />
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="font-headline font-bold text-on-surface">{displayName || "—"}</p>
-                <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                  {roleLabel}
-                </p>
-              </div>
-              <Link
-                href="/dashboard"
-                className="shrink-0 rounded-full ring-2 ring-primary/10 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-                aria-label={t("interview.select.backDashboard")}
-                title={t("interview.select.backDashboard")}
-              >
-                {profile?.picture ? (
+          <div className="flex min-w-0 items-center rounded-2xl border-2 border-[#234196] bg-white p-2 shadow-[3px_3px_0_#234196] lg:max-w-sm">
+            <Link
+              href="/dashboard"
+              className="shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FCB625]"
+              aria-label={t("interview.select.backDashboard")}
+              title={t("interview.select.backDashboard")}
+            >
+              {profile?.picture ? (
                   <img
                     alt=""
-                    className="h-12 w-12 rounded-full object-cover"
+                    className="h-11 w-11 rounded-xl border-2 border-[#234196] object-cover"
                     src={profile.picture}
                   />
                 ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-fixed font-headline text-sm font-bold text-primary">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FCB625] font-headline text-sm font-bold text-[#234196]">
                     {displayName ? initialsFromName(displayName) : "?"}
                   </div>
                 )}
-              </Link>
+            </Link>
+            <div className="min-w-0 flex-1 px-3">
+              <p className="truncate text-sm font-bold text-[#234196]">{displayName || t("userDash.profile.guest")}</p>
+              <p className="mt-0.5 font-metadata text-[8px] text-[#5A6B8F]">{roleLabel}</p>
             </div>
+            <div className="h-8 w-px shrink-0 bg-[#B7C6E6]" aria-hidden="true" />
+            <LanguageToggleButton className="ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#234196] transition-colors hover:bg-[#F0F4FC]" />
           </div>
         </header>
 
         {!done ? (
-          <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 lg:grid-cols-12">
+          <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
             <div className="lg:col-span-8">
-              <div className="overflow-hidden rounded-2xl border border-outline-variant/10 bg-surface-container-lowest shadow-lg shadow-primary/5">
-                <div className="h-1.5 w-full bg-surface-container">
+              <div className="overflow-hidden rounded-2xl border-2 border-[#234196] bg-white shadow-[5px_5px_0_#234196]">
+                <div className="h-2 w-full bg-[#DCE3F1]">
                   <div
-                    className="h-full rounded-r-full bg-gradient-to-r from-primary to-tertiary transition-[width] duration-500 ease-out"
+                    className="h-full rounded-r-full bg-[#FCB625] transition-[width] duration-500 ease-out"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
                 <div className="p-6 sm:p-8">
                   <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                    <span className="rounded-md bg-primary-fixed px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-primary">
+                    <span className="sticker -rotate-1 bg-[#FCB625] text-[9px]">
                       {t("practice.progress")
                         .replace("{current}", String(step + 1))
                         .replace("{total}", String(QUESTION_IDS.length))}
@@ -176,12 +172,12 @@ export default function PracticePage() {
                             key={i}
                             className={`h-2.5 w-2.5 rounded-full transition-colors ${
                               s === "done-ok"
-                                ? "bg-green-500"
+                                ? "bg-[#2E7D32]"
                                 : s === "done-bad"
-                                  ? "bg-error"
+                                  ? "bg-[#D32F2F]"
                                   : s === "current"
-                                    ? "bg-primary ring-2 ring-primary/30 ring-offset-2 ring-offset-surface-container-lowest"
-                                    : "bg-outline-variant/40"
+                                    ? "bg-[#234196] ring-2 ring-[#FCB625] ring-offset-2 ring-offset-white"
+                                    : "bg-[#B7C6E6]"
                             }`}
                           />
                         );
@@ -189,7 +185,7 @@ export default function PracticePage() {
                     </div>
                   </div>
 
-                  <h2 className="mb-6 font-headline text-xl font-bold leading-snug text-on-surface sm:text-2xl">
+                  <h2 className="mb-6 font-headline text-xl font-semibold leading-snug text-[#17244A] sm:text-2xl">
                     {t(`practice.${qid}.question`)}
                   </h2>
 
@@ -201,24 +197,24 @@ export default function PracticePage() {
                           key={i}
                           type="button"
                           onClick={() => setPicked(i)}
-                          className={`group flex w-full items-center rounded-xl border-2 p-4 text-left transition-all sm:p-5 ${
+                          className={`group flex min-h-[72px] w-full items-center rounded-xl border-2 p-4 text-left transition-all duration-200 sm:p-5 ${
                             isPicked
-                              ? "border-primary bg-primary/8 shadow-md shadow-primary/10 ring-2 ring-primary/15"
-                              : "border-outline-variant/15 hover:border-primary/35 hover:bg-surface-container/60 dark:border-white/10"
+                              ? "border-[#234196] bg-[#F0F4FC] shadow-[3px_3px_0_#234196]"
+                              : "border-[#B7C6E6] bg-white hover:border-[#234196] hover:bg-[#FEF9EE]"
                           }`}
                         >
                           <div
-                            className={`mr-4 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ${
+                            className={`mr-4 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border-2 text-sm font-bold transition-colors ${
                               isPicked
-                                ? "border-primary bg-primary text-on-primary"
-                                : "border-outline-variant/40 text-on-surface-variant group-hover:border-primary/40 group-hover:bg-primary-fixed/50"
+                                ? "border-[#234196] bg-[#FCB625] text-[#234196]"
+                                : "border-[#B7C6E6] text-[#5A6B8F] group-hover:border-[#234196] group-hover:text-[#234196]"
                             }`}
                           >
                             {LETTERS[i]}
                           </div>
                           <span
-                            className={`font-medium leading-snug ${
-                              isPicked ? "font-semibold text-on-surface" : "text-on-surface"
+                            className={`leading-snug ${
+                              isPicked ? "font-bold text-[#17244A]" : "font-medium text-[#344467]"
                             }`}
                           >
                             {label}
@@ -229,16 +225,16 @@ export default function PracticePage() {
                   </div>
 
                   {picked !== null && (
-                    <div className="mt-6 rounded-xl border border-primary/20 bg-primary-fixed/40 p-4 dark:bg-primary/15">
-                      <p className="text-sm leading-relaxed text-on-surface">
-                        <span className="font-bold text-primary">{t("practice.coachNote")}: </span>
+                    <div className="mt-6 rounded-xl border-2 border-[#234196] bg-[#FFF5D6] p-4">
+                      <p className="text-sm leading-relaxed text-[#344467]">
+                        <span className="font-bold text-[#234196]">{t("practice.coachNote")}: </span>
                         {t(`practice.${qid}.feedback`)}
                       </p>
                     </div>
                   )}
 
                   {picked === null && (
-                    <p className="mt-4 text-sm text-on-surface-variant">{t("practice.pickHint")}</p>
+                    <p className="mt-4 text-sm text-[#5A6B8F]">{t("practice.pickHint")}</p>
                   )}
 
                   <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -246,19 +242,19 @@ export default function PracticePage() {
                       type="button"
                       onClick={handlePrev}
                       disabled={step === 0}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-on-surface-variant transition-colors hover:text-on-surface disabled:pointer-events-none disabled:opacity-35"
+                      className="chunky-secondary inline-flex min-h-12 items-center justify-center gap-2 px-5 py-3 text-sm disabled:pointer-events-none disabled:opacity-35"
                     >
-                      <span className="material-symbols-outlined text-lg">arrow_back</span>
+                      <span className="material-symbols-outlined select-none text-lg leading-none" aria-hidden="true">arrow_back</span>
                       {t("practice.prev")}
                     </button>
                     <button
                       type="button"
                       disabled={picked === null}
                       onClick={handleNext}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-8 py-3 font-headline font-bold text-on-primary shadow-lg shadow-primary/25 transition-all hover:bg-primary-container active:scale-[0.98] disabled:opacity-45"
+                      className="chunky-primary inline-flex min-h-12 items-center justify-center gap-2 px-8 py-3 font-headline font-bold disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       {step >= QUESTION_IDS.length - 1 ? t("practice.finish") : t("practice.next")}
-                      <span className="material-symbols-outlined text-lg">arrow_forward</span>
+                      <span className="material-symbols-outlined select-none text-lg leading-none" aria-hidden="true">arrow_forward</span>
                     </button>
                   </div>
                 </div>
@@ -266,59 +262,60 @@ export default function PracticePage() {
             </div>
 
             <div className="flex flex-col gap-6 lg:col-span-4">
-              <div className="rounded-2xl bg-gradient-to-br from-tertiary to-primary p-6 text-on-primary shadow-xl shadow-tertiary/15">
+              <div className="rounded-2xl border-2 border-[#234196] bg-[#234196] p-6 text-white shadow-[5px_5px_0_#FCB625]">
                 <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border-2 border-white bg-[#FCB625] text-[#234196]">
                     <span
-                      className="material-symbols-outlined text-xl"
+                      className="material-symbols-outlined select-none text-xl leading-none"
                       style={{ fontVariationSettings: "'FILL' 1" }}
+                      aria-hidden="true"
                     >
                       lightbulb
                     </span>
                   </div>
                   <h3 className="font-headline text-lg font-bold">{t("practice.tip.title")}</h3>
                 </div>
-                <p className="mb-4 text-sm leading-relaxed text-white/90">{t("practice.tip.body")}</p>
+                <p className="mb-4 text-sm leading-relaxed text-white/80">{t("practice.tip.body")}</p>
                 <Link
                   href="/resources"
-                  className="text-xs font-bold underline underline-offset-4 transition-opacity hover:opacity-90"
+                  className="inline-flex min-h-11 items-center text-xs font-bold underline decoration-[#FCB625] decoration-4 underline-offset-4 transition-opacity hover:opacity-90"
                 >
                   {t("practice.tip.link")}
                 </Link>
               </div>
 
-              <div className="rounded-2xl border border-outline-variant/10 bg-surface-container-lowest p-6">
-                <h3 className="mb-4 font-headline text-lg font-bold text-on-surface">
+              <div className="rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[3px_3px_0_#234196]">
+                <h3 className="mb-5 font-headline text-lg font-bold text-[#234196]">
                   {t("practice.stats.title")}
                 </h3>
                 <div className="space-y-4">
                   <div>
                     <div className="mb-1 flex justify-between text-sm">
-                      <span className="text-on-surface-variant">{t("practice.stats.accuracy")}</span>
-                      <span className="font-bold text-green-600 dark:text-green-400">
+                      <span className="text-[#5A6B8F]">{t("practice.stats.accuracy")}</span>
+                      <span className="font-bold text-[#2E7D32]">
                         {answeredCount ? `${runningPct}%` : "—"}
                       </span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-[#DCE3F1]">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500"
+                        className="h-full rounded-full bg-[#2E7D32] transition-all duration-500"
                         style={{ width: `${answeredCount ? runningPct : 8}%` }}
                       />
                     </div>
                   </div>
                   <div>
                     <div className="mb-1 flex justify-between text-sm">
-                      <span className="text-on-surface-variant">{t("practice.stats.pace")}</span>
-                      <span className="font-bold text-primary">{t("practice.stats.paceValue")}</span>
+                      <span className="text-[#5A6B8F]">{t("practice.stats.pace")}</span>
+                      <span className="font-bold text-[#234196]">{t("practice.stats.paceValue")}</span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container">
-                      <div className="h-full w-[65%] rounded-full bg-gradient-to-r from-primary to-primary-fixed-dim" />
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-[#DCE3F1]">
+                      <div className="h-full w-[65%] rounded-full bg-[#234196]" />
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-outline-variant/10">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border-2 border-[#234196] bg-[#234196] shadow-[3px_3px_0_#234196]">
                 <img
                   alt=""
                   className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 hover:scale-105"
@@ -329,7 +326,7 @@ export default function PracticePage() {
                   <p className="mb-3 text-xs text-white/85">{t("practice.promo.desc")}</p>
                   <Link
                     href="/pricing"
-                    className="w-fit rounded-lg bg-white px-4 py-2 text-xs font-bold text-on-surface transition-colors hover:bg-white/90"
+                    className="chunky-primary inline-flex min-h-11 w-fit items-center px-4 py-2 text-xs"
                   >
                     {t("practice.promo.cta")}
                   </Link>
@@ -339,31 +336,31 @@ export default function PracticePage() {
           </div>
         ) : (
           <div className="mx-auto max-w-lg">
-            <div className="overflow-hidden rounded-2xl border border-outline-variant/10 bg-surface-container-lowest text-center shadow-xl shadow-primary/10">
-              <div className="bg-gradient-to-r from-primary to-tertiary px-8 py-10 text-on-primary">
-                <p className="text-sm font-bold uppercase tracking-widest text-white/80">{t("practice.finish")}</p>
+            <div className="overflow-hidden rounded-2xl border-2 border-[#234196] bg-white text-center shadow-[6px_6px_0_#234196]">
+              <div className="bg-[#234196] px-8 py-10 text-white">
+                <span className="sticker bg-[#FCB625] text-[9px] text-[#234196]">{t("practice.finish")}</span>
                 <p className="mt-2 font-headline text-5xl font-black tabular-nums">
                   {score}/{QUESTION_IDS.length}
                 </p>
-                <p className="mt-1 text-sm font-medium text-white/90">
+                <p className="mt-2 text-sm font-medium text-white/80">
                   {t("practice.result")
                     .replace("{score}", String(score))
                     .replace("{total}", String(QUESTION_IDS.length))}
                 </p>
               </div>
               <div className="space-y-4 p-8">
-                <p className="text-sm text-on-surface-variant">{t("practice.done.encouragement")}</p>
+                <p className="text-sm leading-6 text-[#5A6B8F]">{t("practice.done.encouragement")}</p>
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
                   <button
                     type="button"
                     onClick={restart}
-                    className="rounded-xl bg-tertiary px-6 py-3 font-bold text-white shadow-lg shadow-tertiary/25 transition-colors hover:bg-tertiary-container"
+                    className="chunky-primary min-h-12 px-6 py-3 font-bold"
                   >
                     {t("practice.restart")}
                   </button>
                   <Link
                     href="/dashboard"
-                    className="inline-flex items-center justify-center rounded-xl border-2 border-outline-variant/30 px-6 py-3 font-bold text-primary transition-colors hover:bg-surface-container"
+                    className="chunky-secondary inline-flex min-h-12 items-center justify-center px-6 py-3 font-bold"
                   >
                     {t("practice.done.backDash")}
                   </Link>
@@ -372,6 +369,7 @@ export default function PracticePage() {
             </div>
           </div>
         )}
+        </div>
       </main>
     </UserDashboardShell>
   );
