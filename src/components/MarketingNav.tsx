@@ -1,14 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { Settings, Sparkles } from "lucide-react";
+import { Settings, Sparkles, LayoutDashboard } from "lucide-react";
 import LanguageToggleButton from "./LanguageToggleButton";
 import { useLanguage } from "../i18n/LanguageProvider";
+import { useAuthProfile } from "../auth/useAuthProfile";
+import { useEffect, useState } from "react";
 
 export type MarketingNavActive = "platform" | "solutions" | "pricing" | "resources";
 
 export default function MarketingNav({ active }: { active: MarketingNavActive }) {
   const { t } = useLanguage();
+  const { profile } = useAuthProfile();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const links: Array<{ href: string; id: MarketingNavActive; label: string }> = [
     { href: "/", id: "platform", label: t("nav.platform") },
@@ -42,13 +50,25 @@ export default function MarketingNav({ active }: { active: MarketingNavActive })
         </div>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <Link href="/login" className="hidden text-sm font-bold hover:underline sm:inline">{t("auth.login")}</Link>
-          <Link href="/signup" className="chunky-primary px-3 py-2 text-xs sm:px-4 sm:text-sm">{t("auth.getStarted")}</Link>
+          {mounted && profile ? (
+            <>
+              <Link href="/dashboard" className="hidden text-sm font-bold hover:underline sm:inline">Dashboard</Link>
+              <Link href="/interview/cv-score" className="chunky-primary px-3 py-2 text-xs sm:px-4 sm:text-sm">Vào Ứng Dụng</Link>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="hidden text-sm font-bold hover:underline sm:inline">{t("auth.login")}</Link>
+              <Link href="/signup" className="chunky-primary px-3 py-2 text-xs sm:px-4 sm:text-sm">{t("auth.getStarted")}</Link>
+            </>
+          )}
+          
           <div className="flex items-center gap-1 border-l-2 border-[#234196] pl-2 sm:pl-3">
             <LanguageToggleButton />
-            <Link href="/dashboard/profile" className="hidden h-9 w-9 place-items-center rounded-lg hover:bg-[#F0F4FC] sm:grid" aria-label="Cài đặt">
-              <Settings size={17} />
-            </Link>
+            {mounted && profile && (
+              <Link href="/dashboard/profile" className="hidden h-9 w-9 place-items-center rounded-lg hover:bg-[#F0F4FC] sm:grid" aria-label="Cài đặt">
+                <Settings size={17} />
+              </Link>
+            )}
           </div>
         </div>
       </nav>
