@@ -1,16 +1,14 @@
 "use client";
 
 import axios from "axios";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import AdminButton from "./AdminButton";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { jobCategoryApi, type JobCategory } from "@/services/jobCategoryApi";
 import { useLanguage } from "@/i18n/LanguageProvider";
 
 const DESCRIPTION_COLLAPSE_AT = 280;
 const PAGE_SIZE = 24;
-
-type ModalMode = "closed" | "create" | "edit";
 
 function CategoryDescription({
   text,
@@ -58,24 +56,19 @@ function CategoryDescription({
   );
 }
 
-function CategoryListItem({
-  cat,
-  onEdit,
-  onDelete,
-  deleting,
-}: {
-  cat: JobCategory;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
-  deleting: boolean;
-}) {
+function CategoryListItem({ cat }: { cat: JobCategory }) {
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <li className="group flex flex-col gap-4 rounded-xl border border-transparent px-3 py-6 transition-[background-color,box-shadow,border-color] duration-200 sm:flex-row sm:items-start sm:justify-between sm:gap-8 hover:border-outline-variant/20 hover:bg-surface-container-low/70 hover:shadow-sm dark:hover:bg-surface-container-low/40">
+    <li className="group flex flex-col gap-4 rounded-xl border border-transparent px-3 py-5 transition-[background-color,box-shadow,border-color] duration-200 sm:flex-row sm:items-start sm:justify-between sm:gap-8 hover:border-outline-variant/20 hover:bg-surface-container-low/70 hover:shadow-sm dark:hover:bg-surface-container-low/40">
       <div className="min-w-0 flex-1">
-        <h2 className="text-base font-medium text-on-surface">{cat.name}</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-base font-medium text-on-surface">{cat.name}</h2>
+          <span className="rounded bg-surface-container px-1.5 py-0.5 font-mono text-[11px] text-on-surface-variant/80">
+            {cat.id}
+          </span>
+        </div>
         {cat.description?.trim() ? (
           <CategoryDescription
             text={cat.description}
@@ -86,26 +79,15 @@ function CategoryListItem({
           <p className="mt-1.5 text-sm text-on-surface-variant/60">{t("admin.jobCategories.noDescription")}</p>
         )}
       </div>
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-0.5 sm:items-center sm:pt-0.5">
-        <div className="inline-flex items-center gap-0.5 rounded-lg bg-transparent p-0.5 transition-colors group-hover:bg-surface/80 dark:group-hover:bg-surface-container-highest/50">
-          <button
-            type="button"
-            onClick={() => onEdit(cat.id)}
-            className="rounded-md p-2 text-on-surface-variant/65 transition-all duration-150 hover:bg-primary/12 hover:text-primary active:scale-95"
-            aria-label={t("admin.jobCategories.edit")}
-          >
-            <span className="material-symbols-outlined text-[20px]">edit</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onDelete(cat.id)}
-            disabled={deleting}
-            className="rounded-md p-2 text-on-surface-variant/65 transition-all duration-150 hover:bg-error-container/35 hover:text-error active:scale-95 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-on-surface-variant/65"
-            aria-label={t("admin.jobCategories.delete")}
-          >
-            <span className="material-symbols-outlined text-[20px]">delete</span>
-          </button>
-        </div>
+      <div className="flex shrink-0 items-center sm:pt-0.5">
+        <Link
+          href={`/admin/dashboard?category=${encodeURIComponent(cat.id)}`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant/25 bg-surface px-3 py-1.5 text-xs font-semibold text-on-surface-variant transition-all hover:border-primary/40 hover:bg-primary/10 hover:text-primary active:scale-95"
+          title={t("admin.jobCategories.filterBoard")}
+        >
+          <span className="material-symbols-outlined text-[16px]">filter_list</span>
+          <span>{t("admin.jobCategories.filterBoard")}</span>
+        </Link>
       </div>
     </li>
   );
@@ -120,14 +102,6 @@ export default function AdminJobCategoriesView() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 350);
-
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [modalMode, setModalMode] = useState<ModalMode>("closed");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const loadPage = useCallback(
     async (cursor: string | undefined, append: boolean) => {
@@ -164,98 +138,9 @@ export default function AdminJobCategoriesView() {
     loadPage(undefined, false);
   }, [loadPage]);
 
-  const closeModal = () => {
-    setModalMode("closed");
-    setEditingId(null);
-    setName("");
-    setDescription("");
-    setLoadingDetail(false);
-  };
-
-  const openCreate = () => {
-    setError(null);
-    setName("");
-    setDescription("");
-    setEditingId(null);
-    setModalMode("create");
-  };
-
-  const openEdit = async (id: string) => {
-    setError(null);
-    setEditingId(id);
-    setModalMode("edit");
-    setLoadingDetail(true);
-    setName("");
-    setDescription("");
-    try {
-      const { data } = await jobCategoryApi.get(id);
-      setName(data.name);
-      setDescription(data.description ?? "");
-    } catch (err: unknown) {
-      const msg = axios.isAxiosError(err)
-        ? String((err.response?.data as { message?: string })?.message ?? err.message)
-        : t("admin.jobCategories.errorLoad");
-      setError(msg);
-      closeModal();
-    } finally {
-      setLoadingDetail(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const n = name.trim();
-    if (!n || saving || loadingDetail) return;
-    setSaving(true);
-    setError(null);
-    const desc = description.trim();
-    try {
-      if (modalMode === "edit" && editingId) {
-        await jobCategoryApi.update(editingId, {
-          name: n,
-          description: desc || undefined,
-        });
-      } else {
-        await jobCategoryApi.create({
-          name: n,
-          description: desc || undefined,
-        });
-      }
-      closeModal();
-      await loadPage(undefined, false);
-    } catch (err: unknown) {
-      const msg = axios.isAxiosError(err)
-        ? String((err.response?.data as { message?: string })?.message ?? err.message)
-        : t("admin.jobCategories.errorSave");
-      setError(msg);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!window.confirm(t("admin.jobCategories.confirmDelete"))) return;
-    setDeletingId(id);
-    setError(null);
-    try {
-      await jobCategoryApi.delete(id);
-      await loadPage(undefined, false);
-    } catch (err: unknown) {
-      const msg = axios.isAxiosError(err)
-        ? String((err.response?.data as { message?: string })?.message ?? err.message)
-        : t("admin.jobCategories.errorSave");
-      setError(msg);
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
   const handleLoadMore = () => {
     if (nextCursor && !loadingMore) loadPage(nextCursor, true);
   };
-
-  const modalOpen = modalMode !== "closed";
-  const isEdit = modalMode === "edit";
 
   return (
     <div className="min-w-0 max-w-4xl space-y-6">
@@ -268,19 +153,10 @@ export default function AdminJobCategoriesView() {
             {t("admin.jobCategories.subtitle")}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-full border border-primary/25 bg-primary/5 px-4 py-2 text-sm font-semibold leading-none text-primary shadow-sm transition-all hover:border-primary/45 hover:bg-primary/12 hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
-        >
-          <span
-            className="material-symbols-outlined inline-flex h-5 w-5 shrink-0 items-center justify-center text-[20px] leading-none"
-            aria-hidden
-          >
-            add
-          </span>
-          <span className="whitespace-nowrap leading-tight">{t("admin.jobCategories.add")}</span>
-        </button>
+        <div className="inline-flex shrink-0 items-center gap-2 self-start rounded-full border border-primary/25 bg-primary/5 px-3.5 py-1.5 text-xs font-medium text-primary">
+          <span className="material-symbols-outlined text-[18px]">verified</span>
+          <span>{t("admin.jobCategories.taxonomyNotice")}</span>
+        </div>
       </header>
 
       <div className="relative">
@@ -308,21 +184,13 @@ export default function AdminJobCategoriesView() {
       ) : items.length === 0 ? (
         <div className="py-12 text-center text-sm text-on-surface-variant">
           <p>{debouncedSearch.trim() ? t("admin.jobCategories.noSearchResults") : t("admin.jobCategories.empty")}</p>
-          {!debouncedSearch.trim() ? (
-            <p className="mt-2 text-xs text-on-surface-variant/80">{t("admin.jobCategories.emptyHint")}</p>
-          ) : null}
+          <p className="mt-2 text-xs text-on-surface-variant/80">{t("admin.jobCategories.emptyHint")}</p>
         </div>
       ) : (
         <>
           <ul className="divide-y divide-outline-variant/15">
             {items.map((cat) => (
-              <CategoryListItem
-                key={cat.id}
-                cat={cat}
-                onEdit={openEdit}
-                onDelete={handleDelete}
-                deleting={deletingId === cat.id}
-              />
+              <CategoryListItem key={cat.id} cat={cat} />
             ))}
           </ul>
           {nextCursor && (
@@ -338,89 +206,6 @@ export default function AdminJobCategoriesView() {
             </div>
           )}
         </>
-      )}
-
-      {modalOpen && (
-        <div
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-inverse-surface/35 p-4 backdrop-blur-[2px] sm:items-center"
-          role="presentation"
-          onClick={closeModal}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="jc-modal-title"
-            className="w-full max-w-md rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-lg sm:p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-5 flex items-start justify-between gap-3">
-              <h2 id="jc-modal-title" className="text-lg font-semibold text-on-surface">
-                {isEdit ? t("admin.jobCategories.editTitle") : t("admin.jobCategories.createTitle")}
-              </h2>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-lg p-1.5 text-on-surface-variant hover:bg-surface-container-high"
-                aria-label={t("common.close")}
-              >
-                <span className="material-symbols-outlined text-[22px]">close</span>
-              </button>
-            </div>
-            {loadingDetail ? (
-              <p className="py-8 text-center text-sm text-on-surface-variant">{t("admin.jobProfile.loading")}</p>
-            ) : (
-              <form className="space-y-4" onSubmit={handleSubmit}>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-on-surface" htmlFor="jc-modal-name">
-                    {t("admin.jobCategories.name")}
-                  </label>
-                  <input
-                    id="jc-modal-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder={t("admin.jobCategories.namePlaceholder")}
-                    className="w-full rounded-lg border border-outline-variant/25 bg-surface px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/25"
-                    required
-                    autoFocus={!isEdit}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-on-surface" htmlFor="jc-modal-desc">
-                    {t("admin.jobCategories.description")}
-                  </label>
-                  <textarea
-                    id="jc-modal-desc"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder={t("admin.jobCategories.descriptionPlaceholder")}
-                    rows={4}
-                    className="w-full resize-y rounded-lg border border-outline-variant/25 bg-surface px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/25"
-                  />
-                </div>
-                <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={closeModal}
-                    disabled={saving}
-                    className="rounded-lg px-4 py-2.5 text-sm font-medium text-on-surface-variant hover:bg-surface-container-high disabled:opacity-50"
-                  >
-                    {t("admin.jobProfile.form.cancel")}
-                  </button>
-                  <AdminButton
-                    variant="primary"
-                    size="md"
-                    type="submit"
-                    icon={isEdit ? "save" : "add"}
-                    iconFill
-                    disabled={saving || !name.trim()}
-                  >
-                    {isEdit ? t("admin.jobProfile.form.save") : t("admin.jobCategories.add")}
-                  </AdminButton>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
       )}
     </div>
   );
