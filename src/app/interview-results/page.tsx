@@ -441,13 +441,9 @@ export default function InterviewResultsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#eef5ff] via-surface to-[#f7f4ed] text-on-surface font-body">
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-32 -left-24 h-80 w-80 rounded-full bg-[#3b82f6]/15 blur-3xl" />
-        <div className="absolute top-[30%] -right-24 h-72 w-72 rounded-full bg-[#f59e0b]/15 blur-3xl" />
-      </div>
+    <div className="min-h-screen bg-[#FAF9F5] text-[#141413] font-body">
 
-      <header className="sticky top-0 z-40 border-b border-outline-variant/20 bg-surface/88 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-[#E8E6DC] bg-[#FAF9F5]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
           <div>
             <p className="text-[11px] uppercase tracking-[0.2em] text-on-surface-variant">{t("interviewResults.reportTag")}</p>
@@ -466,18 +462,18 @@ export default function InterviewResultsPage() {
       </header>
 
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6">
-        <section className="rounded-3xl border border-outline-variant/25 bg-gradient-to-r from-[#0f172a] via-[#1e293b] to-[#334155] p-5 text-white shadow-[0_20px_60px_-28px_rgba(15,23,42,0.8)] sm:p-6">
+        <section className="rounded-xl border border-[#E8E6DC] bg-white p-5 text-[#141413] sm:p-6">
           <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-white/70">{t("interviewResults.sessionLabel")}</p>
-              <p className="mt-1 break-all font-mono text-sm text-white/90">{sessionId || t("interviewResults.pendingSessionId")}</p>
+              <p className="font-metadata text-[#87867F]">{t("interviewResults.sessionLabel")}</p>
+              <p className="mt-1 break-all font-mono text-sm text-[#5E5D59]">{sessionId || t("interviewResults.pendingSessionId")}</p>
               <h2 className="mt-4 max-w-2xl font-headline text-2xl font-black tracking-tight sm:text-3xl">
                 {t("interviewResults.heroTitle")}
               </h2>
-              <p className="mt-2 max-w-2xl text-sm text-white/75">
+              <p className="mt-2 max-w-2xl text-sm text-[#5E5D59]">
                 {t("interviewResults.heroDesc")}
               </p>
-              <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs text-white/85">
+              <div className="mt-4 inline-flex items-center gap-2 rounded-md border border-[#E8E6DC] bg-[#F0EEE6] px-3 py-1 font-metadata text-[#5E5D59]">
                 <span className={`inline-block h-2 w-2 rounded-full ${isRefreshing ? "animate-pulse bg-emerald-300" : "bg-emerald-400"}`} />
                 <span>{t("interviewResults.realtime")}</span>
                 <span className="text-white/60">•</span>
@@ -485,19 +481,19 @@ export default function InterviewResultsPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
-              <p className="text-xs uppercase tracking-[0.16em] text-white/70">{t("interviewResults.overallScore")}</p>
-              <p className="mt-2 text-5xl font-black leading-none text-white">
+            <div className="rounded-xl border border-[#E8E6DC] bg-[#F0EEE6] p-4">
+              <p className="font-metadata text-[#87867F]">{t("interviewResults.overallScore")}</p>
+              <p className="mt-2 font-headline text-5xl font-medium leading-none text-[#141413]">
                 <CountUpNumber value={overallPct} decimals={1} className="tabular-nums" />
               </p>
-              <p className="mt-1 text-xs text-white/70">/100</p>
-              <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/15">
+              <p className="mt-1 text-xs text-[#5E5D59]">/100</p>
+              <div className="mt-4 h-2 w-full overflow-hidden rounded-md bg-[#E8E6DC]">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#22c55e] via-[#f59e0b] to-[#ef4444]"
+                  className="h-full rounded-md bg-[#D97757]"
                   style={{ width: `${Math.max(0, Math.min(100, overallPct))}%` }}
                 />
               </div>
-              <p className="mt-3 text-xs text-white/70">{progressText}</p>
+              <p className="mt-3 text-xs text-[#5E5D59]">{progressText}</p>
             </div>
           </div>
         </section>

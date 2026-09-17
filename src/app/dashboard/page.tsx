@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import LanguageToggleButton from "../../components/LanguageToggleButton";
-import UserJobProfilesSection from "../../components/user-dashboard/UserJobProfilesSection";
+import { UserDashboardHome } from "../../components/user-dashboard/UserDashboardHome";
 import { UserDashboardShell } from "../../components/user-dashboard/UserDashboardShell";
 import { useLanguage } from "../../i18n/LanguageProvider";
 import { startDemoVideoInterviewRoom } from "../../utils/demoInterviewSession";
@@ -12,8 +13,7 @@ import { useNavigationLoading } from "../../components/NavigationLoadingProvider
 
 function initialsFromName(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase().slice(0, 2);
-  return name.slice(0, 2).toUpperCase() || "?";
+  return (parts.length >= 2 ? parts[0][0] + parts[1][0] : name.slice(0, 2)).toUpperCase() || "?";
 }
 
 export default function DashboardPage() {
@@ -21,257 +21,69 @@ export default function DashboardPage() {
   const { profile, displayName } = useAuthProfile();
   const router = useRouter();
   const { showNavigationLoading, hideNavigationLoading } = useNavigationLoading();
+  const [videoError, setVideoError] = useState(false);
 
-  const goToChat = () => {
+  const [avatarError, setAvatarError] = useState(false);
+
+  const navigate = (href: string) => {
     showNavigationLoading();
-    router.push("/chat");
+    router.push(href);
   };
 
-  const goToVoice = () => {
-    showNavigationLoading();
-    router.push("/voice");
-  };
-
-  const goToRoom = async () => {
+  const startVideo = async (jobTitle?: string) => {
+    setVideoError(false);
     showNavigationLoading();
     try {
-      await startDemoVideoInterviewRoom(lang === "vi" ? "vi" : "en");
+      await startDemoVideoInterviewRoom(lang === "vi" ? "vi" : "en", jobTitle);
     } catch {
       hideNavigationLoading();
+      setVideoError(true);
     }
   };
 
-  const welcomeTitle = displayName
-    ? t("userDash.welcomeWithName").replace("{name}", displayName)
-    : t("userDash.welcomeFallback");
-  const roleLabel = t("userDash.roleFallback");
-
   return (
     <UserDashboardShell>
-      <main className="min-h-screen p-6 md:p-12 bg-surface md:pb-12">
-        <header
-          id="user-profile"
-          className="flex flex-col gap-6 sm:flex-row sm:justify-between sm:items-end mb-12 scroll-mt-24"
-        >
-          <div>
-            <h2 className="font-headline font-extrabold text-on-surface text-3xl md:text-4xl tracking-tighter">
-              {welcomeTitle}
-            </h2>
-            <p className="text-on-surface-variant mt-2 font-body text-lg">
-              {t("userDash.welcomeSubtitle")}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-4 justify-between sm:justify-end">
-            <LanguageToggleButton />
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="font-headline font-bold text-on-surface">
-                  {displayName || "—"}
-                </p>
-                <p className="text-xs text-on-surface-variant uppercase tracking-widest font-bold">
-                  {roleLabel}
-                </p>
-              </div>
-              {profile?.picture ? (
-                <img
-                  alt=""
-                  className="w-12 h-12 rounded-full object-cover ring-2 ring-primary/10"
-                  src={profile.picture}
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center font-headline font-bold text-primary text-sm ring-2 ring-primary/10">
-                  {displayName ? initialsFromName(displayName) : "?"}
-                </div>
-              )}
+      <main className="paper-dots min-h-screen bg-[#FEF9EE] px-4 pb-8 pt-6 text-[#234196] sm:px-6 md:px-8 md:py-10 lg:px-10 xl:px-12">
+        <div className="mx-auto max-w-[1440px]">
+          <header id="user-profile" className="mb-8 grid gap-6 border-b-2 border-[#234196] pb-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div className="max-w-2xl">
+              <p className="font-metadata text-[10px] font-bold tracking-[.18em] text-[#E59E10]">{t("userDash.workspace.eyebrow")}</p>
+              <h1 className="mt-2 font-headline text-[clamp(2rem,3vw,2.75rem)] font-semibold leading-tight tracking-[-.03em]">{t("userDash.workspace.welcome")}</h1>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-[#5A6B8F] sm:text-base">{t("userDash.workspace.subtitle")}</p>
             </div>
-          </div>
-        </header>
-
-        <UserJobProfilesSection />
-
-        <section className="mb-16">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="group relative overflow-hidden bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10 hover:shadow-xl transition-all duration-300">
-              <div className="w-14 h-14 rounded-xl bg-primary-fixed flex items-center justify-center text-primary mb-6 group-hover:scale-110 transition-transform">
-                <span className="material-symbols-outlined text-3xl">chat_bubble</span>
-              </div>
-              <h3 className="font-headline font-bold text-xl mb-3">{t("userDash.mode.chat.title")}</h3>
-              <p className="text-on-surface-variant body-md leading-relaxed mb-8">
-                {t("userDash.mode.chat.desc")}
-              </p>
-              <button
-                type="button"
-                onClick={goToChat}
-                className="inline-flex items-center gap-2 border-0 bg-transparent p-0 text-primary font-bold group/btn"
-              >
-                {t("userDash.mode.chat.cta")}
-                <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
-                  arrow_forward
-                </span>
-              </button>
-              <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
-                <span className="material-symbols-outlined text-9xl">chat_bubble</span>
-              </div>
-            </div>
-
-            <div className="group relative overflow-hidden bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10 hover:shadow-xl transition-all duration-300">
-              <div className="w-14 h-14 rounded-xl bg-secondary-container flex items-center justify-center text-primary mb-6 group-hover:scale-110 transition-transform">
-                <span className="material-symbols-outlined text-3xl">settings_voice</span>
-              </div>
-              <h3 className="font-headline font-bold text-xl mb-3">{t("userDash.mode.voice.title")}</h3>
-              <p className="text-on-surface-variant body-md leading-relaxed mb-8">
-                {t("userDash.mode.voice.desc")}
-              </p>
-              <button
-                type="button"
-                onClick={goToVoice}
-                className="inline-flex items-center gap-2 border-0 bg-transparent p-0 text-primary font-bold group/btn"
-              >
-                {t("userDash.mode.voice.cta")}
-                <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
-                  arrow_forward
-                </span>
-              </button>
-              <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
-                <span className="material-symbols-outlined text-9xl">settings_voice</span>
-              </div>
-            </div>
-
-            <div className="group relative overflow-hidden ai-glass-gradient p-8 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 text-white">
-              <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-6 group-hover:scale-110 transition-transform">
-                <span className="material-symbols-outlined text-3xl">videocam</span>
-              </div>
-              <h3 className="font-headline font-bold text-xl mb-3">{t("userDash.mode.video.title")}</h3>
-              <p className="text-white/90 body-md leading-relaxed mb-8">
-                {t("userDash.mode.video.desc")}
-              </p>
-              <button
-                type="button"
-                onClick={goToRoom}
-                className="inline-flex items-center gap-2 text-white font-bold group/btn"
-              >
-                {t("userDash.mode.video.cta")}
-                <span className="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1">
-                  arrow_forward
-                </span>
-              </button>
-              <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full backdrop-blur-sm">
-                <div className="w-2 h-2 rounded-full bg-tertiary animate-pulse" />
-                <span className="text-[10px] font-bold uppercase tracking-tighter">
-                  {t("userDash.mode.video.badge")}
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch mb-16">
-          <div className="bg-surface-container p-8 rounded-xl flex flex-col justify-center">
-            <span className="text-tertiary font-bold uppercase text-[10px] tracking-widest mb-4">
-              {t("userDash.training.label")}
-            </span>
-            <h3 className="font-headline font-extrabold text-3xl mb-4 leading-tight">
-              {t("userDash.training.title")}
-            </h3>
-            <p className="text-on-surface-variant mb-8 max-w-md">{t("userDash.training.desc")}</p>
-            <div className="flex flex-wrap gap-4">
+            <div className="flex min-w-0 items-center rounded-2xl border-2 border-[#234196] bg-white p-2 shadow-[3px_3px_0_#234196] lg:max-w-sm">
               <Link
-                href="/practice"
-                className="px-8 py-4 bg-tertiary text-white rounded-xl font-bold hover:bg-tertiary-container transition-colors shadow-lg shadow-tertiary/20 text-center"
+                href="/dashboard/profile"
+                className="group flex min-w-0 flex-1 items-center rounded-xl p-0.5 transition-all hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FCB625]"
+                aria-label={t("userDash.nav.profile")}
+                title={t("userDash.nav.profile")}
               >
-                {t("userDash.training.quiz")}
-              </Link>
-              <Link
-                href="/resources"
-                className="px-8 py-4 bg-transparent text-tertiary border-2 border-tertiary/20 rounded-xl font-bold hover:bg-tertiary/5 transition-colors text-center"
-              >
-                {t("userDash.training.explore")}
-              </Link>
-            </div>
-          </div>
-          <div className="bg-surface-container-lowest p-8 rounded-xl border border-outline-variant/10 flex flex-col sm:flex-row items-stretch sm:items-center gap-8">
-            <div className="flex-1">
-              <h4 className="font-headline font-bold text-xl mb-2">{t("userDash.progress.title")}</h4>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-xs font-bold text-on-surface-variant mb-1 uppercase tracking-tighter">
-                    <span>{t("userDash.progress.bias")}</span>
-                    <span>88%</span>
-                  </div>
-                  <div className="h-2 w-full bg-surface-container rounded-full overflow-hidden">
-                    <div className="h-full bg-primary rounded-full" style={{ width: "88%" }} />
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-xs font-bold text-on-surface-variant mb-1 uppercase tracking-tighter">
-                    <span>{t("userDash.progress.semantic")}</span>
-                    <span>65%</span>
-                  </div>
-                  <div className="h-2 w-full bg-surface-container rounded-full overflow-hidden">
-                    <div className="h-full bg-tertiary rounded-full" style={{ width: "65%" }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="hidden sm:block shrink-0">
-              <div className="relative w-32 h-32 mx-auto">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 128 128">
-                  <circle
-                    className="text-surface-container"
-                    cx="64"
-                    cy="64"
-                    fill="transparent"
-                    r="56"
-                    stroke="currentColor"
-                    strokeWidth="8"
+                {profile?.picture && !avatarError ? (
+                  <img
+                    alt=""
+                    className="h-11 w-11 shrink-0 rounded-xl border-2 border-[#234196] object-cover"
+                    src={profile.picture}
+                    referrerPolicy="no-referrer"
+                    onError={() => setAvatarError(true)}
                   />
-                  <circle
-                    className="text-primary"
-                    cx="64"
-                    cy="64"
-                    fill="transparent"
-                    r="56"
-                    stroke="currentColor"
-                    strokeDasharray="351.8"
-                    strokeDashoffset="88"
-                    strokeWidth="8"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-black">75%</span>
-                  <span className="text-[8px] uppercase font-bold tracking-widest text-on-surface-variant text-center">
-                    {t("userDash.progress.global")}
-                  </span>
+                ) : (
+                  <div aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FCB625] text-sm font-bold text-[#234196]">
+                    {displayName ? initialsFromName(displayName) : "?"}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1 px-3">
+                  <p className="truncate text-sm font-bold text-[#234196] group-hover:underline decoration-[#FCB625] decoration-2 underline-offset-2">
+                    {displayName || t("userDash.profile.guest")}
+                  </p>
+                  <p className="mt-0.5 font-metadata text-[8px] text-[#5A6B8F]">{t("userDash.roleFallback")}</p>
                 </div>
-              </div>
+              </Link>
+              <div className="h-8 w-px shrink-0 bg-[#B7C6E6]" aria-hidden="true" />
+              <LanguageToggleButton className="ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#234196] transition-colors hover:bg-[#F0F4FC]" />
             </div>
-          </div>
-        </section>
-
-        <footer className="mt-24 w-full border-t border-[#c3c6d6]/20 py-12">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4 text-center sm:text-left">
-              <span className="font-headline font-bold text-[#191c1e] text-xl">
-                {t("userDash.footer.brand")}
-              </span>
-              <span className="text-xs text-on-surface-variant font-inter">{t("userDash.footer.copy")}</span>
-            </div>
-            <div className="flex flex-wrap gap-6 justify-center">
-              <a className="text-xs text-[#434654] font-inter hover:underline transition-colors" href="#">
-                {t("userDash.footer.privacy")}
-              </a>
-              <a className="text-xs text-[#434654] font-inter hover:underline transition-colors" href="#">
-                {t("userDash.footer.terms")}
-              </a>
-              <a className="text-xs text-[#434654] font-inter hover:underline transition-colors" href="#">
-                {t("userDash.footer.cookies")}
-              </a>
-              <a className="text-xs text-[#434654] font-inter hover:underline transition-colors" href="#">
-                {t("userDash.footer.security")}
-              </a>
-            </div>
-          </div>
-        </footer>
+          </header>
+          <UserDashboardHome onNavigate={navigate} onStartVideo={startVideo} videoError={videoError} onDismissVideoError={() => setVideoError(false)} />
+        </div>
       </main>
     </UserDashboardShell>
   );

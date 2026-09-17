@@ -16,13 +16,13 @@ export default function AdminDashboardJobNav() {
   const isCategories = pathname.startsWith("/admin/job-profiles/categories");
 
   return (
-    <nav className="space-y-1" aria-label={t("admin.sidebar.jobNavAria")}> 
+    <nav className="space-y-2" aria-label={t("admin.sidebar.jobNavAria")}>
       <Link
         href="/admin/dashboard"
-        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
+        className={`flex items-center gap-3 rounded-xl border-2 px-3 py-2.5 transition-all ${
           isJobBoard
-            ? "bg-primary-fixed/55 font-bold text-primary shadow-sm dark:bg-primary-fixed/25"
-            : "text-on-surface-variant hover:bg-surface-variant"
+            ? "border-[#234196] bg-[#FCB625] font-bold text-[#234196] shadow-[2px_2px_0_#234196]"
+            : "border-transparent text-[#5A6B8F] hover:border-[#234196] hover:bg-[#F0F4FC] hover:text-[#234196]"
         }`}
       >
         <span
@@ -37,15 +37,15 @@ export default function AdminDashboardJobNav() {
 
       <Link
         href="/admin/job-profiles/create"
-        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
+        className={`flex items-center gap-3 rounded-xl border-2 px-3 py-2.5 transition-all ${
           isCreate
-            ? "bg-primary-fixed/55 font-bold text-primary shadow-sm dark:bg-primary-fixed/25"
-            : "text-on-surface-variant hover:bg-surface-variant"
+            ? "border-[#234196] bg-[#FCB625] font-bold text-[#234196] shadow-[2px_2px_0_#234196]"
+            : "border-transparent text-[#5A6B8F] hover:border-[#234196] hover:bg-[#F0F4FC] hover:text-[#234196]"
         }`}
       >
         <span
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-            isCreate ? "bg-primary text-white" : "bg-[#5f6368] text-white dark:bg-neutral-600"
+            isCreate ? "border-2 border-[#234196] bg-white text-[#234196]" : "border-2 border-[#234196] bg-[#F0F4FC] text-[#234196]"
           }`}
           aria-hidden
         >
@@ -56,10 +56,10 @@ export default function AdminDashboardJobNav() {
 
       <Link
         href="/admin/job-profiles/categories"
-        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
+        className={`flex items-center gap-3 rounded-xl border-2 px-3 py-2.5 transition-all ${
           isCategories
-            ? "bg-primary-fixed/55 font-bold text-primary shadow-sm dark:bg-primary-fixed/25"
-            : "text-on-surface-variant hover:bg-surface-variant"
+            ? "border-[#234196] bg-[#FCB625] font-bold text-[#234196] shadow-[2px_2px_0_#234196]"
+            : "border-transparent text-[#5A6B8F] hover:border-[#234196] hover:bg-[#F0F4FC] hover:text-[#234196]"
         }`}
       >
         <span

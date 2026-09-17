@@ -6,7 +6,7 @@ type Props = {
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
-  /** Stagger entrance (ms), applied as animation-delay when visible */
+  /** Stagger entrance (ms), applied once when the element first enters the viewport. */
   delayMs?: number;
 };
 
@@ -26,7 +26,7 @@ export default function AnimateOnScroll({ children, className = "", style, delay
           }
         });
       },
-      { threshold: 0.1, rootMargin: "0px 0px -50px 0px" }
+      { threshold: 0.15 }
     );
 
     observer.observe(el);
@@ -36,10 +36,10 @@ export default function AnimateOnScroll({ children, className = "", style, delay
   return (
     <div
       ref={ref}
-      className={`animate-on-scroll ${className}`.trim()}
+      className={`animate-on-scroll transform-gpu ${className}`.trim()}
       style={{
         ...style,
-        ...(delayMs ? { animationDelay: `${delayMs}ms` } : {}),
+        ...(delayMs ? { transitionDelay: `${delayMs}ms` } : {}),
       }}
     >
       {children}

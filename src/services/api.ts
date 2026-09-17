@@ -35,13 +35,34 @@ api.interceptors.request.use(config => {
 });
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: 'CANDIDATE' | 'ADMIN';
+  provider: string;
+  picture: string | null;
+  avatar: string | null;
+};
+
+export type AuthResponse = {
+  access_token: string;
+  user: AuthUser;
+};
+
 export const authApi = {
   login: (email: string, password: string) =>
-    api.post<{ access_token: string; user: any }>('/auth/login', { email, password }),
-  register: (name: string, email: string, password: string, dob?: string, role?: string) =>
-    api.post<{ message: string; access_token?: string }>('/auth/register', { name, email, password, dob, role }),
-  googleLogin: (accessToken: string) =>
-    api.post<{ access_token: string; user: any }>('/auth/google', { accessToken }),
+    api.post<AuthResponse>('/auth/login', { email, password }),
+  register: (name: string, email: string, password: string, phone?: string) =>
+    api.post<AuthResponse>('/auth/register', {
+      name,
+      email,
+      password,
+      phone: phone || undefined,
+      role: 'CANDIDATE',
+    }),
+  googleLogin: (token: string) =>
+    api.post<AuthResponse>('/auth/google', { token }),
 };
 
 // ── Interview ─────────────────────────────────────────────────────────────────
@@ -65,6 +86,8 @@ export type UserProfile = {
   provider?: string;
   dob?: string;
   picture?: string;
+  avatar?: string;
+  credits?: { cvScansRemaining: number; mockSessionsRemaining: number };
   created_at?: string;
 };
 
