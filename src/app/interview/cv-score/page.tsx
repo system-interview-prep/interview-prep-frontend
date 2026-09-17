@@ -10,6 +10,11 @@ import {
   generateInterviewQuestions,
   scoreCvAgainstJobProfile,
   type CvScoringResponse,
+  type FactorResult,
+  type RequirementResult,
+  type CompatibilityResult,
+  type EligibilityStatus,
+  type FitBand,
 } from "@/lib/aiService";
 import { jobProfileApi, type JobProfile } from "@/services/jobProfileApi";
 import { userCvApi, type UserCvDto } from "@/services/userCvApi";
@@ -31,6 +36,101 @@ const SAMPLE_SCORE: CvScoringResponse = {
   score: { raw: 7.8, max: 10, normalized: 0.78, percentage: 78 },
   decision: "PASS",
   hardFilters: { passed: true, reasons: [] },
+  eligibility: "eligible",
+  fitBand: "strong_fit",
+  suitabilityScore: 0.78,
+  compatibilityStatus: "compatible",
+  factorResults: [
+    {
+      factor: "skill",
+      status: "scored",
+      rawScore: 0.88,
+      reliability: 0.95,
+      policyWeight: 0.30,
+      effectiveWeight: 0.30,
+      evidenceRefs: ["cv-ev-sql", "cv-ev-analytics"],
+    },
+    {
+      factor: "experience",
+      status: "scored",
+      rawScore: 0.82,
+      reliability: 0.90,
+      policyWeight: 0.30,
+      effectiveWeight: 0.29,
+      evidenceRefs: ["cv-ev-exp-senior-da"],
+    },
+    {
+      factor: "language",
+      status: "scored",
+      rawScore: 0.85,
+      reliability: 0.85,
+      policyWeight: 0.10,
+      effectiveWeight: 0.10,
+      evidenceRefs: ["cv-ev-lang-en"],
+    },
+    {
+      factor: "semantic",
+      status: "scored",
+      rawScore: 0.76,
+      reliability: 0.92,
+      policyWeight: 0.30,
+      effectiveWeight: 0.31,
+      denseScore: 0.79,
+      sparseScore: 0.72,
+      evidenceRefs: ["cv-ev-semantic"],
+    },
+  ],
+  requirementResults: [
+    {
+      requirementId: "req-sql-advanced",
+      status: "met",
+      score: 0.92,
+      confidence: 0.95,
+      evidenceRefs: ["cv-ev-sql"],
+      reasonCode: "skill_claim_verified",
+    },
+    {
+      requirementId: "req-funnel-cohort",
+      status: "met",
+      score: 0.81,
+      confidence: 0.90,
+      evidenceRefs: ["cv-ev-analytics"],
+      reasonCode: "skill_claim_verified",
+    },
+    {
+      requirementId: "req-dbt-modeling",
+      status: "not_met",
+      score: 0.28,
+      confidence: 0.85,
+      evidenceRefs: [],
+      reasonCode: "missing_skill_claim",
+    },
+    {
+      requirementId: "req-fintech-domain",
+      status: "unknown",
+      score: 0.35,
+      confidence: 0.70,
+      evidenceRefs: [],
+      reasonCode: "unresolved_evidence_absent",
+    },
+  ],
+  compatibilityResults: [
+    {
+      criterion: "work_mode",
+      status: "compatible",
+      confidence: 1.0,
+      reasonCode: "candidate_accepts_hybrid",
+    },
+    {
+      criterion: "location",
+      status: "compatible",
+      confidence: 0.95,
+      reasonCode: "same_metropolitan_area",
+    },
+  ],
+  warnings: [
+    "Thiếu bằng chứng trực tiếp cho công cụ dbt; ứng viên cần chứng minh qua bài test kỹ thuật.",
+  ],
   criteriaBreakdown: [
     { name: "SQL và phân tích dữ liệu", type: "must_have", importance: 1, match: 0.92, score: 0.92, evidence: "Có kinh nghiệm xây dựng dashboard và tối ưu báo cáo vận hành." },
     { name: "Funnel & cohort analysis", type: "must_have", importance: 0.9, match: 0.81, score: 0.81, evidence: "Đã phân tích hành vi người dùng, cần bổ sung kết quả định lượng." },
@@ -42,13 +142,13 @@ const SAMPLE_SCORE: CvScoringResponse = {
     weaknesses: ["Phụ trách báo cáo hiệu suất kinh doanh hằng tuần cho các phòng ban.", "Hỗ trợ đội ngũ sản phẩm phân tích hành vi người dùng."],
     suggestions: ["Xây dựng dashboard tự phục vụ cho 6 phòng ban, chuẩn hóa 14 chỉ số vận hành và giảm thời gian tổng hợp báo cáo xuống", "Phân tích funnel kích hoạt của 120.000 người dùng mới, đề xuất thử nghiệm giúp tỷ lệ hoàn tất onboarding tăng"],
   },
-  overallFeedback: "Hồ sơ có nền tảng phù hợp. Ưu tiên nâng các câu kinh nghiệm theo công thức Hành động – Bối cảnh – Kết quả đo lường trước khi đầu tư thêm công cụ mới.",
+  overallFeedback: "Hồ sơ có nền tảng phù hợp với độ tin cậy bằng chứng cao (92%). Đạt chuẩn điều kiện tiên quyết (Eligible) và xếp hạng Rất phù hợp (Strong Fit). Ưu tiên nâng các câu kinh nghiệm theo công thức Hành động – Bối cảnh – Kết quả đo lường.",
   evidence: {
     must_have: [{ requirement: "SQL nâng cao", status: "matched", snippets: ["SQL", "dashboard"] }],
     nice_to_have: [{ requirement: "dbt", status: "missing", snippets: [] }],
     constraints: [{ requirement: "Kinh nghiệm FinTech", status: "missing", snippets: [] }],
   },
-  metadata: { scoringVersion: "sample-v2", timestamp: "2026-09-08T00:00:00Z" },
+  metadata: { scoringVersion: "2.1-fusion", timestamp: "2026-09-18T00:00:00Z" },
 };
 
 type NormalizedCriterion = {
@@ -188,6 +288,152 @@ function getFeaturedCriterionIndex(items: NormalizedCriterion[]) {
   return bestIndex;
 }
 
+function getFitBandDetails(fitBand?: FitBand, lang: string = "vi") {
+  const isVi = lang === "vi";
+  switch (fitBand) {
+    case "strong_fit":
+      return {
+        label: isVi ? "Rất phù hợp" : "Strong Fit",
+        badgeBg: "bg-emerald-100 text-emerald-800 border-emerald-300",
+        icon: "verified",
+        desc: isVi ? "Ứng viên đáp ứng xuất sắc các tiêu chuẩn và vượt ngưỡng yêu cầu." : "Exceeds standard criteria with high confidence.",
+      };
+    case "partial_fit":
+      return {
+        label: isVi ? "Phù hợp một phần" : "Partial Fit",
+        badgeBg: "bg-sky-100 text-sky-800 border-sky-300",
+        icon: "thumb_up",
+        desc: isVi ? "Ứng viên đáp ứng phần lớn yêu cầu trọng tâm, có một số khoảng trống nhỏ." : "Meets majority of core requirements with manageable gaps.",
+      };
+    case "review_required":
+      return {
+        label: isVi ? "Cần thẩm định" : "Review Required",
+        badgeBg: "bg-amber-100 text-amber-800 border-amber-300",
+        icon: "rate_review",
+        desc: isVi ? "Cần người phỏng vấn hoặc HR trực tiếp xác minh thêm bằng chứng." : "Human review recommended to verify ambiguous credentials.",
+      };
+    case "not_eligible":
+      return {
+        label: isVi ? "Chưa đạt điều kiện" : "Not Eligible",
+        badgeBg: "bg-rose-100 text-rose-800 border-rose-300",
+        icon: "cancel",
+        desc: isVi ? "Chưa thỏa mãn các điều kiện tiên quyết bắt buộc (must-have)." : "Does not meet mandatory prerequisite criteria.",
+      };
+    case "insufficient_evidence":
+    default:
+      return {
+        label: isVi ? "Thiếu bằng chứng" : "Insufficient Evidence",
+        badgeBg: "bg-slate-100 text-slate-700 border-slate-300",
+        icon: "help_outline",
+        desc: isVi ? "Hồ sơ chưa có đủ dữ liệu trích xuất để kết luận chắc chắn." : "Insufficient document evidence to form a confident verdict.",
+      };
+  }
+}
+
+function getEligibilityDetails(eligibility?: EligibilityStatus, lang: string = "vi") {
+  const isVi = lang === "vi";
+  switch (eligibility) {
+    case "eligible":
+      return {
+        label: isVi ? "Đủ điều kiện tiên quyết" : "Eligible (Must-Have Met)",
+        badgeBg: "bg-emerald-100 text-emerald-800 border-emerald-300",
+        icon: "check_circle",
+      };
+    case "ineligible":
+      return {
+        label: isVi ? "Chưa đạt tiên quyết" : "Ineligible (Must-Have Unmet)",
+        badgeBg: "bg-rose-100 text-rose-800 border-rose-300",
+        icon: "block",
+      };
+    case "review_required":
+    default:
+      return {
+        label: isVi ? "Cần thẩm định điều kiện" : "Review Required",
+        badgeBg: "bg-amber-100 text-amber-800 border-amber-300",
+        icon: "rule",
+      };
+  }
+}
+
+function getFactorMeta(factor: string, lang: string = "vi") {
+  const isVi = lang === "vi";
+  switch (factor) {
+    case "skill":
+      return {
+        badge: isVi ? "Kỹ năng" : "Skill",
+        title: isVi ? "Kỹ năng chuyên môn" : "Technical Skills",
+        icon: "psychology",
+        barColor: "bg-emerald-600",
+      };
+    case "experience":
+      return {
+        badge: isVi ? "Kinh nghiệm" : "Experience",
+        title: isVi ? "Kinh nghiệm thực chiến" : "Experience & Seniority",
+        icon: "work_history",
+        barColor: "bg-blue-600",
+      };
+    case "language":
+      return {
+        badge: isVi ? "Ngoại ngữ" : "Language",
+        title: isVi ? "Ngoại ngữ & Chứng chỉ" : "Language & Credentials",
+        icon: "translate",
+        barColor: "bg-violet-600",
+      };
+    case "semantic":
+    default:
+      return {
+        badge: isVi ? "Ngữ nghĩa kết hợp" : "Hybrid Semantic",
+        title: isVi ? "Tương đồng ngữ nghĩa (BM25 + Vector)" : "Semantic Alignment",
+        icon: "hub",
+        barColor: "bg-amber-600",
+      };
+  }
+}
+
+function formatReasonCode(code: string, lang: string = "vi"): string {
+  const mapVi: Record<string, string> = {
+    skill_claim_verified: "Kỹ năng đã được chứng thực từ CV",
+    missing_skill_claim: "Chưa tìm thấy kỹ năng trong hồ sơ",
+    experience_gte_failed: "Chưa đủ số tháng kinh nghiệm yêu cầu",
+    proficiency_gte_failed: "Cấp độ thành thạo chưa đạt yêu cầu",
+    language_verified: "Ngôn ngữ đáp ứng tiêu chuẩn",
+    missing_language: "Chưa khai báo ngoại ngữ bắt buộc",
+    unresolved_evidence_absent: "Thiếu bằng chứng xác thực trong văn bản",
+    unresolved_claim_verified: "Yêu cầu đã được xác minh qua bằng chứng",
+    candidate_accepts_hybrid: "Ứng viên phù hợp hình thức làm việc Hybrid",
+    candidate_accepts_remote: "Ứng viên phù hợp làm việc Remote",
+    candidate_accepts_on_site: "Ứng viên phù hợp làm việc trực tiếp (On-site)",
+    same_metropolitan_area: "Cùng khu vực địa lý / thành phố",
+    willing_to_relocate: "Sẵn sàng di dời công tác",
+  };
+  if (lang === "vi" && mapVi[code]) return mapVi[code];
+  return code ? code.replace(/_/g, " ") : "Không có ghi chú thêm";
+}
+
+function FitBandBadge({ fitBand, lang }: { fitBand?: FitBand; lang: string }) {
+  const details = getFitBandDetails(fitBand, lang);
+  return (
+    <div className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] ${details.badgeBg}`}>
+      <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+        {details.icon}
+      </span>
+      <span>{details.label}</span>
+    </div>
+  );
+}
+
+function EligibilityBadge({ eligibility, lang }: { eligibility?: EligibilityStatus; lang: string }) {
+  const details = getEligibilityDetails(eligibility, lang);
+  return (
+    <div className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] ${details.badgeBg}`}>
+      <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+        {details.icon}
+      </span>
+      <span>{details.label}</span>
+    </div>
+  );
+}
+
 export default function CvScorePage() {
   const { t, lang } = useLanguage();
   const router = useRouter();
@@ -204,6 +450,7 @@ export default function CvScorePage() {
   const [modeModalOpen, setModeModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"overview" | "diff">("overview");
   const [metricInputs, setMetricInputs] = useState<Record<number, string>>({});
+  const [reqFilter, setReqFilter] = useState<"all" | "met" | "not_met" | "unknown">("all");
 
   const normalized = useMemo(() => (result ? normalizeResult(result) : null), [result]);
 
@@ -557,20 +804,32 @@ export default function CvScorePage() {
             </div>
 
             {viewMode === "overview" ? (
-              <div className="grid gap-0 lg:grid-cols-[minmax(20rem,40%)_minmax(0,60%)]">
+              <div className="grid gap-0 lg:grid-cols-[minmax(22rem,44%)_minmax(0,56%)]">
               <section className="border-b border-slate-200 p-5 sm:p-6 lg:border-b-0 lg:border-r">
-              <div className={`mb-5 rounded-[1.5rem] border p-5 ${isPass ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"}`}>
-                <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] ${isPass ? "border-emerald-200 bg-white text-emerald-700" : "border-amber-200 bg-white text-amber-800"}`}>
-                  <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    {isPass ? "check_circle" : "warning"}
-                  </span>
-                  {isPass ? t("interview.cvAnalysis.passBadge") : t("interview.cvAnalysis.failBadge")}
+                <div className={`mb-5 rounded-[1.5rem] border p-5 ${isPass ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"}`}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {result.eligibility ? (
+                      <EligibilityBadge eligibility={result.eligibility} lang={lang} />
+                    ) : (
+                      <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] ${isPass ? "border-emerald-200 bg-white text-emerald-700" : "border-amber-200 bg-white text-amber-800"}`}>
+                        <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                          {isPass ? "check_circle" : "warning"}
+                        </span>
+                        {isPass ? t("interview.cvAnalysis.passBadge") : t("interview.cvAnalysis.failBadge")}
+                      </div>
+                    )}
+                    {result.fitBand ? <FitBandBadge fitBand={result.fitBand} lang={lang} /> : null}
+                  </div>
+                  <h1 className="mt-4 font-headline text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">{title}</h1>
+                  <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">{description}</p>
+                  {result.fitBand && (
+                    <p className="mt-2 text-xs font-medium text-slate-500 italic">
+                      {getFitBandDetails(result.fitBand, lang).desc}
+                    </p>
+                  )}
                 </div>
-                <h1 className="mt-4 font-headline text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">{title}</h1>
-                <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">{description}</p>
-              </div>
 
-              <div className="mb-5 rounded-[1.5rem] border p-5 border-emerald-200 bg-emerald-50/70">
+                {/* Score & Main Metric */}
                 <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">{t("interview.cvAnalysis.scoreLabel")}</p>
@@ -595,10 +854,87 @@ export default function CvScorePage() {
                   <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
                     <StatTile label={t("interview.cvAnalysis.rawScoreLabel")} value={`${safeNumber(result.score?.raw)} / ${safeNumber(result.score?.max)}`} tone="slate" />
                     <StatTile label={t("interview.cvAnalysis.normalizedLabel")} value={String(safeNumber(result.score?.normalized).toFixed(2))} tone="slate" />
-                    <StatTile label={t("interview.cvAnalysis.versionLabel")} value={result.metadata?.scoringVersion || "1.0"} tone="slate" />
+                    <StatTile label={t("interview.cvAnalysis.versionLabel")} value={result.metadata?.scoringVersion || "2.1-fusion"} tone="slate" />
                     <StatTile label={t("interview.cvAnalysis.decisionLabel")} value={result.decision} tone={isPass ? "emerald" : "amber"} />
                   </div>
                 </div>
+
+                {/* 4-Factor Core Capabilities */}
+                {result.factorResults && result.factorResults.length > 0 && (
+                  <div className="mt-5 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">
+                          {t("interview.cvAnalysis.factorsTitle")}
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {lang === "vi" ? "Đánh giá đa nhân tố theo trọng số chính sách" : "Multi-factor evaluation with policy weighting"}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-slate-200/60 px-2.5 py-0.5 text-[10px] font-bold text-slate-700">
+                        4 factors
+                      </span>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {result.factorResults.map((f) => (
+                        <FactorCard key={f.factor} factor={f} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Work Context Compatibility */}
+                {result.compatibilityResults && result.compatibilityResults.length > 0 && (
+                  <div className="mt-5 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500 mb-3">
+                      {t("interview.cvAnalysis.compatibilityTitle")}
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {result.compatibilityResults.map((c) => {
+                        const isCompat = c.status === "compatible";
+                        const icon = c.criterion === "work_mode" ? "apartment" : "location_on";
+                        const titleLabel = c.criterion === "work_mode" ? t("interview.cvAnalysis.workModeLabel") : t("interview.cvAnalysis.locationLabel");
+                        const badgeClass = isCompat ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800";
+                        return (
+                          <div key={c.criterion} className="rounded-xl border border-slate-200 bg-white p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                                <span className="material-symbols-outlined text-[16px] text-slate-500">{icon}</span>
+                                <span>{titleLabel}</span>
+                              </div>
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${badgeClass}`}>
+                                {c.status}
+                              </span>
+                            </div>
+                            <p className="mt-1.5 text-[11px] text-slate-600">
+                              {formatReasonCode(c.reasonCode, lang)}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Warnings banner */}
+                {result.warnings && result.warnings.length > 0 && (
+                  <div className="mt-5 rounded-[1.5rem] border border-amber-200 bg-amber-50/80 p-4">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800">
+                      <span className="material-symbols-outlined text-[18px]">warning</span>
+                      <span>{t("interview.cvAnalysis.warningsTitle")}</span>
+                    </div>
+                    <ul className="mt-2 space-y-1.5 text-xs text-amber-900">
+                      {result.warnings.map((w, idx) => (
+                        <li key={idx} className="flex gap-1.5">
+                          <span>•</span>
+                          <span>{w}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Prerequisite Check (Must-Have) */}
                 <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 mt-5">
                   <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">{t("interview.cvAnalysis.hardFiltersTitle")}</p>
                   <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
@@ -622,6 +958,7 @@ export default function CvScorePage() {
                     )}
                   </div>
                 </section>
+
                 <details className="mt-5 border-t border-[#E8E6DC] pt-4 text-sm text-[#5E5D59]">
                   <summary className="cursor-pointer font-semibold text-[#141413]">
                     Tại sao tiêu chí này quan trọng với HR?
@@ -637,72 +974,120 @@ export default function CvScorePage() {
                     placeholder="Hỏi vì sao CV cần sửa hoặc yêu cầu một cách diễn đạt khác…"
                   />
                 </label>
-              </div>
               </section>
 
               <aside className="space-y-5 border-t border-slate-200 p-5 sm:p-6 lg:border-l lg:border-t-0">
-
-                <section>
-                  <div className="flex items-end justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">{t("interview.cvAnalysis.criteriaTitle")}</p>
-                      <h3 className="mt-2 text-lg font-bold tracking-tight text-slate-900">Phân rã tiêu chí</h3>
-                    </div>
-                    <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
-                      {normalized?.criteriaBreakdown.length ?? 0} items
-                    </span>
-                  </div>
-
-                  <div className="mt-3 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
-                    {featuredCriterion ? (
-                      <div className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-[0_12px_30px_-22px_rgba(15,23,42,0.3)]">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-700">Phân rã nổi bật</p>
-                            <h4 className="mt-1 text-lg font-black leading-6 text-slate-900">{featuredCriterion.name}</h4>
-                          </div>
-
-                          <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] ${featuredCriterion.score >= 1 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
-                            {t("interview.cvAnalysis.criteriaScore")}: {featuredCriterion.score.toFixed(2)}
-                          </span>
-                        
-                            <p className="mt-2 text-sm leading-7 text-slate-600">{featuredCriterion.evidence}</p>
-                        </div>
-
-                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                          <MiniMetric label={t("interview.cvAnalysis.criteriaImportance")} value={featuredCriterion.importance.toString()} />
-                          <MiniMetric label={t("interview.cvAnalysis.criteriaMatch")} value={featuredCriterion.match.toString()} />
-                        </div>
+                {result.requirementResults && result.requirementResults.length > 0 ? (
+                  <section>
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">{t("interview.cvAnalysis.criteriaTitle")}</p>
+                        <h3 className="mt-2 text-lg font-bold tracking-tight text-slate-900">
+                          {lang === "vi" ? "Ma trận đối soát tiêu chí JD (v2.1)" : "Requirement Verification Matrix"}
+                        </h3>
                       </div>
-                    ) : null}
 
-                    <div className="space-y-3">
-                      {remainingCriteria.map((item) => (
-                        <div key={item.key} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.28)]">
+                      {/* Filter Tabs */}
+                      <div className="flex flex-wrap items-center gap-1 rounded-xl bg-slate-100 p-1 text-xs">
+                        {(["all", "met", "not_met", "unknown"] as const).map((filter) => {
+                          const count = filter === "all"
+                            ? result.requirementResults!.length
+                            : result.requirementResults!.filter((r) => r.status === filter).length;
+                          const label = filter === "all"
+                            ? t("interview.cvAnalysis.reqFilterAll")
+                            : filter === "met"
+                            ? t("interview.cvAnalysis.reqFilterMet")
+                            : filter === "not_met"
+                            ? t("interview.cvAnalysis.reqFilterNotMet")
+                            : t("interview.cvAnalysis.reqFilterUnknown");
+                          const active = reqFilter === filter;
+                          return (
+                            <button
+                              key={filter}
+                              type="button"
+                              onClick={() => setReqFilter(filter)}
+                              className={`rounded-lg px-2.5 py-1 font-semibold transition ${
+                                active ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                              }`}
+                            >
+                              {label} ({count})
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 max-h-[46rem] space-y-3 overflow-y-auto pr-1">
+                      {result.requirementResults
+                        .filter((r) => (reqFilter === "all" ? true : r.status === reqFilter))
+                        .map((req) => (
+                          <RequirementCard key={req.requirementId} req={req} lang={lang} />
+                        ))}
+                    </div>
+                  </section>
+                ) : (
+                  <section>
+                    <div className="flex items-end justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">{t("interview.cvAnalysis.criteriaTitle")}</p>
+                        <h3 className="mt-2 text-lg font-bold tracking-tight text-slate-900">Phân rã tiêu chí</h3>
+                      </div>
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                        {normalized?.criteriaBreakdown.length ?? 0} items
+                      </span>
+                    </div>
+
+                    <div className="mt-3 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
+                      {featuredCriterion ? (
+                        <div className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-[0_12px_30px_-22px_rgba(15,23,42,0.3)]">
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
-                              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">Phân rã</p>
-                              <h4 className="mt-1 text-base font-bold leading-6 text-slate-900">{item.name}</h4>
+                              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-700">Phân rã nổi bật</p>
+                              <h4 className="mt-1 text-lg font-black leading-6 text-slate-900">{featuredCriterion.name}</h4>
                             </div>
-                            <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] ${item.score >= 1 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
-                              {t("interview.cvAnalysis.criteriaScore")}: {item.score.toFixed(2)}
-                            </span>
 
-                            <p className="mt-1 text-sm leading-6 text-slate-600">{item.evidence}</p>
+                            <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] ${featuredCriterion.score >= 1 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
+                              {t("interview.cvAnalysis.criteriaScore")}: {featuredCriterion.score.toFixed(2)}
+                            </span>
+                          
+                              <p className="mt-2 text-sm leading-7 text-slate-600">{featuredCriterion.evidence}</p>
                           </div>
 
                           <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                            <MiniMetric label={t("interview.cvAnalysis.criteriaImportance")} value={item.importance.toString()} />
-                            <MiniMetric label={t("interview.cvAnalysis.criteriaMatch")} value={item.match.toString()} />
+                            <MiniMetric label={t("interview.cvAnalysis.criteriaImportance")} value={featuredCriterion.importance.toString()} />
+                            <MiniMetric label={t("interview.cvAnalysis.criteriaMatch")} value={featuredCriterion.match.toString()} />
                           </div>
                         </div>
-                      ))}
+                      ) : null}
+
+                      <div className="space-y-3">
+                        {remainingCriteria.map((item) => (
+                          <div key={item.key} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.28)]">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">Phân rã</p>
+                                <h4 className="mt-1 text-base font-bold leading-6 text-slate-900">{item.name}</h4>
+                              </div>
+                              <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] ${item.score >= 1 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
+                                {t("interview.cvAnalysis.criteriaScore")}: {item.score.toFixed(2)}
+                              </span>
+
+                              <p className="mt-1 text-sm leading-6 text-slate-600">{item.evidence}</p>
+                            </div>
+
+                            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                              <MiniMetric label={t("interview.cvAnalysis.criteriaImportance")} value={item.importance.toString()} />
+                              <MiniMetric label={t("interview.cvAnalysis.criteriaMatch")} value={item.match.toString()} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </section>
+                  </section>
+                )}
               </aside>
-              </div>
-            ) : (
+            </div>
+          ) : (
               <div className="bg-[#FAF9F5] p-5 sm:p-8">
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-[#E8E6DC] pb-4">
                   <div>
@@ -780,6 +1165,126 @@ export default function CvScorePage() {
         ) : null}
       </div>
     </main>
+  );
+}
+
+function FactorCard({ factor }: { factor: FactorResult }) {
+  const meta = getFactorMeta(factor.factor);
+  const rawPct = Math.round(safeNumber(factor.rawScore, 0) * 100);
+  const reliabilityPct = Math.round(safeNumber(factor.reliability, 1) * 100);
+  const weightPct = Math.round(safeNumber(factor.effectiveWeight, 0.25) * 100);
+  const isSemantic = factor.factor === "semantic";
+  const bm25Pct = factor.sparseScore != null ? Math.round(safeNumber(factor.sparseScore) * 100) : null;
+  const densePct = factor.denseScore != null ? Math.round(safeNumber(factor.denseScore) * 100) : null;
+
+  return (
+    <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-sm transition hover:shadow-md">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+            <span className="material-symbols-outlined text-[18px]">{meta.icon}</span>
+          </span>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{meta.badge}</p>
+            <h4 className="text-xs font-black text-slate-900 leading-tight">{meta.title}</h4>
+          </div>
+        </div>
+        <span className="text-base font-black text-slate-900">{rawPct}%</span>
+      </div>
+
+      <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+        <div className={`h-full rounded-full ${meta.barColor}`} style={{ width: `${Math.max(0, Math.min(100, rawPct))}%` }} />
+      </div>
+
+      {isSemantic && (bm25Pct != null || densePct != null) && (
+        <div className="mt-2.5 rounded-xl border border-slate-100 bg-slate-50/80 p-2 text-xs">
+          <div className="flex items-center justify-between text-[10px] text-slate-600 mb-1">
+            <span className="font-semibold">Phân rã Hybrid:</span>
+            <span className="font-mono text-[9px] text-slate-500">BM25 (40%) + Dense (60%)</span>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {bm25Pct != null && (
+              <div className="rounded-lg bg-white p-1.5 border border-slate-200/60">
+                <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Từ khóa BM25</p>
+                <div className="flex items-center justify-between mt-0.5">
+                  <span className="font-bold text-slate-800 text-xs">{bm25Pct}%</span>
+                  <span className="text-[9px] text-emerald-600 font-medium">Khớp chính xác</span>
+                </div>
+              </div>
+            )}
+            {densePct != null && (
+              <div className="rounded-lg bg-white p-1.5 border border-slate-200/60">
+                <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Vector Dense</p>
+                <div className="flex items-center justify-between mt-0.5">
+                  <span className="font-bold text-slate-800 text-xs">{densePct}%</span>
+                  <span className="text-[9px] text-indigo-600 font-medium">Ngữ nghĩa sâu</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1 border-t border-slate-100 pt-2 text-[10px] text-slate-500">
+        <span>Độ tin cậy: <strong className="text-slate-800">{reliabilityPct}%</strong></span>
+        <span>Trọng số: <strong className="text-slate-800">{weightPct}%</strong></span>
+      </div>
+    </div>
+  );
+}
+
+function RequirementCard({ req, lang }: { req: RequirementResult; lang: string }) {
+  const isMet = req.status === "met";
+  const isNotMet = req.status === "not_met";
+  const statusBadge = isMet
+    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+    : isNotMet
+    ? "bg-rose-100 text-rose-800 border-rose-300"
+    : "bg-amber-100 text-amber-800 border-amber-300";
+
+  const statusLabel = isMet ? "Đã đạt" : isNotMet ? "Chưa đạt" : "Cần làm rõ";
+  const statusIcon = isMet ? "check_circle" : isNotMet ? "cancel" : "help";
+  const confidencePct = Math.round(safeNumber(req.confidence, 1) * 100);
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.28)] transition hover:shadow-md">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusBadge}`}>
+              <span className="material-symbols-outlined text-[13px]">{statusIcon}</span>
+              <span>{statusLabel}</span>
+            </span>
+            <span className="text-[11px] font-mono text-slate-400 truncate max-w-[220px]" title={req.requirementId}>
+              {req.requirementId}
+            </span>
+          </div>
+          <h4 className="mt-2 text-sm font-bold leading-5 text-slate-900">
+            {formatReasonCode(req.reasonCode, lang)}
+          </h4>
+        </div>
+
+        <div className="shrink-0 text-right">
+          {req.score != null && (
+            <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-black ${isMet ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"}`}>
+              {(req.score * 100).toFixed(0)}%
+            </span>
+          )}
+          <p className="mt-1 text-[10px] text-slate-500">Tin cậy: {confidencePct}%</p>
+        </div>
+      </div>
+
+      {req.evidenceRefs && req.evidenceRefs.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2 text-[11px] text-slate-500">
+          <span className="font-semibold text-slate-600">Bằng chứng:</span>
+          {req.evidenceRefs.map((ref) => (
+            <span key={ref} className="rounded bg-slate-100 px-2 py-0.5 font-mono text-[10px] text-slate-600">
+              {ref}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
