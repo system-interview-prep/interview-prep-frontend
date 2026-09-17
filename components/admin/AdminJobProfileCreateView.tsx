@@ -16,6 +16,7 @@ import {
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useJpUploadStatus } from "@/hooks/useJpUploadStatus";
 import { humanizeKey } from "@/utils";
+import CanonicalJdReview from "./job-description/CanonicalJdReview";
 
 type LabeledNode = { label?: string; value?: unknown } & Record<string, unknown>;
 
@@ -596,24 +597,21 @@ export default function AdminJobProfileCreateView() {
   const [uploading, setUploading] = useState(false);
   const { status: jpStatus, latestUpload } = useJpUploadStatus(uploadId);
   const [finalizeBusy, setFinalizeBusy] = useState(false);
+  const [reparseBusy, setReparseBusy] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
   const [descriptionHtml, setDescriptionHtml] = useState<string>("");
-  const [descriptionPreviewBusy, setDescriptionPreviewBusy] = useState(false);
-  const [descriptionPreviewError, setDescriptionPreviewError] = useState<string | null>(null);
 
   const [editableCanonicalUi, setEditableCanonicalUi] = useState<any | null>(null);
   const [editableExtras, setEditableExtras] = useState<any | null>(null);
   const [draftSaving, setDraftSaving] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
-  const [aiViewMode, setAiViewMode] = useState<"form" | "jd">("form");
+  const [aiViewMode, setAiViewMode] = useState<"review" | "advanced">("review");
 
   useEffect(() => {
     if (!uploadId || jpStatus !== "DONE" || !latestUpload) return;
     try {
-      const canonicalUiRaw = String((latestUpload as any).aiProfileUiJson || "").trim();
-      const extrasRaw = String((latestUpload as any).aiExtrasJson || "").trim();
-      const canonicalUi = canonicalUiRaw ? JSON.parse(canonicalUiRaw) : null;
-      const extras = extrasRaw ? JSON.parse(extrasRaw) : null;
+      const canonicalUi = latestUpload.structuredData ?? null;
+      const extras = latestUpload.extractedMetadata ?? null;
       setEditableCanonicalUi((prev: any | null) => (prev === null ? canonicalUi : prev));
       setEditableExtras((prev: any | null) => (prev === null ? extras : prev));
     } catch {
@@ -634,7 +632,7 @@ export default function AdminJobProfileCreateView() {
     if (!v) {
       return (
         <div className="rounded-xl border border-outline-variant/20 bg-surface p-4 text-sm text-on-surface-variant">
-          Chưa có mô tả. Bạn có thể bấm “Generate (AI) preview” để tạo lại.
+          Chưa có mô tả để hiển thị.
         </div>
       );
     }
@@ -657,26 +655,9 @@ export default function AdminJobProfileCreateView() {
     );
   };
 
-  const handleGenerateDescriptionPreview = useCallback(async () => {
-    if (!uploadId || jpStatus !== "DONE") return;
-    setDescriptionPreviewBusy(true);
-    setDescriptionPreviewError(null);
-    try {
-      const { data } = await jobProfileApi.previewUploadDescription(uploadId, { title: form.title });
-      const next = String((data as any)?.description || "").trim();
-      if (next) setDescriptionHtml(next);
-    } catch (e: any) {
-      setDescriptionPreviewError(
-        String(e?.response?.data?.message || e?.message || "Generate description failed")
-      );
-    } finally {
-      setDescriptionPreviewBusy(false);
-    }
-  }, [uploadId, jpStatus, form.title]);
-
   useEffect(() => {
     if (!editableCanonicalUi || typeof editableCanonicalUi !== "object") return;
-    const title = String((editableCanonicalUi as any)?.title?.value ?? "").trim();
+    const title = String((editableCanonicalUi as any)?.jobTitle ?? "").trim();
     if (title && !form.title.trim()) {
       setForm((f) => ({ ...f, title }));
     }
@@ -773,15 +754,6 @@ export default function AdminJobProfileCreateView() {
       const { data } = await jobProfileApi.uploadJd(jdFile);
       setUploadId(data.id);
 
-      // Prefill basic form from AI output if possible (best-effort)
-      try {
-        const uiRaw = String((data as any).aiProfileUiJson ?? "");
-        const ui = uiRaw ? JSON.parse(uiRaw) : null;
-        const title = String(ui?.title?.value ?? "").trim();
-        if (title) {
-          setForm((f) => ({ ...f, title }));
-        }
-      } catch {}
     } catch (err: unknown) {
       const msg = axios.isAxiosError(err)
         ? String((err.response?.data as { message?: string })?.message ?? err.message)
@@ -819,14 +791,32 @@ export default function AdminJobProfileCreateView() {
     }
   };
 
+  const handleReparse = async () => {
+    if (!uploadId || reparseBusy) return;
+    setReparseBusy(true);
+    setError(null);
+    setEditableCanonicalUi(null);
+    setEditableExtras(null);
+    try {
+      await jobProfileApi.reparseUpload(uploadId);
+    } catch (err: unknown) {
+      const msg = axios.isAxiosError(err)
+        ? String((err.response?.data as { message?: string })?.message ?? err.message)
+        : t("admin.jobProfile.error.save");
+      setError(msg);
+    } finally {
+      setReparseBusy(false);
+    }
+  };
+
   const handleSaveDraftAiJson = async () => {
     if (!uploadId || draftSaving) return;
     setDraftSaving(true);
     setError(null);
     try {
       await jobProfileApi.updateUpload(uploadId, {
-        aiProfileUiJson: editableCanonicalUi,
-        aiExtrasJson: editableExtras,
+        structuredData: editableCanonicalUi,
+        extractedMetadata: editableExtras,
       });
       setDraftSavedAt(new Date().toISOString());
     } catch (err: unknown) {
@@ -846,21 +836,19 @@ export default function AdminJobProfileCreateView() {
     const hasExtras = editableExtras && typeof editableExtras === "object";
     if (!hasCanonical && !hasExtras) return null;
 
-    const jdText = buildJdText(editableCanonicalUi, editableExtras).trim();
-
     return (
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-xs font-semibold text-on-surface-variant">
-            AI parsed result (editable){draftSavedAt ? ` • Draft saved` : ""}
+            Dữ liệu JD đã trích xuất{draftSavedAt ? ` • Đã lưu` : ""}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setAiViewMode((m) => (m === "form" ? "jd" : "form"))}
+              onClick={() => setAiViewMode((m) => (m === "review" ? "advanced" : "review"))}
               className="rounded-xl border border-outline-variant/40 bg-surface px-4 py-2 text-sm font-bold text-on-surface"
             >
-              {aiViewMode === "form" ? "JD text view" : "Form view"}
+              {aiViewMode === "review" ? "Chỉnh sửa nâng cao" : "Xem minh chứng"}
             </button>
             <button
               type="button"
@@ -868,37 +856,35 @@ export default function AdminJobProfileCreateView() {
               disabled={!canSaveDraft}
               className="rounded-xl border border-outline-variant/40 bg-surface px-4 py-2 text-sm font-bold text-on-surface disabled:opacity-50"
             >
-              {draftSaving ? "Saving draft…" : "Save draft changes"}
+              {draftSaving ? "Đang lưu…" : "Lưu thay đổi"}
             </button>
           </div>
         </div>
 
-        {aiViewMode === "form" ? (
+        {aiViewMode === "review" && hasCanonical ? (
+          <CanonicalJdReview data={editableCanonicalUi as Record<string, unknown>} />
+        ) : (
           <>
             {hasCanonical && (
               <LabeledJsonForm
-                title="Canonical (UI)"
+                title="Chỉnh sửa dữ liệu cấu trúc"
                 data={editableCanonicalUi}
                 onChange={(next) => setEditableCanonicalUi(next)}
               />
             )}
             {hasExtras && (
-              <LabeledJsonForm
-                title="Extras"
-                data={editableExtras}
-                onChange={(next) => setEditableExtras(next)}
-              />
+              <details className="rounded-2xl border border-outline-variant/20 bg-surface p-4">
+                <summary className="cursor-pointer text-sm font-bold text-on-surface">Thông tin kỹ thuật trích xuất</summary>
+                <div className="mt-4">
+                  <LabeledJsonForm
+                    title="Thông tin kỹ thuật trích xuất"
+                    data={editableExtras}
+                    onChange={(next) => setEditableExtras(next)}
+                  />
+                </div>
+              </details>
             )}
           </>
-        ) : (
-          <section className="rounded-2xl border border-outline-variant/20 bg-surface p-4">
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-              JD (Text)
-            </h3>
-            <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap break-words text-sm text-on-surface">
-              {jdText || "—"}
-            </pre>
-          </section>
         )}
       </div>
     );
@@ -950,6 +936,19 @@ export default function AdminJobProfileCreateView() {
                   </div>
                 )}
 
+                {!isEditMode && uploadId && (
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleReparse}
+                      disabled={reparseBusy || jpStatus === "PARSING" || jpStatus === "PENDING"}
+                      className="rounded-lg border border-outline-variant/40 px-3 py-1.5 text-xs font-semibold hover:bg-surface-container disabled:opacity-50"
+                    >
+                      {reparseBusy ? "Đang chạy lại..." : "Trích xuất lại"}
+                    </button>
+                  </div>
+                )}
+
                 {/* Upload */}
                 {!isEditMode && (
                   <section className="rounded-2xl border border-outline-variant/20 bg-surface p-6 shadow-sm">
@@ -960,7 +959,7 @@ export default function AdminJobProfileCreateView() {
                         Upload Job Description
                       </div>
                       <div className="mt-1 text-sm text-on-surface-variant">
-                        Upload JD (PDF, DOCX, Image). AI sẽ tự động phân tích và điền thông tin.
+                        Upload JD (PDF, DOCX, Image). Hệ thống sẽ trích xuất nội dung và tạo dữ liệu cấu trúc để bạn kiểm tra.
                       </div>
                     </div>
                   </div>
@@ -1023,7 +1022,7 @@ export default function AdminJobProfileCreateView() {
                       <span className="material-symbols-outlined text-[18px]">
                         auto_awesome
                       </span>
-                      {uploading ? "Parsing with AI..." : "Upload & Parse with AI"}
+                      {uploading ? "Extracting document..." : "Upload & parse JD"}
                     </button>
                 
                     <button
@@ -1046,13 +1045,13 @@ export default function AdminJobProfileCreateView() {
   <div className="mb-5 flex items-start justify-between">
     <div>
       <div className="text-xs font-bold uppercase tracking-widest text-primary">
-        {isEditMode ? "Edit Job Profile" : "Description"}
+        {isEditMode ? "Chỉnh sửa JD" : "Nội dung JD"}
       </div>
 
       <p className="mt-1 text-sm text-on-surface-variant">
         {isEditMode
           ? "Chỉnh sửa nội dung hiển thị cho ứng viên"
-          : "AI sẽ generate description, bạn có thể chỉnh sửa trước khi lưu"}
+          : "Nội dung được lấy từ tài liệu đã tải lên. Bạn có thể chỉnh sửa trước khi hoàn tất."}
       </p>
     </div>
   </div>
@@ -1128,31 +1127,18 @@ export default function AdminJobProfileCreateView() {
     </div>
   )}
 
-  {/* Description editor */}
   <div className="rounded-xl border border-outline-variant/20">
-    {/* header */}
     <div className="flex items-center justify-between border-b border-outline-variant/20 px-4 py-2">
-      <span className="text-sm font-semibold">Job Description</span>
+      <span className="text-sm font-semibold">Nội dung hiển thị cho ứng viên</span>
     </div>
     <div data-color-mode="light" className="rounded-b-xl">
       <MDEditor
         value={descriptionHtml}
         onChange={(v) => setDescriptionHtml(String(v || ""))}
         preview="edit"
-        height={320}
-        textareaProps={{ placeholder: "Write job description..." }}
+        height={220}
+        textareaProps={{ placeholder: "Nội dung JD từ tài liệu đã tải lên" }}
       />
-    </div>
-  </div>
-
-  {/* Preview */}
-  <div className="mt-5 rounded-xl border border-outline-variant/20 bg-surface-container/30 p-4">
-    <div className="mb-2 text-xs font-semibold uppercase text-on-surface-variant">
-      Candidate Preview
-    </div>
-
-    <div className="prose prose-sm max-w-none">
-      {renderDescriptionPreview(descriptionHtml)}
     </div>
   </div>
 
@@ -1162,7 +1148,7 @@ export default function AdminJobProfileCreateView() {
       onClick={handleCancel}
       className="rounded-xl border border-outline-variant/40 px-4 py-2.5 text-sm font-medium"
     >
-      Cancel
+      Hủy
     </button>
 
     {isEditMode ? (
@@ -1171,7 +1157,7 @@ export default function AdminJobProfileCreateView() {
         disabled={!canSaveEdit}
         className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white"
       >
-        {editBusy ? "Saving..." : "Save changes"}
+        {editBusy ? "Đang lưu..." : "Lưu thay đổi"}
       </button>
     ) : (
       <button
@@ -1179,7 +1165,7 @@ export default function AdminJobProfileCreateView() {
         disabled={!canFinalize}
         className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white"
       >
-        {finalizeBusy ? "Saving..." : "Save Job"}
+        {finalizeBusy ? "Đang lưu..." : "Hoàn tất JD"}
       </button>
     )}
   </div>
