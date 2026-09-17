@@ -62,7 +62,7 @@ export const authApi = {
       role: 'CANDIDATE',
     }),
   googleLogin: (token: string) =>
-    api.post<AuthResponse>('/auth/google', { token }),
+    api.post<AuthResponse>('/auth/google', { accessToken: token, token }),
 };
 
 // ── Interview ─────────────────────────────────────────────────────────────────
