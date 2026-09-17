@@ -1,7 +1,13 @@
+import Footer from "@/components/Footer";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import MarketingNav from "../../components/MarketingNav";
 import { getDictionary, normalizeLang } from "../../i18n/i18n";
+import {
+  ArrowRight, Briefcase, CheckCircle2, Crown, FileCheck2, GraduationCap,
+  Mic, ShieldCheck, Sparkles,
+} from "lucide-react";
+import { SolutionsPersonaSwitcher } from "../../components/SolutionsPersonaSwitcher";
 
 export async function generateMetadata() {
   const cookieStore = await cookies();
@@ -16,342 +22,80 @@ export default async function SolutionsPage() {
   const t = (key: string) => getDictionary(lang)[key] ?? key;
 
   return (
-    <div className="min-h-screen bg-surface font-body text-on-surface">
+    <div className="min-h-screen bg-white font-body text-[#234196]">
       <MarketingNav active="solutions" />
-
       <main>
-        {/* Hero */}
-        <section className="relative pt-16 md:pt-24 pb-20 md:pb-32 px-6 md:px-12 max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            <div className="z-10 min-w-0">
-              <h1 className="font-headline font-extrabold text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tighter text-on-surface mb-6 md:mb-8 leading-[0.95]">
-                {t("solutions.hero.titlePlain")}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-tertiary">
-                  {t("solutions.hero.titleGradient")}
-                </span>
-              </h1>
-              <p className="text-on-surface-variant text-lg md:text-2xl leading-relaxed max-w-xl">
-                {t("solutions.hero.subtitle")}
-              </p>
-            </div>
-            <div className="relative hidden lg:block">
-              <div className="absolute -top-10 -right-10 w-72 h-72 bg-tertiary/10 rounded-full blur-[80px]" aria-hidden />
-              <img
-                className="relative w-full aspect-[4/3] object-cover rounded-[2.5rem] shadow-2xl"
-                alt={t("solutions.hero.imageAlt")}
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuABcXKaH1ScYj6F1KflW16Yu9sx7C7OAwAOwZSoZChHld6w440d1c3spUevdp0y90YtEEhHPdmSRdJweqNcs3zR40GXFEFGjeQaL3R-dT2rKUh4CZk-_1AaB73nP3PqZPiQmllojGliiQv3oi4rLEIb1C9jI8q9uOh9hYJo0g_Z5no7Sz6zv76EEvB-yUf_8nx3p3BQSc73gNRGut_a9nHq5HzLWZBWuOwt5o37igVgNNOtuQbJKqtJHLQ_gALAELT9skz0LyAquppX"
-              />
+        <section className="paper-dots mx-auto grid max-w-[1480px] gap-12 px-5 py-16 sm:px-8 md:py-24 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:px-12">
+          <div>
+            <span className="sticker -rotate-2 bg-[#FCB625]"><Sparkles size={14} /> Giải pháp đo ni đóng giày cho từng giai đoạn nghề nghiệp</span>
+            <h1 className="mt-8 text-[clamp(3.3rem,6.5vw,6.8rem)] leading-[.9] tracking-[-.05em]">
+              {t("solutions.hero.titlePlain")} <span className="marker">{t("solutions.hero.titleGradient")}</span>
+            </h1>
+            <p className="mt-7 max-w-2xl text-lg leading-8 text-[#5A6B8F]">{t("solutions.hero.subtitle")}</p>
+            <div className="mt-9 flex flex-wrap gap-3"><Link href="/interview/cv-score" className="chunky-primary px-6 py-4">Tìm lộ trình của bạn <ArrowRight size={18} /></Link><Link href="#personas" className="chunky-secondary px-6 py-4">Xem theo kinh nghiệm</Link></div>
+          </div>
+          <SolutionsPersonaSwitcher />
+        </section>
+
+        <section id="personas" className="border-y-2 border-[#234196] bg-[#FEF9EE] px-5 py-20 sm:px-8 md:py-28">
+          <div className="mx-auto max-w-[1480px]">
+            <div className="max-w-3xl"><span className="font-metadata text-[11px] font-bold text-[#E59E10]">01 · Giải pháp theo chân dung</span><h2 className="mt-3 text-4xl tracking-tight sm:text-6xl">Đúng vấn đề. Đúng giai đoạn. Đúng cách luyện.</h2></div>
+            <div className="mt-12 grid gap-6 md:grid-cols-12">
+              <article id="students" className="storybook-card flex flex-col p-6 md:col-span-4">
+                <div className="flex items-center justify-between gap-3"><GraduationCap size={30} /><span className="sticker -rotate-1 bg-[#FCB625]">0–1 năm kinh nghiệm</span></div>
+                <h3 className="mt-7 text-3xl">{t("solutions.segment.students.title")}</h3>
+                <p className="mt-4 leading-7 text-[#5A6B8F]">{t("solutions.segment.students.desc")}</p>
+                <ul className="mt-6 space-y-3 text-sm font-semibold">{["Biến đồ án thành bullet có tác động", "Gỡ lo âu phỏng vấn hành vi", "Dựng câu chuyện STAR đầu tiên"].map((item) => <li key={item} className="flex gap-2"><CheckCircle2 size={17} className="shrink-0 text-[#2E7D32]" />{item}</li>)}</ul>
+                <div className="mt-7 rounded-xl border-2 border-[#234196] bg-[#F0F4FC] p-4"><p className="text-xs text-[#5A6B8F] line-through">Làm đồ án phân tích dữ liệu.</p><p className="mt-3 text-sm font-semibold">Phân tích 12.000 giao dịch, tìm ra 3 nhóm khách hàng có tỷ lệ rời bỏ cao.</p></div>
+                <Link href="/signup" className="chunky-secondary mt-7 px-5 py-3">Khám phá lộ trình Fresher <ArrowRight size={17} /></Link>
+              </article>
+
+              <article id="seekers" className="storybook-card flex flex-col bg-[#F0F4FC] p-6 md:col-span-8 sm:p-8">
+                <div className="flex flex-wrap items-center justify-between gap-3"><Briefcase size={32} /><span className="sticker rotate-1 bg-[#FCB625]">2–5 năm · Tối ưu thu nhập</span></div>
+                <h3 className="mt-7 text-4xl">{t("solutions.segment.seekers.title")}</h3>
+                <p className="mt-4 max-w-3xl text-lg leading-8 text-[#5A6B8F]">{t("solutions.segment.seekers.desc")}</p>
+                <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-xl border-2 border-[#234196] bg-white p-5"><span className="sticker -rotate-1 border-[#2E7D32] bg-[#E8F5E9] text-[#2E7D32]">88% Match</span><p className="mt-4 font-headline text-2xl">Đủ năng lực cốt lõi</p><div className="mt-4 flex flex-wrap gap-2"><span className="sticker border-[#2E7D32] bg-[#E8F5E9] text-[#2E7D32]">SQL</span><span className="sticker border-[#D32F2F] bg-[#FFEBEE] text-[#D32F2F]">dbt?</span></div></div>
+                  <div className="rounded-xl border-2 border-[#234196] bg-white p-5"><span className="sticker rotate-1 bg-[#FCB625]"><span className="h-2 w-2 rounded-full bg-[#2E7D32]" /> WebRTC Live · 420ms</span><p className="mt-4 font-headline text-2xl">Phản xạ như buổi thật</p><div className="mt-5 flex h-12 items-end gap-1">{[22,42,30,48,26,38,18].map((height, index) => <span key={index} className="w-2 rounded-full bg-[#234196]" style={{ height }} />)}</div></div>
+                </div>
+                <Link href="/interview/cv-score" className="chunky-primary mt-8 w-fit px-6 py-4">Tối ưu CV & Luyện Phỏng vấn ngay <ArrowRight size={18} /></Link>
+              </article>
+
+              <article id="executives" className="storybook-card grid gap-10 bg-[#FEF9EE] p-7 md:col-span-12 md:grid-cols-[1.2fr_.8fr] md:p-12">
+                <div><div className="flex flex-wrap items-center gap-3"><Crown size={32} /><span className="sticker -rotate-1 bg-[#FCB625]">Quản lý cấp cao & chuyển đổi ngành</span></div><h3 className="mt-7 text-4xl sm:text-5xl">{t("solutions.segment.professionals.title")}</h3><p className="mt-5 max-w-3xl text-lg leading-8 text-[#5A6B8F]">{t("solutions.segment.professionals.desc")}</p><ul className="mt-7 grid gap-3 text-sm font-semibold sm:grid-cols-2"><li className="flex gap-2"><CheckCircle2 size={17} className="text-[#2E7D32]" />Định vị executive narrative</li><li className="flex gap-2"><CheckCircle2 size={17} className="text-[#2E7D32]" />Khung SPAR cho xung đột lãnh đạo</li><li className="flex gap-2"><CheckCircle2 size={17} className="text-[#2E7D32]" />Panel mock interview</li><li className="flex gap-2"><ShieldCheck size={17} className="text-[#2E7D32]" />Bảo mật tuyệt đối</li></ul><Link href="/signup" className="chunky-secondary mt-8 px-6 py-4">Đặt phiên tư vấn bảo mật <ArrowRight size={18} /></Link></div>
+                <div className="grid content-center gap-4"><div className="rotate-1 rounded-2xl border-2 border-[#234196] bg-[#FCB625] p-6 text-center shadow-[4px_4px_0_#234196]"><strong className="font-headline text-6xl">+35%</strong><p className="mt-2 font-metadata text-[10px] font-bold">Lương đàm phán trung bình</p></div><div className="-rotate-1 rounded-2xl border-2 border-[#234196] bg-white p-6 text-center shadow-[4px_4px_0_#234196]"><strong className="font-headline text-6xl">100%</strong><p className="mt-2 font-metadata text-[10px] font-bold">Bảo mật danh tính hồ sơ</p></div></div>
+              </article>
             </div>
           </div>
         </section>
 
-        {/* Segments */}
-        <section className="bg-surface-container-low py-16 md:py-24 px-6 md:px-12">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-              <div className="md:col-span-4 bg-surface-container-lowest p-8 md:p-10 rounded-3xl border border-outline-variant/10 shadow-sm hover:-translate-y-2 transition-all duration-300 flex flex-col justify-between min-h-[520px] md:h-[550px]">
-                <div>
-                  <div className="w-16 h-16 bg-secondary-container rounded-2xl flex items-center justify-center mb-8 text-primary">
-                    <span className="material-symbols-outlined text-4xl">school</span>
-                  </div>
-                  <h3 className="font-headline font-extrabold text-2xl text-on-surface mb-4 tracking-tight">
-                    {t("solutions.segment.students.title")}
-                  </h3>
-                  <p className="text-on-surface-variant font-body mb-8 leading-relaxed">
-                    {t("solutions.segment.students.desc")}
-                  </p>
-                  <ul className="space-y-4">
-                    <li className="flex items-center gap-3 text-sm font-semibold text-on-surface">
-                      <span className="material-symbols-outlined text-primary text-lg">check_circle</span>
-                      {t("solutions.segment.students.bullet1")}
-                    </li>
-                    <li className="flex items-center gap-3 text-sm font-semibold text-on-surface">
-                      <span className="material-symbols-outlined text-primary text-lg">check_circle</span>
-                      {t("solutions.segment.students.bullet2")}
-                    </li>
-                    <li className="flex items-center gap-3 text-sm font-semibold text-on-surface">
-                      <span className="material-symbols-outlined text-primary text-lg">check_circle</span>
-                      {t("solutions.segment.students.bullet3")}
-                    </li>
-                  </ul>
-                </div>
-                <Link
-                  href="/signup"
-                  className="text-primary font-bold flex items-center gap-2 hover:gap-4 transition-all mt-8"
-                >
-                  {t("solutions.segment.students.cta")}{" "}
-                  <span className="material-symbols-outlined">arrow_forward</span>
-                </Link>
-              </div>
-
-              <div className="md:col-span-8 bg-surface-container-lowest p-8 md:p-10 rounded-3xl border border-outline-variant/10 shadow-sm relative overflow-hidden flex flex-col md:flex-row gap-10 md:gap-12 min-h-[520px] md:min-h-[550px]">
-                <div className="flex-1 z-10 flex flex-col justify-between">
-                  <div>
-                    <div className="w-16 h-16 bg-tertiary-fixed rounded-2xl flex items-center justify-center mb-8 text-tertiary">
-                      <span className="material-symbols-outlined text-4xl">work</span>
-                    </div>
-                    <h3 className="font-headline font-extrabold text-2xl md:text-3xl text-on-surface mb-4 tracking-tight">
-                      {t("solutions.segment.seekers.title")}
-                    </h3>
-                    <p className="text-on-surface-variant font-body mb-8 leading-relaxed">
-                      {t("solutions.segment.seekers.desc")}
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-                      <div className="bg-surface-container-low p-5 rounded-2xl border border-outline-variant/5">
-                        <p className="text-[10px] font-extrabold text-tertiary uppercase tracking-widest mb-1">
-                          {t("solutions.segment.seekers.technical")}
-                        </p>
-                        <p className="text-sm font-bold text-on-surface">
-                          {t("solutions.segment.seekers.technicalDesc")}
-                        </p>
-                      </div>
-                      <div className="bg-surface-container-low p-5 rounded-2xl border border-outline-variant/5">
-                        <p className="text-[10px] font-extrabold text-tertiary uppercase tracking-widest mb-1">
-                          {t("solutions.segment.seekers.visual")}
-                        </p>
-                        <p className="text-sm font-bold text-on-surface">
-                          {t("solutions.segment.seekers.visualDesc")}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <Link
-                    href="/interview/select"
-                    className="ai-gradient-button text-white px-8 py-4 rounded-xl font-bold w-fit shadow-xl shadow-primary/20 hover:opacity-90 active:scale-95 transition-all text-center"
-                  >
-                    {t("solutions.segment.seekers.cta")}
-                  </Link>
-                </div>
-                <div className="flex-1 relative hidden lg:block overflow-hidden rounded-[2rem] min-h-[280px]">
-                  <img
-                    className="absolute inset-0 w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
-                    alt={t("solutions.segment.seekers.imageAlt")}
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdkUzljEwa44K68YXUWnACxojZ_konXfOgCqK-CPB3JRwnVWfwKKrKRLpHintUBdfMoHggbuYnQ-iLyhrTWWpA1jzaj4b3mMQVlYCKI_UHNJBjD65GFm9c0w3jepWDQb3KU0p18emEHKEPWPVjt0PHxxTkVOP3bMKwkhameznY4cCC8QKDVTMW-ZYqXcWk9yzqXfU1llWXL7Ll2Q5pEc7oQw_AFY1HZfhe22Wh3yVWCL1llUZv9ZTL9gaVA1HdeMDZr5UzjASjt2-0"
-                  />
-                </div>
-              </div>
-
-              <div className="md:col-span-12 bg-inverse-surface text-inverse-on-surface p-8 md:p-12 rounded-3xl flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-16 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-tertiary/20 rounded-full blur-[120px] -mr-48 -mt-48 pointer-events-none" aria-hidden />
-                <div className="lg:w-1/2 relative z-10">
-                  <span className="inline-block px-4 py-1 bg-tertiary rounded-full text-[10px] font-extrabold tracking-widest uppercase mb-8">
-                    {t("solutions.segment.professionals.badge")}
-                  </span>
-                  <h3 className="font-headline font-extrabold text-3xl md:text-4xl lg:text-5xl mb-6 leading-tight tracking-tighter">
-                    {t("solutions.segment.professionals.title")}
-                  </h3>
-                  <p className="text-surface-variant font-body text-lg mb-10 leading-relaxed max-w-xl">
-                    {t("solutions.segment.professionals.desc")}
-                  </p>
-                  <div className="flex gap-12 md:gap-16 flex-wrap">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-3xl md:text-4xl font-extrabold text-tertiary-fixed tracking-tight">
-                        {t("solutions.segment.professionals.stat1Value")}
-                      </span>
-                      <span className="text-sm font-semibold text-surface-variant/70 uppercase tracking-widest">
-                        {t("solutions.segment.professionals.stat1Label")}
-                      </span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-3xl md:text-4xl font-extrabold text-tertiary-fixed tracking-tight">
-                        {t("solutions.segment.professionals.stat2Value")}
-                      </span>
-                      <span className="text-sm font-semibold text-surface-variant/70 uppercase tracking-widest">
-                        {t("solutions.segment.professionals.stat2Label")}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="lg:w-1/3 w-full max-w-sm aspect-square relative z-10 mx-auto lg:mx-0">
-                  <div className="w-full h-full rounded-full overflow-hidden border-[12px] border-white/5 shadow-2xl">
-                    <img
-                      className="w-full h-full object-cover"
-                      alt={t("solutions.segment.professionals.imageAlt")}
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuCC_qpXtjE6HHrDBIQ5ANb8Ri1NoIB6iSqEhTdxf31dz-XCbEC_deU7c-Eh-aG2ndIGMthBsLc0AEqPXGpVZ30vt_60r11jevTFacFfpEhzu0f-UMTl-p7ZGrSZnwCC3iNbjCO28bU5iuk7R29GUww5Xv8y9-Ude69m0esuuiyojnMnvaNn6IE_Q3T1lAekWYQh9fgrxuc2EgnwsvUsH08qNv7eqWDV7Vl3wMcwzUNPrtQ6DaszcxNmFO5gs3kCU9hLOibjC0-DR9Vn"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
+        <section className="mx-auto max-w-[1480px] px-5 py-20 sm:px-8 md:py-28 lg:px-12">
+          <div className="text-center"><span className="font-metadata text-[11px] font-bold text-[#E59E10]">02 · Năng lực lõi</span><h2 className="mt-3 text-4xl sm:text-6xl">{t("solutions.modalities.title")}</h2><p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-[#5A6B8F]">{t("solutions.modalities.subtitle")}</p></div>
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            {[
+              [FileCheck2, "Đối soát Ngữ nghĩa CV–JD", "Bóc tách kỹ năng bắt buộc và gợi ý số liệu Action–Context–Metric."],
+              [Mic, "Phỏng vấn Thoại WebRTC <500ms", "Giọng nói tự nhiên, hỗ trợ thuật ngữ kỹ thuật song ngữ và barge‑in."],
+              [Sparkles, "Biên bản STAR & Nhịp điệu", "Đo từ đệm, tốc độ WPM và dựng kịch bản trả lời mẫu có căn cứ."],
+            ].map(([Icon, title, description], index) => {
+              const PillarIcon = Icon as typeof FileCheck2;
+              return <article key={String(title)} className={`rounded-2xl border-2 border-[#234196] p-7 shadow-[4px_4px_0_#234196] ${index === 1 ? "bg-[#F0F4FC]" : index === 2 ? "bg-[#FEF9EE]" : "bg-white"}`}><span className="grid h-12 w-12 place-items-center rounded-xl border-2 border-[#234196] bg-[#FCB625]"><PillarIcon size={24} /></span><h3 className="mt-6 text-3xl">{String(title)}</h3><p className="mt-4 leading-7 text-[#5A6B8F]">{String(description)}</p></article>;
+            })}
           </div>
         </section>
 
-        {/* Modalities */}
-        <section className="px-6 md:px-12 py-20 md:py-32 max-w-7xl mx-auto">
-          <div className="text-center mb-12 md:mb-20">
-            <h2 className="font-headline font-extrabold text-3xl md:text-4xl lg:text-5xl text-on-surface mb-6 tracking-tighter">
-              {t("solutions.modalities.title")}
-            </h2>
-            <p className="text-on-surface-variant max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
-              {t("solutions.modalities.subtitle")}
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
-            <div className="group bg-surface-container-lowest p-8 md:p-10 rounded-3xl border border-outline-variant/10 shadow-sm hover:-translate-y-2 transition-all duration-300">
-              <div className="w-16 h-16 bg-secondary-container rounded-2xl flex items-center justify-center mb-8 text-primary transition-transform group-hover:scale-110">
-                <span className="material-symbols-outlined text-4xl">forum</span>
-              </div>
-              <h4 className="font-headline font-extrabold text-xl md:text-2xl mb-4 tracking-tight">
-                {t("solutions.modalities.chat.title")}
-              </h4>
-              <p className="text-on-surface-variant text-sm leading-relaxed mb-8">
-                {t("solutions.modalities.chat.desc")}
-              </p>
-              <div className="h-1 bg-surface-container rounded-full overflow-hidden">
-                <div className="h-full bg-primary w-1/3 transition-all duration-700 group-hover:w-full" />
-              </div>
-            </div>
-            <div className="group bg-surface-container-lowest p-8 md:p-10 rounded-3xl border border-outline-variant/10 shadow-sm hover:-translate-y-2 transition-all duration-300">
-              <div className="w-16 h-16 bg-tertiary-fixed rounded-2xl flex items-center justify-center mb-8 text-tertiary transition-transform group-hover:scale-110">
-                <span className="material-symbols-outlined text-4xl">call</span>
-              </div>
-              <h4 className="font-headline font-extrabold text-xl md:text-2xl mb-4 tracking-tight">
-                {t("solutions.modalities.voice.title")}
-              </h4>
-              <p className="text-on-surface-variant text-sm leading-relaxed mb-8">
-                {t("solutions.modalities.voice.desc")}
-              </p>
-              <div className="h-1 bg-surface-container rounded-full overflow-hidden">
-                <div className="h-full bg-tertiary w-1/3 transition-all duration-700 group-hover:w-full" />
-              </div>
-            </div>
-            <div className="group bg-surface-container-lowest p-8 md:p-10 rounded-3xl border border-outline-variant/10 shadow-sm hover:-translate-y-2 transition-all duration-300">
-              <div className="w-16 h-16 bg-primary-fixed rounded-2xl flex items-center justify-center mb-8 text-primary transition-transform group-hover:scale-110">
-                <span className="material-symbols-outlined text-4xl">videocam</span>
-              </div>
-              <h4 className="font-headline font-extrabold text-xl md:text-2xl mb-4 tracking-tight">
-                {t("solutions.modalities.video.title")}
-              </h4>
-              <p className="text-on-surface-variant text-sm leading-relaxed mb-8">
-                {t("solutions.modalities.video.desc")}
-              </p>
-              <div className="h-1 bg-surface-container rounded-full overflow-hidden">
-                <div className="h-full bg-primary-container w-1/3 transition-all duration-700 group-hover:w-full" />
-              </div>
-            </div>
+        <section className="border-y-2 border-[#234196] bg-[#F0F4FC] px-5 py-20 sm:px-8 md:py-28">
+          <div className="storybook-card mx-auto grid max-w-6xl overflow-hidden md:grid-cols-2">
+            <div className="p-7 sm:p-10"><span className="sticker -rotate-1 bg-[#FCB625]">Hậu trường Semantic RAG</span><h2 className="mt-7 text-4xl sm:text-5xl">{t("solutions.editorial.title")}</h2><p className="mt-5 leading-8 text-[#5A6B8F]">{t("solutions.editorial.desc")}</p><div className="mt-8 space-y-7"><div className="flex gap-5"><strong className="font-metadata text-3xl">01</strong><div><h3 className="font-sans text-lg font-bold">Keyword stuffing thất bại</h3><p className="mt-2 text-sm leading-6 text-[#5A6B8F]">ATS hiện đại đọc ngữ cảnh, mức độ thành thạo và bằng chứng tác động.</p></div></div><div className="flex gap-5"><strong className="font-metadata text-3xl">02</strong><div><h3 className="font-sans text-lg font-bold">RAG bảo vệ tính xác thực</h3><p className="mt-2 text-sm leading-6 text-[#5A6B8F]">Mọi gợi ý đều neo vào dữ liệu CV và JD thật của ứng viên.</p></div></div></div></div>
+            <div className="border-t-2 border-[#234196] bg-[#FEF9EE] p-7 md:border-l-2 md:border-t-0 sm:p-10"><span className="font-metadata text-[10px] font-bold">CV Live Diff · v2</span><div className="mt-6 rounded-xl border-2 border-[#D32F2F] bg-[#FFEBEE] p-5"><span className="text-xs font-bold text-[#D32F2F]">Bản cũ</span><p className="mt-3 text-[#5A6B8F] line-through">Hỗ trợ phân tích báo cáo kinh doanh hàng tuần.</p></div><div className="mt-4 rounded-xl border-2 border-[#2E7D32] bg-[#E8F5E9] p-5"><span className="text-xs font-bold text-[#2E7D32]">Bản có căn cứ</span><p className="mt-3 font-semibold leading-7">Tự động hóa báo cáo tuần bằng SQL, giảm <span className="marker">40%</span> thời gian tổng hợp.</p></div><p className="mt-5 text-xs leading-6 text-[#5A6B8F]">Con số chỉ được thêm sau khi ứng viên xác nhận.</p></div>
           </div>
         </section>
 
-        {/* Editorial */}
-        <section className="px-6 md:px-12 py-16 md:py-24 max-w-7xl mx-auto">
-          <div className="bg-surface-container-low flex flex-col md:flex-row items-stretch rounded-[3rem] overflow-hidden shadow-sm border border-outline-variant/10">
-            <div className="md:w-1/2 p-8 md:p-16">
-              <div className="flex items-center gap-3 mb-8 text-tertiary">
-                <span className="material-symbols-outlined font-bold text-xl">auto_awesome</span>
-                <span className="font-bold tracking-widest uppercase text-[10px]">
-                  {t("solutions.editorial.badge")}
-                </span>
-              </div>
-              <h2 className="font-headline font-extrabold text-3xl md:text-4xl lg:text-5xl text-on-surface mb-8 leading-tight tracking-tighter">
-                {t("solutions.editorial.title")}
-              </h2>
-              <p className="text-on-surface-variant text-lg md:text-xl mb-10 md:mb-12 leading-relaxed">
-                {t("solutions.editorial.desc")}
-              </p>
-              <div className="space-y-8 md:space-y-10">
-                <div className="flex gap-6">
-                  <span className="text-3xl md:text-4xl font-headline font-black text-outline-variant/30 shrink-0">
-                    01
-                  </span>
-                  <div>
-                    <h4 className="text-lg md:text-xl font-extrabold mb-2 tracking-tight text-on-surface">
-                      {t("solutions.editorial.feature1Title")}
-                    </h4>
-                    <p className="text-on-surface-variant">{t("solutions.editorial.feature1Desc")}</p>
-                  </div>
-                </div>
-                <div className="flex gap-6">
-                  <span className="text-3xl md:text-4xl font-headline font-black text-outline-variant/30 shrink-0">
-                    02
-                  </span>
-                  <div>
-                    <h4 className="text-lg md:text-xl font-extrabold mb-2 tracking-tight text-on-surface">
-                      {t("solutions.editorial.feature2Title")}
-                    </h4>
-                    <p className="text-on-surface-variant">{t("solutions.editorial.feature2Desc")}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="md:w-1/2 relative min-h-[320px] md:min-h-[500px]">
-              <img
-                className="absolute inset-0 w-full h-full object-cover"
-                alt={t("solutions.editorial.imageAlt")}
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVXhopRPpRMlOS-kioFNj0TeRs2ucd1HYA23Am4P6beZxpC20po1m3348Y5sd_H_y3hpGEABPFh_9o_wXepAh8EZ8ykQ8M_33hdWa-RkatGtnhHCdkSvWIz_xEqwJ19AnuN-NohucO6mB8ZS0SOaqguQbpx_1BFHM58mK4yLcJ6mt3ISyCCL4sq1uqFXywzX29fUXV6G6mhYRgWWIl-5gmDs_a4VRZwkvHDOR7E6abP5RS8R_d-3Q3rAMhFnn4UgSiQ9Rmurwf11jM"
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-surface-container-low to-transparent hidden md:block" />
-            </div>
-          </div>
-        </section>
-
-        {/* CTA */}
-        <section className="py-20 md:py-32 px-6 md:px-12">
-          <div className="max-w-5xl mx-auto bg-[#7029e1] rounded-[3rem] p-10 md:p-16 text-center text-white relative overflow-hidden shadow-2xl">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" aria-hidden />
-            <div className="relative z-10">
-              <h2 className="font-headline text-3xl md:text-5xl font-extrabold mb-6 md:mb-8 tracking-tighter">
-                {t("solutions.cta.title")}
-              </h2>
-              <p className="text-white/80 text-lg md:text-xl mb-10 md:mb-12 max-w-xl mx-auto leading-relaxed">
-                {t("solutions.cta.subtitle")}
-              </p>
-              <div className="flex flex-col sm:flex-row justify-center gap-6">
-                <Link
-                  href="/signup"
-                  className="bg-white text-tertiary px-10 py-5 rounded-2xl font-black text-lg hover:scale-105 transition-transform active:scale-95 shadow-xl"
-                >
-                  {t("solutions.cta.primary")}
-                </Link>
-                <Link
-                  href="/pricing"
-                  className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-10 py-5 rounded-2xl font-black text-lg hover:bg-white/20 transition-all"
-                >
-                  {t("solutions.cta.secondary")}
-                </Link>
-              </div>
-            </div>
-          </div>
+        <section className="px-5 py-20 sm:px-8 md:py-28">
+          <div className="mx-auto max-w-5xl rounded-3xl border-2 border-[#234196] bg-[#FCB625] p-8 text-center shadow-[8px_8px_0_#234196] sm:p-14"><Sparkles className="mx-auto" size={32} /><h2 className="mx-auto mt-5 max-w-3xl text-4xl sm:text-6xl">{t("solutions.cta.title")}</h2><p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-[#234196]/80">Bắt đầu bằng dữ liệu thật của bạn. Thanh toán một lần, không có bẫy tự động gia hạn.</p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link href="/signup" className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#234196] bg-[#234196] px-7 py-4 font-bold text-white shadow-[3px_3px_0_white] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none">Bắt đầu Thử nghiệm Ngay <Sparkles size={17} /></Link><Link href="/pricing" className="chunky-secondary px-7 py-4">Xem Bảng Giá Minh Bạch</Link></div></div>
         </section>
       </main>
 
-      <footer className="w-full border-t border-[#c3c6d6]/20 py-12 bg-[#f7f9fb]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 flex flex-col md:flex-row justify-between items-center gap-8 md:gap-0 md:space-y-0">
-          <div className="flex flex-col items-center md:items-start space-y-4 text-center md:text-left">
-            <div className="font-headline font-bold text-[#191c1e] text-xl">INTERVIA</div>
-            <p className="font-body text-xs text-[#434654] max-w-xs">{t("footer.copyright")}</p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-6 md:gap-8 font-body text-xs text-[#434654]">
-            <Link className="hover:underline transition-all" href="#">
-              {t("footer.privacy")}
-            </Link>
-            <Link className="hover:underline transition-all" href="#">
-              {t("footer.terms")}
-            </Link>
-            <Link className="hover:underline transition-all" href="#">
-              {t("footer.cookies")}
-            </Link>
-            <Link className="hover:underline transition-all" href="#">
-              {t("footer.security")}
-            </Link>
-          </div>
-          <div className="flex gap-4">
-            <button
-              type="button"
-              className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-[#434654] hover:bg-primary-container hover:text-white cursor-pointer transition-colors"
-              aria-label="Share"
-            >
-              <span className="material-symbols-outlined text-sm">share</span>
-            </button>
-            <button
-              type="button"
-              className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-[#434654] hover:bg-primary-container hover:text-white cursor-pointer transition-colors"
-              aria-label="Email"
-            >
-              <span className="material-symbols-outlined text-sm">mail</span>
-            </button>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

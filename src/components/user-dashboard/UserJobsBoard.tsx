@@ -161,24 +161,25 @@ export default function UserJobsBoard() {
   };
 
   return (
-    <div className="min-w-0 space-y-6">
-      <div className="flex flex-col gap-2 border-b border-outline-variant/15 pb-6">
+    <div className="min-w-0 space-y-8">
+      <div className="flex flex-col gap-3 border-b-2 border-[#234196] pb-7">
         <Link
           href="/dashboard"
-          className="inline-flex w-fit items-center gap-1 text-sm font-semibold text-primary hover:underline"
+          className="inline-flex min-h-11 w-fit items-center gap-1 text-sm font-bold"
         >
-          <span className="material-symbols-outlined text-lg">arrow_back</span>
-          {t("userDash.jobProfiles.backToDashboard")}
+          <span className="material-symbols-outlined text-lg" aria-hidden="true">arrow_back</span>
+          <span className="underline decoration-[#FCB625] decoration-4 underline-offset-4">{t("userDash.jobProfiles.backToDashboard")}</span>
         </Link>
-        <h1 className="font-headline text-2xl font-bold tracking-tight text-on-surface md:text-3xl">
+        <div><span className="sticker -rotate-1 bg-[#FCB625]">{t("userDash.jobs.eyebrow")}</span></div>
+        <h1 className="font-headline text-4xl font-bold tracking-tight md:text-5xl">
           {t("userDash.jobProfiles.pageTitle")}
         </h1>
-        <p className="max-w-2xl text-sm text-on-surface-variant">{t("userDash.jobProfiles.pageSubtitle")}</p>
+        <p className="max-w-2xl text-sm leading-6 text-[#5A6B8F]">{t("userDash.jobProfiles.pageSubtitle")}</p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="grid gap-3 rounded-2xl border-2 border-[#234196] bg-white p-3 shadow-[3px_3px_0_#234196] sm:grid-cols-[minmax(0,1fr)_auto]">
         <div className="relative min-w-[min(100%,280px)] flex-1">
-          <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant/70">
+          <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-[#5A6B8F]">
             search
           </span>
           <input
@@ -186,14 +187,14 @@ export default function UserJobsBoard() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("admin.jobProfile.searchPlaceholder")}
-            className="w-full rounded-xl border border-outline-variant/25 bg-surface-container-lowest py-2.5 pl-10 pr-3 text-sm text-on-surface shadow-sm placeholder:text-on-surface-variant/55 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10"
+            className="min-h-12 w-full rounded-xl border-2 border-[#234196] bg-[#F0F4FC] py-2.5 pl-10 pr-3 text-sm text-[#234196] placeholder:text-[#5A6B8F] focus:bg-white focus:outline-none"
             aria-label={t("admin.jobProfile.searchPlaceholder")}
           />
         </div>
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value as "all" | string)}
-          className="rounded-xl border border-outline-variant/25 bg-surface-container-lowest px-4 py-2.5 text-sm font-medium text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+          className="min-h-12 w-full rounded-xl border-2 border-[#234196] bg-white px-4 py-2.5 text-sm font-bold text-[#234196] focus:outline-none sm:w-auto"
           aria-label={t("admin.jobProfile.form.category")}
         >
           <option value="all">{t("admin.jobProfile.filter.allCategories")}</option>
@@ -206,22 +207,23 @@ export default function UserJobsBoard() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-error/25 bg-error-container/15 px-3 py-2.5 text-sm text-error" role="alert">
+        <div className="rounded-xl border-2 border-[#D32F2F] bg-[#FFEBEE] px-4 py-3 text-sm text-[#8F1D1D] shadow-[3px_3px_0_#D32F2F]" role="alert">
           {error}
         </div>
       )}
 
       {loading ? (
-        <p className="py-12 text-center text-sm text-on-surface-variant">{t("admin.jobProfile.loading")}</p>
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label={t("admin.jobProfile.loading")}>
+          {[0, 1, 2, 3, 4, 5].map((item) => <div key={item} className="h-64 animate-pulse rounded-2xl border-2 border-[#234196] bg-[#F0F4FC] motion-reduce:animate-none" />)}
+        </div>
       ) : profiles.length === 0 ? (
-        <p className="py-12 text-center text-sm text-on-surface-variant">
-          {debouncedSearch.trim() || categoryFilter !== "all"
-            ? t("admin.jobProfile.noMatch")
-            : t("userDash.jobProfiles.empty")}
-        </p>
+        <div className="rounded-2xl border-2 border-dashed border-[#234196] bg-[#F0F4FC] px-6 py-16 text-center">
+          <span className="material-symbols-outlined text-5xl" aria-hidden="true">work_outline</span>
+          <p className="mt-4 text-sm text-[#5A6B8F]">{debouncedSearch.trim() || categoryFilter !== "all" ? t("admin.jobProfile.noMatch") : t("userDash.jobProfiles.empty")}</p>
+        </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {profiles.map((p) => (
               <UserJobProfileCard
                 key={p.id}
@@ -237,12 +239,12 @@ export default function UserJobsBoard() {
               />
             ))}
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
             <button
               type="button"
               onClick={handlePrevPage}
               disabled={loading || pageBackStack.length === 0}
-              className="inline-flex min-w-[7rem] items-center justify-center gap-1.5 rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-5 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-45"
+              className="chunky-secondary min-h-11 min-w-[7rem] px-5 text-sm disabled:cursor-not-allowed disabled:opacity-45"
             >
               <span className="material-symbols-outlined text-[18px]">chevron_left</span>
               {t("userDash.jobProfiles.pagePrev")}
@@ -251,7 +253,7 @@ export default function UserJobsBoard() {
               type="button"
               onClick={handleNextPage}
               disabled={loading || !nextPageStart}
-              className="inline-flex min-w-[7rem] items-center justify-center gap-1.5 rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-5 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-45"
+              className="chunky-primary min-h-11 min-w-[7rem] px-5 text-sm disabled:cursor-not-allowed disabled:opacity-45"
             >
               {t("userDash.jobProfiles.pageNext")}
               <span className="material-symbols-outlined text-[18px]">chevron_right</span>

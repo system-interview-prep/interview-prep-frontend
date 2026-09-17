@@ -1,42 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { useLanguage } from "../i18n/LanguageProvider";
-
+/** A transparent replacement for recurring-billing controls. */
 export default function PricingBillingToggle() {
-  const { t } = useLanguage();
-  const [annual, setAnnual] = useState(true);
-
   return (
-    <div className="flex flex-wrap items-center justify-center gap-4 mb-16">
-      <span
-        className={`text-sm font-bold transition-colors ${!annual ? "text-on-surface" : "text-on-surface-variant"}`}
-      >
-        {t("pricing.billing.monthly")}
+    <div className="mx-auto flex w-fit items-center gap-3 border border-[#E8E6DC] bg-white px-4 py-2 text-left">
+      <span className="flex h-5 w-5 items-center justify-center bg-[#EFF3EA] text-[#566844]" aria-hidden>
+        <span className="material-symbols-outlined text-sm">verified</span>
       </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={annual}
-        aria-label={annual ? t("pricing.billing.annual") : t("pricing.billing.monthly")}
-        onClick={() => setAnnual((v) => !v)}
-        className="relative w-14 h-7 shrink-0 bg-surface-container-highest rounded-full p-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      >
-        <span
-          className={`absolute top-1 block h-5 w-5 rounded-full bg-primary transition-all duration-200 ${
-            annual ? "right-1" : "left-1"
-          }`}
-        />
-      </button>
-      <div className="flex items-center gap-2">
-        <span
-          className={`text-sm font-bold transition-colors ${annual ? "text-on-surface" : "text-on-surface-variant"}`}
-        >
-          {t("pricing.billing.annual")}
-        </span>
-        <span className="bg-tertiary-container text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-          {t("pricing.billing.save")}
-        </span>
+      <div>
+        <p className="font-metadata text-[10px] text-[#87867F]">Thanh toán một lần</p>
+        <p className="text-xs text-[#5E5D59]">Không gia hạn định kỳ, không tự động trừ tiền.</p>
       </div>
     </div>
   );
