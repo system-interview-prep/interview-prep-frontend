@@ -1,9 +1,29 @@
 import Link from "next/link";
-import AdminButton from "../../../../components/admin/AdminButton";
-import AdminSidebarBrand from "../../../../components/admin/AdminSidebarBrand";
+import Button from "@components/ui/Button";
+import AdminSidebarBrand from "@features/admin/components/AdminSidebarBrand";
 import { cookies } from "next/headers";
-import { getDictionary, normalizeLang } from "../../../i18n/i18n";
-import LanguageToggleButton from "../../../components/LanguageToggleButton";
+import { getDictionary, normalizeLang } from "@/i18n/i18n";
+import LanguageToggleButton from "@components/shared/LanguageToggleButton";
+import {
+  LayoutDashboard,
+  Video,
+  Brain,
+  BookOpen,
+  Settings,
+  HelpCircle,
+  LogOut,
+  Search,
+  Bell,
+  MessageSquare,
+  Grid,
+  Sparkles,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Mic,
+  MonitorUp,
+  PhoneOff,
+} from "lucide-react";
 
 type InterviewType = "video" | "chat" | "voice";
 type InterviewStatus = "completed" | "scheduled" | "action_needed";
@@ -81,10 +101,10 @@ const rows: InterviewRow[] = [
   },
 ];
 
-function typeIcon(type: InterviewType) {
-  if (type === "video") return "video_chat";
-  if (type === "chat") return "chat_bubble";
-  return "mic";
+function renderTypeIcon(type: InterviewType) {
+  if (type === "video") return <Video className="size-5" />;
+  if (type === "chat") return <MessageSquare className="size-5" />;
+  return <Mic className="size-5" />;
 }
 
 function statusPill(status: InterviewStatus) {
@@ -125,9 +145,7 @@ export default async function AdminInterviewsPage() {
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
             href="/admin/dashboard"
           >
-            <span className="material-symbols-outlined" data-icon="dashboard">
-              dashboard
-            </span>
+            <LayoutDashboard className="size-5 shrink-0" />
             <span>{t("common.dashboard")}</span>
           </Link>
 
@@ -136,9 +154,7 @@ export default async function AdminInterviewsPage() {
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#003d9b] dark:text-blue-400 font-bold border-r-4 border-[#003d9b] dark:border-blue-400 bg-white/50 dark:bg-white/5 transition-colors duration-200"
             href="/admin/interviews"
           >
-            <span className="material-symbols-outlined" data-icon="video_chat">
-              video_chat
-            </span>
+            <Video className="size-5 shrink-0" />
             <span>{t("admin.interviews")}</span>
           </Link>
 
@@ -146,9 +162,7 @@ export default async function AdminInterviewsPage() {
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
             href="/admin/insights"
           >
-            <span className="material-symbols-outlined" data-icon="psychology">
-              psychology
-            </span>
+            <Brain className="size-5 shrink-0" />
             <span>{t("admin.aiInsights")}</span>
           </Link>
 
@@ -156,9 +170,7 @@ export default async function AdminInterviewsPage() {
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
             href="/admin/knowledge-base"
           >
-            <span className="material-symbols-outlined" data-icon="library_books">
-              library_books
-            </span>
+            <BookOpen className="size-5 shrink-0" />
             <span>{t("admin.knowledgeBase")}</span>
           </Link>
 
@@ -166,41 +178,34 @@ export default async function AdminInterviewsPage() {
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
             href="/admin/settings"
           >
-            <span className="material-symbols-outlined" data-icon="settings">
-              settings
-            </span>
+            <Settings className="size-5 shrink-0" />
             <span>{t("common.settings")}</span>
           </Link>
         </nav>
 
         <div className="mt-auto space-y-6">
-          <AdminButton
-            variant="gradient"
+          <Button variant="gradient"
             size="md"
             icon="auto_awesome"
             iconFill
             className="w-full"
           >
             {t("admin.settings.startAiAnalysis")}
-          </AdminButton>
+          </Button>
 
           <div className="pt-6 space-y-2 border-t border-outline-variant/20">
             <Link
               className="flex items-center gap-3 px-4 py-2 text-[#434654] dark:text-slate-400 text-sm hover:text-[#191c1e] transition-colors"
               href="/admin/help"
             >
-              <span className="material-symbols-outlined text-lg" data-icon="help">
-                help
-              </span>
+              <HelpCircle className="size-5 shrink-0" />
               {t("common.helpCenter")}
             </Link>
             <Link
               className="flex items-center gap-3 px-4 py-2 text-[#434654] dark:text-slate-400 text-sm hover:text-[#191c1e] transition-colors"
               href="/logout"
             >
-              <span className="material-symbols-outlined text-lg" data-icon="logout">
-                logout
-              </span>
+              <LogOut className="size-5 shrink-0" />
               {t("common.logout")}
             </Link>
           </div>
@@ -217,12 +222,7 @@ export default async function AdminInterviewsPage() {
             </h2>
 
             <div className="relative group">
-              <span
-                className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline text-lg"
-                data-icon="search"
-              >
-                search
-              </span>
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-outline size-4" />
               <input
                 className="bg-surface-container-highest border-none rounded-xl py-2 pl-12 pr-4 w-80 text-sm font-medium focus:ring-2 focus:ring-surface-tint focus:bg-white transition-all"
                 placeholder={t("admin.search.sessionsCandidates")}
@@ -234,21 +234,15 @@ export default async function AdminInterviewsPage() {
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-4 text-on-surface-variant">
               <button className="hover:opacity-80 transition-opacity p-2 rounded-full hover:bg-surface-container">
-                <span className="material-symbols-outlined" data-icon="notifications">
-                  notifications
-                </span>
+                <Bell className="size-5" />
               </button>
               <button className="hover:opacity-80 transition-opacity p-2 rounded-full hover:bg-surface-container">
-                <span className="material-symbols-outlined" data-icon="chat_bubble">
-                  chat_bubble
-                </span>
+                <MessageSquare className="size-5" />
               </button>
               <button className="hover:opacity-80 transition-opacity p-2 rounded-full hover:bg-surface-container">
-                <span className="material-symbols-outlined" data-icon="apps">
-                  apps
-                </span>
+                <Grid className="size-5" />
               </button>
-              <LanguageToggleButton className="material-symbols-outlined rounded-full p-2 transition-colors hover:bg-surface-container" />
+              <LanguageToggleButton className="rounded-full p-2 transition-colors hover:bg-surface-container" />
             </div>
 
             <div className="flex items-center gap-3 pl-4 border-l border-outline-variant/30">
@@ -310,13 +304,7 @@ export default async function AdminInterviewsPage() {
 
             <div className="col-span-4 bg-tertiary-container text-on-tertiary-container p-8 rounded-xl flex flex-col justify-between backdrop-blur-xl">
               <div className="flex justify-between items-start">
-                <span
-                  className="material-symbols-outlined text-4xl"
-                  data-icon="auto_awesome"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  auto_awesome
-                </span>
+                <Sparkles className="size-9" />
                 <div className="ai-pulse w-3 h-3 rounded-full bg-tertiary"></div>
               </div>
               <div>
@@ -346,9 +334,9 @@ export default async function AdminInterviewsPage() {
                 {t("admin.interviews.filter.completed")}
               </button>
             </div>
-            <AdminButton variant="primary" size="md" icon="add" className="">
+            <Button variant="primary" size="md" icon={<Plus className="size-4" />}>
               {t("admin.interviews.scheduleNew")}
-            </AdminButton>
+            </Button>
           </div>
 
           {/* Interviews Table Section */}
@@ -410,12 +398,7 @@ export default async function AdminInterviewsPage() {
                       </td>
                       <td className="px-8 py-6 text-center">
                         <div className="inline-flex items-center justify-center p-2 rounded-lg bg-surface-container text-on-surface-variant">
-                          <span
-                            className="material-symbols-outlined text-xl"
-                            data-icon={typeIcon(row.type)}
-                          >
-                            {typeIcon(row.type)}
-                          </span>
+                          {renderTypeIcon(row.type)}
                         </div>
                       </td>
                       <td className="px-8 py-6 text-center">
@@ -453,12 +436,7 @@ export default async function AdminInterviewsPage() {
               <span>{t("admin.interviews.pagination")}</span>
               <div className="flex gap-2">
                 <button className="p-2 hover:bg-surface-container transition-colors rounded">
-                  <span
-                    className="material-symbols-outlined text-lg"
-                    data-icon="chevron_left"
-                  >
-                    chevron_left
-                  </span>
+                  <ChevronLeft className="size-4" />
                 </button>
                 <button className="px-3 py-1 bg-white rounded shadow-sm text-primary">
                   1
@@ -470,12 +448,7 @@ export default async function AdminInterviewsPage() {
                   3
                 </button>
                 <button className="p-2 hover:bg-surface-container transition-colors rounded">
-                  <span
-                    className="material-symbols-outlined text-lg"
-                    data-icon="chevron_right"
-                  >
-                    chevron_right
-                  </span>
+                  <ChevronRight className="size-4" />
                 </button>
               </div>
             </div>
@@ -492,37 +465,23 @@ export default async function AdminInterviewsPage() {
           </div>
           <div className="flex gap-6 text-on-surface-variant">
             <button className="hover:text-primary transition-colors">
-              <span className="material-symbols-outlined" data-icon="mic">
-                mic
-              </span>
+              <Mic className="size-5" />
             </button>
             <button className="hover:text-primary transition-colors">
-              <span className="material-symbols-outlined" data-icon="videocam">
-                videocam
-              </span>
+              <Video className="size-5" />
             </button>
             <button className="hover:text-primary transition-colors">
-              <span
-                className="material-symbols-outlined"
-                data-icon="screen_share"
-              >
-                screen_share
-              </span>
+              <MonitorUp className="size-5" />
             </button>
             <button className="hover:text-primary transition-colors">
-              <span className="material-symbols-outlined" data-icon="settings">
-                settings
-              </span>
+              <Settings className="size-5" />
             </button>
           </div>
           <div className="w-10 h-10 rounded-full bg-error flex items-center justify-center text-white">
-            <span className="material-symbols-outlined" data-icon="call_end">
-              call_end
-            </span>
+            <PhoneOff className="size-5" />
           </div>
         </div>
       </main>
     </div>
   );
 }
-

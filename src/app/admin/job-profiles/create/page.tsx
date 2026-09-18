@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import AdminDashboardShell from "../../../../../components/admin/AdminDashboardShell";
-import AdminJobProfileCreateView from "../../../../../components/admin/AdminJobProfileCreateView";
+import AdminDashboardShell from "@features/admin/components/AdminDashboardShell";
+import AdminJobProfileCreateView from "@features/admin/components/AdminJobProfileCreateView";
 
 export const metadata = {
   title: "Create job profile | INTERVIA",

@@ -1,9 +1,28 @@
 import Link from "next/link";
-import AdminButton from "../../../../components/admin/AdminButton";
-import AdminSidebarBrand from "../../../../components/admin/AdminSidebarBrand";
+import Button from "@components/ui/Button";
+import AdminSidebarBrand from "@features/admin/components/AdminSidebarBrand";
 import { cookies } from "next/headers";
-import { getDictionary, normalizeLang } from "../../../i18n/i18n";
-import LanguageToggleButton from "../../../components/LanguageToggleButton";
+import { getDictionary, normalizeLang } from "@/i18n/i18n";
+import LanguageToggleButton from "@components/shared/LanguageToggleButton";
+import {
+  LayoutDashboard,
+  Video,
+  Brain,
+  BookOpen,
+  Settings,
+  HelpCircle,
+  LogOut,
+  Search,
+  Bell,
+  MessageSquare,
+  Grid,
+  Zap,
+  Info,
+  MoreVertical,
+  Globe,
+  Activity,
+  Sparkles,
+} from "lucide-react";
 
 type MemberRole = "super_admin" | "senior_interviewer";
 
@@ -65,66 +84,53 @@ export default async function AdminSettingsPage() {
             className="flex items-center gap-3 py-3 px-4 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
             href="/admin/dashboard"
           >
-            <span className="material-symbols-outlined" data-icon="dashboard">
-              dashboard
-            </span>
+            <LayoutDashboard className="size-5" />
             <span>{t("common.dashboard")}</span>
           </Link>
           <Link
             className="flex items-center gap-3 py-3 px-4 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
             href="/admin/interviews"
           >
-            <span className="material-symbols-outlined" data-icon="video_chat">
-              video_chat
-            </span>
+            <Video className="size-5" />
             <span>{t("admin.interviews")}</span>
           </Link>
           <Link
             className="flex items-center gap-3 py-3 px-4 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
             href="/admin/insights"
           >
-            <span className="material-symbols-outlined" data-icon="psychology">
-              psychology
-            </span>
+            <Brain className="size-5" />
             <span>{t("admin.aiInsights")}</span>
           </Link>
           <Link
             className="flex items-center gap-3 py-3 px-4 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
             href="/admin/knowledge-base"
           >
-            <span className="material-symbols-outlined" data-icon="library_books">
-              library_books
-            </span>
+            <BookOpen className="size-5" />
             <span>{t("admin.knowledgeBase")}</span>
           </Link>
           <Link
             className="flex items-center gap-3 py-3 px-4 rounded-lg text-[#003d9b] dark:text-blue-400 font-bold border-r-4 border-[#003d9b] dark:border-blue-400 bg-white/50 dark:bg-white/5"
             href="/admin/settings"
           >
-            <span className="material-symbols-outlined" data-icon="settings">
-              settings
-            </span>
+            <Settings className="size-5" />
             <span>{t("common.settings")}</span>
           </Link>
         </nav>
 
         <div className="mt-auto pt-8 border-t border-outline-variant/10 space-y-2">
-          <AdminButton
-            variant="gradient"
+          <Button variant="gradient"
             size="md"
             icon="auto_awesome"
             iconFill
             className="w-full"
           >
             {t("admin.settings.startAiAnalysis")}
-          </AdminButton>
+          </Button>
           <Link
             className="flex items-center gap-3 py-3 px-4 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
             href="/admin/help"
           >
-            <span className="material-symbols-outlined" data-icon="help">
-              help
-            </span>
+            <HelpCircle className="size-5" />
             <span>{t("common.helpCenter")}</span>
           </Link>
 
@@ -146,9 +152,7 @@ export default async function AdminSettingsPage() {
               href="/logout"
               className="mt-4 w-full flex items-center justify-center gap-2 py-2 text-xs font-bold text-error bg-error-container/20 rounded-md hover:bg-error-container/40 transition-colors"
             >
-              <span className="material-symbols-outlined text-sm" data-icon="logout">
-                logout
-              </span>
+              <LogOut className="size-4" />
               {t("common.logout")}
             </Link>
           </div>
@@ -162,12 +166,7 @@ export default async function AdminSettingsPage() {
             {t("admin.topbar.title")}
           </span>
           <div className="relative group">
-            <span
-              className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant"
-              data-icon="search"
-            >
-              search
-            </span>
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-on-surface-variant" />
             <input
               className="pl-12 pr-4 py-2 bg-surface-container-highest rounded-full w-80 text-sm focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-surface-tint/20 transition-all"
               placeholder={t("admin.search.systemSettings")}
@@ -177,21 +176,15 @@ export default async function AdminSettingsPage() {
         </div>
         <div className="flex items-center gap-6">
           <button className="text-[#434654] dark:text-slate-400 hover:opacity-80 transition-opacity">
-            <span className="material-symbols-outlined" data-icon="notifications">
-              notifications
-            </span>
+            <Bell className="size-5" />
           </button>
           <button className="text-[#434654] dark:text-slate-400 hover:opacity-80 transition-opacity">
-            <span className="material-symbols-outlined" data-icon="chat_bubble">
-              chat_bubble
-            </span>
+            <MessageSquare className="size-5" />
           </button>
           <button className="text-[#434654] dark:text-slate-400 hover:opacity-80 transition-opacity">
-            <span className="material-symbols-outlined" data-icon="apps">
-              apps
-            </span>
+            <Grid className="size-5" />
           </button>
-          <LanguageToggleButton className="material-symbols-outlined rounded-full p-2 transition-colors hover:bg-surface-container" />
+          <LanguageToggleButton className="rounded-full p-2 transition-colors hover:bg-surface-container" />
           <div className="h-8 w-px bg-outline-variant/30"></div>
           <Link href="/admin/profile" aria-label="Open profile settings">
             <img
@@ -217,12 +210,12 @@ export default async function AdminSettingsPage() {
               </p>
             </div>
             <div className="flex gap-4">
-              <AdminButton variant="surface" size="md">
+              <Button variant="surface" size="md">
               {t("admin.settings.discard")}
-              </AdminButton>
-              <AdminButton variant="gradient" size="md">
+              </Button>
+              <Button variant="gradient" size="md">
               {t("admin.settings.save")}
-              </AdminButton>
+              </Button>
             </div>
           </div>
 
@@ -235,13 +228,7 @@ export default async function AdminSettingsPage() {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-tertiary/5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
                 <div className="flex items-center gap-4 mb-8">
                   <div className="p-3 bg-tertiary-container/10 rounded-lg">
-                    <span
-                      className="material-symbols-outlined text-tertiary"
-                      data-icon="bolt"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      bolt
-                    </span>
+                    <Zap className="size-5 text-tertiary fill-tertiary" />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold font-headline">{t("admin.settings.aiCoreEngine")}</h3>
@@ -300,9 +287,7 @@ export default async function AdminSettingsPage() {
                     </div>
                     <div className="p-4 bg-tertiary-container/5 rounded-lg border border-tertiary/10">
                       <div className="flex items-start gap-3">
-                        <span className="material-symbols-outlined text-tertiary text-sm" data-icon="info">
-                          info
-                        </span>
+                        <Info className="size-4 text-tertiary shrink-0 mt-0.5" />
                         <p className="text-[11px] text-tertiary leading-relaxed font-medium">
                           {t("admin.settings.temperatureHint")}
                         </p>
@@ -321,9 +306,9 @@ export default async function AdminSettingsPage() {
                       {t("admin.settings.rolesPermissions")}
                     </p>
                   </div>
-                  <AdminButton variant="outline" size="sm" icon="person_add">
+                  <Button variant="outline" size="sm" icon="person_add">
                     {t("admin.settings.addMember")}
-                  </AdminButton>
+                  </Button>
                 </div>
 
                 <div className="space-y-4">
@@ -344,9 +329,7 @@ export default async function AdminSettingsPage() {
                         <div className="flex items-center gap-8">
                           <span className={pill.className}>{t(pill.label)}</span>
                           <button className="p-2 opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-on-surface transition-all">
-                            <span className="material-symbols-outlined" data-icon="more_vert">
-                              more_vert
-                            </span>
+                            <MoreVertical className="size-5" />
                           </button>
                         </div>
                       </div>
@@ -361,9 +344,7 @@ export default async function AdminSettingsPage() {
               {/* Language & Localization */}
               <section className="bg-surface-container-low p-8 rounded-xl border border-outline-variant/10">
                 <div className="flex items-center gap-4 mb-6">
-                  <span className="material-symbols-outlined text-primary" data-icon="language">
-                    language
-                  </span>
+                  <Globe className="size-5 text-primary" />
                   <h3 className="font-bold font-headline">{t("admin.settings.languageSupport")}</h3>
                 </div>
                 <div className="space-y-4">
@@ -428,9 +409,7 @@ export default async function AdminSettingsPage() {
               {/* System Status Card */}
               <section className="bg-[rgba(112,41,225,0.05)] backdrop-blur-xl p-6 rounded-2xl">
                 <div className="flex items-center gap-3 mb-4">
-                  <span className="material-symbols-outlined text-tertiary" data-icon="monitoring">
-                    monitoring
-                  </span>
+                  <Activity className="size-5 text-tertiary" />
                   <span className="font-bold text-tertiary">{t("admin.settings.systemHealth")}</span>
                 </div>
                 <div className="space-y-3">
@@ -454,9 +433,7 @@ export default async function AdminSettingsPage() {
           <div className="fixed bottom-12 right-12 flex items-center gap-4 bg-gradient-to-r from-tertiary to-primary p-1 pl-6 rounded-full shadow-2xl shadow-primary/30 text-white group cursor-pointer">
             <span className="text-sm font-bold">{t("admin.settings.optimizeWithAi")}</span>
             <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center group-hover:bg-white group-hover:text-primary transition-all">
-              <span className="material-symbols-outlined text-xl" data-icon="auto_awesome">
-                auto_awesome
-              </span>
+              <Sparkles className="size-5" />
             </div>
           </div>
         </div>

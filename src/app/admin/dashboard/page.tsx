@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import AdminDashboardShell from "../../../../components/admin/AdminDashboardShell";
-import AdminJobProfilesPanel from "../../../../components/admin/AdminJobProfilesPanel";
+import AdminDashboardShell from "@features/admin/components/AdminDashboardShell";
+import AdminJobProfilesPanel from "@features/admin/components/AdminJobProfilesPanel";
 
 export default function AdminDashboardPage() {
   return (

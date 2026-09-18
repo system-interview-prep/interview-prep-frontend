@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "clean:empty": "node -e \"const fs=require('fs');const clean=(p)=>{if(!fs.existsSync(p))return;fs.readdirSync(p).forEach(f=>{const fp=require('path').join(p,f);if(fs.statSync(fp).isDirectory()){clean(fp);if(fs.readdirSync(fp).length===0)fs.rmdirSync(fp);}});};clean('./src');\"",
+    "check:deadcode": "knip"
   },
   "dependencies": {
     "@lexical/history": "^0.43.0",
@@ -18,6 +21,8 @@
     "@react-oauth/google": "^0.13.4",
     "@uiw/react-md-editor": "^4.1.0",
     "axios": "^1.7.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "framer-motion": "^13.2.0",
     "lexical": "^0.43.0",
     "lucide-react": "^1.43.0",
@@ -28,6 +33,7 @@
     "react-markdown": "^10.1.0",
     "simli-client": "^3.0.1",
     "socket.io-client": "^4.8.0",
+    "tailwind-merge": "^3.7.0",
     "ws": "^8.19.0",
     "zustand": "^5.0.0"
   },
@@ -39,7 +45,10 @@
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
+    "knip": "^6.37.0",
+    "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^5.0.1"
   }
 }

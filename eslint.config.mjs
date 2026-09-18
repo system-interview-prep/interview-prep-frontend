@@ -94,6 +94,30 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    files: ["src/components/ui/**/*.{ts,tsx}", "src/lib/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "**/features/**",
+                "@/features/**",
+                "@features/**",
+                "../features/**",
+                "../../features/**",
+                "../../../features/**",
+              ],
+              message:
+                "Reverse dependency violation: UI primitives and core lib modules must not import from feature modules.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: legacyEffectDependencyFiles,
     rules: {
       // These effects intentionally coordinate URL and asynchronous search state.
