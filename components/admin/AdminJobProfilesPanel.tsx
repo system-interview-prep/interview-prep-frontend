@@ -99,9 +99,17 @@ export default function AdminJobProfilesPanel() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 400);
   const [sort, setSort] = useState<SortKey>("newest");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | string>("all");
+  const initialCategory = searchParams.get("category");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | string>(initialCategory || "all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [categories, setCategories] = useState<JobCategory[]>([]);
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("category");
+    if (fromUrl) {
+      setCategoryFilter(fromUrl);
+    }
+  }, [searchParams]);
 
   const [listAggregate, setListAggregate] = useState<{
     total: number;
