@@ -60,7 +60,14 @@ export default function LandingPage() {
       <MarketingNav active="platform" />
 
       <main>
-        <section className="paper-dots px-5 pb-20 pt-16 text-center sm:px-8 md:pb-28 md:pt-24" id="hero">
+        <section
+          className="paper-dots px-5 pb-20 pt-16 text-center sm:px-8 md:pb-28 md:pt-24"
+          id="hero"
+          style={{
+            background:
+              "radial-gradient(circle at 50% 0%, rgba(252,182,37,0.08) 0%, rgba(32,65,149,0.03) 50%, transparent 100%)",
+          }}
+        >
           <motion.div {...reveal} className="transform-gpu mx-auto max-w-6xl">
             <span className="sticker -rotate-2 bg-[#FCB625]"><Sparkles size={14} /> Nền tảng chuẩn bị ứng tuyển thực chiến 2026</span>
             <h1 className="mx-auto mt-8 max-w-5xl text-[clamp(3.2rem,7vw,7rem)] leading-[.9] tracking-[-.055em]">Đừng để hồ sơ của bạn bị hệ thống ATS loại bỏ trong <span className="marker">5 giây</span> đầu tiên.</h1>

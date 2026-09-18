@@ -5,15 +5,20 @@
 
 export const colors = {
   brand: {
+    primary: "#204195",
     navy: "#204195",
     navyHover: "#183275",
     navyLight: "#3155B7",
+    accent: "#FCB625",
     gold: "#FCB625",
     goldHover: "#E5A21D",
     white: "#FFFFFF",
-    surface: "#F8FAFC",
+    surface: "#FFFFFF",
+    surfaceSub: "#F8FAFC",
     paper: "#FEF9EE",
     border: "#204195",
+    borderLight: "#E2E8F0",
+    borderMuted: "#CBD5E1",
     muted: "#5A6B8F",
     error: "#D32F2F",
     success: "#2E7D32",

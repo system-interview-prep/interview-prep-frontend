@@ -18,9 +18,9 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          'bg-[#FCB625] text-[#204195] hover:bg-[#E59E10] shadow-[0_4px_14px_rgba(252,182,37,0.35)]',
+          'bg-[#204195] text-white hover:bg-[#183275] hover:shadow-[0_0_14px_rgba(252,182,37,0.35)] active:scale-[0.98]',
         secondary:
-          'bg-white text-[#204195] border-2 border-[#204195] hover:bg-[#F8FAFC]',
+          'bg-[#FCB625] text-[#204195] hover:bg-[#E59E10] shadow-[0_4px_14px_rgba(252,182,37,0.35)]',
         ghost:
           'bg-transparent text-[#204195] hover:bg-[#204195]/10',
         danger:
@@ -28,7 +28,7 @@ export const buttonVariants = cva(
         gradient:
           'bg-[#FCB625] text-[#204195] border-2 border-[#204195] shadow-[3px_3px_0_#204195] hover:bg-[#FFC33F]',
         outline:
-          'bg-white text-[#204195] border-2 border-[#204195] shadow-[3px_3px_0_#204195] hover:bg-[#F0F4FC]',
+          'bg-white text-[#204195] border-2 border-[#204195] hover:bg-[#204195] hover:text-white',
         surface:
           'bg-white text-[#204195] border-2 border-[#204195] shadow-[3px_3px_0_#204195] hover:bg-[#F0F4FC]',
         admin:

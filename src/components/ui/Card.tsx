@@ -7,10 +7,10 @@ export const cardVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-white border-2 border-[#204195]/15 shadow-sm',
-        chunky: 'bg-white border-2 border-[#204195] shadow-[6px_6px_0_#204195]',
-        interactive: 'bg-white border-2 border-[#204195]/20 shadow-md hover:border-[#204195] hover:shadow-xl hover:-translate-y-0.5',
-        flat: 'bg-[#F8FAFC] border border-[#204195]/10',
+        default: 'bg-white border border-slate-100 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200',
+        chunky: 'bg-white border-2 border-[#204195] shadow-[6px_6px_0_#204195] hover:-translate-y-0.5 transition-all duration-200',
+        interactive: 'bg-white border border-slate-100 shadow-sm hover:border-[#204195]/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200',
+        flat: 'bg-[#F8FAFC] border border-slate-100',
       },
       padding: {
         none: 'p-0',

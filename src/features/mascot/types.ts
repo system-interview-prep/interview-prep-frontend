@@ -8,6 +8,6 @@ export interface EyePosition {
 export interface MascotContainerProps {
   children?: React.ReactNode;
   mood?: MascotMood;
-  speechText?: string;
+  speechText?: string | null;
   className?: string;
 }

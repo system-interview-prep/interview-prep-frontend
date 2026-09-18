@@ -53,6 +53,9 @@ importers:
       next:
         specifier: 16.1.4
         version: 16.1.4(@babel/core@7.29.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      page-mascot:
+        specifier: file:../page-mascot
+        version: file:../page-mascot(react@19.2.3)
       pdfjs-dist:
         specifier: ^6.1.200
         version: 6.3.289
@@ -2737,6 +2740,12 @@ packages:
 
   package-manager-detector@1.8.0:
     resolution: {integrity: sha512-yQA4H19AmPEoMUeavPMDIe1higySl/gH/yaQrkT/s07Qp+7pp2hYz30N3z2l5BkjVkF9Ow6o0wjJamm2y7Sn0A==}
+
+  page-mascot@file:../page-mascot:
+    resolution: {directory: ../page-mascot, type: directory}
+    engines: {node: '>=20'}
+    peerDependencies:
+      react: '>=18'
 
   parent-module@1.0.1:
     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
@@ -6495,6 +6504,10 @@ snapshots:
       p-limit: 3.1.0
 
   package-manager-detector@1.8.0: {}
+
+  page-mascot@file:../page-mascot(react@19.2.3):
+    dependencies:
+      react: 19.2.3
 
   parent-module@1.0.1:
     dependencies:

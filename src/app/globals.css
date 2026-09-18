@@ -8,23 +8,25 @@
   --color-brand-goldHover: #E5A21D;
   --color-brand-white: #FFFFFF;
   --color-brand-surface: #F8FAFC;
+  --color-border-light: #E2E8F0;
+  --color-border-muted: #CBD5E1;
   --shadow-gold: 0 4px 14px rgba(252, 182, 37, 0.35);
   --shadow-navy: 0 4px 14px rgba(32, 65, 149, 0.15);
 
   --color-canvas: #ffffff; --color-paper: #ffffff; --color-ice: #f0f4fc; --color-butter: #fef9ee;
-  --color-ink: #234196; --color-gold: #fcb625; --color-gold-deep: #e59e10; --color-muted-ink: #5a6b8f;
+  --color-ink: #204195; --color-gold: #fcb625; --color-gold-deep: #e59e10; --color-muted-ink: #5a6b8f;
   --color-success: #2e7d32; --color-success-tint: #e8f5e9; --color-gap: #d32f2f; --color-gap-tint: #ffebee;
-  --color-surface: #ffffff; --color-surface-dim: #f0f4fc; --color-surface-container: #f0f4fc;
+  --color-surface: #ffffff; --color-surface-dim: #f8fafc; --color-surface-container: #f0f4fc;
   --color-surface-container-low: #f7f9fe; --color-surface-container-lowest: #ffffff;
   --color-surface-container-high: #e4ecfa; --color-surface-container-highest: #d8e4f7;
-  --color-surface-bright: #ffffff; --color-inverse-surface: #234196; --color-inverse-on-surface: #ffffff;
-  --color-on-surface: #234196; --color-on-surface-variant: #5a6b8f; --color-outline: #5a6b8f;
-  --color-outline-variant: #b7c6e6; --color-primary: #234196; --color-primary-container: #3155b7;
-  --color-primary-fixed: #f0f4fc; --color-on-primary: #ffffff; --color-on-primary-fixed: #234196;
+  --color-surface-bright: #ffffff; --color-inverse-surface: #204195; --color-inverse-on-surface: #ffffff;
+  --color-on-surface: #204195; --color-on-surface-variant: #5a6b8f; --color-outline: #5a6b8f;
+  --color-outline-variant: #b7c6e6; --color-primary: #204195; --color-primary-container: #3155b7;
+  --color-primary-fixed: #f0f4fc; --color-on-primary: #ffffff; --color-on-primary-fixed: #204195;
   --color-secondary: #fcb625; --color-secondary-container: #fef1c8; --color-tertiary: #fcb625;
-  --color-tertiary-container: #e59e10; --color-tertiary-fixed: #fef1c8; --color-on-tertiary-fixed: #234196;
+  --color-tertiary-container: #e59e10; --color-tertiary-fixed: #fef1c8; --color-on-tertiary-fixed: #204195;
   --color-error: #d32f2f; --color-on-error: #ffffff; --color-error-container: #ffebee;
-  --color-on-error-container: #8f1d1d; --color-on-secondary-container: #234196;
+  --color-on-error-container: #8f1d1d; --color-on-secondary-container: #204195;
   --font-headline: var(--font-serif); --font-body: var(--font-sans); --font-label: var(--font-mono);
 }
 @layer base {
