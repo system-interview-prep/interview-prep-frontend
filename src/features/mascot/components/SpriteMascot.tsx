@@ -19,6 +19,9 @@ const MOOD_TO_REACTION: Record<
   surprised: "surprised",
   coaching: "wink",
   confused: "dizzy",
+  encouraging: "delighted",
+  listening: "sparkle",
+  celebrating: "delighted",
 };
 
 export function SpriteMascot({
