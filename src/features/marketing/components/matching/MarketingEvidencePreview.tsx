@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
 import MorphIcon from "../../graphics/MorphIcon";
-import { MARKETING_EVIDENCE_MOCK, type EvidenceItem } from "../../data/landing.data";
-import { EASE_CUSTOM } from "../../motion/variants";
+import { MARKETING_EVIDENCE_MOCK } from "../../data/landing.data";
 import { useLanguage } from "@/i18n/LanguageProvider";
 
 export function MarketingEvidencePreview() {

@@ -27,17 +27,18 @@ export function CareerJourneyMorph({ activeStepIndex, size = 64 }: CareerJourney
   const targetPath = MORPH_PATHS[stepConfig.key].path;
 
   useEffect(() => {
-    if (!pathRef.current) return;
+    const el = pathRef.current;
+    if (!el) return;
 
     if (shouldReduceMotion) {
-      gsap.set(pathRef.current, {
+      gsap.set(el, {
         attr: { d: targetPath },
         stroke: stepConfig.color,
       });
       return;
     }
 
-    gsap.to(pathRef.current, {
+    gsap.to(el, {
       attr: { d: targetPath },
       stroke: stepConfig.color,
       duration: 0.7,
@@ -45,8 +46,8 @@ export function CareerJourneyMorph({ activeStepIndex, size = 64 }: CareerJourney
     });
 
     return () => {
-      if (pathRef.current) {
-        gsap.killTweensOf(pathRef.current);
+      if (el) {
+        gsap.killTweensOf(el);
       }
     };
   }, [activeStepIndex, targetPath, stepConfig.color, shouldReduceMotion]);

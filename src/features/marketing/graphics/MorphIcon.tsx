@@ -34,18 +34,18 @@ export function MorphIcon({
   const targetPathObj = targetKey ? MORPH_PATHS[targetKey] : null;
 
   useEffect(() => {
-    if (!pathRef.current) return;
+    const el = pathRef.current;
+    if (!el) return;
 
     const destinationPath = targetPathObj ? targetPathObj.path : currentPathObj.path;
 
     if (shouldReduceMotion) {
-      // Instant set for reduced motion
-      gsap.set(pathRef.current, { attr: { d: destinationPath } });
+      gsap.set(el, { attr: { d: destinationPath } });
       return;
     }
 
     if (autoMorphOnKeyChange && destinationPath) {
-      gsap.to(pathRef.current, {
+      gsap.to(el, {
         attr: { d: destinationPath },
         duration: duration,
         ease: "power2.inOut",
@@ -53,8 +53,8 @@ export function MorphIcon({
     }
 
     return () => {
-      if (pathRef.current) {
-        gsap.killTweensOf(pathRef.current);
+      if (el) {
+        gsap.killTweensOf(el);
       }
     };
   }, [currentKey, targetKey, autoMorphOnKeyChange, duration, shouldReduceMotion, currentPathObj.path, targetPathObj]);

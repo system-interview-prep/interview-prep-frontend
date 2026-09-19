@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import gsap from "gsap";
 import { useReducedMotion } from "framer-motion";
 import { RotateCcw } from "lucide-react";
@@ -21,12 +21,12 @@ export function HeroCareerMorph() {
   const pathRef = useRef<SVGPathElement>(null);
   const shouldReduceMotion = useReducedMotion();
 
-  const runSequence = () => {
+  const runSequence = useCallback(() => {
     if (shouldReduceMotion) {
       setSeqIndex(HERO_SEQUENCE.length - 1);
       setIsFinished(true);
       if (pathRef.current) {
-        gsap.set(pathRef.current, { attr: { d: MORPH_PATHS.feedback.path } });
+        gsap.set(pathRef.current, { attr: { d: MORPH_PATHS.target.path } });
       }
       return;
     }
@@ -55,17 +55,18 @@ export function HeroCareerMorph() {
         setIsFinished(true); // Stop after 1 full pass
       }
     }, 1200);
-  };
+  }, [shouldReduceMotion]);
 
   useEffect(() => {
+    const el = pathRef.current;
     runSequence();
 
     return () => {
-      if (pathRef.current) {
-        gsap.killTweensOf(pathRef.current);
+      if (el) {
+        gsap.killTweensOf(el);
       }
     };
-  }, [shouldReduceMotion]);
+  }, [runSequence]);
 
   const currentItem = HERO_SEQUENCE[seqIndex];
 

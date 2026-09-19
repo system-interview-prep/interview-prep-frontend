@@ -2,12 +2,10 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, Target, BarChart2, FileCheck, Mic, TrendingUp, Sparkles } from "lucide-react";
+import { Upload } from "lucide-react";
 import CareerJourneyMorph from "../../graphics/CareerJourneyMorph";
 import { CAREER_JOURNEY_STEPS } from "../../data/landing.data";
-import { fadeInReveal, EASE_CUSTOM } from "../../motion/variants";
-
-const stepIcons = [Upload, Target, BarChart2, FileCheck, Mic, TrendingUp];
+import { fadeInReveal } from "../../motion/variants";
 
 export function CareerJourney() {
   const [activeStep, setActiveStep] = useState(0);
@@ -40,7 +38,6 @@ export function CareerJourney() {
           {/* Left Column: Interactive Step Selector List */}
           <div className="md:col-span-5 space-y-3">
             {CAREER_JOURNEY_STEPS.map((item, idx) => {
-              const Icon = stepIcons[idx] || Sparkles;
               const isActive = activeStep === idx;
 
               return (
@@ -230,7 +227,7 @@ export function CareerJourney() {
 
         {/* Mobile Fallback: Stacked Step List */}
         <div className="mt-10 space-y-4 md:hidden text-left">
-          {CAREER_JOURNEY_STEPS.map((item, idx) => (
+          {CAREER_JOURNEY_STEPS.map((item) => (
             <div
               key={item.step}
               className="rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs"

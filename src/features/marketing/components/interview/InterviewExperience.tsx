@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Mic, Sparkles, CheckCircle2, Volume2, UserCheck, Shield } from "lucide-react";
+import { Sparkles, CheckCircle2, Volume2, UserCheck } from "lucide-react";
 import { VoiceWaveform, type VoiceOrbState } from "@features/interview/components/VoiceWaveform";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { INTERVIEW_SHOWCASE_DATA } from "../../data/landing.data";

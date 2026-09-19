@@ -1,21 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { Sparkles, Mic, Volume2, CheckCircle2, AlertCircle } from "lucide-react";
 import { VoiceWaveform, type VoiceOrbState } from "@features/interview/components/VoiceWaveform";
 import { INTERVIEW_SHOWCASE_DATA } from "../../data/landing.data";
 
 export function MarketingInterviewPreview() {
   const [orbState, setOrbState] = useState<VoiceOrbState>("speaking");
-  const shouldReduceMotion = useReducedMotion();
-
-  const stateLabels: Record<VoiceOrbState, string> = {
-    idle: "Sẵn sàng",
-    listening: "Ứng viên đang nói (Listening)",
-    thinking: "AI Phân tích (Thinking)",
-    speaking: "AI Coach đang trả lời (Speaking)",
-  };
 
   return (
     <div className="w-full rounded-3xl border border-white/20 bg-white/5 backdrop-blur-xl p-6 sm:p-10 shadow-2xl relative text-white">

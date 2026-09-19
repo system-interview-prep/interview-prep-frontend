@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, Flame, CheckCircle2, Clock, Sparkles } from "lucide-react";
+import { TrendingUp, Flame, CheckCircle2, Clock } from "lucide-react";
 import { PROGRESS_DATA } from "../../data/landing.data";
 import { fadeInReveal } from "../../motion/variants";
 import { useLanguage } from "@/i18n/LanguageProvider";

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, X, Sparkles, Clock } from "lucide-react";
+import { Play, X, Sparkles } from "lucide-react";
 import { fadeInReveal } from "../../motion/variants";
 
 interface ProductVideoProps {
