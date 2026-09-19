@@ -12,14 +12,15 @@ export function MascotSpeechBubble({ text, className }: MascotSpeechBubbleProps)
   return (
     <div
       className={cn(
-        'relative rounded-2xl border-2 border-[#204195] bg-[#FEF9EE] px-4 py-2.5 text-xs font-semibold text-[#204195] shadow-[3px_3px_0_#204195] animate-in fade-in zoom-in-95 duration-200',
+        'relative max-w-[260px] rounded-2xl border border-[#DCE4F3] bg-white/98 backdrop-blur-xs px-3.5 py-2.5 text-[13px] leading-relaxed font-medium text-[#506085] shadow-[0_10px_30px_rgba(20,36,75,0.08)] animate-in fade-in zoom-in-95 duration-200 select-none pointer-events-none',
         className
       )}
     >
-      <div className="absolute -bottom-2 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b-2 border-r-2 border-[#204195] bg-[#FEF9EE]" />
+      <div className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 border-b border-r border-[#DCE4F3] bg-white" />
       <span>{text}</span>
     </div>
   );
 }
 
 export default MascotSpeechBubble;
+
