@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
-import { getDictionary, normalizeLang } from "../../../i18n/i18n";
-import KnowledgeBaseClient from "./KnowledgeBaseClient";
+import { getDictionary, normalizeLang } from "@/i18n/i18n";
+import KnowledgeBaseClient from "@features/admin/components/KnowledgeBaseClient";
 
 export default async function AdminKnowledgeBasePage() {
   const cookieStore = await cookies();

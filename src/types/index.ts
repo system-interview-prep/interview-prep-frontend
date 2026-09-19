@@ -41,3 +41,6 @@ export interface RTCSignal {
   answer?: RTCSessionDescriptionInit;
   candidate?: RTCIceCandidateInit;
 }
+
+export * from "@features/resume/types";
+export * from "@features/interview/types";

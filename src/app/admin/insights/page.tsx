@@ -1,9 +1,27 @@
 import Link from "next/link";
-import AdminButton from "../../../../components/admin/AdminButton";
-import AdminSidebarBrand from "../../../../components/admin/AdminSidebarBrand";
+import Button from "@components/ui/Button";
+import AdminSidebarBrand from "@features/admin/components/AdminSidebarBrand";
 import { cookies } from "next/headers";
-import { getDictionary, normalizeLang } from "../../../i18n/i18n";
-import LanguageToggleButton from "../../../components/LanguageToggleButton";
+import { getDictionary, normalizeLang } from "@/i18n/i18n";
+import LanguageToggleButton from "@components/shared/LanguageToggleButton";
+import {
+  LayoutDashboard,
+  Video,
+  Brain,
+  BookOpen,
+  Settings,
+  HelpCircle,
+  LogOut,
+  Search,
+  Bell,
+  MessageSquare,
+  Grid,
+  TrendingUp,
+  Sparkles,
+  Timer,
+  BadgeCheck,
+  ChevronRight,
+} from "lucide-react";
 
 type CohortStatus = "optimized" | "monitored";
 
@@ -84,79 +102,60 @@ export default async function AdminInsightsPage() {
               className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
               href="/admin/dashboard"
             >
-              <span className="material-symbols-outlined" data-icon="dashboard">
-                dashboard
-              </span>
+              <LayoutDashboard className="size-5 shrink-0" />
               <span>{t("common.dashboard")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
               href="/admin/interviews"
             >
-              <span className="material-symbols-outlined" data-icon="video_chat">
-                video_chat
-              </span>
+              <Video className="size-5 shrink-0" />
               <span>{t("admin.interviews")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#003d9b] dark:text-blue-400 font-bold border-r-4 border-[#003d9b] dark:border-blue-400 bg-white/50 dark:bg-white/5"
               href="/admin/insights"
             >
-              <span
-                className="material-symbols-outlined"
-                data-icon="psychology"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                psychology
-              </span>
+              <Brain className="size-5 shrink-0" />
               <span>{t("admin.aiInsights")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
               href="/admin/knowledge-base"
             >
-              <span className="material-symbols-outlined" data-icon="library_books">
-                library_books
-              </span>
+              <BookOpen className="size-5 shrink-0" />
               <span>{t("admin.knowledgeBase")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
               href="/admin/settings"
             >
-              <span className="material-symbols-outlined" data-icon="settings">
-                settings
-              </span>
+              <Settings className="size-5 shrink-0" />
               <span>{t("common.settings")}</span>
             </Link>
           </nav>
 
           <div className="mt-auto pt-8 border-t border-outline-variant/20 space-y-2">
-            <AdminButton
-              variant="gradient"
+            <Button variant="gradient"
               size="md"
               icon="auto_awesome"
               iconFill
               className="w-full mb-6"
             >
               {t("admin.settings.startAiAnalysis")}
-            </AdminButton>
+            </Button>
             <Link
               className="flex items-center gap-3 px-4 py-2 text-[#434654] dark:text-slate-400 font-medium hover:text-[#191c1e] transition-colors"
               href="/admin/help"
             >
-              <span className="material-symbols-outlined" data-icon="help">
-                help
-              </span>
+              <HelpCircle className="size-5 shrink-0" />
               <span>{t("common.helpCenter")}</span>
             </Link>
             <Link
               className="flex items-center gap-3 px-4 py-2 text-[#434654] dark:text-slate-400 font-medium hover:text-[#191c1e] transition-colors"
               href="/logout"
             >
-              <span className="material-symbols-outlined" data-icon="logout">
-                logout
-              </span>
+              <LogOut className="size-5 shrink-0" />
               <span>{t("common.logout")}</span>
             </Link>
           </div>
@@ -172,12 +171,7 @@ export default async function AdminInsightsPage() {
               {t("admin.topbar.title")}
             </span>
             <div className="relative group">
-              <span
-                className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline"
-                data-icon="search"
-              >
-                search
-              </span>
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-outline size-4" />
               <input
                 className="pl-12 pr-6 py-2 bg-surface-container-highest border-none rounded-full text-sm focus:ring-2 focus:ring-surface-tint/20 w-64 transition-all"
                 placeholder={t("admin.search.insights")}
@@ -189,21 +183,15 @@ export default async function AdminInsightsPage() {
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-4 text-on-surface-variant">
               <button className="hover:opacity-80 transition-opacity p-2 rounded-full hover:bg-surface-container">
-                <span className="material-symbols-outlined" data-icon="notifications">
-                  notifications
-                </span>
+                <Bell className="size-5" />
               </button>
               <button className="hover:opacity-80 transition-opacity p-2 rounded-full hover:bg-surface-container">
-                <span className="material-symbols-outlined" data-icon="chat_bubble">
-                  chat_bubble
-                </span>
+                <MessageSquare className="size-5" />
               </button>
               <button className="hover:opacity-80 transition-opacity p-2 rounded-full hover:bg-surface-container">
-                <span className="material-symbols-outlined" data-icon="apps">
-                  apps
-                </span>
+                <Grid className="size-5" />
               </button>
-              <LanguageToggleButton className="material-symbols-outlined rounded-full p-2 transition-colors hover:bg-surface-container" />
+              <LanguageToggleButton className="rounded-full p-2 transition-colors hover:bg-surface-container" />
             </div>
 
             <div className="h-8 w-px bg-outline-variant/30 mx-2"></div>
@@ -259,9 +247,7 @@ export default async function AdminInsightsPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-primary font-bold">
-                  <span className="material-symbols-outlined" data-icon="trending_up">
-                    trending_up
-                  </span>
+                  <TrendingUp className="size-5" />
                   <span>+12.4%</span>
                 </div>
               </div>
@@ -291,9 +277,7 @@ export default async function AdminInsightsPage() {
             {/* Sentiment Snapshot */}
             <div className="col-span-4 bg-tertiary-container rounded-xl p-8 text-white flex flex-col justify-between">
               <div className="flex justify-between items-start">
-                <span className="material-symbols-outlined text-4xl" data-icon="auto_awesome">
-                  auto_awesome
-                </span>
+                <Sparkles className="size-9" />
                 <div className="text-xs font-bold bg-white/20 px-3 py-1 rounded-full uppercase tracking-widest">
                   {t("admin.insights.sentiment.title")}
                 </div>
@@ -355,12 +339,7 @@ export default async function AdminInsightsPage() {
                 <div>
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                      <span
-                        className="material-symbols-outlined"
-                        data-icon="psychology_alt"
-                      >
-                        psychology_alt
-                      </span>
+                      <Brain className="size-5" />
                     </div>
                     <h4 className="font-bold">{t("admin.insights.focus.criticalReasoning")}</h4>
                   </div>
@@ -371,9 +350,7 @@ export default async function AdminInsightsPage() {
                 <div>
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-full bg-tertiary/10 flex items-center justify-center text-tertiary">
-                      <span className="material-symbols-outlined" data-icon="forum">
-                        forum
-                      </span>
+                      <MessageSquare className="size-5" />
                     </div>
                     <h4 className="font-bold">{t("admin.insights.focus.communicationTone")}</h4>
                   </div>
@@ -384,9 +361,7 @@ export default async function AdminInsightsPage() {
                 <div>
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center text-error">
-                      <span className="material-symbols-outlined" data-icon="timer">
-                        timer
-                      </span>
+                      <Timer className="size-5" />
                     </div>
                     <h4 className="font-bold">{t("admin.insights.focus.responseLatency")}</h4>
                   </div>
@@ -397,9 +372,7 @@ export default async function AdminInsightsPage() {
                 <div>
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-full bg-on-secondary-container/10 flex items-center justify-center text-on-secondary-container">
-                      <span className="material-symbols-outlined" data-icon="verified">
-                        verified
-                      </span>
+                      <BadgeCheck className="size-5" />
                     </div>
                     <h4 className="font-bold">{t("admin.insights.focus.ethicalAlignment")}</h4>
                   </div>
@@ -419,9 +392,7 @@ export default async function AdminInsightsPage() {
               </h3>
               <button className="text-sm font-bold text-primary flex items-center gap-1 hover:opacity-70">
                 {t("admin.insights.cohorts.viewFull")}
-                <span className="material-symbols-outlined text-sm" data-icon="chevron_right">
-                  chevron_right
-                </span>
+                <ChevronRight className="size-4" />
               </button>
             </div>
 
@@ -490,4 +461,3 @@ export default async function AdminInsightsPage() {
     </div>
   );
 }
-

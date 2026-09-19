@@ -1,5 +1,5 @@
-import AdminDashboardShell from "../../../../../components/admin/AdminDashboardShell";
-import AdminJobCategoriesView from "../../../../../components/admin/AdminJobCategoriesView";
+import AdminDashboardShell from "@features/admin/components/AdminDashboardShell";
+import AdminJobCategoriesView from "@features/admin/components/AdminJobCategoriesView";
 
 export const metadata = {
   title: "Job categories | INTERVIA",

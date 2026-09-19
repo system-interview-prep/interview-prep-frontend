@@ -1,73 +1,95 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { getDictionary, type Lang, normalizeLang } from "./i18n";
+import React, {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
+import { getDictionary } from "@/i18n/i18n";
 
-type LanguageContextValue = {
-  lang: Lang;
-  setLang: (lang: Lang) => void;
-  toggleLang: () => void;
+export type Language = "vi" | "en";
+
+type LanguageContextType = {
+  // API chính
+  lang: Language;
+  setLang: (lang: Language) => void;
   t: (key: string) => string;
+
+  // Alias để tương thích code cũ
+  language: Language;
+  setLanguage: (lang: Language) => void;
 };
 
-const LanguageContext = createContext<LanguageContextValue | null>(null);
+const LanguageContext =
+  createContext<LanguageContextType | null>(null);
 
-function setLangCookie(lang: Lang) {
-  // 1 year
-  document.cookie = `lang=${lang}; Path=/; SameSite=Lax; Max-Age=31536000`;
+interface LanguageProviderProps {
+  children: React.ReactNode;
+  initialLang?: Language;
 }
 
-export default function LanguageProvider({
-  initialLang,
+export function LanguageProvider({
   children,
-}: {
-  initialLang: string;
-  children: React.ReactNode;
-}) {
-  const router = useRouter();
-  const [lang, setLangState] = useState<Lang>(() => normalizeLang(initialLang));
+  initialLang = "vi",
+}: LanguageProviderProps) {
+  const [lang, setLangState] =
+    useState<Language>(initialLang);
 
-  const dict = useMemo(() => getDictionary(lang), [lang]);
-  const dictEn = useMemo(() => getDictionary("en"), []);
+  const setLang = (nextLang: Language) => {
+    setLangState(nextLang);
 
-  const t = useCallback(
-    (key: string) => {
-      const localized = dict[key];
-      if (localized !== undefined && localized !== "") return localized;
-      const english = dictEn[key];
-      if (english !== undefined && english !== "") return english;
-      return key;
-    },
-    [dict, dictEn],
+    // Lưu lại để server RootLayout đọc ở lần request sau
+    document.cookie = [
+      `lang=${nextLang}`,
+      "path=/",
+      "max-age=31536000",
+      "samesite=lax",
+    ].join("; ");
+
+    // Đồng bộ thuộc tính <html lang="">
+    document.documentElement.lang = nextLang;
+  };
+
+  const t = useMemo(() => {
+    const dict = getDictionary(lang);
+    return (key: string) => dict[key] ?? key;
+  }, [lang]);
+
+  const value = useMemo<LanguageContextType>(
+    () => ({
+      lang,
+      setLang,
+      t,
+
+      // compatibility aliases
+      language: lang,
+      setLanguage: setLang,
+    }),
+    [lang, t],
   );
 
-  const setLang = useCallback(
-    (next: Lang) => {
-      setLangCookie(next);
-      setLangState(next);
-      router.refresh();
-    },
-    [router],
+  return (
+    <LanguageContext.Provider value={value}>
+      {children}
+    </LanguageContext.Provider>
   );
-
-  const toggleLang = useCallback(() => {
-    setLang(lang === "vi" ? "en" : "vi");
-  }, [lang, setLang]);
-
-  const value = useMemo<LanguageContextValue>(
-    () => ({ lang, setLang, toggleLang, t }),
-    [lang, setLang, toggleLang, t],
-  );
-
-  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 
 export function useLanguage() {
-  const ctx = useContext(LanguageContext);
-  if (!ctx) {
-    throw new Error("useLanguage must be used within LanguageProvider");
+  const context = useContext(LanguageContext);
+
+  if (!context) {
+    throw new Error(
+      "useLanguage must be used within LanguageProvider",
+    );
   }
-  return ctx;
+
+  return context;
 }
 
+/**
+ * RootLayout hiện dùng:
+ * import LanguageProvider from "@/i18n/LanguageProvider";
+ */
+export default LanguageProvider;

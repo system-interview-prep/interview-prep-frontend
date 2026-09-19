@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { JetBrains_Mono, Newsreader, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { cookies } from "next/headers";
-import LanguageProvider from "../i18n/LanguageProvider";
-import { normalizeLang } from "../i18n/i18n";
-import GoogleAuthProvider from "../components/GoogleAuthProvider";
-import { NavigationLoadingProvider } from "../components/NavigationLoadingProvider";
+import LanguageProvider from "@/i18n/LanguageProvider";
+import { normalizeLang } from "@/i18n/i18n";
+import GoogleAuthProvider from "@features/auth/components/GoogleAuthProvider";
+import { NavigationLoadingProvider } from "@components/shared/NavigationLoadingProvider";
+import GlobalMascot from "@features/mascot/components/GlobalMascot";
 
 const newsreader = Newsreader({
   subsets: ["vietnamese", "latin"],
@@ -49,21 +50,16 @@ export default async function RootLayout({
       className={`${newsreader.variable} ${sans.variable} ${mono.variable} h-full`}
       suppressHydrationWarning
     >
-      <head>
-        {/* Material Symbols is a ligature icon font used by legacy screens. */}
-        {/* eslint-disable-next-line @next/next/google-font-display, @next/next/no-page-custom-font */}
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block"
-          rel="stylesheet"
-        />
-      </head>
       <body
         className="h-full bg-white font-body text-[#234196] antialiased"
         suppressHydrationWarning
       >
         <GoogleAuthProvider>
           <LanguageProvider initialLang={lang}>
-            <NavigationLoadingProvider>{children}</NavigationLoadingProvider>
+            <NavigationLoadingProvider>
+              {children}
+              <GlobalMascot />
+            </NavigationLoadingProvider>
           </LanguageProvider>
         </GoogleAuthProvider>
       </body>

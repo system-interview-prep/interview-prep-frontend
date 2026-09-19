@@ -1,10 +1,24 @@
 import Link from "next/link";
-import AdminButton from "../../../../components/admin/AdminButton";
-import AdminSidebarBrand from "../../../../components/admin/AdminSidebarBrand";
-import AdminAuthBadge from "../../../../components/admin/AdminAuthBadge";
-import AdminProfilePersonalInfoClient from "../../../../components/admin/AdminProfilePersonalInfoClient";
+import Button from "@components/ui/Button";
+import AdminSidebarBrand from "@features/admin/components/AdminSidebarBrand";
+import AdminAuthBadge from "@features/admin/components/AdminAuthBadge";
+import AdminProfilePersonalInfoClient from "@features/admin/components/AdminProfilePersonalInfoClient";
 import { cookies } from "next/headers";
-import { getDictionary, normalizeLang } from "../../../i18n/i18n";
+import { getDictionary, normalizeLang } from "@/i18n/i18n";
+import {
+  LayoutDashboard,
+  Video,
+  Brain,
+  Database,
+  Dumbbell,
+  HelpCircle,
+  User,
+  Settings,
+  Search,
+  Bell,
+  Lock,
+  ShieldCheck,
+} from "lucide-react";
 
 export default async function AdminProfilePage() {
   const cookieStore = await cookies();
@@ -22,76 +36,56 @@ export default async function AdminProfilePage() {
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 hover:bg-[#eceef0] dark:hover:bg-slate-800 transition-colors duration-150 ease-in-out"
             href="/admin/dashboard"
           >
-            <span className="material-symbols-outlined" data-icon="dashboard">
-              dashboard
-            </span>
+            <LayoutDashboard className="size-5 shrink-0" />
             <span className="font-medium">{t("common.dashboard")}</span>
           </Link>
           <Link
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 hover:bg-[#eceef0] dark:hover:bg-slate-800 transition-colors duration-150 ease-in-out"
             href="/admin/interviews"
           >
-            <span className="material-symbols-outlined" data-icon="video_chat">
-              video_chat
-            </span>
+            <Video className="size-5 shrink-0" />
             <span className="font-medium">{t("admin.interviews")}</span>
           </Link>
           <Link
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 hover:bg-[#eceef0] dark:hover:bg-slate-800 transition-colors duration-150 ease-in-out"
             href="/admin/insights"
           >
-            <span className="material-symbols-outlined" data-icon="psychology">
-              psychology
-            </span>
+            <Brain className="size-5 shrink-0" />
             <span className="font-medium">{t("admin.aiInsights")}</span>
           </Link>
           <Link
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 hover:bg-[#eceef0] dark:hover:bg-slate-800 transition-colors duration-150 ease-in-out"
             href="/admin/knowledge-base"
           >
-            <span className="material-symbols-outlined" data-icon="database">
-              database
-            </span>
+            <Database className="size-5 shrink-0" />
             <span className="font-medium">{t("admin.knowledgeBase")}</span>
           </Link>
           <Link
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 hover:bg-[#eceef0] dark:hover:bg-slate-800 transition-colors duration-150 ease-in-out"
             href="/admin/practice"
           >
-            <span className="material-symbols-outlined" data-icon="fitness_center">
-              fitness_center
-            </span>
+            <Dumbbell className="size-5 shrink-0" />
             <span className="font-medium">{t("admin.practice")}</span>
           </Link>
           <Link
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 hover:bg-[#eceef0] dark:hover:bg-slate-800 transition-colors duration-150 ease-in-out"
             href="/admin/help"
           >
-            <span className="material-symbols-outlined" data-icon="help">
-              help
-            </span>
+            <HelpCircle className="size-5 shrink-0" />
             <span className="font-medium">{t("common.helpCenter")}</span>
           </Link>
           <Link
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#003d9b] dark:text-blue-400 font-bold border-r-4 border-[#003d9b] bg-[#eceef0] dark:bg-slate-800 transition-colors duration-150 ease-in-out"
             href="/admin/profile"
           >
-            <span
-              className="material-symbols-outlined"
-              data-icon="account_circle"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              account_circle
-            </span>
+            <User className="size-5 shrink-0" />
             <span className="font-bold">{t("common.profile")}</span>
           </Link>
           <Link
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 hover:bg-[#eceef0] dark:hover:bg-slate-800 transition-colors duration-150 ease-in-out"
             href="/admin/settings"
           >
-            <span className="material-symbols-outlined" data-icon="settings">
-              settings
-            </span>
+            <Settings className="size-5 shrink-0" />
             <span className="font-medium">{t("common.settings")}</span>
           </Link>
         </nav>
@@ -105,12 +99,7 @@ export default async function AdminProfilePage() {
       <header className="fixed top-0 right-0 left-80 z-40 flex h-16 items-center justify-between bg-[#f7f9fb]/80 px-8 shadow-sm backdrop-blur-xl dark:bg-slate-950/80 xl:left-96">
         <div className="flex items-center flex-1 max-w-md">
           <div className="relative w-full">
-            <span
-              className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm"
-              data-icon="search"
-            >
-              search
-            </span>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant size-4" />
             <input
               className="w-full pl-10 pr-4 py-2 bg-surface-container-highest rounded-lg text-sm border-none focus:ring-2 focus:ring-surface-tint/20 transition-all"
               placeholder={t("admin.search.settings")}
@@ -120,9 +109,7 @@ export default async function AdminProfilePage() {
         </div>
         <div className="flex items-center gap-6">
           <button className="relative text-on-surface-variant hover:text-primary-container transition-all">
-            <span className="material-symbols-outlined" data-icon="notifications">
-              notifications
-            </span>
+            <Bell className="size-5" />
             <span className="absolute top-0 right-0 w-2 h-2 bg-error rounded-full"></span>
           </button>
           <AdminAuthBadge size="sm" roleLabel={t("admin.role.seniorAdmin")} />
@@ -143,12 +130,12 @@ export default async function AdminProfilePage() {
               </p>
             </div>
             <div className="flex shrink-0 items-center justify-end gap-3">
-              <AdminButton variant="surface" size="md">
+              <Button variant="surface" size="md">
                 {t("admin.profile.discardChanges")}
-              </AdminButton>
-              <AdminButton variant="primary" size="md">
+              </Button>
+              <Button variant="primary" size="md">
                 {t("admin.profile.saveSettings")}
-              </AdminButton>
+              </Button>
             </div>
           </header>
 
@@ -164,9 +151,9 @@ export default async function AdminProfilePage() {
                       {t("admin.profile.personalInfoDesc")}
                     </p>
                   </div>
-                  <AdminButton variant="surface" size="sm">
+                  <Button variant="surface" size="sm">
                     {t("admin.profile.editDetails")}
-                  </AdminButton>
+                  </Button>
                 </div>
 
                 <AdminProfilePersonalInfoClient
@@ -191,9 +178,7 @@ export default async function AdminProfilePage() {
                   <div className="flex items-center justify-between p-4 rounded-xl bg-surface-container-low group hover:bg-surface-container-high transition-colors">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                        <span className="material-symbols-outlined" data-icon="lock">
-                          lock
-                        </span>
+                        <Lock className="size-5" />
                       </div>
                       <div>
                         <p className="font-bold text-sm text-on-surface">{t("admin.profile.changePassword")}</p>
@@ -210,12 +195,7 @@ export default async function AdminProfilePage() {
                   <div className="flex items-center justify-between p-4 rounded-xl bg-surface-container-low group hover:bg-surface-container-high transition-colors">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
-                        <span
-                          className="material-symbols-outlined"
-                          data-icon="shield_with_heart"
-                        >
-                          shield_with_heart
-                        </span>
+                        <ShieldCheck className="size-5" />
                       </div>
                       <div>
                         <p className="font-bold text-sm text-on-surface">
@@ -241,4 +221,3 @@ export default async function AdminProfilePage() {
     </div>
   );
 }
-
