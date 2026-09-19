@@ -8,6 +8,7 @@ import {
   FileText,
   Search,
   Sparkles,
+  Target,
   Users,
 } from "lucide-react";
 
@@ -32,7 +33,7 @@ export default function ResourcesPageClient() {
     if (topicParam) {
       const validTopic = RESOURCE_TOPICS.find((tp) => tp.id === topicParam);
       if (validTopic) {
-        setSelectedTopic(validTopic.id);
+        queueMicrotask(() => setSelectedTopic(validTopic.id));
       }
     }
   }, [searchParams]);
@@ -61,48 +62,180 @@ export default function ResourcesPageClient() {
   }, [selectedTopic, searchQuery, t]);
 
   return (
-    <div className="relative min-h-screen bg-white text-[#14244B]">
-      {/* Background radial highlight */}
-      <div className="pointer-events-none absolute left-1/2 top-0 -z-10 h-[500px] w-full max-w-7xl -translate-x-1/2 bg-[radial-gradient(ellipse_at_top,rgba(32,65,149,0.06),transparent_70%)]" />
-
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
-        {/* HERO SECTION */}
-        <section className="mb-14 text-center">
-          <MarketingSectionHeader
-            as="h1"
-            eyebrow={t("resources.badge")}
-            title={`${t("resources.heroTitleA")} ${t("resources.heroTitleB")}`}
-            description={t("resources.heroDescription")}
-            align="center"
-          />
-
-          {/* Search Box */}
-          <form
-            onSubmit={(e) => e.preventDefault()}
-            className="mx-auto mt-8 max-w-xl"
+    <div className="w-full bg-white text-[#14244B] antialiased">
+      {/* ============================================================ */}
+      {/* SECTION 01: HERO                                              */}
+      {/* ============================================================ */}
+      <section
+        className="
+          relative overflow-hidden
+          px-5 pb-12 pt-8
+          sm:px-8 sm:pb-14 sm:pt-10
+          lg:px-10 lg:py-14
+          xl:px-12 xl:py-16
+        "
+      >
+        <div className="mx-auto w-full max-w-[1320px]">
+          <div
+            className="
+              grid w-full items-center
+              gap-10
+              lg:grid-cols-[minmax(0,0.98fr)_minmax(0,1.02fr)]
+              lg:gap-4
+              xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]
+              xl:gap-5
+            "
           >
-            <div className="relative flex items-center">
-              <Search className="absolute left-4 size-5 text-[#8090B5]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t("resources.searchPlaceholder")}
-                aria-label={t("resources.searchPlaceholder")}
-                className="h-12 w-full rounded-[16px] border border-[#DCE4F3] bg-white pl-12 pr-28 text-sm font-medium text-[#14244B] shadow-sm outline-none transition-all placeholder:text-[#8090B5] focus:border-[#204195] focus:ring-2 focus:ring-[#204195]/10"
-              />
-              <button
-                type="submit"
-                className="absolute right-1.5 flex h-9 items-center justify-center rounded-[12px] bg-[#204195] px-4 text-xs font-bold text-white transition-all hover:bg-[#183275]"
+            {/* Left Column Copy & Search */}
+            <div className="relative z-20 max-w-[560px] text-left lg:pr-2">
+              <span
+                className="
+                  inline-flex items-center gap-2
+                  rounded-full
+                  border border-[#C9D7F1]
+                  bg-[#F7F9FD]/90
+                  px-3.5 py-1.5
+                  text-[10px]
+                  font-extrabold
+                  uppercase
+                  tracking-[0.12em]
+                  text-[#204195]
+                  sm:text-[11px]
+                "
               >
-                {t("resources.searchButton")}
-              </button>
-            </div>
-          </form>
-        </section>
+                <span className="h-1.5 w-1.5 rounded-full bg-[#FCB625]" />
+                {t("resources.badge")}
+              </span>
 
-        {/* TOPICS SECTION */}
-        <section className="mb-16">
+              <h1
+                className="
+                  mt-5
+                  max-w-[540px]
+                  font-sans
+                  text-[clamp(2.6rem,3.85vw,4.25rem)]
+                  font-extrabold
+                  leading-[0.99]
+                  tracking-[-0.045em]
+                  text-[#14244B]
+                "
+              >
+                <span className="block">
+                  {t("resources.heroTitleA")}
+                </span>
+
+                <span className="relative mt-1.5 inline-block text-[#204195]">
+                  {t("resources.heroTitleB")}
+
+                  <span
+                    aria-hidden="true"
+                    className="
+                      absolute -bottom-1 left-0 -z-10
+                      h-[0.12em] w-full
+                      rounded-full
+                      bg-[#FCB625]/30
+                    "
+                  />
+                </span>
+              </h1>
+
+              <p
+                className="
+                  mt-5
+                  max-w-[600px]
+                  text-base
+                  leading-7
+                  text-[#607096]
+                  sm:text-lg
+                  sm:leading-8
+                "
+              >
+                {t("resources.heroDescription")}
+              </p>
+
+              {/* Search Box */}
+              <form
+                onSubmit={(e) => e.preventDefault()}
+                className="mt-6 w-full max-w-[540px]"
+              >
+                <div className="relative flex items-center">
+                  <Search className="absolute left-4 size-5 text-[#8090B5]" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={t("resources.searchPlaceholder")}
+                    aria-label={t("resources.searchPlaceholder")}
+                    className="h-[52px] w-full rounded-[16px] border border-[#DCE4F3] bg-white pl-12 pr-28 text-sm font-medium text-[#14244B] shadow-sm outline-none transition-all placeholder:text-[#8090B5] focus:border-[#204195] focus:ring-2 focus:ring-[#204195]/10"
+                  />
+                  <button
+                    type="submit"
+                    className="absolute right-1.5 flex h-[40px] items-center justify-center rounded-[12px] bg-[#204195] px-5 text-xs font-bold text-white transition-all hover:bg-[#183275]"
+                  >
+                    {t("resources.searchButton")}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Right Visual: Resource Playbooks Card Flow */}
+            <div className="relative">
+              <div className="relative bg-[#F7F9FD] border border-[#DCE4F3] rounded-[26px] p-6 sm:p-8 shadow-[0_10px_34px_rgba(32,65,149,0.045)] space-y-4">
+                {/* Resource Card 1 */}
+                <div className="bg-white border border-[#DCE4F3] p-4.5 rounded-[18px] shadow-xs flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-[#EEF3FC] text-[#204195] flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono font-bold text-[#607096] uppercase tracking-wider">GUIDE & BLUEPRINT</span>
+                    <h4 className="text-sm font-bold text-[#14244B]">Khung câu trả lời chuẩn STAR</h4>
+                    <p className="text-xs text-[#607096]">Chiến lược trình bày bằng chứng dự án thực tế</p>
+                  </div>
+                </div>
+
+                {/* Arrow Connector */}
+                <div className="flex justify-center my-0.5">
+                  <div className="w-0.5 h-3 bg-[#DCE4F3]"></div>
+                </div>
+
+                {/* Resource Card 2 */}
+                <div className="bg-white border border-[#DCE4F3] p-4.5 rounded-[18px] shadow-xs flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-[#EEF3FC] text-[#204195] flex items-center justify-center flex-shrink-0">
+                    <Target className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono font-bold text-[#607096] uppercase tracking-wider">ATS OPTIMIZATION</span>
+                    <h4 className="text-sm font-bold text-[#14244B]">Tối ưu từ khóa CV theo JD</h4>
+                    <p className="text-xs text-[#607096]">Bí quyết tăng điểm khớp hồ sơ lên 85%+</p>
+                  </div>
+                </div>
+
+                {/* Arrow Connector */}
+                <div className="flex justify-center my-0.5">
+                  <div className="w-0.5 h-3 bg-[#DCE4F3]"></div>
+                </div>
+
+                {/* Resource Card 3 */}
+                <div className="bg-white border-2 border-[#204195]/20 p-4.5 rounded-[18px] shadow-xs flex items-center gap-4 bg-gradient-to-r from-white to-[#EEF3FC]/50">
+                  <div className="w-10 h-10 rounded-xl bg-[#204195] text-white flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-5 h-5 text-[#FCB625]" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono font-bold text-[#204195] uppercase tracking-wider">MOCK INTERVIEW</span>
+                    <h4 className="text-sm font-bold text-[#14244B]">Checklist phỏng vấn giọng nói AI</h4>
+                    <p className="text-xs text-[#607096]">Luyện phản xạ & cách kiểm soát tâm lý</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================ */}
+      {/* SECTION 02: TOPICS FILTER                                     */}
+      {/* ============================================================ */}
+      <section className="bg-[#F7F9FD] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24 xl:px-12 border-t border-[#DCE4F3]">
+        <div className="mx-auto w-full max-w-[1320px]">
           <MarketingSectionHeader
             eyebrow={t("resources.topicSectionEyebrow")}
             title={t("resources.topicSectionTitle")}
@@ -111,7 +244,7 @@ export default function ResourcesPageClient() {
             className="mb-8"
           />
 
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
             {RESOURCE_TOPICS.map((topic) => {
               const isActive = selectedTopic === topic.id;
 
@@ -119,10 +252,10 @@ export default function ResourcesPageClient() {
                 <button
                   key={topic.id}
                   onClick={() => setSelectedTopic(topic.id)}
-                  className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition-all ${
+                  className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-bold transition-all ${
                     isActive
                       ? "bg-[#204195] text-white shadow-sm"
-                      : "border border-[#DCE4F3] bg-white text-[#506085] hover:bg-[#F7F9FD] hover:text-[#14244B]"
+                      : "border border-[#DCE4F3] bg-white text-[#607096] hover:bg-[#EEF3FC] hover:text-[#14244B]"
                   }`}
                 >
                   <span>{t(topic.labelKey)}</span>
@@ -130,36 +263,40 @@ export default function ResourcesPageClient() {
               );
             })}
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* FEATURED PLAYBOOK CARD */}
-        <section className="mb-20">
-          <div className="relative overflow-hidden rounded-[26px] border border-[#DCE4F3] bg-gradient-to-r from-[#F7F9FD] via-white to-[#EEF3FC] p-6 shadow-sm sm:p-8">
+      {/* ============================================================ */}
+      {/* SECTION 03: FEATURED PLAYBOOK CARD                           */}
+      {/* ============================================================ */}
+      <section className="px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24 xl:px-12 border-t border-[#DCE4F3]">
+        <div className="mx-auto w-full max-w-[1320px]">
+          <div className="relative overflow-hidden rounded-[26px] border border-[#DCE4F3] bg-gradient-to-r from-[#F7F9FD] via-white to-[#EEF3FC] p-7 shadow-sm sm:p-10">
             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-              <div className="max-w-xl">
-                <span className="mb-2 inline-flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-wider text-[#204195]">
-                  <Sparkles className="size-3.5" />
+              <div className="max-w-xl space-y-3">
+                <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-wider text-[#204195]">
+                  <Sparkles className="size-3.5 text-[#FCB625]" />
                   {t("resources.featuredEyebrow")}
                 </span>
 
-                <h3 className="text-xl font-bold tracking-tight text-[#14244B] sm:text-2xl">
+                <h3 className="text-2xl font-bold tracking-tight text-[#14244B] sm:text-3xl">
                   {t("resources.featuredTitle")}
                 </h3>
 
-                <p className="mt-2 text-sm font-medium leading-relaxed text-[#506085]">
+                <p className="text-sm font-medium leading-6 text-[#607096]">
                   {t("resources.featuredDescription")}
                 </p>
 
-                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#204195]">
-                  <span className="rounded-full bg-[#EEF3FC] px-3 py-1">
+                <div className="pt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#204195]">
+                  <span className="rounded-full bg-[#EEF3FC] px-3.5 py-1.5 font-mono">
                     {t("resources.featuredStep1")}
                   </span>
                   <span>→</span>
-                  <span className="rounded-full bg-[#EEF3FC] px-3 py-1">
+                  <span className="rounded-full bg-[#EEF3FC] px-3.5 py-1.5 font-mono">
                     {t("resources.featuredStep2")}
                   </span>
                   <span>→</span>
-                  <span className="rounded-full bg-[#EEF3FC] px-3 py-1">
+                  <span className="rounded-full bg-[#EEF3FC] px-3.5 py-1.5 font-mono">
                     {t("resources.featuredStep3")}
                   </span>
                 </div>
@@ -171,7 +308,7 @@ export default function ResourcesPageClient() {
                 </span>
                 <a
                   href="#resource-library"
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[#204195] px-6 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#183275]"
+                  className="inline-flex h-[52px] items-center justify-center gap-2 rounded-[14px] bg-[#204195] px-7 text-sm font-extrabold text-white shadow-sm transition-all hover:bg-[#183275]"
                 >
                   {t("resources.featuredCta")}
                   <ArrowRight className="size-4" />
@@ -179,11 +316,15 @@ export default function ResourcesPageClient() {
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* RESOURCE LIBRARY LIST */}
-        <section id="resource-library" className="mb-20 scroll-mt-20">
-          <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      {/* ============================================================ */}
+      {/* SECTION 04: RESOURCE LIBRARY LIST                             */}
+      {/* ============================================================ */}
+      <section id="resource-library" className="bg-[#F7F9FD] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24 xl:px-12 border-t border-[#DCE4F3] scroll-mt-20">
+        <div className="mx-auto w-full max-w-[1320px]">
+          <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
               <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#204195]">
                 {t("resources.libraryEyebrow")}
@@ -203,7 +344,7 @@ export default function ResourcesPageClient() {
               {filteredResources.map((item) => (
                 <div
                   key={item.id}
-                  className="group flex flex-col justify-between rounded-[22px] border border-[#DCE4F3] bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#B5C9EE] hover:shadow-md"
+                  className="group flex flex-col justify-between rounded-[26px] border border-[#DCE4F3] bg-white p-7 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-[#204195]/40 hover:shadow-md"
                 >
                   <div>
                     <div className="flex items-center justify-between">
@@ -217,11 +358,11 @@ export default function ResourcesPageClient() {
                       </span>
                     </div>
 
-                    <h4 className="mt-4 text-base font-bold tracking-tight text-[#14244B] transition-colors group-hover:text-[#204195]">
+                    <h4 className="mt-4 text-[17px] font-bold leading-6 tracking-[-0.015em] text-[#14244B] transition-colors group-hover:text-[#204195]">
                       {t(item.titleKey)}
                     </h4>
 
-                    <p className="mt-2 text-xs font-medium leading-relaxed text-[#506085]">
+                    <p className="mt-2 text-sm font-medium leading-6 text-[#607096]">
                       {t(item.descKey)}
                     </p>
                   </div>
@@ -242,11 +383,11 @@ export default function ResourcesPageClient() {
               ))}
             </div>
           ) : (
-            <div className="rounded-[22px] border border-[#DCE4F3] bg-[#F7F9FD] p-12 text-center">
+            <div className="rounded-[26px] border border-[#DCE4F3] bg-white p-12 text-center shadow-xs">
               <h4 className="text-lg font-bold text-[#14244B]">
                 {t("resources.noResultsTitle")}
               </h4>
-              <p className="mt-1 text-xs text-[#506085]">
+              <p className="mt-1 text-xs text-[#607096]">
                 {t("resources.noResultsBody")}
               </p>
               <button
@@ -254,16 +395,20 @@ export default function ResourcesPageClient() {
                   setSelectedTopic("all");
                   setSearchQuery("");
                 }}
-                className="mt-4 inline-flex h-9 items-center justify-center rounded-[12px] bg-[#204195] px-4 text-xs font-bold text-white"
+                className="mt-4 inline-flex h-10 items-center justify-center rounded-[12px] bg-[#204195] px-5 text-xs font-bold text-white"
               >
                 {t("resources.reset")}
               </button>
             </div>
           )}
-        </section>
+        </div>
+      </section>
 
-        {/* COACH CALLOUT */}
-        <section className="mb-20">
+      {/* ============================================================ */}
+      {/* SECTION 05: COACH CALLOUT                                    */}
+      {/* ============================================================ */}
+      <section className="px-5 py-10 sm:px-8 lg:px-10 xl:px-12">
+        <div className="mx-auto w-full max-w-[1320px]">
           <CoachCallout
             eyebrow={t("resources.coachEyebrow")}
             title={t("resources.coachTitle")}
@@ -276,10 +421,14 @@ export default function ResourcesPageClient() {
             ctaText={t("resources.coachCta")}
             ctaHref="/dashboard/cvs"
           />
-        </section>
+        </div>
+      </section>
 
-        {/* COMMUNITY SECTION */}
-        <section className="mb-20">
+      {/* ============================================================ */}
+      {/* SECTION 06: COMMUNITY SECTION                                */}
+      {/* ============================================================ */}
+      <section className="px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24 xl:px-12 border-t border-[#DCE4F3]">
+        <div className="mx-auto w-full max-w-[1320px]">
           <MarketingSectionHeader
             eyebrow={t("resources.communityEyebrow")}
             title={t("resources.communityTitle")}
@@ -291,47 +440,51 @@ export default function ResourcesPageClient() {
           <div className="grid gap-6 sm:grid-cols-3">
             <Link
               href="/interview/select"
-              className="group rounded-[22px] border border-[#DCE4F3] bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#B5C9EE]"
+              className="group rounded-[26px] border border-[#DCE4F3] bg-white p-7 shadow-xs transition-all hover:-translate-y-1 hover:border-[#204195]/40"
             >
-              <div className="grid size-10 place-items-center rounded-[14px] bg-[#EEF3FC] text-[#204195] transition-colors group-hover:bg-[#204195] group-hover:text-white">
-                <FileText className="size-5" />
+              <div className="grid size-12 place-items-center rounded-[16px] bg-[#EEF3FC] text-[#204195] transition-colors group-hover:bg-[#204195] group-hover:text-white">
+                <FileText className="size-6" />
               </div>
-              <h4 className="mt-4 font-bold text-[#14244B]">
+              <h4 className="mt-4 text-[17px] font-bold leading-6 text-[#14244B]">
                 {t("resources.communityTile1")}
               </h4>
-              <p className="mt-2 text-xs font-medium text-[#506085]">
+              <p className="mt-2 text-sm font-medium leading-6 text-[#607096]">
                 {t("resources.communityTile1Desc")}
               </p>
             </Link>
 
-            <div className="rounded-[22px] border border-[#DCE4F3] bg-white p-6 shadow-sm">
-              <div className="grid size-10 place-items-center rounded-[14px] bg-[#EEF3FC] text-[#204195]">
-                <Users className="size-5" />
+            <div className="rounded-[26px] border border-[#DCE4F3] bg-white p-7 shadow-xs">
+              <div className="grid size-12 place-items-center rounded-[16px] bg-[#EEF3FC] text-[#204195]">
+                <Users className="size-6" />
               </div>
-              <h4 className="mt-4 font-bold text-[#14244B]">
+              <h4 className="mt-4 text-[17px] font-bold leading-6 text-[#14244B]">
                 {t("resources.communityTile2")}
               </h4>
-              <p className="mt-2 text-xs font-medium text-[#506085]">
+              <p className="mt-2 text-sm font-medium leading-6 text-[#607096]">
                 {t("resources.communityTile2Desc")}
               </p>
             </div>
 
-            <div className="rounded-[22px] border border-[#DCE4F3] bg-white p-6 shadow-sm">
-              <div className="grid size-10 place-items-center rounded-[14px] bg-[#EEF3FC] text-[#204195]">
-                <Sparkles className="size-5 text-[#FCB625]" />
+            <div className="rounded-[26px] border border-[#DCE4F3] bg-white p-7 shadow-xs">
+              <div className="grid size-12 place-items-center rounded-[16px] bg-[#EEF3FC] text-[#204195]">
+                <Sparkles className="size-6 text-[#FCB625]" />
               </div>
-              <h4 className="mt-4 font-bold text-[#14244B]">
+              <h4 className="mt-4 text-[17px] font-bold leading-6 text-[#14244B]">
                 {t("resources.communityTile3")}
               </h4>
-              <p className="mt-2 text-xs font-medium text-[#506085]">
+              <p className="mt-2 text-sm font-medium leading-6 text-[#607096]">
                 {t("resources.communityTile3Desc")}
               </p>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* BOTTOM FINAL CTA */}
-        <section>
+      {/* ============================================================ */}
+      {/* SECTION 07: BOTTOM FINAL CTA                                 */}
+      {/* ============================================================ */}
+      <section className="px-5 py-12 sm:px-8 sm:py-16 lg:px-10 xl:px-12">
+        <div className="mx-auto w-full max-w-[1320px]">
           <MarketingCTA
             eyebrow={t("resources.finalEyebrow")}
             title={t("resources.finalTitle")}
@@ -342,8 +495,8 @@ export default function ResourcesPageClient() {
             secondaryCtaText={t("resources.finalSecondary")}
             secondaryCtaHref="/pricing"
           />
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

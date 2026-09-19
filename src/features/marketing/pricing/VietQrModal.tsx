@@ -31,8 +31,10 @@ export default function VietQrModal({
   useEffect(() => {
     if (isOpen) {
       previousFocusRef.current = document.activeElement as HTMLElement;
-      setStatus("idle");
-      setCopiedField(null);
+      queueMicrotask(() => {
+        setStatus("idle");
+        setCopiedField(null);
+      });
 
       // Focus modal container after render
       setTimeout(() => {

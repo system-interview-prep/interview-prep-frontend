@@ -33,23 +33,23 @@ export default function MarketingCTA({
           {eyebrow}
         </span>
 
-        <h2 className="text-2xl font-black tracking-tight text-[#14244B] sm:text-4xl">
+        <h2 className="font-sans text-[30px] font-extrabold leading-[1.08] tracking-[-0.035em] text-[#14244B] sm:text-[34px] lg:text-[42px]">
           {title}{" "}
           {titleAccent && (
-            <span className="bg-gradient-to-r from-[#204195] to-[#3B66D4] bg-clip-text text-transparent">
+            <span className="text-[#204195]">
               {titleAccent}
             </span>
           )}
         </h2>
 
-        <p className="mt-4 max-w-xl text-sm font-medium leading-relaxed text-[#506085] sm:text-base">
+        <p className="mt-4 max-w-xl text-[15px] font-medium leading-7 text-[#607096] sm:text-base">
           {description}
         </p>
 
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
             href={primaryCtaHref}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[#204195] px-6 text-sm font-bold text-white shadow-md transition-all hover:bg-[#183275] hover:shadow-lg active:scale-[0.98]"
+            className="inline-flex h-[52px] items-center justify-center gap-2 rounded-[14px] bg-[#204195] px-7 text-sm font-extrabold text-white shadow-md transition-all hover:bg-[#183275] hover:shadow-lg active:scale-[0.98]"
           >
             {primaryCtaText}
             <ArrowRight className="size-4" />
@@ -58,7 +58,7 @@ export default function MarketingCTA({
           {secondaryCtaText && (
             <Link
               href={secondaryCtaHref}
-              className="inline-flex h-11 items-center justify-center rounded-[14px] border border-[#DCE4F3] bg-white px-6 text-sm font-bold text-[#14244B] transition-colors hover:bg-[#F7F9FD]"
+              className="inline-flex h-[52px] items-center justify-center rounded-[14px] border border-[#DCE4F3] bg-white px-7 text-sm font-extrabold text-[#14244B] transition-colors hover:bg-[#F7F9FD]"
             >
               {secondaryCtaText}
             </Link>

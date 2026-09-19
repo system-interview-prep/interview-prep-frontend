@@ -29,10 +29,10 @@ export default function CoachCallout({
             <Sparkles className="size-3.5 fill-[#FCB625] text-[#FCB625]" />
             {eyebrow}
           </span>
-          <h3 className="text-xl font-bold tracking-tight text-[#14244B] sm:text-2xl">
+          <h3 className="font-sans text-[24px] font-extrabold leading-[1.12] tracking-[-0.025em] text-[#14244B] sm:text-[28px]">
             {title}
           </h3>
-          <p className="mt-2 text-sm font-medium leading-relaxed text-[#506085]">
+          <p className="mt-2 text-[15px] font-medium leading-7 text-[#607096]">
             {description}
           </p>
 
@@ -56,7 +56,7 @@ export default function CoachCallout({
         {ctaText && (
           <Link
             href={ctaHref}
-            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[14px] bg-[#204195] px-6 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#183275] active:scale-[0.98]"
+            className="inline-flex h-[52px] shrink-0 items-center justify-center gap-2 rounded-[14px] bg-[#204195] px-7 text-sm font-extrabold text-white shadow-sm transition-all hover:bg-[#183275] active:scale-[0.98]"
           >
             {ctaText}
             <ArrowRight className="size-4" />
