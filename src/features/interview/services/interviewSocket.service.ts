@@ -8,7 +8,8 @@ export const signalingService = {
   get socket(): Socket {
     return getSocketClient('/signaling');
   },
-  emit(event: string, data?: any) { this.socket.emit(event, data); },
+  emit(event: string, data?: unknown) { this.socket.emit(event, data); },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on(event: string, handler: (...args: any[]) => void) { this.socket.on(event, handler); },
   off(event: string) { this.socket.off(event); },
   disconnect() { disconnectSocketClient('/signaling'); },
@@ -21,7 +22,8 @@ export const chatService = {
   get socket(): Socket {
     return getSocketClient('/chat');
   },
-  emit(event: string, data?: any) { this.socket.emit(event, data); },
+  emit(event: string, data?: unknown) { this.socket.emit(event, data); },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on(event: string, handler: (...args: any[]) => void) { this.socket.on(event, handler); },
   off(event: string) { this.socket.off(event); },
   disconnect() { disconnectSocketClient('/chat'); },

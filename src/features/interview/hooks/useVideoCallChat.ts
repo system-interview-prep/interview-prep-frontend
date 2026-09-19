@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ChatMessage } from '@features/interview/components/ChatBox';
 import { sendVideoCallVoiceChatMessage } from '@lib/aiService';
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export function useAudioPlayer() {
-    const [supportsVoice, setSupportsVoice] = useState(false);
+    const [supportsVoice] = useState(() => typeof window !== "undefined" && typeof Audio !== "undefined");
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
 
@@ -11,10 +11,7 @@ export function useAudioPlayer() {
     const audioUrlRef = useRef<string | null>(null);
 
     useEffect(() => {
-        if (typeof window === "undefined") return;
-        const hasAudio = typeof Audio !== "undefined";
-        setSupportsVoice(hasAudio);
-        if (!hasAudio) return;
+        if (typeof window === "undefined" || typeof Audio === "undefined") return;
 
         const audio = new Audio();
         audioRef.current = audio;

@@ -17,7 +17,14 @@ export function useVoiceRecognition({
     language,
     onFinalTranscript,
 }: UseVoiceRecognitionOptions) {
-    const [recorderSupported, setRecorderSupported] = useState(false);
+    const [recorderSupported] = useState(() => {
+        if (typeof window === "undefined") return false;
+        const extendedWindow = window as typeof window & {
+            SpeechRecognition?: VoiceRecognitionConstructor;
+            webkitSpeechRecognition?: VoiceRecognitionConstructor;
+        };
+        return !!(extendedWindow.SpeechRecognition || extendedWindow.webkitSpeechRecognition);
+    });
     const [isRecording, setIsRecording] = useState(false);
     const [interimTranscript, setInterimTranscript] = useState("");
     /** Each finalized phrase (after a natural pause / end of utterance). Capped for UI memory. */
@@ -44,12 +51,10 @@ export function useVoiceRecognition({
             extendedWindow.SpeechRecognition || extendedWindow.webkitSpeechRecognition;
 
         if (!RecognitionClass) {
-            setRecorderSupported(false);
             recognitionRef.current = null;
             return;
         }
 
-        setRecorderSupported(true);
         const recognition = new RecognitionClass();
         recognition.lang = language === "vietnamese" ? "vi-VN" : "en-US";
         recognition.continuous = true;

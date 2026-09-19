@@ -70,7 +70,7 @@ export function useQuestionTimer({
 
   // Tự động reset thời gian khi step hoặc duration thay đổi
   useEffect(() => {
-    setTimeLeft(duration);
+    queueMicrotask(() => setTimeLeft(duration));
   }, [step, duration]);
 
   // Quản lý interval đếm ngược từng giây

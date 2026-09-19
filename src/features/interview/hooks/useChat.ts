@@ -119,7 +119,7 @@ export function useChat(options: UseChatOptions = {}) {
                 setMessages(nextMessages);
                 syncMetaFromMessages(sessionKey, nextMessages);
                 setSessionMeta(readAllSessionMeta());
-            } catch (err) {
+            } catch {
                 setError("chat.error.loadSession");
             } finally {
                 setIsLoading(false);
@@ -142,7 +142,7 @@ export function useChat(options: UseChatOptions = {}) {
                 recordDemoSession(res.sessionId, getDemoSessionTopic(defaultMode, nextLanguage), defaultMode);
                 await loadSession(res.sessionId);
                 await fetchSessions();
-            } catch (err) {
+            } catch {
                 setError("chat.error.createSession");
                 setIsLoading(false);
             }
@@ -222,7 +222,7 @@ export function useChat(options: UseChatOptions = {}) {
                     setSessionMeta(readAllSessionMeta());
                 }
                 return null;
-            } catch (err) {
+            } catch {
                 setError("chat.error.sendFailed");
                 setMessages((prev) => {
                     const next = [

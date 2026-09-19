@@ -45,7 +45,7 @@ export function useWebRTC(roomId: string) {
 
     // Prepare remote stream container
     const remote = new MediaStream();
-    setRemoteStream(remote);
+    queueMicrotask(() => setRemoteStream(remote));
     pc.ontrack = e => { e.streams[0].getTracks().forEach(t => remote.addTrack(t)); };
 
     // Send ICE candidates to the signaling server

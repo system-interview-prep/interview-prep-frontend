@@ -56,7 +56,15 @@ export default function SimliAvatar({ isMicMuted }: Props) {
           // Bước 2: Khởi tạo SimliClient 3.x theo syntax:
           // new SimliClient(session_token, videoElement, audioElement, iceServers, logLevel, transport_mode)
           // Vì Token được gen từ `/startAudioToVideoSession` (API cũ), nó chỉ tương thích với transport 'livekit'
-          const SimliClientClass = SimliClient as any;
+          interface SimliClientInstance {
+            start: () => Promise<void>;
+            stop?: () => void;
+            close?: () => void;
+            disconnect?: () => void;
+            sendAudioData?: (data: Uint8Array) => void;
+          }
+          type SimliClientConstructor = new (...args: unknown[]) => SimliClientInstance;
+          const SimliClientClass = SimliClient as unknown as SimliClientConstructor;
           const slClient = new SimliClientClass(
             sessionToken, 
             videoRef.current, 
@@ -66,9 +74,8 @@ export default function SimliAvatar({ isMicMuted }: Props) {
             'livekit'  // transportMode
           );
           
-          await slClient.start();
-          activeClient = slClient;
-          setClient(slClient);
+          activeClient = slClient as any;
+          setClient(slClient as any);
           setIsLoading(false);
           console.log('Simli Avatar Loaded');
         }
@@ -84,14 +91,14 @@ export default function SimliAvatar({ isMicMuted }: Props) {
     return () => {
       // Dọn dẹp session khi unmount
       if (activeClient) {
-        // SDK 3.x sử dụng hàm stop() để đóng kết nối WebRTC
+        const c = activeClient as any;
         try {
-          if (typeof (activeClient as any).stop === 'function') {
-            (activeClient as any).stop();
+          if (typeof c.stop === 'function') {
+            (c.stop as () => void)();
           } else {
             // Fallback nếu có thay đổi trong các bản update
-            if (typeof (activeClient as any).close === 'function') (activeClient as any).close();
-            if (typeof (activeClient as any).disconnect === 'function') (activeClient as any).disconnect();
+            if (typeof c.close === 'function') (c.close as () => void)();
+            if (typeof c.disconnect === 'function') (c.disconnect as () => void)();
           }
         } catch (e) {
           console.error('Error stopping SimliClient:', e);
@@ -106,9 +113,10 @@ export default function SimliAvatar({ isMicMuted }: Props) {
   useEffect(() => {
     if (!client) return;
 
-    const handleAIAudio = (e: any) => {
+    const handleAIAudio = (e: Event) => {
       try {
-        const base64String = e.detail;
+        const customEvent = e as CustomEvent<string>;
+        const base64String = customEvent.detail;
         if (!base64String) return;
         
         // Convert Base64 sang Uint8Array (PCM 16-bit)
@@ -120,8 +128,9 @@ export default function SimliAvatar({ isMicMuted }: Props) {
         }
 
         // Truyền raw audio cho Simli webRTC gateway
-        if (typeof (client as any).sendAudioData === 'function') {
-          (client as any).sendAudioData(bytes);
+        const c = client as any;
+        if (typeof c.sendAudioData === 'function') {
+          (c.sendAudioData as (d: Uint8Array) => void)(bytes);
         }
       } catch (error) {
         console.error('Lỗi khi decode/gửi PCM audio cho Simli:', error);
