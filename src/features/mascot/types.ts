@@ -1,13 +1,4 @@
-export type MascotMood =
-  | 'idle'
-  | 'happy'
-  | 'thinking'
-  | 'surprised'
-  | 'coaching'
-  | 'confused'
-  | 'typing_password'
-  | 'listening'
-  | 'encouraging';
+export type MascotMood = 'idle' | 'happy' | 'thinking' | 'surprised' | 'coaching' | 'confused';
 
 export interface EyePosition {
   angle: number;
