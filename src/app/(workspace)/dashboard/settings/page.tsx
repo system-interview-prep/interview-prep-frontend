@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
-import { useLanguage } from "@/i18n/LanguageProvider";
 import {
   AlertCircle,
   Info,
@@ -109,12 +108,11 @@ const AI_VOICES = [
 ];
 
 export default function SettingsPage() {
-  const { t } = useLanguage();
   const { profile } = useAuthProfile();
 
   // Settings State
   const [settings, setSettings] = useState<UserSettingsState>(DEFAULT_SETTINGS);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [, setIsLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<{
     text: string;
@@ -435,7 +433,7 @@ export default function SettingsPage() {
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => setActiveTab(tab.id as typeof activeTab)}
                     aria-pressed={isSelected}
                     className={`inline-flex items-center gap-2 rounded-xl border-2 px-3.5 py-2 text-xs font-bold transition-all sm:text-sm ${
                       isSelected

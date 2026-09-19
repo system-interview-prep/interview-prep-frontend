@@ -122,7 +122,7 @@ export default function KnowledgeBaseClient({
   // Evaluation AI Modal states
   const [isEvalModalOpen, setIsEvalModalOpen] = useState(false);
   const [evalDocId, setEvalDocId] = useState("");
-  const [evalData, setEvalData] = useState<any>(null);
+  const [evalData, setEvalData] = useState<Record<string, any> | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
 
   // Playground / Search States
@@ -394,7 +394,7 @@ export default function KnowledgeBaseClient({
 
     setIsSearching(true);
     try {
-      const payload: Record<string, any> = {
+      const payload: Record<string, unknown> = {
         query_text: query.trim() || undefined,
         topic: topic.trim() || undefined,
         difficulty: diff !== "all" ? diff : undefined,
@@ -568,9 +568,10 @@ export default function KnowledgeBaseClient({
       } else {
         showNotification("error", response.data?.error || "Không thể lưu tài liệu.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error upserting doc:", err);
-      showNotification("error", err.response?.data?.error || "Lỗi kết nối máy chủ RAG.");
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      showNotification("error", msg || "Lỗi kết nối máy chủ RAG.");
     } finally {
       setSavingManual(false);
     }
@@ -628,9 +629,10 @@ export default function KnowledgeBaseClient({
         } else {
           showNotification("error", response.data?.error || "Lỗi khi nạp tệp CSV.");
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error uploading CSV:", err);
-        showNotification("error", err.response?.data?.error || "Lỗi kết nối máy chủ RAG.");
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+        showNotification("error", msg || "Lỗi kết nối máy chủ RAG.");
       } finally {
         setUploading(false);
       }
@@ -658,7 +660,7 @@ export default function KnowledgeBaseClient({
           } else {
             showNotification("error", response.data?.error || "Lỗi khi nạp tài liệu JSON.");
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error("Error parsing/uploading JSON:", err);
           showNotification("error", "Định dạng JSON không hợp lệ hoặc lỗi kết nối.");
         } finally {

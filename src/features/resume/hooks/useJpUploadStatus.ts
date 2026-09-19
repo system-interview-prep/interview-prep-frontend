@@ -90,7 +90,7 @@ export function useJpUploadStatus(uploadId: string | null, options: Options = {}
       return;
     }
 
-    setIsTracking(true);
+    queueMicrotask(() => setIsTracking(true));
     pollStartRef.current = Date.now();
     const socket = getJpSocket();
     const joinRoom = () => emitJoinJp(uploadId);

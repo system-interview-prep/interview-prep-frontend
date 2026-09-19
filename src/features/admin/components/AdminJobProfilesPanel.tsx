@@ -437,7 +437,7 @@ export default function AdminJobProfilesPanel() {
                 </h2>
                 <p className="mb-5 line-clamp-3 flex-1 whitespace-pre-wrap text-sm leading-relaxed text-[#5A6B8F]">
                   {(() => {
-                    const raw = String((p as any)?.description || "").trim();
+                    const raw = String((p as Record<string, unknown>)?.description || "").trim();
                     if (!raw) return "—";
                     // If description is HTML, show a plain-text preview.
                     const isHtml = /^\s*<[a-z][\w-]*(\s[^>]*)?>/i.test(raw);

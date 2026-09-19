@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { downloadCvPdf } from "@/lib/aiService";
 
@@ -209,9 +209,10 @@ export default function PdfEvidenceVisualizer({
 
         setPdf(pdfDoc);
         setNumPages(pdfDoc.numPages);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error rendering PDF:", err);
-        if (isMounted) setError(err.message || "Failed to render PDF");
+        const errMsg = err instanceof Error ? err.message : "Failed to render PDF";
+        if (isMounted) setError(errMsg);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -264,7 +265,7 @@ export default function PdfEvidenceVisualizer({
     }
   }, [scrollToSnippet, onScrollToSnippetEnd]);
 
-  const handlePageRendered = (pageNum: number, el: HTMLDivElement | null) => {
+  const handlePageRendered = (_pageNum: number, _el: HTMLDivElement | null) => {
     // optional page logging
   };
 
