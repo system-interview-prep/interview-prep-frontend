@@ -72,7 +72,8 @@ function RoomContent() {
         const n = parseInt(raw, 10);
         if (!Number.isNaN(n)) {
           const max = getMaxChatWidth();
-          setChatWidth(Math.min(max, Math.max(MIN_CHAT_W, n)));
+          const target = Math.min(max, Math.max(MIN_CHAT_W, n));
+          queueMicrotask(() => setChatWidth(target));
         }
       }
     } catch {

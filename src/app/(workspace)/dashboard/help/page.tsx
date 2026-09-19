@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useId, useMemo, useState } from "react";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";

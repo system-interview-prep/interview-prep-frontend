@@ -3,18 +3,18 @@ import nextTs from "eslint-config-next/typescript";
 import nextVitals from "eslint-config-next/core-web-vitals";
 
 const legacyUntypedIntegrationFiles = [
-  "components/admin/AdminJobProfileCreateView.tsx",
-  "components/admin/AdminJobProfilesPanel.tsx",
-  "src/app/admin/knowledge-base/KnowledgeBaseClient.tsx",
-  "src/components/interview/SimliAvatar.tsx",
-  "src/components/pdf-visualizer/PdfEvidenceVisualizer.tsx",
+  "src/features/admin/components/AdminJobProfileCreateView.tsx",
+  "src/features/admin/components/AdminJobProfilesPanel.tsx",
+  "src/features/admin/components/KnowledgeBaseClient.tsx",
+  "src/features/interview/components/SimliAvatar.tsx",
+  "src/features/resume/components/PdfEvidenceVisualizer.tsx",
   "src/lib/aiService.ts",
   "src/services/socket.ts",
   "src/utils/index.ts",
 ];
 
 const effectInitializationFiles = [
-  "src/app/interview/room/**",
+  "src/app/(interview-fullscreen)/interview/room/**",
   "src/auth/useAuthProfile.ts",
   "src/components/NavigationLoadingProvider.tsx",
   "src/components/user-dashboard/DemoSessionsHistory.tsx",
@@ -25,37 +25,32 @@ const effectInitializationFiles = [
 ];
 
 const legacyImageFiles = [
-  "components/admin/AdminSidebarBrand.tsx",
+  "src/features/admin/components/AdminSidebarBrand.tsx",
+  "src/features/admin/components/KnowledgeBaseClient.tsx",
+  "src/features/interview/components/ChatInterviewBrand.tsx",
+  "src/features/interview/components/ChatMessages.tsx",
+  "src/features/interview/components/VoiceLiveTranscript.tsx",
+  "src/features/user-dashboard/components/UserDashboardShell.tsx",
+  "src/app/(workspace)/**/*.tsx",
+  "src/app/(interview-fullscreen)/**/*.tsx",
   "src/app/admin/**/*.tsx",
-  "src/app/chat/page.tsx",
-  "src/app/component/ChatInterviewBrand.tsx",
-  "src/app/component/ChatMessages.tsx",
-  "src/app/dashboard/**/*.tsx",
-  "src/app/interview/**/*.tsx",
-  "src/app/practice/page.tsx",
-  "src/app/voice/components/VoiceLiveTranscript.tsx",
-  "src/components/user-dashboard/UserDashboardShell.tsx",
 ];
 
 const legacyUnusedValueFiles = [
-  "components/admin/AdminJobProfileCreateView.tsx",
-  "components/admin/AdminJobProfileDetailView.tsx",
-  "components/admin/AdminJobProfilesPanel.tsx",
-  "src/app/admin/knowledge-base/KnowledgeBaseClient.tsx",
-  "src/app/chat/page.tsx",
-  "src/app/component/InterviewRoomHeader.tsx",
-  "src/app/interview/room/**",
-  "src/components/interview/SimliAvatar.tsx",
-  "src/components/pdf-visualizer/PdfEvidenceVisualizer.tsx",
-  "src/hooks/useChat.ts",
-  "src/hooks/useMedia.ts",
-  "src/hooks/useVideoCallChat.ts",
+  "src/features/admin/components/AdminJobProfileCreateView.tsx",
+  "src/features/admin/components/AdminJobProfileDetailView.tsx",
+  "src/features/admin/components/AdminJobProfilesPanel.tsx",
+  "src/features/admin/components/KnowledgeBaseClient.tsx",
+  "src/features/interview/components/InterviewRoomHeader.tsx",
+  "src/features/interview/components/SimliAvatar.tsx",
+  "src/features/resume/components/PdfEvidenceVisualizer.tsx",
+  "src/app/(interview-fullscreen)/interview/**",
   "src/services/jobProfileApi.ts",
 ];
 
 const legacyEffectDependencyFiles = [
-  "components/admin/AdminJobProfilesPanel.tsx",
-  "src/app/admin/knowledge-base/KnowledgeBaseClient.tsx",
+  "src/features/admin/components/AdminJobProfilesPanel.tsx",
+  "src/features/admin/components/KnowledgeBaseClient.tsx",
 ];
 
 const eslintConfig = defineConfig([
