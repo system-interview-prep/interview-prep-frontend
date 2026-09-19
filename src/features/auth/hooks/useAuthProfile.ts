@@ -36,10 +36,9 @@ async function hydrateAuthProfile(): Promise<AuthProfile | null> {
 }
 
 export function useAuthProfile() {
-  const [profile, setProfile] = useState<AuthProfile | null>(null);
+  const [profile, setProfile] = useState<AuthProfile | null>(() => readAuthProfile());
 
   useEffect(() => {
-    setProfile(readAuthProfile());
     void hydrateAuthProfile().then(setProfile);
 
     const onStorage = (event: StorageEvent) => {

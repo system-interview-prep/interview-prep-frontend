@@ -3,11 +3,23 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, ShieldCheck, Sparkles, User } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Eye,
+  EyeOff,
+  LoaderCircle,
+  LockKeyhole,
+  Mail,
+  ShieldCheck,
+  Sparkles,
+  User,
+} from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useGoogleLogin } from "@react-oauth/google";
 import { readAuthProfile, writeAuthProfile } from "@features/auth/services/auth.service";
 import { authApi, type AuthResponse } from "@lib/apiClient";
+import { AuthAnimatedBackground } from "@features/auth/components/AuthAnimatedBackground";
 
 type AuthMode = "login" | "signup";
 
@@ -60,14 +72,20 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
     return next.startsWith("/") && !next.startsWith("//") ? next : "/" + next.replace(/^\/+/, "");
   }, [searchParams]);
 
-  const passwordStrength = useMemo(() => {
+  // Password rule checks
+  const ruleLength = password.length >= 8;
+  const ruleCase = /[A-Z]/.test(password) && /[a-z]/.test(password);
+  const ruleNumber = /\d/.test(password);
+  const ruleSymbol = /[^A-Za-z0-9]/.test(password);
+
+  const passwordStrengthScore = useMemo(() => {
     let score = 0;
-    if (password.length >= 8) score++;
-    if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
-    if (/\d/.test(password)) score++;
-    if (/[^A-Za-z0-9]/.test(password)) score++;
+    if (ruleLength) score++;
+    if (ruleCase) score++;
+    if (ruleNumber) score++;
+    if (ruleSymbol) score++;
     return score;
-  }, [password]);
+  }, [ruleLength, ruleCase, ruleNumber, ruleSymbol]);
 
   function getCookie(name: string) {
     const match = document.cookie.match(new RegExp(`(?:^|; )${name.replace(/[-[\]/{}()*+?.\\^$|]/g, "\\$&")}=([^;]*)`));
@@ -137,8 +155,11 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
     if (mode === "signup" && !name.trim()) errors.name = t("auth.error.nameRequired");
     if (!email.trim()) errors.email = t("auth.error.emailRequired");
     if (!password) errors.password = t("auth.error.passwordRequired");
-    if (mode === "signup" && !(password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /\d/.test(password))) errors.password = t("auth.error.passwordRequirements");
+    if (mode === "signup" && !(ruleLength && ruleCase && ruleNumber)) {
+      errors.password = t("auth.error.passwordRequirements");
+    }
     if (mode === "signup" && !agreed) errors.agreed = t("auth.error.agreeRequired");
+
     if (Object.keys(errors).length) {
       setFormErrors(errors);
       return;
@@ -160,83 +181,48 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
     }
   }
 
-  const strengthColor = passwordStrength <= 1 ? "bg-[#D32F2F]" : passwordStrength <= 3 ? "bg-[#FCB625]" : "bg-[#2E7D32]";
-  const strengthLabel = passwordStrength <= 1 ? t("auth.strengthWeak") : passwordStrength <= 3 ? t("auth.strengthGood") : t("auth.strengthStrong");
+  const strengthColor = passwordStrengthScore <= 1 ? "bg-[#EF4444]" : passwordStrengthScore <= 3 ? "bg-[#FCB625]" : "bg-[#10B981]";
+  const strengthLabel = passwordStrengthScore <= 1 ? t("auth.strengthWeak") : passwordStrengthScore <= 3 ? t("auth.strengthGood") : t("auth.strengthStrong");
 
   return (
-    <main className="grid min-h-screen grid-cols-1 bg-white text-[#234196] font-sans lg:grid-cols-12">
-      {/* CỘT TRÁI: BẰNG CHỨNG GIÁ TRỊ & CAM KẾT BẢO MẬT */}
-      <section className="relative flex flex-col justify-between overflow-hidden border-b-2 border-[#234196] bg-[#F0F4FC] p-7 sm:p-10 lg:col-span-5 lg:border-b-0 lg:border-r-2 lg:p-12 xl:p-16">
-        <div className="flex items-center justify-between gap-4">
-          <Link href="/" className="inline-flex items-center gap-2.5 font-serif text-2xl font-bold tracking-tight text-[#234196]">
-            <span className="grid h-9 w-9 place-items-center rounded-lg border-2 border-[#234196] bg-[#FCB625] shadow-[2px_2px_0_#234196]">
-              <Sparkles size={18} className="text-[#234196]" />
+    <div
+      className="relative flex min-h-screen w-full flex-col justify-center items-center bg-[#F7F9FD] bg-cover bg-center bg-no-repeat px-4 sm:px-6 py-8 sm:py-10 lg:py-12 text-[#14244B]"
+      style={{ backgroundImage: "url('/bg-login.png')" }}
+    >
+      {/* CALM ANIMATED BACKGROUND LAYER */}
+      <AuthAnimatedBackground />
+
+      <div className="relative z-10 w-full max-w-[480px] my-auto flex flex-col items-center">
+        {/* BRAND HEADER ABOVE CARD */}
+        <header className="mb-6 flex w-full items-center justify-between px-1">
+          <Link href="/" className="inline-flex items-center gap-2.5 text-2xl font-extrabold tracking-tight text-[#14244B]">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#204195] text-[#FCB625] shadow-xs">
+              <Sparkles size={18} />
             </span>
-            Career · Studio
+            <span>INTERVIA</span>
           </Link>
-          <Link href="/" className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider text-[#5A6B8F] hover:text-[#234196] transition-colors">
-            <ArrowLeft size={14} /> {t("auth.backToHome")}
+          <Link
+            href="/"
+            aria-label="Home"
+            className="grid h-9 w-9 place-items-center rounded-xl border border-[#DCE4F3] bg-white/90 backdrop-blur-xs text-[#607096] hover:bg-white hover:text-[#204195] transition-colors shadow-xs"
+          >
+            <ArrowLeft size={16} />
           </Link>
-        </div>
+        </header>
 
-        <div className="my-10 lg:my-8">
-          <span className="inline-flex items-center gap-1.5 -rotate-2 rounded-lg border-2 border-[#234196] bg-[#FCB625] px-3 py-1 font-mono text-xs font-bold uppercase tracking-wider text-[#234196] shadow-[2px_2px_0_#234196]">
-            <Sparkles size={14} /> {t("auth.badgeJoin")}
-          </span>
-          <h1 className="mt-6 max-w-2xl font-serif text-3xl font-extrabold leading-[1.1] tracking-normal text-[#234196] sm:text-4xl xl:text-5xl">
-            {t("auth.heroTitle")}
-          </h1>
-          <p className="mt-4 max-w-xl text-base leading-relaxed text-[#5A6B8F]">
-            {t("auth.heroSub")}
-          </p>
-
-          <article className="relative my-7 rounded-2xl border-2 border-[#234196] bg-white p-5 shadow-[5px_5px_0_#234196] sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-2.5">
-              <span className="inline-flex -rotate-1 rounded-md border-2 border-[#234196] bg-[#FEF9EE] px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-wider text-[#234196]">
-                {t("auth.testimonialRole")}
-              </span>
-              <span className="inline-flex rotate-1 rounded-md border-2 border-[#2E7D32] bg-[#E8F5E9] px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-wider text-[#2E7D32]">
-                {t("auth.testimonialMetric")}
-              </span>
-            </div>
-            <blockquote className="mt-5 font-serif text-lg leading-relaxed text-[#234196]">
-              {t("auth.testimonialQuote")}
-            </blockquote>
-            <p className="mt-4 font-mono text-[11px] font-bold text-[#5A6B8F]">
-              {t("auth.testimonialAuthor")}
-            </p>
-          </article>
-
-          <div className="flex flex-wrap gap-2">
-            {[
-              t("auth.badgeSecurity"),
-              t("auth.badgeNoAudio"),
-              t("auth.badgeNoCard")
-            ].map((badge) => (
-              <span key={badge} className="inline-flex items-center gap-1 rounded-lg border-2 border-[#2E7D32] bg-[#E8F5E9] px-2.5 py-1 font-mono text-[11px] font-bold text-[#2E7D32] shadow-[2px_2px_0_#2E7D32]">
-                <Check size={13} /> {badge}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <p className="font-mono text-xs text-[#5A6B8F]">{t("auth.footerNotice")}</p>
-      </section>
-
-      {/* CỘT PHẢI: FORM XÁC THỰC TỐI GIẢN */}
-      <section className="flex items-center justify-center bg-white p-6 sm:p-10 lg:col-span-7 lg:p-12 xl:p-16">
-        <div className="w-full max-w-[440px]">
-          {/* TAB CHUYỂN ĐỔI CHẾ ĐỘ DẬP NỔI */}
-          <div className="mb-8 flex w-full gap-1 rounded-xl border-2 border-[#234196] bg-[#FEF9EE] p-1 shadow-[3px_3px_0_#234196]" role="tablist" aria-label={t("auth.authMode")}>
+        {/* SINGLE CENTERED AUTH CARD */}
+        <div className="w-full rounded-[26px] border border-[#DCE4F3] bg-white/96 backdrop-blur-md p-6 sm:p-8 md:p-9 shadow-[0_20px_60px_rgba(20,36,75,0.08)]">
+          {/* SEGMENTED TAB CONTROL */}
+          <div className="mb-6 flex w-full gap-1 rounded-xl border border-[#DCE4F3] bg-[#F7F9FD] p-1" role="tablist" aria-label={t("auth.authMode")}>
             <button
               type="button"
               role="tab"
               aria-selected={mode === "login"}
               onClick={() => switchMode("login")}
-              className={`flex-1 rounded-lg py-2.5 text-sm font-bold transition-all ${
+              className={`flex-1 rounded-lg py-2.5 text-sm transition-all duration-200 cursor-pointer ${
                 mode === "login"
-                  ? "border-2 border-[#234196] bg-[#FCB625] text-[#234196] shadow-[2px_2px_0_#234196]"
-                  : "border-2 border-transparent text-[#5A6B8F] hover:text-[#234196]"
+                  ? "bg-white text-[#204195] font-extrabold shadow-xs"
+                  : "text-[#607096] hover:text-[#14244B] font-semibold"
               }`}
             >
               {t("auth.tabLogin")}
@@ -246,194 +232,215 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
               role="tab"
               aria-selected={mode === "signup"}
               onClick={() => switchMode("signup")}
-              className={`flex-1 rounded-lg py-2.5 text-sm font-bold transition-all ${
+              className={`flex-1 rounded-lg py-2.5 text-sm transition-all duration-200 cursor-pointer ${
                 mode === "signup"
-                  ? "border-2 border-[#234196] bg-[#FCB625] text-[#234196] shadow-[2px_2px_0_#234196]"
-                  : "border-2 border-transparent text-[#5A6B8F] hover:text-[#234196]"
+                  ? "bg-white text-[#204195] font-extrabold shadow-xs"
+                  : "text-[#607096] hover:text-[#14244B] font-semibold"
               }`}
             >
               {t("auth.tabSignup")}
             </button>
           </div>
 
-          <h2 className="font-serif text-3xl font-extrabold tracking-normal text-[#234196] sm:text-4xl">
+          <h1 className="text-[26px] sm:text-[28px] md:text-[30px] font-extrabold tracking-[-0.03em] text-[#14244B]">
             {mode === "login" ? t("auth.welcomeBackTitle") : t("auth.signupTitle")}
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-[#5A6B8F]">
+          </h1>
+          <p className="mt-1.5 text-sm leading-6 text-[#607096]">
             {mode === "login" ? t("auth.welcomeBackSubtitle") : t("auth.signupSubtitle")}
           </p>
 
-          {/* NÚT GOOGLE CHUNKY ĐÃ FIX TOÀN DIỆN */}
+          {/* GOOGLE OAUTH BUTTON */}
           <button
             type="button"
             onClick={onGoogleClick}
             disabled={googleLoading || loading}
-            className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border-2 border-[#234196] bg-white py-3.5 px-4 font-bold text-[#234196] shadow-[3px_3px_0_#234196] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-[#F0F4FC] hover:shadow-[4px_4px_0_#234196] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-60 cursor-pointer"
+            className="mt-6 flex h-[50px] w-full items-center justify-center gap-3 rounded-[14px] border border-[#DCE4F3] bg-white px-4 font-bold text-[#14244B] shadow-xs hover:bg-[#F7F9FD] transition-all disabled:opacity-60 cursor-pointer"
           >
-            {googleLoading ? <LoaderCircle className="animate-spin text-[#FCB625]" size={20} /> : <GoogleMark />}
+            {googleLoading ? <LoaderCircle className="animate-spin text-[#204195]" size={20} /> : <GoogleMark />}
             <span>{mode === "login" ? t("auth.googleLogin") : t("auth.googleSignup")}</span>
           </button>
 
-          <div className="relative my-7 flex items-center">
-            <span className="w-full border-t-2 border-dashed border-[#234196]/30" />
-            <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border-2 border-[#234196]/20 bg-white px-3 py-0.5 font-mono text-[11px] font-bold text-[#5A6B8F]">
+          {/* DIVIDER */}
+          <div className="relative my-6 flex items-center w-full">
+            <span className="w-full border-t border-[#DCE4F3]" />
+            <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-white px-3 text-xs font-medium text-[#8A9ABA]">
               {t("auth.orEmail")}
             </span>
           </div>
 
+          {/* FORM */}
           <form onSubmit={handleSubmit} noValidate>
             <div className="space-y-4">
               {mode === "signup" && (
-                <label className="block">
-                  <span className="mb-1.5 block text-sm font-bold text-[#234196]">{t("auth.fullName")}</span>
-                  <span className="relative block">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5A6B8F]" size={18} />
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#14244B]">
+                    {t("auth.fullName")}
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A9ABA]" size={18} />
                     <input
                       type="text"
                       autoComplete="name"
                       value={name}
-                      onChange={(event) => setName(event.target.value)}
-                      className="w-full rounded-xl border-2 border-[#234196] bg-white py-3 pl-11 pr-4 text-sm font-medium text-[#234196] placeholder:text-[#5A6B8F]/70 focus:outline-none focus:shadow-[4px_4px_0_#234196] transition-all"
+                      onChange={(e) => setName(e.target.value)}
+                      className="h-[50px] w-full rounded-[14px] border border-[#D1DBED] bg-white pl-10 pr-4 text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] focus:border-[#204195]/45 focus:outline-none focus:ring-4 focus:ring-[#204195]/[0.07] transition-all"
                       placeholder={t("auth.namePlaceholder")}
                       aria-invalid={Boolean(formErrors.name)}
                     />
-                  </span>
-                  {formErrors.name && <span className="mt-1 block text-xs font-bold text-[#D32F2F]">{formErrors.name}</span>}
-                </label>
+                  </div>
+                  {formErrors.name && <p className="mt-1 text-xs font-semibold text-[#EF4444]">{formErrors.name}</p>}
+                </div>
               )}
 
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-bold text-[#234196]">{t("auth.emailAddress")}</span>
-                <span className="relative block">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5A6B8F]" size={18} />
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#14244B]">
+                  {t("auth.emailAddress")}
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A9ABA]" size={18} />
                   <input
                     type="email"
                     autoComplete="email"
                     value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    className="w-full rounded-xl border-2 border-[#234196] bg-white py-3 pl-11 pr-4 text-sm font-medium text-[#234196] placeholder:text-[#5A6B8F]/70 focus:outline-none focus:shadow-[4px_4px_0_#234196] transition-all"
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-[50px] w-full rounded-[14px] border border-[#D1DBED] bg-white pl-10 pr-4 text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] focus:border-[#204195]/45 focus:outline-none focus:ring-4 focus:ring-[#204195]/[0.07] transition-all"
                     placeholder={t("auth.emailPlaceholder")}
                     aria-invalid={Boolean(formErrors.email)}
                   />
-                </span>
-                {formErrors.email && <span className="mt-1 block text-xs font-bold text-[#D32F2F]">{formErrors.email}</span>}
-              </label>
+                </div>
+                {formErrors.email && <p className="mt-1 text-xs font-semibold text-[#EF4444]">{formErrors.email}</p>}
+              </div>
 
-              <label className="block">
-                <span className="mb-1.5 flex items-center justify-between gap-3 text-sm font-bold text-[#234196]">
+              <div>
+                <div className="mb-1.5 flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-wider text-[#14244B]">
                   <span>{t("auth.password")}</span>
-                  {mode === "login" && (
-                    <Link href="#" className="text-xs font-semibold text-[#234196] underline decoration-[#FCB625] decoration-2 underline-offset-4 hover:text-[#D97757]">
-                      {t("auth.forgotPassword")}
-                    </Link>
-                  )}
-                </span>
-                <span className="relative block">
-                  <LockKeyhole className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5A6B8F]" size={18} />
+                </div>
+                <div className="relative">
+                  <LockKeyhole className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A9ABA]" size={18} />
                   <input
                     type={showPassword ? "text" : "password"}
-                    data-mascot="password"
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
                     value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    className="w-full rounded-xl border-2 border-[#204195] bg-white py-3 pl-11 pr-12 text-sm font-medium text-[#204195] placeholder:text-[#5A6B8F]/70 focus:outline-none focus:shadow-[4px_4px_0_#204195] transition-all"
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-[50px] w-full rounded-[14px] border border-[#D1DBED] bg-white pl-10 pr-11 text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] focus:border-[#204195]/45 focus:outline-none focus:ring-4 focus:ring-[#204195]/[0.07] transition-all"
                     placeholder="••••••••"
+                    aria-describedby={mode === "signup" && password ? "password-strength-panel" : undefined}
                     aria-invalid={Boolean(formErrors.password)}
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword((value) => !value)}
-                    className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[#5A6B8F] hover:bg-[#F0F4FC] hover:text-[#234196] transition-colors"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-2.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[#8A9ABA] hover:bg-[#F7F9FD] hover:text-[#14244B] transition-colors cursor-pointer"
                     aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
-                </span>
-                {formErrors.password && <span className="mt-1 block text-xs font-bold text-[#D32F2F]">{formErrors.password}</span>}
-              </label>
+                </div>
+                {formErrors.password && <p className="mt-1 text-xs font-semibold text-[#EF4444]">{formErrors.password}</p>}
+              </div>
 
-              {mode === "signup" && (
-                <div>
-                  <div className="flex gap-1.5">
-                    {[1, 2, 3, 4].map((segment) => (
-                      <span
-                        key={segment}
-                        className={`h-2 flex-1 rounded-full border border-[#234196] transition-all ${
-                          segment <= passwordStrength ? strengthColor : "bg-white"
-                        }`}
-                      />
-                    ))}
+              {/* COMPACT PASSWORD STRENGTH (Signup mode only, visible when typing) */}
+              {mode === "signup" && password && (
+                <div id="password-strength-panel" className="mt-3 rounded-xl border border-[#DCE4F3] bg-[#F7F9FD] p-3 space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-1 gap-1.5">
+                      {[1, 2, 3, 4].map((seg) => (
+                        <span
+                          key={seg}
+                          className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                            seg <= passwordStrengthScore ? strengthColor : "bg-[#D1DBED]"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs font-bold text-[#14244B] shrink-0" aria-live="polite">
+                      {strengthLabel}
+                    </span>
                   </div>
-                  <p className="mt-1.5 font-mono text-[11px] font-bold text-[#5A6B8F]">
-                    {t("auth.passwordStrength").replace("{strength}", strengthLabel)}
-                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px] font-medium text-[#607096]">
+                    <div className={`flex items-center gap-1.5 ${ruleLength ? "text-[#10B981] font-bold" : ""}`}>
+                      <span className="shrink-0">{ruleLength ? "✓" : "○"}</span>
+                      <span>{t("auth.passwordRule.length")}</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${ruleCase ? "text-[#10B981] font-bold" : ""}`}>
+                      <span className="shrink-0">{ruleCase ? "✓" : "○"}</span>
+                      <span>{t("auth.passwordRule.case")}</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${ruleNumber ? "text-[#10B981] font-bold" : ""}`}>
+                      <span className="shrink-0">{ruleNumber ? "✓" : "○"}</span>
+                      <span>{t("auth.passwordRule.number")}</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${ruleSymbol ? "text-[#10B981] font-bold" : ""}`}>
+                      <span className="shrink-0">{ruleSymbol ? "✓" : "○"}</span>
+                      <span>{t("auth.passwordRule.symbol")}</span>
+                    </div>
+                  </div>
                 </div>
               )}
 
+              {/* TERMS CHECKBOX (Signup mode only) */}
               {mode === "signup" && (
-                <label className="flex cursor-pointer items-start gap-3 text-xs leading-relaxed text-[#5A6B8F]">
+                <label className="flex cursor-pointer items-start gap-2.5 pt-1 text-xs leading-relaxed text-[#607096]">
                   <div className="relative flex items-center pt-0.5">
                     <input
                       type="checkbox"
                       checked={agreed}
-                      onChange={(event) => setAgreed(event.target.checked)}
-                      className="peer h-5 w-5 appearance-none rounded-md border-2 border-[#234196] bg-white checked:bg-[#FCB625] transition-all cursor-pointer"
+                      onChange={(e) => setAgreed(e.target.checked)}
+                      className="peer h-4 w-4 appearance-none rounded border border-[#D1DBED] bg-white checked:bg-[#204195] checked:border-[#204195] transition-all cursor-pointer"
                     />
                     <Check
-                      size={14}
-                      className="pointer-events-none absolute left-0.5 top-1 text-[#234196] opacity-0 peer-checked:opacity-100 transition-opacity"
+                      size={12}
+                      className="pointer-events-none absolute left-0.5 top-1 text-white opacity-0 peer-checked:opacity-100 transition-opacity"
                     />
                   </div>
                   <span>
-                    {t("auth.termsAgreePre")}
-                    <Link href="#" className="font-bold text-[#234196] underline decoration-1 underline-offset-2">
+                    {t("auth.termsAgreePre")}{" "}
+                    <Link href="#" className="font-bold text-[#204195] underline underline-offset-2">
                       {t("auth.termsOfService")}
+                    </Link>{" "}
+                    {t("auth.termsAnd")}{" "}
+                    <Link href="#" className="font-bold text-[#204195] underline underline-offset-2">
+                      {t("auth.privacyPolicy")}
                     </Link>
-                    {t("auth.termsAnd")}
-                    {t("auth.privacyPolicy")}
                   </span>
                 </label>
               )}
 
-              {formErrors.agreed && <p className="text-xs font-bold text-[#D32F2F]">{formErrors.agreed}</p>}
+              {formErrors.agreed && <p className="text-xs font-semibold text-[#EF4444]">{formErrors.agreed}</p>}
               {formErrors.form && (
-                <div className="rounded-xl border-2 border-[#D32F2F] bg-[#FFEBEE] px-4 py-3 text-xs font-bold text-[#D32F2F]" role="alert">
+                <div className="rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] px-3.5 py-2.5 text-xs font-semibold text-[#EF4444]" role="alert">
                   {formErrors.form}
                 </div>
               )}
             </div>
 
-            {/* NÚT SUBMIT CHUNKY ĐÃ ĐƯỢC TỐI ƯU RESPONSIVE */}
+            {/* PRIMARY SUBMIT CTA */}
             <button
               type="submit"
               disabled={loading || googleLoading}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#234196] bg-[#FCB625] py-3.5 px-4 font-serif text-base font-bold text-[#234196] shadow-[4px_4px_0_#234196] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#234196] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-60 cursor-pointer"
+              className="mt-6 flex h-[48px] sm:h-[52px] w-full items-center justify-center gap-2 rounded-[14px] bg-[#204195] px-6 text-sm font-extrabold text-white shadow-sm transition-all hover:bg-[#183275] active:scale-[0.99] disabled:opacity-60 cursor-pointer"
             >
               {loading ? (
                 <>
-                  <LoaderCircle size={20} className="animate-spin text-[#234196]" />
+                  <LoaderCircle size={18} className="animate-spin text-white" />
                   <span>{t("auth.submitting")}</span>
                 </>
               ) : mode === "login" ? (
-                <>
-                  <span>{t("auth.submitLogin")}</span>
-                  <Sparkles size={16} />
-                </>
+                <span>{t("auth.submitLogin")}</span>
               ) : (
-                <>
-                  <span>{t("auth.submitSignup")}</span>
-                  <Sparkles size={16} />
-                </>
+                <span>{t("auth.submitSignup")}</span>
               )}
             </button>
           </form>
 
-          <p className="mt-6 flex items-center justify-center gap-2 text-center text-xs leading-5 text-[#5A6B8F]">
-            <ShieldCheck size={16} className="shrink-0 text-[#2E7D32]" />
-            <span>{t("auth.securityBadge")}</span>
+          {/* SECURITY NOTE BELOW CTA */}
+          <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-xs text-[#70809F]">
+            <ShieldCheck size={15} className="shrink-0 text-[#10B981]" />
+            <span>{t("auth.encryptedSession")}</span>
           </p>
         </div>
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }
