@@ -49,7 +49,7 @@ function fileKind(name: string | undefined, mime?: string): "pdf" | "word" | "ot
 function displayName(name: string | undefined) {
   const n = name ?? "";
   const base = n.replace(/\.(pdf|docx?)$/i, "").replace(/[._-]+/g, " ").trim();
-  return base || n || "â€”";
+  return base || n || "—";
 }
 
 function dtoToCvFile(d: UserCvDto): CvFile {
@@ -182,7 +182,7 @@ export default function UserMyCvsPage() {
     }
   );
 
-  /** Legacy: cookie-only sessions could not send Bearer to :5000 â€” copy into localStorage once. */
+  /** Legacy: cookie-only sessions could not send Bearer to :5000 — copy into localStorage once. */
   useEffect(() => {
     if (typeof window === "undefined") return;
     const m = document.cookie.match(/(?:^|; )access_token=([^;]*)/);
@@ -363,7 +363,7 @@ export default function UserMyCvsPage() {
     const k = fileKind(f.name, f.contentType);
     if (k === "pdf") return t("userDash.myCvs.typePdf");
     if (k === "word") return t("userDash.myCvs.typeWord");
-    return "â€”";
+    return "—";
   };
 
   const typeBadgeClass = (f: CvFile) => {

@@ -1,47 +1,19 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { PRODUCT_MANUAL_TABS } from "../../data/landing.data";
 import { fadeInReveal, EASE_CUSTOM } from "../../motion/variants";
-import type { MascotMood } from "@features/mascot/types";
-import { useMascot } from "@features/mascot/MascotContext";
 
 export function ProductWalkthrough() {
   const { t } = useLanguage();
-  const { setActiveScene } = useMascot();
   const [activeStepId, setActiveStepId] = useState("upload");
-  const sectionRef = useRef<HTMLElement>(null);
-  const [isInView, setIsInView] = useState(false);
 
   const currentStep = PRODUCT_MANUAL_TABS.find((t) => t.id === activeStepId) || PRODUCT_MANUAL_TABS[0];
 
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          setIsInView(entry.isIntersecting);
-        });
-      },
-      { threshold: 0.25 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (isInView) {
-      setActiveScene(`how-${activeStepId}`);
-    }
-  }, [isInView, activeStepId, setActiveScene]);
-
   return (
-    <section ref={sectionRef} id="how-to-use" className="relative px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-12 xl:py-20 bg-[#F7F9FD] border-b border-[#DCE4F3]">
+    <section id="how-to-use" className="relative px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-12 xl:py-20 bg-[#F7F9FD] border-b border-[#DCE4F3]">
       <motion.div
         initial="hidden"
         whileInView="visible"
@@ -61,7 +33,6 @@ export function ProductWalkthrough() {
               return (
                 <div
                   key={step.id}
-                  data-mascot-anchor={`how-${step.id}`}
                   onClick={() => setActiveStepId(step.id)}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer ${isActive
                       ? "bg-white border-[#204195] shadow-sm ring-1 ring-[#204195]"

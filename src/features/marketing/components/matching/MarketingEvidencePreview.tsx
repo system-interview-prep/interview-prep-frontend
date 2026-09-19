@@ -5,8 +5,10 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import MorphIcon from "../../graphics/MorphIcon";
 import { MARKETING_EVIDENCE_MOCK, type EvidenceItem } from "../../data/landing.data";
 import { EASE_CUSTOM } from "../../motion/variants";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 export function MarketingEvidencePreview() {
+  const { t } = useLanguage();
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [isUserInteracting, setIsUserInteracting] = useState<boolean>(false);
   const shouldReduceMotion = useReducedMotion();
@@ -43,17 +45,17 @@ export function MarketingEvidencePreview() {
           <div className="flex items-center gap-2.5">
             <MorphIcon currentKey="evidence" size={32} color="#204195" />
             <h3 className="font-sans text-lg font-bold text-[#14244B]">
-              Minh chứng Đối chiếu JD — CV
+              {t("evidence.title")}
             </h3>
           </div>
           <p className="mt-1 text-xs text-[#607096]">
-            Nhấp vào từng yêu cầu bên phải để xem trực tiếp đoạn bằng chứng đối ứng trong CV.
+            {t("evidence.subtitle")}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 font-mono text-xs font-bold text-emerald-800">
-            Khớp {matchedCount}/{totalCount} tiêu chuẩn
+            {t("evidence.matchedCount").replace("{matched}", String(matchedCount)).replace("{total}", String(totalCount))}
           </span>
           <span className="rounded-full bg-[#EEF3FC] border border-[#DCE4F3] px-3 py-1 font-mono text-xs font-bold text-[#204195]">
             DEMO MATCH
@@ -114,7 +116,7 @@ export function MarketingEvidencePreview() {
                 <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
                   <div className="flex items-center gap-2 font-bold text-amber-800">
                     <MorphIcon currentKey="emptyDocument" size={24} color="#D97706" />
-                    <span>Chưa tìm thấy đoạn văn bản minh chứng trong CV cho yêu cầu:</span>
+                    <span>{t("evidence.missingSnippet")}</span>
                   </div>
                   <p className="mt-1.5 font-semibold text-[#14244B] pl-8">
                     &quot;{selectedItem.requirement}&quot;
@@ -174,11 +176,11 @@ export function MarketingEvidencePreview() {
                     <div className="shrink-0 flex items-center gap-1.5">
                       {isMatched ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 font-mono text-[11px] font-bold text-emerald-800">
-                          <MorphIcon currentKey="evidence" size={14} color="#065F46" /> Đã khớp
+                          <MorphIcon currentKey="evidence" size={14} color="#065F46" /> {t("evidence.matched")}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 font-mono text-[11px] font-bold text-amber-800">
-                          <MorphIcon currentKey="emptyDocument" size={14} color="#92400E" /> Thiếu minh chứng
+                          <MorphIcon currentKey="emptyDocument" size={14} color="#92400E" /> {t("evidence.missing")}
                         </span>
                       )}
                     </div>

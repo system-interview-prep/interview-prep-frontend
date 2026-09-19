@@ -5,8 +5,11 @@ import { motion } from "framer-motion";
 import { TrendingUp, Flame, CheckCircle2, Clock, Sparkles } from "lucide-react";
 import { PROGRESS_DATA } from "../../data/landing.data";
 import { fadeInReveal } from "../../motion/variants";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 export function ProgressPreview() {
+  const { t } = useLanguage();
+
   return (
     <section id="progress-preview" className="relative px-5 py-20 sm:px-8 md:py-28 bg-[#F7F9FD] border-y border-[#DCE4F3]">
       <motion.div
@@ -21,11 +24,11 @@ export function ProgressPreview() {
         </span>
 
         <h2 className="mt-2 font-sans text-3xl font-extrabold tracking-tight text-[#14244B] sm:text-4xl md:text-5xl">
-          Theo dõi độ sẵn sàng phỏng vấn
+          {t("progress.title")}
         </h2>
 
         <p className="mt-3 text-base text-[#607096] max-w-xl mx-auto sm:text-lg">
-          Mỗi phiên diễn tập giúp bạn tích lũy điểm phản xạ và từng bước hoàn thiện năng lực trước buổi phỏng vấn thật.
+          {t("progress.desc")}
         </p>
 
         {/* Dashboard Preview Card */}
@@ -57,7 +60,7 @@ export function ProgressPreview() {
             {/* Right: Category Progress Bars */}
             <div className="md:col-span-7 space-y-4">
               <h3 className="font-sans text-base font-bold text-[#14244B]">
-                Tiến độ theo lĩnh vực kỹ năng
+                {t("progress.domainProgress")}
               </h3>
 
               <div className="space-y-3 text-xs">

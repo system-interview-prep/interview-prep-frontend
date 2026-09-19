@@ -49,7 +49,7 @@ export function HeroSection({ onOpenVideo }: HeroSectionProps) {
           "
         >
           {/* LEFT — redesigned blended editorial copy */}
-          <div data-mascot-anchor="hero" className="relative z-20 max-w-[590px] text-left">
+          <div className="relative z-20 max-w-[590px] text-left">
             {/* soft bridge to the right side */}
             <div
               aria-hidden="true"

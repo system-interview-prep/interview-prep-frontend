@@ -7,7 +7,6 @@ import { normalizeLang } from "@/i18n/i18n";
 import GoogleAuthProvider from "@features/auth/components/GoogleAuthProvider";
 import { NavigationLoadingProvider } from "@components/shared/NavigationLoadingProvider";
 import GlobalMascot from "@features/mascot/components/GlobalMascot";
-import { MascotProvider } from "@features/mascot/MascotContext";
 
 const newsreader = Newsreader({
   subsets: ["vietnamese", "latin"],
@@ -57,12 +56,10 @@ export default async function RootLayout({
       >
         <GoogleAuthProvider>
           <LanguageProvider initialLang={lang}>
-            <MascotProvider>
-              <NavigationLoadingProvider>
-                {children}
-                <GlobalMascot />
-              </NavigationLoadingProvider>
-            </MascotProvider>
+            <NavigationLoadingProvider>
+              {children}
+              <GlobalMascot />
+            </NavigationLoadingProvider>
           </LanguageProvider>
         </GoogleAuthProvider>
       </body>

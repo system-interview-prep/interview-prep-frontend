@@ -30,35 +30,11 @@ const BENEFITS = [
   },
 ];
 
-import { useMascot } from "@features/mascot/MascotContext";
-
 export function FinalCTA() {
   const { t } = useLanguage();
-  const { setActiveScene } = useMascot();
-  const sectionRef = React.useRef<HTMLElement>(null);
-
-  React.useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveScene("final-cta");
-          }
-        });
-      },
-      { threshold: 0.25 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [setActiveScene]);
 
   return (
     <section
-      ref={sectionRef}
       id="final-cta"
       className="
         relative isolate overflow-hidden
@@ -139,7 +115,6 @@ export function FinalCTA() {
       >
         {/* SAFE CONTENT COLUMN */}
         <div
-          data-mascot-anchor="final-cta"
           className="
       flex w-full
       max-w-[720px]

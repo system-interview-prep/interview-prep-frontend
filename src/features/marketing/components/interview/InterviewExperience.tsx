@@ -8,32 +8,9 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { INTERVIEW_SHOWCASE_DATA } from "../../data/landing.data";
 import { fadeInReveal } from "../../motion/variants";
 
-import { useMascot } from "@features/mascot/MascotContext";
-
 export function InterviewExperience() {
   const { t } = useLanguage();
-  const { setActiveScene } = useMascot();
   const [orbState, setOrbState] = useState<VoiceOrbState>("speaking");
-  const sectionRef = React.useRef<HTMLElement>(null);
-
-  React.useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveScene("interview");
-          }
-        });
-      },
-      { threshold: 0.25 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [setActiveScene]);
 
   const evidenceDetected = [
     { label: "RESTful Architecture", status: "verified" },
@@ -43,7 +20,7 @@ export function InterviewExperience() {
   ];
 
   return (
-    <section ref={sectionRef} id="interview-experience" className="relative px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-12 xl:py-20 bg-[#204195] text-white overflow-hidden border-b border-white/10">
+    <section id="interview-experience" className="relative px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-12 xl:py-20 bg-[#204195] text-white overflow-hidden border-b border-white/10">
       {/* Subtle Ambient Glow */}
       <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 h-[500px] w-[700px] rounded-full bg-[#FCB625]/15 blur-[150px]" />
 
@@ -56,7 +33,7 @@ export function InterviewExperience() {
       >
         <div className="grid gap-12 lg:grid-cols-12 lg:items-center">
           {/* TEXT COLUMN LEFT (42% width = lg:col-span-5) */}
-          <div data-mascot-anchor="interview" className="lg:col-span-5 text-left space-y-6">
+          <div className="lg:col-span-5 text-left space-y-6">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-3.5 py-1 font-mono text-xs font-bold text-[#FCB625]">
               <Sparkles className="size-3.5" /> {t("landing.interviewExp.eyebrow")}
             </span>
