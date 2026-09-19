@@ -61,10 +61,10 @@ export const Button: React.FC<ButtonProps> = ({
   size,
   children,
   href,
-  icon,
   iconFill = false,
   ...props
 }) => {
+  void iconFill;
   const cls = cn(buttonVariants({ variant, size, className }));
 
   let iconNode: React.ReactNode = null;

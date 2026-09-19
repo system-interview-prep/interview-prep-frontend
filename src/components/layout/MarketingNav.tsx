@@ -137,7 +137,7 @@ export default function MarketingNav({
   const languageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setMounted(true);
+    queueMicrotask(() => setMounted(true));
   }, []);
 
   useEffect(() => {

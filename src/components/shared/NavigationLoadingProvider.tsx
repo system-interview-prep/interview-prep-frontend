@@ -39,13 +39,15 @@ export function NavigationLoadingProvider({ children }: { children: React.ReactN
   const [visible, setVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    queueMicrotask(() => setMounted(true));
+  }, []);
 
   const showNavigationLoading = useCallback(() => setVisible(true), []);
   const hideNavigationLoading = useCallback(() => setVisible(false), []);
 
   useEffect(() => {
-    setVisible(false);
+    queueMicrotask(() => setVisible(false));
   }, [pathname]);
 
   useEffect(() => {
