@@ -6,33 +6,23 @@ import type { MascotMood } from "../types";
 export interface SpriteMascotProps {
   mood?: MascotMood;
   size?: number;
+  reaction?: string | null;
   className?: string;
 }
 
-const MOOD_TO_REACTION: Record<
-  MascotMood,
-  "delighted" | "sparkle" | "surprised" | "wink" | "dizzy" | null
-> = {
-  idle: null,
-  happy: "delighted",
-  thinking: "sparkle",
-  surprised: "surprised",
-  coaching: "wink",
-  confused: "dizzy",
-};
-
 export function SpriteMascot({
   mood = "idle",
-  size = 96,
-  className = "drop-shadow-md select-none pointer-events-auto",
+  size = 72,
+  reaction = null,
+  className = "drop-shadow-sm select-none pointer-events-auto",
 }: SpriteMascotProps) {
-  const reaction = MOOD_TO_REACTION[mood] ?? null;
+  const activeReaction = (reaction as any) ?? null;
 
   return (
     <Mascot
       directions="/mascot/intervia-fox-directions.webp?v=1"
       reactions="/mascot/intervia-fox-reactions.webp?v=1"
-      reaction={reaction}
+      reaction={activeReaction}
       size={size}
       className={className}
     />

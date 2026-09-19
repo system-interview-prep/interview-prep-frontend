@@ -35,7 +35,7 @@ export function UserSidebar({
 
   return (
     <aside
-      className="bg-[#f9fafb] dark:bg-slate-800/50 h-screen fixed left-0 top-0 z-40 hidden md:flex flex-col font-body text-sm font-medium border-r border-outline-variant/20"
+      className="bg-white/85 backdrop-blur-md h-screen fixed left-0 top-0 z-40 hidden md:flex flex-col font-body text-sm font-medium border-r border-slate-200/70"
       style={{ width: `${sidebarWidth}px` }}
     >
       <button
@@ -45,13 +45,13 @@ export function UserSidebar({
         title="Resize sidebar"
         className="absolute right-0 top-0 h-full w-3 translate-x-1/2 cursor-col-resize touch-none border-0 bg-transparent p-0 outline-none"
       >
-        <span className="absolute inset-y-4 left-1/2 w-px -translate-x-1/2 rounded-full bg-primary/20 transition-colors hover:bg-primary/50" />
+        <span className="absolute inset-y-4 left-1/2 w-px -translate-x-1/2 rounded-full bg-[#204195]/20 transition-colors hover:bg-[#204195]/50" />
       </button>
       <div className="flex flex-col h-full min-h-0 p-4 sm:p-5">
         <Link
           href="/dashboard"
           title={t("chatInterview.goWorkspace")}
-          className="mb-4 block w-full min-w-0 shrink-0 rounded-xl p-1 -m-1 transition-all hover:bg-surface-container-high/80 hover:ring-2 hover:ring-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="mb-4 block w-full min-w-0 shrink-0 rounded-xl p-1 -m-1 transition-all hover:bg-[#F0F4FC] hover:ring-2 hover:ring-[#204195]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]"
         >
           <ChatInterviewBrand density="sidebar" />
         </Link>
@@ -59,7 +59,7 @@ export function UserSidebar({
         <button
           type="button"
           onClick={onNewSession}
-          className="flex items-center justify-center gap-2 w-full py-2.5 px-2 bg-primary text-on-primary rounded-xl text-sm font-semibold shadow-sm hover:bg-primary-container transition-all active:scale-[0.98] shrink-0 mb-4"
+          className="flex items-center justify-center gap-2 w-full py-2.5 px-2 bg-[#204195] text-white rounded-xl text-sm font-semibold shadow-sm hover:bg-[#183275] hover:shadow-[0_0_12px_rgba(252,182,37,0.3)] transition-all active:scale-[0.98] shrink-0 mb-4 cursor-pointer"
         >
           <Plus className="shrink-0 size-4" />
           <span className="min-w-0 text-center leading-snug whitespace-normal">
@@ -72,20 +72,20 @@ export function UserSidebar({
             href="/interview/select"
             className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors ${
               pathname.startsWith("/interview")
-                ? "bg-surface-container-lowest dark:bg-slate-700 text-primary font-semibold shadow-sm"
-                : "text-on-surface-variant hover:bg-surface-container-highest"
+                ? "bg-[#204195]/8 text-[#204195] font-semibold border-l-4 border-[#FCB625] shadow-xs"
+                : "text-slate-600 hover:bg-[#F8FAFC]"
             }`}
           >
-            <Video className="shrink-0 size-5" />
+            <Video className="shrink-0 size-5 text-[#204195]" />
             <span className="min-w-0 leading-snug">{t("interview.select.eyebrow")}</span>
           </Link>
         </div>
 
-        <div className="flex flex-col flex-1 min-h-0 border-t border-outline-variant/25 pt-3">
-          <p className="text-[10px] font-semibold text-on-surface-variant px-0.5 mb-2 shrink-0">{t("chat.history")}</p>
+        <div className="flex flex-col flex-1 min-h-0 border-t border-[#E2E8F0] pt-3">
+          <p className="text-[10px] font-semibold text-slate-500 px-0.5 mb-2 shrink-0">{t("chat.history")}</p>
           <div className="flex-1 overflow-y-auto space-y-1.5 min-h-0 pr-0.5 -mr-0.5">
             {sessionListItems.length === 0 && (
-              <div className="px-1 text-[11px] text-on-surface-variant/90 italic leading-relaxed">{t("chat.noHistoryYet")}</div>
+              <div className="px-1 text-[11px] text-slate-400 italic leading-relaxed">{t("chat.noHistoryYet")}</div>
             )}
             {sessionListItems.map((item, index) => (
               <button
@@ -94,8 +94,8 @@ export function UserSidebar({
                 onClick={() => onSelectSession(item.id)}
                 className={`w-full text-left px-2.5 py-2 rounded-lg text-[11px] transition-all border border-transparent ${
                   item.id === currentSessionId
-                    ? "bg-primary/10 text-primary font-semibold ring-1 ring-primary/20 border-primary/10"
-                    : "text-on-surface-variant hover:bg-surface-container-highest hover:border-outline-variant/30"
+                    ? "bg-[#204195]/8 text-[#204195] font-semibold border-l-4 border-[#FCB625] shadow-xs"
+                    : "text-slate-700 hover:bg-[#F8FAFC] hover:border-slate-200"
                 }`}
               >
                 <div className="flex items-center justify-between gap-1 mb-0.5">

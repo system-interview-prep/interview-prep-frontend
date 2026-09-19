@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { writeAuthProfile } from "@features/auth/services/auth.service";
 import { useUserStore } from "@/store/user.store";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 export function performClientLogout() {
   if (typeof document !== "undefined") {
@@ -40,6 +41,8 @@ export function performClientLogout() {
 }
 
 export default function LogoutPage() {
+  const { t } = useLanguage();
+
   useEffect(() => {
     performClientLogout();
   }, []);
@@ -48,7 +51,7 @@ export default function LogoutPage() {
     <div className="flex min-h-screen items-center justify-center bg-white">
       <div className="flex flex-col items-center gap-3">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900" />
-        <p className="text-sm font-medium text-slate-600">Đang đăng xuất...</p>
+        <p className="text-sm font-medium text-slate-600">{t("auth.loggingOut")}</p>
       </div>
     </div>
   );

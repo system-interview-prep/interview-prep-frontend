@@ -134,11 +134,11 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const errors: Record<string, string> = {};
-    if (mode === "signup" && !name.trim()) errors.name = "Vui lòng nhập họ và tên.";
-    if (!email.trim()) errors.email = "Vui lòng nhập email.";
-    if (!password) errors.password = "Vui lòng nhập mật khẩu.";
-    if (mode === "signup" && !(password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /\d/.test(password))) errors.password = "Mật khẩu cần ít nhất 8 ký tự, gồm chữ hoa, chữ thường và số.";
-    if (mode === "signup" && !agreed) errors.agreed = "Bạn cần đồng ý với điều khoản và cam kết bảo mật.";
+    if (mode === "signup" && !name.trim()) errors.name = t("auth.error.nameRequired");
+    if (!email.trim()) errors.email = t("auth.error.emailRequired");
+    if (!password) errors.password = t("auth.error.passwordRequired");
+    if (mode === "signup" && !(password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /\d/.test(password))) errors.password = t("auth.error.passwordRequirements");
+    if (mode === "signup" && !agreed) errors.agreed = t("auth.error.agreeRequired");
     if (Object.keys(errors).length) {
       setFormErrors(errors);
       return;
@@ -154,14 +154,14 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
           : await authApi.login(normalizedEmail, password);
       await completeAuth(response.data);
     } catch (error) {
-      setFormErrors({ form: errorMessage(error, mode === "login" ? "Đăng nhập thất bại." : "Không thể tạo tài khoản.") });
+      setFormErrors({ form: errorMessage(error, mode === "login" ? t("auth.error.loginFailed") : t("auth.error.signupFailed")) });
     } finally {
       setLoading(false);
     }
   }
 
   const strengthColor = passwordStrength <= 1 ? "bg-[#D32F2F]" : passwordStrength <= 3 ? "bg-[#FCB625]" : "bg-[#2E7D32]";
-  const strengthLabel = passwordStrength <= 1 ? "Yếu" : passwordStrength <= 3 ? "Tốt" : "Mạnh";
+  const strengthLabel = passwordStrength <= 1 ? t("auth.strengthWeak") : passwordStrength <= 3 ? t("auth.strengthGood") : t("auth.strengthStrong");
 
   return (
     <main className="grid min-h-screen grid-cols-1 bg-white text-[#234196] font-sans lg:grid-cols-12">
@@ -175,43 +175,43 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
             Career · Studio
           </Link>
           <Link href="/" className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider text-[#5A6B8F] hover:text-[#234196] transition-colors">
-            <ArrowLeft size={14} /> Trang chủ
+            <ArrowLeft size={14} /> {t("auth.backToHome")}
           </Link>
         </div>
 
         <div className="my-10 lg:my-8">
           <span className="inline-flex items-center gap-1.5 -rotate-2 rounded-lg border-2 border-[#234196] bg-[#FCB625] px-3 py-1 font-mono text-xs font-bold uppercase tracking-wider text-[#234196] shadow-[2px_2px_0_#234196]">
-            <Sparkles size={14} /> Gia nhập 15.000+ ứng viên đã tối ưu CV
+            <Sparkles size={14} /> {t("auth.badgeJoin")}
           </span>
           <h1 className="mt-6 max-w-2xl font-serif text-3xl font-extrabold leading-[1.1] tracking-normal text-[#234196] sm:text-4xl xl:text-5xl">
-            Rèn luyện phản xạ phỏng vấn thực chất và mở khóa tiềm năng nghề nghiệp.
+            {t("auth.heroTitle")}
           </h1>
           <p className="mt-4 max-w-xl text-base leading-relaxed text-[#5A6B8F]">
-            Không chiêu trò qua mặt, không mẹo rập khuôn. Chỉ có sự chuẩn bị kỹ lưỡng và năng lực thật được thể hiện đúng cách.
+            {t("auth.heroSub")}
           </p>
 
           <article className="relative my-7 rounded-2xl border-2 border-[#234196] bg-white p-5 shadow-[5px_5px_0_#234196] sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-2.5">
               <span className="inline-flex -rotate-1 rounded-md border-2 border-[#234196] bg-[#FEF9EE] px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-wider text-[#234196]">
-                Senior Data Analyst
+                {t("auth.testimonialRole")}
               </span>
               <span className="inline-flex rotate-1 rounded-md border-2 border-[#2E7D32] bg-[#E8F5E9] px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-wider text-[#2E7D32]">
-                88% Đạt chuẩn ATS
+                {t("auth.testimonialMetric")}
               </span>
             </div>
             <blockquote className="mt-5 font-serif text-lg leading-relaxed text-[#234196]">
-              “Hệ thống chỉ ra đúng 3 lỗ hổng số liệu trong CV. Sau 2 buổi mock voice, mình tự tin hơn hẳn và đã pass offer tại Tech Corp.”
+              {t("auth.testimonialQuote")}
             </blockquote>
             <p className="mt-4 font-mono text-[11px] font-bold text-[#5A6B8F]">
-              Minh Trang · Chuyển việc thành công sau 3 tuần
+              {t("auth.testimonialAuthor")}
             </p>
           </article>
 
           <div className="flex flex-wrap gap-2">
             {[
-              "100% Bảo mật CV",
-              "Không lưu file ghi âm",
-              "Không cần thẻ tín dụng"
+              t("auth.badgeSecurity"),
+              t("auth.badgeNoAudio"),
+              t("auth.badgeNoCard")
             ].map((badge) => (
               <span key={badge} className="inline-flex items-center gap-1 rounded-lg border-2 border-[#2E7D32] bg-[#E8F5E9] px-2.5 py-1 font-mono text-[11px] font-bold text-[#2E7D32] shadow-[2px_2px_0_#2E7D32]">
                 <Check size={13} /> {badge}
@@ -220,14 +220,14 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
           </div>
         </div>
 
-        <p className="font-mono text-xs text-[#5A6B8F]">© 2026 Intervia · Luyện thật, tiến xa</p>
+        <p className="font-mono text-xs text-[#5A6B8F]">{t("auth.footerNotice")}</p>
       </section>
 
       {/* CỘT PHẢI: FORM XÁC THỰC TỐI GIẢN */}
       <section className="flex items-center justify-center bg-white p-6 sm:p-10 lg:col-span-7 lg:p-12 xl:p-16">
         <div className="w-full max-w-[440px]">
           {/* TAB CHUYỂN ĐỔI CHẾ ĐỘ DẬP NỔI */}
-          <div className="mb-8 flex w-full gap-1 rounded-xl border-2 border-[#234196] bg-[#FEF9EE] p-1 shadow-[3px_3px_0_#234196]" role="tablist" aria-label="Chế độ xác thực">
+          <div className="mb-8 flex w-full gap-1 rounded-xl border-2 border-[#234196] bg-[#FEF9EE] p-1 shadow-[3px_3px_0_#234196]" role="tablist" aria-label={t("auth.authMode")}>
             <button
               type="button"
               role="tab"
@@ -239,7 +239,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                   : "border-2 border-transparent text-[#5A6B8F] hover:text-[#234196]"
               }`}
             >
-              Đăng nhập
+              {t("auth.tabLogin")}
             </button>
             <button
               type="button"
@@ -252,15 +252,15 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                   : "border-2 border-transparent text-[#5A6B8F] hover:text-[#234196]"
               }`}
             >
-              Tạo tài khoản
+              {t("auth.tabSignup")}
             </button>
           </div>
 
           <h2 className="font-serif text-3xl font-extrabold tracking-normal text-[#234196] sm:text-4xl">
-            {mode === "login" ? "Chào mừng bạn trở lại." : "Bắt đầu chiến dịch mới."}
+            {mode === "login" ? t("auth.welcomeBackTitle") : t("auth.signupTitle")}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-[#5A6B8F]">
-            {mode === "login" ? "Không gian luyện tập của bạn đang sẵn sàng." : "Nhận 3 lượt quét CV đối soát miễn phí, không cần thẻ."}
+            {mode === "login" ? t("auth.welcomeBackSubtitle") : t("auth.signupSubtitle")}
           </p>
 
           {/* NÚT GOOGLE CHUNKY ĐÃ FIX TOÀN DIỆN */}
@@ -271,13 +271,13 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
             className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border-2 border-[#234196] bg-white py-3.5 px-4 font-bold text-[#234196] shadow-[3px_3px_0_#234196] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-[#F0F4FC] hover:shadow-[4px_4px_0_#234196] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-60 cursor-pointer"
           >
             {googleLoading ? <LoaderCircle className="animate-spin text-[#FCB625]" size={20} /> : <GoogleMark />}
-            <span>{mode === "login" ? "Tiếp tục với Google" : "Đăng ký nhanh với Google"}</span>
+            <span>{mode === "login" ? t("auth.googleLogin") : t("auth.googleSignup")}</span>
           </button>
 
           <div className="relative my-7 flex items-center">
             <span className="w-full border-t-2 border-dashed border-[#234196]/30" />
             <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border-2 border-[#234196]/20 bg-white px-3 py-0.5 font-mono text-[11px] font-bold text-[#5A6B8F]">
-              hoặc dùng email
+              {t("auth.orEmail")}
             </span>
           </div>
 
@@ -285,7 +285,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
             <div className="space-y-4">
               {mode === "signup" && (
                 <label className="block">
-                  <span className="mb-1.5 block text-sm font-bold text-[#234196]">Họ và tên</span>
+                  <span className="mb-1.5 block text-sm font-bold text-[#234196]">{t("auth.fullName")}</span>
                   <span className="relative block">
                     <User className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5A6B8F]" size={18} />
                     <input
@@ -294,7 +294,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                       value={name}
                       onChange={(event) => setName(event.target.value)}
                       className="w-full rounded-xl border-2 border-[#234196] bg-white py-3 pl-11 pr-4 text-sm font-medium text-[#234196] placeholder:text-[#5A6B8F]/70 focus:outline-none focus:shadow-[4px_4px_0_#234196] transition-all"
-                      placeholder="Nguyễn Minh Anh"
+                      placeholder={t("auth.namePlaceholder")}
                       aria-invalid={Boolean(formErrors.name)}
                     />
                   </span>
@@ -303,7 +303,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
               )}
 
               <label className="block">
-                <span className="mb-1.5 block text-sm font-bold text-[#234196]">Email công việc hoặc cá nhân</span>
+                <span className="mb-1.5 block text-sm font-bold text-[#234196]">{t("auth.emailAddress")}</span>
                 <span className="relative block">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5A6B8F]" size={18} />
                   <input
@@ -312,7 +312,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     className="w-full rounded-xl border-2 border-[#234196] bg-white py-3 pl-11 pr-4 text-sm font-medium text-[#234196] placeholder:text-[#5A6B8F]/70 focus:outline-none focus:shadow-[4px_4px_0_#234196] transition-all"
-                    placeholder="ban@congty.com"
+                    placeholder={t("auth.emailPlaceholder")}
                     aria-invalid={Boolean(formErrors.email)}
                   />
                 </span>
@@ -321,10 +321,10 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
 
               <label className="block">
                 <span className="mb-1.5 flex items-center justify-between gap-3 text-sm font-bold text-[#234196]">
-                  <span>Mật khẩu</span>
+                  <span>{t("auth.password")}</span>
                   {mode === "login" && (
                     <Link href="#" className="text-xs font-semibold text-[#234196] underline decoration-[#FCB625] decoration-2 underline-offset-4 hover:text-[#D97757]">
-                      Quên mật khẩu?
+                      {t("auth.forgotPassword")}
                     </Link>
                   )}
                 </span>
@@ -332,10 +332,11 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                   <LockKeyhole className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5A6B8F]" size={18} />
                   <input
                     type={showPassword ? "text" : "password"}
+                    data-mascot="password"
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    className="w-full rounded-xl border-2 border-[#234196] bg-white py-3 pl-11 pr-12 text-sm font-medium text-[#234196] placeholder:text-[#5A6B8F]/70 focus:outline-none focus:shadow-[4px_4px_0_#234196] transition-all"
+                    className="w-full rounded-xl border-2 border-[#204195] bg-white py-3 pl-11 pr-12 text-sm font-medium text-[#204195] placeholder:text-[#5A6B8F]/70 focus:outline-none focus:shadow-[4px_4px_0_#204195] transition-all"
                     placeholder="••••••••"
                     aria-invalid={Boolean(formErrors.password)}
                   />
@@ -343,7 +344,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                     type="button"
                     onClick={() => setShowPassword((value) => !value)}
                     className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[#5A6B8F] hover:bg-[#F0F4FC] hover:text-[#234196] transition-colors"
-                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -363,7 +364,9 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                       />
                     ))}
                   </div>
-                  <p className="mt-1.5 font-mono text-[11px] font-bold text-[#5A6B8F]">Độ mạnh mật khẩu: {strengthLabel}</p>
+                  <p className="mt-1.5 font-mono text-[11px] font-bold text-[#5A6B8F]">
+                    {t("auth.passwordStrength").replace("{strength}", strengthLabel)}
+                  </p>
                 </div>
               )}
 
@@ -382,11 +385,12 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                     />
                   </div>
                   <span>
-                    Tôi đồng ý với{" "}
+                    {t("auth.termsAgreePre")}
                     <Link href="#" className="font-bold text-[#234196] underline decoration-1 underline-offset-2">
-                      Điều khoản Dịch vụ
-                    </Link>{" "}
-                    và Cam kết Bảo mật Dữ liệu Tuyển dụng.
+                      {t("auth.termsOfService")}
+                    </Link>
+                    {t("auth.termsAnd")}
+                    {t("auth.privacyPolicy")}
                   </span>
                 </label>
               )}
@@ -408,16 +412,16 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
               {loading ? (
                 <>
                   <LoaderCircle size={20} className="animate-spin text-[#234196]" />
-                  <span>Đang mở không gian…</span>
+                  <span>{t("auth.submitting")}</span>
                 </>
               ) : mode === "login" ? (
                 <>
-                  <span>Đăng Nhập Vào Không Gian Làm Việc</span>
+                  <span>{t("auth.submitLogin")}</span>
                   <Sparkles size={16} />
                 </>
               ) : (
                 <>
-                  <span>Tạo Tài Khoản & Nhận 3 Lượt Quét</span>
+                  <span>{t("auth.submitSignup")}</span>
                   <Sparkles size={16} />
                 </>
               )}
@@ -426,7 +430,7 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
 
           <p className="mt-6 flex items-center justify-center gap-2 text-center text-xs leading-5 text-[#5A6B8F]">
             <ShieldCheck size={16} className="shrink-0 text-[#2E7D32]" />
-            <span>Mã hóa SSL 256-bit chuẩn ngân hàng. Dữ liệu CV của bạn chỉ thuộc về bạn.</span>
+            <span>{t("auth.securityBadge")}</span>
           </p>
         </div>
       </section>

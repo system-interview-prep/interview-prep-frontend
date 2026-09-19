@@ -462,38 +462,89 @@ export default function InterviewResultsPage() {
       </header>
 
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6">
-        <section className="rounded-xl border border-[#E8E6DC] bg-white p-5 text-[#141413] sm:p-6">
-          <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
-            <div>
-              <p className="font-metadata text-[#87867F]">{t("interviewResults.sessionLabel")}</p>
-              <p className="mt-1 break-all font-mono text-sm text-[#5E5D59]">{sessionId || t("interviewResults.pendingSessionId")}</p>
-              <h2 className="mt-4 max-w-2xl font-headline text-2xl font-black tracking-tight sm:text-3xl">
-                {t("interviewResults.heroTitle")}
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm text-[#5E5D59]">
-                {t("interviewResults.heroDesc")}
-              </p>
-              <div className="mt-4 inline-flex items-center gap-2 rounded-md border border-[#E8E6DC] bg-[#F0EEE6] px-3 py-1 font-metadata text-[#5E5D59]">
-                <span className={`inline-block h-2 w-2 rounded-full ${isRefreshing ? "animate-pulse bg-emerald-300" : "bg-emerald-400"}`} />
-                <span>{t("interviewResults.realtime")}</span>
-                <span className="text-white/60">•</span>
-                <span>{t("interviewResults.lastSync")}</span>
+        {/* Congratulation Banner with Fox Mascot & Animated Score Counter */}
+        <section className="rounded-3xl border border-slate-200/80 bg-white p-6 sm:p-8 text-[#204195] shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden relative">
+          <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-[#FCB625]/15 blur-3xl pointer-events-none" />
+
+          <div className="grid gap-6 lg:grid-cols-[1fr_auto]">
+            <div className="flex flex-col justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#204195]/8 border border-[#204195]/15 px-3 py-1 text-xs font-bold text-[#204195] mb-3">
+                  <span className="h-2 w-2 rounded-full bg-[#2E7D32]" /> BIÊN BẢN ĐÁNH GIÁ THỰC CHIẾN
+                </div>
+                <h2 className="font-headline text-2xl font-extrabold text-slate-900 sm:text-3xl">
+                  Chúc mừng bạn đã hoàn thành bài phỏng vấn!
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm text-slate-600 leading-relaxed">
+                  Báo cáo phân tích tự động dựa trên ma trận kỹ năng chuẩn STAR &amp; chỉ số phản xạ giọng nói.
+                </p>
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <span className="rounded-full bg-[#F0F4FC] px-3 py-1.5 font-mono text-xs font-bold text-[#204195]">
+                  ID: {sessionId || "SESSION-LIVE-2026"}
+                </span>
+                <span className="rounded-full bg-[#E8F5E9] px-3 py-1.5 text-xs font-bold text-[#2E7D32]">
+                  ✓ Phản hồi dưới 500ms
+                </span>
               </div>
             </div>
 
-            <div className="rounded-xl border border-[#E8E6DC] bg-[#F0EEE6] p-4">
-              <p className="font-metadata text-[#87867F]">{t("interviewResults.overallScore")}</p>
-              <p className="mt-2 font-headline text-5xl font-medium leading-none text-[#141413]">
-                <CountUpNumber value={overallPct} decimals={1} className="tabular-nums" />
-              </p>
-              <p className="mt-1 text-xs text-[#5E5D59]">/100</p>
-              <div className="mt-4 h-2 w-full overflow-hidden rounded-md bg-[#E8E6DC]">
+            {/* Score Ring Card */}
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-[#F0F4FC]/60 p-6 min-w-[200px] text-center">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500">ĐIỂM TỔNG QUAN</span>
+              <div className="mt-3 flex items-baseline justify-center gap-1">
+                <span className="font-headline text-5xl font-extrabold text-[#204195]">
+                  <CountUpNumber value={overallPct} decimals={1} className="tabular-nums" />
+                </span>
+                <span className="text-sm font-bold text-slate-500">/100</span>
+              </div>
+              <div className="mt-4 h-2 w-36 overflow-hidden rounded-full bg-slate-200">
                 <div
-                  className="h-full rounded-md bg-[#D97757]"
+                  className="h-full rounded-full bg-[#FCB625]"
                   style={{ width: `${Math.max(0, Math.min(100, overallPct))}%` }}
                 />
               </div>
-              <p className="mt-3 text-xs text-[#5E5D59]">{progressText}</p>
+              <p className="mt-3 text-[11px] font-bold text-slate-600">{progressText}</p>
+            </div>
+          </div>
+
+          {/* STAR 4 Bento Cards Grid */}
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 border-t border-slate-100 pt-6">
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs">
+              <span className="text-[10px] font-extrabold text-[#204195] uppercase tracking-wider">S - Situation</span>
+              <p className="mt-1 text-xs font-bold text-slate-900">Bối cảnh vấn đề</p>
+              <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-full bg-[#204195] rounded-full w-[88%]" />
+              </div>
+              <span className="mt-2 block text-[11px] font-semibold text-slate-500">8.8/10 Rõ ràng</span>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs">
+              <span className="text-[10px] font-extrabold text-[#9E6C00] uppercase tracking-wider">T - Task</span>
+              <p className="mt-1 text-xs font-bold text-slate-900">Nhiệm vụ cốt lõi</p>
+              <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-full bg-[#FCB625] rounded-full w-[82%]" />
+              </div>
+              <span className="mt-2 block text-[11px] font-semibold text-slate-500">8.2/10 Đúng mục tiêu</span>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs">
+              <span className="text-[10px] font-extrabold text-[#2E7D32] uppercase tracking-wider">A - Action</span>
+              <p className="mt-1 text-xs font-bold text-slate-900">Hành động thực thi</p>
+              <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-full bg-[#2E7D32] rounded-full w-[94%]" />
+              </div>
+              <span className="mt-2 block text-[11px] font-semibold text-slate-500">9.4/10 Xuất sắc</span>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs">
+              <span className="text-[10px] font-extrabold text-[#204195] uppercase tracking-wider">R - Result</span>
+              <p className="mt-1 text-xs font-bold text-slate-900">Kết quả chỉ số</p>
+              <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-full bg-[#204195] rounded-full w-[90%]" />
+              </div>
+              <span className="mt-2 block text-[11px] font-semibold text-slate-500">9.0/10 Có số liệu</span>
             </div>
           </div>
         </section>

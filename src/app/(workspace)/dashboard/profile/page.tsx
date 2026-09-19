@@ -426,7 +426,7 @@ export default function UserProfilePage() {
                 onClick={loadProfile}
                 className="chunky-primary mt-4 px-5 py-2.5 text-sm"
               >
-                Thử lại
+                {t("profile.retry")}
               </button>
             </section>
           ) : (
@@ -614,7 +614,7 @@ export default function UserProfilePage() {
                       />
                     </div>
                     <p className="text-[11px] text-[#5A6B8F]">
-                      Tài khoản được liên kết với email này và không thể sửa đổi trực tiếp.
+                      {t("profile.emailReadonlyNotice")}
                     </p>
                   </label>
 
@@ -650,7 +650,7 @@ export default function UserProfilePage() {
 
                     {isDirty && (
                       <span className="sticker ml-auto bg-[#FCB625] text-[9px] text-[#234196]">
-                        Có thay đổi chưa lưu
+                        {t("profile.unsavedChanges")}
                       </span>
                     )}
                   </div>

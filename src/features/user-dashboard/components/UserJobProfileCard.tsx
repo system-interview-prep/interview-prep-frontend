@@ -13,7 +13,6 @@ type UserJobProfileCardProps = {
   updatedPrefix: string;
   interviewCta: string;
   onInterview: () => void;
-  /** Show keyword line when non-empty */
   showKeywords?: boolean;
 };
 
@@ -32,7 +31,7 @@ export function UserJobProfileCard({
   const hasKeywords = showKeywords && keywordsLine && keywordsLine !== "—";
 
   return (
-    <article className="group relative flex h-full flex-col rounded-2xl border-2 border-[#234196] bg-white p-5 text-[#234196] shadow-[3px_3px_0_#234196] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#234196] motion-reduce:transition-none">
+    <article className="group relative flex h-full flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm hover:shadow-md hover:border-[#FCB625]/50 transition-all duration-200">
       <Link
         href={`/dashboard/jobs/${jobId}`}
         className="absolute inset-0 z-[1] rounded-2xl"
@@ -40,31 +39,35 @@ export function UserJobProfileCard({
       />
       <div className="relative z-[2] flex min-h-0 flex-1 flex-col pointer-events-none">
         <div className="mb-3 flex items-start justify-between gap-2">
-          <span className="sticker inline-flex max-w-[85%] truncate bg-[#F0F4FC] text-[9px]">
+          <span className="rounded-full bg-[#204195]/8 border border-[#204195]/15 px-3 py-1 text-xs font-semibold text-[#204195] truncate max-w-[85%]">
             {categoryLabel}
           </span>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border-2 border-[#234196] bg-[#FCB625]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#204195]/10 text-[#204195]">
             <Briefcase className="size-5" aria-hidden="true" />
           </span>
         </div>
-        <h3 className="line-clamp-2 font-headline text-xl font-bold leading-snug">{title}</h3>
+        <h3 className="line-clamp-2 font-headline text-lg font-extrabold text-slate-900 leading-snug group-hover:text-[#204195] transition-colors">
+          {title}
+        </h3>
         {hasKeywords && (
-          <p className="mt-3 line-clamp-2 flex-1 text-sm leading-relaxed text-[#5A6B8F]">{keywordsLine}</p>
+          <p className="mt-3 line-clamp-2 flex-1 text-xs leading-relaxed text-slate-600">{keywordsLine}</p>
         )}
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t-2 border-[#234196] pt-4">
-          <p className="text-[11px] text-[#5A6B8F]">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+          <p className="text-[11px] text-slate-500">
             <span className="font-semibold">{updatedPrefix}</span> {updatedShort}
           </p>
           <button
             type="button"
             onClick={onInterview}
-            className="chunky-primary pointer-events-auto relative z-[3] min-h-11 shrink-0 px-4 text-xs"
+            className="pointer-events-auto relative z-[3] inline-flex items-center gap-1.5 rounded-full bg-[#204195] px-4 py-2 text-xs font-extrabold text-white shadow-xs hover:bg-[#183275] active:scale-95 transition-all"
           >
             {interviewCta}
-            <Play className="size-4" aria-hidden="true" />
+            <Play className="size-3.5 fill-current" aria-hidden="true" />
           </button>
         </div>
       </div>
     </article>
   );
 }
+
+

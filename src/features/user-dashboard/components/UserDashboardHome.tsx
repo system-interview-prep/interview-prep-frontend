@@ -27,8 +27,8 @@ type Props = {
   onDismissVideoError: () => void;
 };
 
-const surface = "rounded-2xl border-2 border-[#234196] bg-white shadow-[3px_3px_0_#234196]";
-const interactive = "transition-[background-color,color,transform] duration-200 motion-reduce:transition-none active:translate-y-px";
+const surface = "rounded-2xl border border-slate-200/80 bg-white shadow-sm hover:shadow-md transition-all duration-200";
+const interactive = "transition-all duration-200 motion-reduce:transition-none active:scale-95";
 
 function readSessions(): StoredDashboardSession[] {
   try {

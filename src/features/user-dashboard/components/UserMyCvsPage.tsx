@@ -497,7 +497,7 @@ export default function UserMyCvsPage() {
             </div>
           ) : null}
 
-          <section className="rounded-2xl border border-[#C8D2E8] bg-white p-4 shadow-[0_12px_32px_rgba(35,65,150,0.08)] md:p-6">
+          <section className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-8">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="font-headline text-2xl font-bold">{t("userDash.myCvs.listTitle")}</h2>
