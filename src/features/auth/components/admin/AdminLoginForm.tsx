@@ -81,8 +81,8 @@ export default function AdminLoginForm() {
       const response = await authApi.login(trimmedEmail, password);
 
       // Verify that this user has ADMIN role
-      const userRole = (response.data.user.role || "").toUpperCase();
-      if (userRole !== "ADMIN") {
+      const isAdmin = response.data.user.roles.some((role) => role.toUpperCase() === "ADMIN");
+      if (!isAdmin) {
         setErrorMessage(
           t("admin.login.error.notAdmin") ||
           "Tài khoản này không có quyền truy cập hệ thống quản trị."

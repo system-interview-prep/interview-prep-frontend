@@ -112,14 +112,13 @@ export function clearAllAuthCookies(): void {
  * Shared session completion logic for both User and Admin logins.
  *
  * @param data AuthResponse from /auth/login or /auth/register or /auth/google
- * @param expectedRole Optional check. If "ADMIN", verifies user.role === "ADMIN".
+ * @param expectedRole Optional check. If "ADMIN", verifies the user has the ADMIN role.
  */
 export function completeAuthSession(
   data: AuthResponse,
   expectedRole?: "ADMIN" | "USER"
 ): { user: AuthResponse["user"]; isAdmin: boolean } {
-  const userRole = (data.user.role || "").toUpperCase();
-  const isAdmin = userRole === "ADMIN";
+  const isAdmin = data.user.roles.some((role) => role.toUpperCase() === "ADMIN");
 
   if (expectedRole === "ADMIN" && !isAdmin) {
     throw new AuthError(
@@ -140,7 +139,7 @@ export function completeAuthSession(
       email: data.user.email,
       name: data.user.name,
       picture,
-      role: data.user.role,
+      roles: data.user.roles,
     });
 
     try {
