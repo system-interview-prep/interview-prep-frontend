@@ -662,6 +662,15 @@ export default function AdminJobProfileCreateView() {
     if (title && !form.title.trim()) {
       setForm((f) => ({ ...f, title }));
     }
+    const classifications =
+      (editableCanonicalUi as any)?.career_classifications ??
+      (editableCanonicalUi as any)?.careerClassifications;
+    if (Array.isArray(classifications) && classifications.length > 0) {
+      const primary = classifications.find((c: any) => c?.is_primary || c?.isPrimary) ?? classifications[0];
+      if (primary?.code && !form.primaryTaxonomyConceptId) {
+        setForm((f) => ({ ...f, primaryTaxonomyConceptId: primary.code }));
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editableCanonicalUi]);
 
@@ -671,7 +680,11 @@ export default function AdminJobProfileCreateView() {
       try {
         const { data } = await taxonomyApi.getActive();
         if (cancelled) return;
-        const items = (data.concepts ?? []).filter((concept) => ["domain", "occupation", "job_family"].includes(concept.kind));
+        const allConcepts = data.concepts ?? [];
+        const filtered = allConcepts.filter((concept) =>
+          ["domain", "occupation", "job_family", "competency", "job_role", "specialization"].includes(concept.kind)
+        );
+        const items = filtered.length > 0 ? filtered : allConcepts;
         setTaxonomyConcepts(items);
         setForm((f) => {
           return f.primaryTaxonomyConceptId ? f : { ...f, primaryTaxonomyConceptId: items[0]?.concept_id ?? "" };
@@ -688,7 +701,7 @@ export default function AdminJobProfileCreateView() {
   }, [t]);
 
   const handleCancel = useCallback(() => {
-    router.push("/admin/dashboard");
+    router.push("/admin/job-descriptions");
   }, [router]);
 
   // Edit mode: load existing JobProfile to show description for editing.
@@ -726,7 +739,7 @@ export default function AdminJobProfileCreateView() {
     setError(null);
     try {
       await jobProfileApi.update(editId, { description: descriptionHtml.trim() ? descriptionHtml : "" });
-      router.push(`/admin/job-profiles/${editId}`);
+      router.push(`/admin/job-descriptions/${editId}`);
     } catch (err: unknown) {
       const msg = axios.isAxiosError(err)
         ? String((err.response?.data as { message?: string })?.message ?? err.message)
@@ -781,7 +794,7 @@ export default function AdminJobProfileCreateView() {
         status: form.status,
         description: descriptionHtml.trim() ? descriptionHtml : undefined,
       });
-      router.push(`/admin/job-profiles/${data.id}`);
+      router.push(`/admin/job-descriptions/${data.id}`);
     } catch (err: unknown) {
       const msg = axios.isAxiosError(err)
         ? String((err.response?.data as { message?: string })?.message ?? err.message)
@@ -896,7 +909,7 @@ export default function AdminJobProfileCreateView() {
       <header className="mb-8 flex min-w-0 flex-col gap-3 border-b border-outline-variant/20 pb-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <Link
-            href="/admin/dashboard"
+            href="/admin/job-descriptions"
             className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-primary hover:underline"
           >
             <ArrowLeft className="size-4" />
@@ -1085,7 +1098,7 @@ export default function AdminJobProfileCreateView() {
             <option value="">No taxonomy classification</option>
             {taxonomyConcepts.map((concept) => (
               <option key={concept.concept_id} value={concept.concept_id}>
-                {concept.label}
+                {concept.label} {concept.kind ? `(${concept.kind})` : ""}
               </option>
             ))}
           </select>
