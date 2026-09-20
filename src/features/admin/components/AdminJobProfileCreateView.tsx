@@ -768,7 +768,7 @@ export default function AdminJobProfileCreateView() {
   const handleFinalize = async () => {
     if (!uploadId || finalizeBusy) return;
     if (!form.title.trim()) {
-      setError("Missing title/category");
+      setError("Missing title");
       return;
     }
     setFinalizeBusy(true);

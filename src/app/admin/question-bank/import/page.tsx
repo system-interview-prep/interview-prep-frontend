@@ -28,8 +28,10 @@ export default function ImportQuestionsPage() {
 
   async function upload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]; if (!file) return;
+    const input = event.target;
     try { const { data } = await questionBankApi.uploadImport(file); setSummary(data); const response = await questionBankApi.getImportRows(data.importId); setRows(response.data.items); setMessage("Đã parse vào staging. Kiểm tra từng row trước khi commit."); }
     catch (error: unknown) { setMessage((error as { response?: { data?: { message?: string } } }).response?.data?.message || "Upload không thành công."); }
+    finally { input.value = ""; }
   }
 
   async function commitDrafts() {
