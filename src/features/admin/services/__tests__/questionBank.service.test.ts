@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 const get = vi.fn();
-vi.mock("@/lib/apiClient", () => ({ default: { get } }));
+const post = vi.fn();
+vi.mock("@/lib/apiClient", () => ({ default: { get, post } }));
 
 import { questionBankApi } from "../questionBank.service";
 import { rubricsApi } from "../rubrics.service";
@@ -19,5 +20,11 @@ describe("question bank admin API contract", () => {
     get.mockResolvedValueOnce({ data: { items: [] } });
     await rubricsApi.list("system-design");
     expect(get).toHaveBeenCalledWith("/admin/question-bank/rubrics", { params: { q: "system-design" } });
+  });
+
+  it("creates a manual question through the Core draft endpoint", async () => {
+    post.mockResolvedValueOnce({ data: {} });
+    await questionBankApi.createDraft({ stableKey: "backend.api.001", version: "1.0.0", taxonomyVersion: "v1", questionType: "CONCEPTUAL", difficultyBand: "MEDIUM", canonicalLocale: "vi-VN", canonicalText: "Q", objective: "O", thinkingSeconds: 0, softAnswerSeconds: 60, hardAnswerSeconds: 120, contextPolicy: {}, personalizationPolicy: {}, changeSummary: "", taxonomyMappings: [{ conceptId: "comp", purpose: "PRIMARY_COMPETENCY", relevance: 1 }] });
+    expect(post).toHaveBeenCalledWith("/admin/question-bank/questions/drafts", expect.objectContaining({ stableKey: "backend.api.001" }));
   });
 });
