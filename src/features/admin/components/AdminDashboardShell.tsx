@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Users,
   Briefcase,
-  Layers,
   Database,
   FileQuestion,
   ClipboardCheck,
@@ -98,9 +97,8 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     () => ({
       dashboard: pathname === "/admin/dashboard" || pathname === "/admin",
       users: pathname.startsWith("/admin/users"),
-      jobProfiles: pathname === "/admin/job-profiles" || (pathname.startsWith("/admin/job-profiles/") && !pathname.startsWith("/admin/job-profiles/categories") && !pathname.startsWith("/admin/job-profiles/create")),
+      jobProfiles: pathname === "/admin/job-profiles" || (pathname.startsWith("/admin/job-profiles/") && !pathname.startsWith("/admin/job-profiles/create")),
       createJob: pathname.startsWith("/admin/job-profiles/create"),
-      categories: pathname.startsWith("/admin/job-profiles/categories"),
       questionBank: pathname.startsWith("/admin/question-bank"),
       rubrics: pathname.startsWith("/admin/rubrics"),
       knowledgeBase: pathname.startsWith("/admin/knowledge-base"),
@@ -156,7 +154,6 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
 
   const navGroupContent: NavItem[] = [
     { href: "/admin/job-profiles", label: t("admin.sidebar.jobBoard") || "Job Descriptions (JD)", Icon: Briefcase, active: isActive.jobProfiles },
-    { href: "/admin/job-profiles/categories", label: t("admin.sidebar.categories") || "Job Categories", Icon: Layers, active: isActive.categories },
     { href: "/admin/question-bank", label: t("admin.sidebar.questionBank") || "Question Bank", Icon: FileQuestion, active: isActive.questionBank },
     { href: "/admin/rubrics", label: t("admin.sidebar.rubrics") || "Scoring Rubrics", Icon: ClipboardCheck, active: isActive.rubrics },
     { href: "/admin/knowledge-base", label: t("admin.sidebar.knowledgeBase") || "Knowledge Base (RAG)", Icon: Database, active: isActive.knowledgeBase },

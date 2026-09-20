@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Brain,
   Plus,
-  Layers,
   Database,
   MessageSquare,
   Settings,
@@ -59,12 +58,6 @@ const NAV_SECTIONS: NavSection[] = [
         labelKey: "admin.sidebar.createProfile",
         defaultLabel: "Tạo Job Profile",
         icon: Plus,
-      },
-      {
-        href: "/admin/job-profiles/categories",
-        labelKey: "admin.sidebar.categories",
-        defaultLabel: "Danh mục ngành nghề",
-        icon: Layers,
       },
       {
         href: "/admin/knowledge-base",

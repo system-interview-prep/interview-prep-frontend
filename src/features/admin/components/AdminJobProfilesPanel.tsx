@@ -380,8 +380,8 @@ export default function AdminJobProfilesPanel() {
           />
         </div>
         <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value as "all" | string)}
+          value={taxonomyFilter}
+          onChange={(e) => setTaxonomyFilter(e.target.value as "all" | string)}
           className="h-11 w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-xs focus:bg-white focus:border-[#204195] focus:outline-none"
           aria-label={t("admin.jobProfile.form.category")}
         >
@@ -432,7 +432,7 @@ export default function AdminJobProfilesPanel() {
               >
                 <div className="mb-4 flex items-start justify-between gap-2">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195]">
-                    <CategoryIcon name={resolveCategoryName(p)} className="size-5" />
+                    <CategoryIcon name={resolveTaxonomyLabel(p)} className="size-5" />
                   </div>
                   <span
                     className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(
@@ -530,7 +530,7 @@ export default function AdminJobProfilesPanel() {
                   </td>
                   <td className="px-5 py-3.5">
                     <span className="inline-flex max-w-[12rem] truncate rounded-full bg-[#204195]/8 border border-[#204195]/15 px-2 py-0.5 text-[10px] font-semibold text-[#204195]">
-                      {resolveCategoryName(p)}
+                      {resolveTaxonomyLabel(p)}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-5 py-3.5">
