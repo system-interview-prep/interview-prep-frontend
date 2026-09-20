@@ -75,7 +75,7 @@ _Last Updated: 2026-09-20 (Post-Implementation Audit)_
   - `GET /admin/ai/usage`: Dữ liệu phân bổ tokens, chi phí và độ trễ p50/p95.
   - `GET /admin/ai/errors`: Gom cụm các exceptions từ LLM Gateway.
 - **Security Constraint**: Secret key của Langfuse/LangSmith lưu tại backend `.env`, browser chỉ nhận dữ liệu đã được sanitize qua backend proxy.
-
+### DEMO ###
 ### 2.6 Audit Logs
 - **Endpoint**: `GET /admin/audit-logs`
 - **Method**: GET
