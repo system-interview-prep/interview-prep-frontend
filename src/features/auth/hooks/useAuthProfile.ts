@@ -25,6 +25,7 @@ async function hydrateAuthProfile(): Promise<AuthProfile | null> {
           email: data.email ?? existing?.email ?? null,
           name: data.name ?? existing?.name ?? null,
           picture: data.picture ?? data.avatar ?? existing?.picture ?? null,
+          roles: data.roles ?? existing?.roles ?? [],
         };
         writeAuthProfile(profile);
         return profile;

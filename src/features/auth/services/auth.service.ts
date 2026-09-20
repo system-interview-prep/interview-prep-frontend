@@ -2,6 +2,7 @@ export type AuthProfile = {
   email?: string | null;
   name?: string | null;
   picture?: string | null;
+  roles?: string[];
 };
 
 export const AUTH_PROFILE_KEY = "auth.googleProfile";

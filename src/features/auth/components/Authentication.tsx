@@ -100,8 +100,8 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
     const picture = pickUserPicture(data.user) || readAuthProfile()?.picture?.trim() || null;
     localStorage.setItem("accessToken", accessToken);
     document.cookie = "access_token=" + accessToken + "; Path=/; SameSite=Lax; Max-Age=604800";
-    writeAuthProfile({ email: data.user.email, name: data.user.name, picture });
-    const admin = data.user.role === "ADMIN";
+    writeAuthProfile({ email: data.user.email, name: data.user.name, picture, roles: data.user.roles ?? [] });
+    const admin = data.user.roles?.includes("ADMIN") ?? false;
     setRoleCookie(admin ? "admin" : "user");
     router.replace(nextUrl ?? (admin ? "/admin/dashboard" : "/dashboard"));
   }
