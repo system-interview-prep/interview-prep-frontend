@@ -754,8 +754,13 @@ export default function KnowledgeBaseClient({
           </div>
 
           {/* Tab Switcher */}
-          <div className="flex rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-1 shadow-xs">
+          <div role="tablist" aria-label="Knowledge workspace views" className="flex rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-1 shadow-xs">
             <button
+              id="knowledge-tab-catalog"
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "catalog"}
+              aria-controls="knowledge-panel-catalog"
               onClick={() => setActiveTab("catalog")}
               className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
                 activeTab === "catalog"
@@ -767,6 +772,11 @@ export default function KnowledgeBaseClient({
               Quản lý Unit
             </button>
             <button
+              id="knowledge-tab-editor"
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "editor"}
+              aria-controls="knowledge-panel-editor"
               onClick={() => setActiveTab("editor")}
               className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
                 activeTab === "editor"
@@ -778,6 +788,11 @@ export default function KnowledgeBaseClient({
               {isEditMode ? "Sửa tài liệu" : "Biên tập & Nạp"}
             </button>
             <button
+              id="knowledge-tab-vector"
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "playground"}
+              aria-controls="knowledge-panel-vector"
               onClick={() => setActiveTab("playground")}
               className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
                 activeTab === "playground"
@@ -788,7 +803,7 @@ export default function KnowledgeBaseClient({
               <FlaskConical className="size-4" />
               Vector Explorer
             </button>
-            <button onClick={() => setActiveTab("graph")} className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${activeTab === "graph" ? "bg-white text-[#204195] shadow-xs" : "text-[#607096] hover:text-[#204195]"}`}>
+            <button id="knowledge-tab-graph" type="button" role="tab" aria-selected={activeTab === "graph"} aria-controls="knowledge-panel-graph" onClick={() => setActiveTab("graph")} className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${activeTab === "graph" ? "bg-white text-[#204195] shadow-xs" : "text-[#607096] hover:text-[#204195]"}`}>
               <Network className="size-4" /> Graph Explorer
             </button>
           </div>
@@ -798,7 +813,7 @@ export default function KnowledgeBaseClient({
         <div className="w-full">
           {/* TAB 1: CATALOG OF KNOWLEDGE UNITS */}
           {activeTab === "catalog" && (
-            <div className="space-y-6">
+            <div id="knowledge-panel-catalog" role="tabpanel" aria-labelledby="knowledge-tab-catalog" className="space-y-6">
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-bold font-headline tracking-tight text-[#14244B]">Danh sách các Tri Thức nguồn (Units)</h2>
@@ -1029,7 +1044,7 @@ export default function KnowledgeBaseClient({
 
           {/* TAB 2: MANUAL EDITOR AND DROP INGESTION */}
           {activeTab === "editor" && (
-            <div className="grid grid-cols-12 gap-8">
+            <div id="knowledge-panel-editor" role="tabpanel" aria-labelledby="knowledge-tab-editor" className="grid grid-cols-12 gap-8">
               {/* Form Input (Left panel) */}
               <div className="col-span-12 lg:col-span-8 space-y-6">
                 <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -1346,7 +1361,7 @@ export default function KnowledgeBaseClient({
           )}
 
           {activeTab === "graph" && (
-            <div className="space-y-6">
+            <div id="knowledge-panel-graph" role="tabpanel" aria-labelledby="knowledge-tab-graph" className="space-y-6">
               <div className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs">
                 <div className="flex items-start gap-3"><div className="rounded-xl bg-[#EEF2FD] p-3 text-[#204195]"><Network className="size-6" /></div><div><h2 className="text-xl font-bold text-[#14244B]">Knowledge Graph Explorer</h2><p className="mt-1 text-sm text-[#607096]">Xem quan hệ giữa question version, competency, skill, rubric và source. PostgreSQL vẫn là source of truth.</p></div></div>
               </div>
@@ -1356,7 +1371,7 @@ export default function KnowledgeBaseClient({
 
           {/* TAB 3: PLAYGROUND / TESTING RETRIEVAL */}
           {activeTab === "playground" && (
-            <div className="grid grid-cols-12 gap-8">
+            <div id="knowledge-panel-vector" role="tabpanel" aria-labelledby="knowledge-tab-vector" className="grid grid-cols-12 gap-8">
               {/* Controls (Left Column) */}
               <div className="col-span-12 lg:col-span-4 space-y-6">
                 <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm">
