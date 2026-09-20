@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   Check,
   Eye,
   EyeOff,
+  Home,
   LoaderCircle,
   LockKeyhole,
   Mail,
@@ -19,7 +19,6 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { useGoogleLogin } from "@react-oauth/google";
 import { readAuthProfile, writeAuthProfile } from "@features/auth/services/auth.service";
 import { authApi, type AuthResponse } from "@lib/apiClient";
-import { AuthAnimatedBackground } from "@features/auth/components/AuthAnimatedBackground";
 
 type AuthMode = "login" | "signup";
 
@@ -43,10 +42,10 @@ function errorMessage(error: unknown, fallback: string) {
 function GoogleMark() {
   return (
     <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden>
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.07 5.07 0 0 1-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77a6.59 6.59 0 0 1-9.87-3.47H2.18v2.84A11 11 0 0 0 12 23Z" fill="#34A853"/>
-      <path d="M5.84 14.09A6.5 6.5 0 0 1 5.49 12c0-.73.13-1.43.35-2.09V7.07H2.18A11 11 0 0 0 1 12c0 1.78.43 3.45 1.18 4.93l3.66-2.84Z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A10.95 10.95 0 0 0 2.18 7.07l3.66 2.84A6.58 6.58 0 0 1 12 5.38Z" fill="#EA4335"/>
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.07 5.07 0 0 1-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z" fill="#4285F4" />
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77a6.59 6.59 0 0 1-9.87-3.47H2.18v2.84A11 11 0 0 0 12 23Z" fill="#34A853" />
+      <path d="M5.84 14.09A6.5 6.5 0 0 1 5.49 12c0-.73.13-1.43.35-2.09V7.07H2.18A11 11 0 0 0 1 12c0 1.78.43 3.45 1.18 4.93l3.66-2.84Z" fill="#FBBC05" />
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A10.95 10.95 0 0 0 2.18 7.07l3.66 2.84A6.58 6.58 0 0 1 12 5.38Z" fill="#EA4335" />
     </svg>
   );
 }
@@ -185,33 +184,27 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
   const strengthLabel = passwordStrengthScore <= 1 ? t("auth.strengthWeak") : passwordStrengthScore <= 3 ? t("auth.strengthGood") : t("auth.strengthStrong");
 
   return (
-    <div
-      className="relative flex min-h-screen w-full flex-col justify-center items-center bg-[#F7F9FD] bg-cover bg-center bg-no-repeat px-4 sm:px-6 py-8 sm:py-10 lg:py-12 text-[#14244B]"
-      style={{ backgroundImage: "url('/bg-login.png')" }}
-    >
-      {/* CALM ANIMATED BACKGROUND LAYER */}
-      <AuthAnimatedBackground />
+    <div className="relative flex min-h-screen w-full flex-col justify-center items-center bg-white px-4 sm:px-6 py-12 text-[#14244B]">
+      {/* TOP NAVIGATION: LOGO (TOP-LEFT) & BACK BUTTON (TOP-RIGHT) */}
+      <header className="absolute top-5 sm:top-8 left-5 sm:left-10 right-5 sm:right-10 flex items-center justify-between z-20">
+        <Link href="/" className="inline-flex items-center gap-2.5 text-xl font-extrabold tracking-tight text-[#14244B] hover:opacity-90 transition-opacity">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#204195] text-[#FCB625] shadow-xs">
+            <Sparkles size={18} />
+          </span>
+          <span>INTERVIA</span>
+        </Link>
+        <Link
+          href="/"
+          aria-label="Home"
+          className="grid h-9 w-9 place-items-center rounded-xl border border-[#DCE4F3] bg-white text-[#607096] hover:bg-[#F7F9FD] hover:text-[#204195] transition-colors shadow-xs"
+        >
+          <Home size={18} />
+        </Link>
+      </header>
 
-      <div className="relative z-10 w-full max-w-[480px] my-auto flex flex-col items-center">
-        {/* BRAND HEADER ABOVE CARD */}
-        <header className="mb-6 flex w-full items-center justify-between px-1">
-          <Link href="/" className="inline-flex items-center gap-2.5 text-2xl font-extrabold tracking-tight text-[#14244B]">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#204195] text-[#FCB625] shadow-xs">
-              <Sparkles size={18} />
-            </span>
-            <span>INTERVIA</span>
-          </Link>
-          <Link
-            href="/"
-            aria-label="Home"
-            className="grid h-9 w-9 place-items-center rounded-xl border border-[#DCE4F3] bg-white/90 backdrop-blur-xs text-[#607096] hover:bg-white hover:text-[#204195] transition-colors shadow-xs"
-          >
-            <ArrowLeft size={16} />
-          </Link>
-        </header>
-
+      <div className="relative z-10 w-full max-w-[480px] my-auto flex flex-col items-center pt-12 sm:pt-4">
         {/* SINGLE CENTERED AUTH CARD */}
-        <div className="w-full rounded-[26px] border border-[#DCE4F3] bg-white/96 backdrop-blur-md p-6 sm:p-8 md:p-9 shadow-[0_20px_60px_rgba(20,36,75,0.08)]">
+        <div className="w-full rounded-[26px] border border-[#DCE4F3] bg-white p-6 sm:p-8 md:p-9 shadow-[0_20px_60px_rgba(20,36,75,0.06)]">
           {/* SEGMENTED TAB CONTROL */}
           <div className="mb-6 flex w-full gap-1 rounded-xl border border-[#DCE4F3] bg-[#F7F9FD] p-1" role="tablist" aria-label={t("auth.authMode")}>
             <button
@@ -219,11 +212,10 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
               role="tab"
               aria-selected={mode === "login"}
               onClick={() => switchMode("login")}
-              className={`flex-1 rounded-lg py-2.5 text-sm transition-all duration-200 cursor-pointer ${
-                mode === "login"
-                  ? "bg-white text-[#204195] font-extrabold shadow-xs"
-                  : "text-[#607096] hover:text-[#14244B] font-semibold"
-              }`}
+              className={`flex-1 rounded-lg py-2.5 text-sm transition-all duration-200 cursor-pointer ${mode === "login"
+                ? "bg-white text-[#204195] font-extrabold shadow-xs"
+                : "text-[#607096] hover:text-[#14244B] font-semibold"
+                }`}
             >
               {t("auth.tabLogin")}
             </button>
@@ -232,17 +224,16 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
               role="tab"
               aria-selected={mode === "signup"}
               onClick={() => switchMode("signup")}
-              className={`flex-1 rounded-lg py-2.5 text-sm transition-all duration-200 cursor-pointer ${
-                mode === "signup"
-                  ? "bg-white text-[#204195] font-extrabold shadow-xs"
-                  : "text-[#607096] hover:text-[#14244B] font-semibold"
-              }`}
+              className={`flex-1 rounded-lg py-2.5 text-sm transition-all duration-200 cursor-pointer ${mode === "signup"
+                ? "bg-white text-[#204195] font-extrabold shadow-xs"
+                : "text-[#607096] hover:text-[#14244B] font-semibold"
+                }`}
             >
               {t("auth.tabSignup")}
             </button>
           </div>
 
-          <h1 className="text-[26px] sm:text-[28px] md:text-[30px] font-extrabold tracking-[-0.03em] text-[#14244B]">
+          <h1 className="text-[26px] sm:text-[28px] font-extrabold tracking-[-0.03em] text-[#14244B]">
             {mode === "login" ? t("auth.welcomeBackTitle") : t("auth.signupTitle")}
           </h1>
           <p className="mt-1.5 text-sm leading-6 text-[#607096]">
@@ -254,14 +245,14 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
             type="button"
             onClick={onGoogleClick}
             disabled={googleLoading || loading}
-            className="mt-6 flex h-[50px] w-full items-center justify-center gap-3 rounded-[14px] border border-[#DCE4F3] bg-white px-4 font-bold text-[#14244B] shadow-xs hover:bg-[#F7F9FD] transition-all disabled:opacity-60 cursor-pointer"
+            className="mt-6 flex h-[48px] w-full items-center justify-center gap-3 rounded-[14px] border border-[#DCE4F3] bg-white px-4 font-bold text-sm text-[#14244B] shadow-xs hover:bg-[#F7F9FD] transition-all disabled:opacity-60 cursor-pointer"
           >
-            {googleLoading ? <LoaderCircle className="animate-spin text-[#204195]" size={20} /> : <GoogleMark />}
+            {googleLoading ? <LoaderCircle className="animate-spin text-[#204195]" size={18} /> : <GoogleMark />}
             <span>{mode === "login" ? t("auth.googleLogin") : t("auth.googleSignup")}</span>
           </button>
 
           {/* DIVIDER */}
-          <div className="relative my-6 flex items-center w-full">
+          <div className="relative my-5 flex items-center w-full">
             <span className="w-full border-t border-[#DCE4F3]" />
             <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-white px-3 text-xs font-medium text-[#8A9ABA]">
               {t("auth.orEmail")}
@@ -347,9 +338,8 @@ export default function Authentication({ defaultMode = "login" }: { defaultMode?
                       {[1, 2, 3, 4].map((seg) => (
                         <span
                           key={seg}
-                          className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                            seg <= passwordStrengthScore ? strengthColor : "bg-[#D1DBED]"
-                          }`}
+                          className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${seg <= passwordStrengthScore ? strengthColor : "bg-[#D1DBED]"
+                            }`}
                         />
                       ))}
                     </div>

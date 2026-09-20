@@ -13,6 +13,7 @@ import {
 } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { UserJobProfileCard } from "@features/user-dashboard/components/UserJobProfileCard";
+import { JobInterviewCvModal } from "@features/user-dashboard/components/JobInterviewCvModal";
 
 /** Keep in sync with admin job profiles list (`AdminJobProfilesPanel`). */
 const PAGE_SIZE = 12;
@@ -62,6 +63,7 @@ export default function UserJobsBoard() {
   const debouncedSearch = useDebouncedValue(search, 400);
   const [categoryFilter, setCategoryFilter] = useState<"all" | string>("all");
   const [categories, setCategories] = useState<JobCategory[]>([]);
+  const [cvModalJob, setCvModalJob] = useState<JobProfile | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -258,6 +260,12 @@ export default function UserJobsBoard() {
           </div>
         </>
       )}
+      <JobInterviewCvModal
+        open={cvModalJob !== null}
+        jobTitle={cvModalJob?.title ?? ""}
+        jobProfileId={cvModalJob?.id}
+        onClose={() => setCvModalJob(null)}
+      />
     </div>
   );
 }
