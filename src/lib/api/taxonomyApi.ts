@@ -6,7 +6,6 @@ export type TaxonomyConceptKind =
   | 'skill'
   | 'domain'
   | 'occupation'
-  | 'job_category'
   | string;
 
 export type TaxonomyConcept = {
