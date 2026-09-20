@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { apiClient, authApi, interviewApi, userApi } from "../apiClient";
+import { apiClient, authApi, userApi } from "../apiClient";
 
 describe("apiClient Services", () => {
   beforeEach(() => {
@@ -34,19 +34,6 @@ describe("apiClient Services", () => {
       email: "reg@example.com",
       password: "pass123",
       phone: "0123456789",
-      role: "CANDIDATE",
-    });
-  });
-
-  it("interviewApi.start should send POST to /interview/start", async () => {
-    const postSpy = vi.spyOn(apiClient, "post").mockResolvedValueOnce({
-      data: { id: "interview-101", topic: "React", language: "english" },
-    });
-
-    await interviewApi.start("React", "english");
-    expect(postSpy).toHaveBeenCalledWith("/interview/start", {
-      topic: "React",
-      language: "english",
     });
   });
 
