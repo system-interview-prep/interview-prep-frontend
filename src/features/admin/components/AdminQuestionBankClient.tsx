@@ -1,160 +1,43 @@
 "use client";
 
-import { useState } from "react";
-import { FileQuestion, Search, Plus, Filter, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Clock, FileQuestion, Filter, Search } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { questionBankApi, type QuestionBankItem } from "@features/admin/services/questionBank.service";
+import AdminEmptyState from "./primitives/AdminEmptyState";
+import AdminMetricCard from "./primitives/AdminMetricCard";
 import AdminPageHeader from "./primitives/AdminPageHeader";
 import AdminStatusBadge from "./primitives/AdminStatusBadge";
-import AdminMetricCard from "./primitives/AdminMetricCard";
-import AdminEmptyState from "./primitives/AdminEmptyState";
-
-export interface QuestionBankItem {
-  question_id: string;
-  job_family: string;
-  role: string;
-  competency: string;
-  difficulty: "EASY" | "MEDIUM" | "HARD";
-  question_type: "BEHAVIORAL" | "TECHNICAL" | "SITUATIONAL";
-  question_vi: string;
-  question_en?: string;
-  expected_seconds: number;
-  source: "CANONICAL" | "AI_GENERATED" | "COMMUNITY";
-  status: "ACTIVE" | "DRAFT" | "ARCHIVED";
-}
 
 export default function AdminQuestionBankClient() {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
+  const [questions, setQuestions] = useState<QuestionBankItem[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
+  const [state, setState] = useState<"loading" | "ready" | "error" | "forbidden">("loading");
 
-  // Since backend endpoint GET /admin/questions is missing,
-  // we follow strict rule 2: no fake questions.
-  const questions: QuestionBankItem[] = [];
+  useEffect(() => {
+    const timer = window.setTimeout(async () => {
+      try {
+        setState("loading");
+        const { data } = await questionBankApi.list({ q: searchQuery || undefined, difficultyBand: difficultyFilter === "all" ? undefined : difficultyFilter });
+        setQuestions(data.items); setTotal(data.total); setState("ready");
+      } catch (error: unknown) {
+        setState((error as { response?: { status?: number } }).response?.status === 403 ? "forbidden" : "error");
+      }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery, difficultyFilter]);
 
-  return (
-    <div className="space-y-6">
-      <AdminPageHeader
-        title={t("admin.questionBank.title") || "Ngân hàng câu hỏi phỏng vấn"}
-        description={t("admin.questionBank.subtitle") || "Quản lý kho câu hỏi chuẩn hóa theo vị trí, năng lực cốt lõi, độ khó và rubric chấm điểm"}
-        breadcrumbs={[
-          { label: "Admin", href: "/admin/dashboard" },
-          { label: t("admin.sidebar.questionBank") || "Ngân hàng câu hỏi" },
-        ]}
-        statusBadge={
-          <AdminStatusBadge status="pending" label={t("admin.common.backendPending") || "Backend Integration Pending"} />
-        }
-        primaryAction={
-          <button
-            type="button"
-            disabled
-            className="inline-flex items-center gap-2 rounded-xl bg-[#204195] px-3.5 py-2 text-xs font-semibold text-white shadow-2xs opacity-60 cursor-not-allowed"
-          >
-            <Plus className="size-3.5" />
-            <span>{t("admin.questionBank.addQuestion") || "Thêm câu hỏi mới (Pending BE)"}</span>
-          </button>
-        }
-      />
-
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <AdminMetricCard
-          title={t("admin.questionBank.stat.total") || "Tổng số câu hỏi"}
-          value={null}
-          subtitle="Kho câu hỏi toàn hệ thống"
-          icon={FileQuestion}
-          isPending={true}
-          pendingText={t("admin.common.backendPending") || "Backend pending"}
-        />
-        <AdminMetricCard
-          title={t("admin.questionBank.stat.competencies") || "Năng lực đánh giá"}
-          value={null}
-          subtitle="Competencies liên kết"
-          icon={Filter}
-          isPending={true}
-          pendingText={t("admin.common.backendPending") || "Backend pending"}
-        />
-        <AdminMetricCard
-          title={t("admin.questionBank.stat.avgDuration") || "Thời lượng trung bình"}
-          value={null}
-          subtitle="Thời gian trả lời kỳ vọng"
-          icon={Clock}
-          isPending={true}
-          pendingText={t("admin.common.backendPending") || "Backend pending"}
-        />
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#607096]" />
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-9 pr-4 text-xs font-medium text-[#14244B] placeholder-[#8A98B8] focus:border-[#204195] focus:bg-white focus:outline-none transition-colors"
-            placeholder={t("admin.questionBank.searchPlaceholder") || "Tìm theo nội dung câu hỏi, vai trò hoặc năng lực..."}
-            type="text"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 overflow-x-auto">
-          {["all", "EASY", "MEDIUM", "HARD"].map((diff) => (
-            <button
-              key={diff}
-              type="button"
-              onClick={() => setDifficultyFilter(diff)}
-              className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                difficultyFilter === diff
-                  ? "bg-[#204195] text-white shadow-xs"
-                  : "border border-[#DCE4F3] bg-white text-[#607096] hover:border-[#204195]/40 hover:text-[#204195]"
-              }`}
-            >
-              {diff === "all" ? (t("admin.common.all") || "Tất cả") : diff}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Question Table / Empty State */}
-      <div className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
-                <th className="px-6 py-4">{t("admin.questionBank.table.content") || "ID & Nội dung câu hỏi"}</th>
-                <th className="px-6 py-4">{t("admin.questionBank.table.roleComp") || "Vị trí & Năng lực"}</th>
-                <th className="px-6 py-4 text-center">{t("admin.questionBank.table.difficulty") || "Độ khó"}</th>
-                <th className="px-6 py-4 text-center">{t("admin.questionBank.table.type") || "Loại câu hỏi"}</th>
-                <th className="px-6 py-4 text-center">{t("admin.questionBank.table.expected") || "Kỳ vọng"}</th>
-                <th className="px-6 py-4 text-right">{t("admin.questionBank.table.status") || "Trạng thái"}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#EAEFF8] text-xs">
-              {questions.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-8">
-                    <AdminEmptyState
-                      variant="pending"
-                      title={t("admin.questionBank.emptyTitle") || "Chưa kết nối API Ngân hàng câu hỏi"}
-                      description={t("admin.questionBank.emptyDesc") || "Giao diện quản lý câu hỏi chuẩn hóa đã hoàn thiện cấu trúc. Core Backend cần triển khai endpoint GET /admin/questions để nạp dữ liệu câu hỏi từ CSDL."}
-                    />
-                  </td>
-                </tr>
-              ) : (
-                questions.map((q) => (
-                  <tr key={q.question_id} className="transition-colors hover:bg-[#F8FAFC]">
-                    <td className="px-6 py-4 font-bold text-[#14244B]">{q.question_vi}</td>
-                    <td className="px-6 py-4">{q.role} - {q.competency}</td>
-                    <td className="px-6 py-4 text-center">{q.difficulty}</td>
-                    <td className="px-6 py-4 text-center">{q.question_type}</td>
-                    <td className="px-6 py-4 text-center">{q.expected_seconds}s</td>
-                    <td className="px-6 py-4 text-right">{q.status}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+  const pending = state === "loading";
+  return <div className="space-y-6">
+    <AdminPageHeader title={t("admin.questionBank.title") || "Ngân hàng câu hỏi phỏng vấn"} description={t("admin.questionBank.subtitle") || "Kho câu hỏi versioned, taxonomy và rubric từ Core"} breadcrumbs={[{ label: "Admin", href: "/admin/dashboard" }, { label: t("admin.sidebar.questionBank") || "Ngân hàng câu hỏi" }]} statusBadge={<AdminStatusBadge status={state === "error" ? "error" : "info"} label={pending ? "Đang tải" : "Dữ liệu từ Core"} />} primaryAction={<div className="flex gap-2"><Link href="/admin/question-bank/import" className="rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B]">Import câu hỏi</Link><Link href="/admin/question-bank/new" className="rounded-xl bg-[#204195] px-3.5 py-2 text-xs font-semibold text-white">Thêm câu hỏi</Link></div>} />
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><AdminMetricCard title="Tổng số câu hỏi" value={total} subtitle="Theo bộ lọc hiện tại" icon={FileQuestion} isPending={pending} /><AdminMetricCard title="Năng lực đánh giá" value={null} subtitle="Có trong trang chi tiết" icon={Filter} isPending={pending} /><AdminMetricCard title="Thời lượng trả lời" value={null} subtitle="Theo từng version" icon={Clock} isPending={pending} /></div>
+    <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between"><div className="relative flex-1 max-w-md"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#607096]" /><input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-9 pr-4 text-xs" placeholder="Tìm stable key hoặc nội dung câu hỏi..." /></div><div className="flex items-center gap-2 overflow-x-auto">{["all", "EASY", "MEDIUM", "HARD"].map((value) => <button key={value} type="button" onClick={() => setDifficultyFilter(value)} className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold ${difficultyFilter === value ? "bg-[#204195] text-white" : "border border-[#DCE4F3] text-[#607096]"}`}>{value === "all" ? "Tất cả" : value}</button>)}</div></div>
+    <div className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs"><div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr className="border-b bg-[#F8FAFC] text-[11px] font-bold uppercase text-[#607096]"><th className="px-6 py-4">Question</th><th className="px-6 py-4">Năng lực chính</th><th className="px-6 py-4 text-center">Độ khó</th><th className="px-6 py-4 text-center">Loại</th><th className="px-6 py-4 text-center">Thời lượng</th><th className="px-6 py-4 text-right">Trạng thái</th></tr></thead><tbody className="divide-y divide-[#EAEFF8]">
+      {pending ? <tr><td colSpan={6} className="p-8 text-center text-[#607096]">Đang tải Question Bank…</td></tr> : state === "forbidden" ? <tr><td colSpan={6} className="p-8 text-center text-red-700">Bạn không có quyền truy cập Ngân hàng câu hỏi.</td></tr> : state === "error" ? <tr><td colSpan={6} className="p-8"><AdminEmptyState variant="error" title="Không tải được dữ liệu" description="Core không phản hồi. Vui lòng thử lại sau." /></td></tr> : questions.length === 0 ? <tr><td colSpan={6} className="p-8"><AdminEmptyState title="Chưa có câu hỏi phù hợp" description="Thay đổi bộ lọc hoặc tạo dữ liệu draft từ workflow authoring." /></td></tr> : questions.map((question) => <tr key={question.questionId} className="hover:bg-[#F8FAFC]"><td className="px-6 py-4"><p className="font-bold text-[#14244B]">{question.stableKey} <span className="font-medium text-[#607096]">v{question.currentVersion.version}</span></p><p className="mt-1 max-w-md truncate text-[#607096]">{question.currentVersion.canonicalText}</p></td><td className="px-6 py-4">{question.taxonomy.primaryCompetency?.conceptId || "—"}</td><td className="px-6 py-4 text-center">{question.currentVersion.difficultyBand}</td><td className="px-6 py-4 text-center">{question.currentVersion.questionType}</td><td className="px-6 py-4 text-center">{question.currentVersion.softAnswerSeconds}s</td><td className="px-6 py-4 text-right">{question.currentVersion.status}</td></tr>)}
+    </tbody></table></div></div>
+  </div>;
 }

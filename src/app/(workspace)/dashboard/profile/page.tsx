@@ -477,7 +477,7 @@ export default function UserProfilePage() {
                   </h2>
                   <div className="mt-1 flex items-center justify-center gap-2">
                     <span className="rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-2.5 py-0.5 text-[10px] font-semibold text-[#204195]">
-                      {profile.role || roleLabel}
+                      {profile.roles?.join(", ") || roleLabel}
                     </span>
                   </div>
                   <p className="mt-2 text-xs text-[#607096]">
@@ -507,7 +507,7 @@ export default function UserProfilePage() {
                         {t("profile.field.role")}
                       </span>
                       <span className="text-right font-semibold text-[#14244B]">
-                        {profile.role || roleLabel}
+                        {profile.roles?.join(", ") || roleLabel}
                       </span>
                     </div>
 

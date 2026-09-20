@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { adminApi, AdminOverviewData } from "@/lib/apiClient";
 import { jobProfileApi } from "../services/jobProfile.service";
-import { jobCategoryApi } from "../services/jobCategory.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import AdminPageHeader from "./primitives/AdminPageHeader";
 import AdminMetricCard from "./primitives/AdminMetricCard";
@@ -31,7 +30,6 @@ export default function AdminOverviewDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [overviewData, setOverviewData] = useState<AdminOverviewData | null>(null);
   const [jobProfileCount, setJobProfileCount] = useState<number | null>(null);
-  const [categoryCount, setCategoryCount] = useState<number | null>(null);
   const [backendStatus, setBackendStatus] = useState<"healthy" | "unavailable" | "unknown">("unknown");
 
   const loadDashboardData = async () => {
@@ -56,13 +54,7 @@ export default function AdminOverviewDashboard() {
       setJobProfileCount(null);
     }
 
-    try {
-      // 3. Fetch categories count
-      const catRes = await jobCategoryApi.list();
-      setCategoryCount(catRes.data.items?.length ?? 0);
-    } catch {
-      setCategoryCount(null);
-    } finally {
+    finally {
       setLoading(false);
       setIsRefreshing(false);
     }
@@ -264,7 +256,7 @@ export default function AdminOverviewDashboard() {
           title={t("admin.dashboard.contentSectionTitle") || "4. Tình trạng nội dung (Content Health)"}
           description={t("admin.dashboard.contentSectionSubtitle") || "Quản lý hồ sơ công việc, ngành nghề và cơ sở tri thức phục vụ phỏng vấn"}
         >
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
               <p className="text-xs font-bold uppercase tracking-wider text-[#607096]">
                 {t("admin.sidebar.jobBoard") || "Hồ sơ tuyển dụng (JD)"}
@@ -286,26 +278,6 @@ export default function AdminOverviewDashboard() {
               </Link>
             </div>
 
-            <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#607096]">
-                {t("admin.sidebar.categories") || "Danh mục vị trí"}
-              </p>
-              <div className="mt-2 flex items-baseline gap-1.5">
-                {categoryCount !== null ? (
-                  <span className="text-2xl font-black text-[#14244B]">{categoryCount}</span>
-                ) : (
-                  <span className="text-xs text-[#8A98B8]">{t("admin.common.loading") || "Đang tải..."}</span>
-                )}
-                <span className="text-xs text-[#607096]">{t("admin.categories.unit") || "ngành nghề"}</span>
-              </div>
-              <Link
-                href="/admin/job-profiles/categories"
-                className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#204195] hover:underline"
-              >
-                <span>{t("admin.common.viewCategories") || "Xem danh mục"}</span>
-                <ArrowUpRight className="size-3" />
-              </Link>
-            </div>
           </div>
         </AdminSection>
       </div>

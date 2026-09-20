@@ -76,7 +76,8 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
   };
 
   const displayName = profile?.name || profile?.email || "";
-  const roleLabel = profile?.role ? t(`userDash.role.${profile.role}`) : t("userDash.roleFallback");
+  const primaryRole = profile?.roles?.[0];
+  const roleLabel = primaryRole ? t(`userDash.role.${primaryRole}`) : t("userDash.roleFallback");
 
   /** Active styles only after hydration so SSR and first client paint match (avoids usePathname mismatch warnings). */
   const navReady = useIsClient();

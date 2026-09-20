@@ -93,7 +93,7 @@ export default function UserJobDetailView() {
 
   if (!profile) return null;
 
-  const categoryName = profile.category?.name ?? profile.categoryId;
+  const categoryName = profile.primaryTaxonomy?.label ?? t("userDash.jobProfiles.uncategorized");
   const keywords = profile.keywords?.filter(Boolean) ?? [];
 
   return (

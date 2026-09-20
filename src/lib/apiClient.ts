@@ -12,6 +12,27 @@ export const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+let redirectingAfterUnauthorized = false;
+
+function clearExpiredClientSession(): void {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('token');
+  localStorage.removeItem('auth.googleProfile');
+  document.cookie = 'access_token=; Path=/; Max-Age=0; SameSite=Lax';
+  document.cookie = 'role=; Path=/; Max-Age=0; SameSite=Lax';
+}
+
+function redirectToLoginAfterUnauthorized(): void {
+  if (redirectingAfterUnauthorized) return;
+  const { pathname, search, hash } = window.location;
+  if (pathname === '/login' || pathname === '/signup') return;
+  redirectingAfterUnauthorized = true;
+  clearExpiredClientSession();
+  const next = `${pathname}${search}${hash}`;
+  window.location.replace(`/login?next=${encodeURIComponent(next)}`);
+}
+
 apiClient.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token =
@@ -32,7 +53,9 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && typeof window !== 'undefined') {
-      // Handle 401 unauthorized session gracefully
+      const url = String(error.config?.url ?? '');
+      // Invalid credentials on an auth request must remain on the login form.
+      if (!url.startsWith('/auth/')) redirectToLoginAfterUnauthorized();
     }
     return Promise.reject(error);
   }
@@ -43,7 +66,7 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string;
-  role: 'CANDIDATE' | 'ADMIN';
+  roles: string[];
   provider: string;
   picture: string | null;
   avatar: string | null;
@@ -63,7 +86,6 @@ export const authApi = {
       email,
       password,
       phone: phone || undefined,
-      role: 'CANDIDATE',
     }),
   googleLogin: (token: string) =>
     apiClient.post<AuthResponse>('/auth/google', { accessToken: token, token }),
@@ -79,7 +101,7 @@ export type UserProfile = {
   id: string;
   email: string;
   name?: string;
-  role?: string;
+  roles?: string[];
   provider?: string;
   dob?: string;
   picture?: string;

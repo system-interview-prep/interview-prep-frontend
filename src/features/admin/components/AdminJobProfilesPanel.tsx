@@ -5,11 +5,11 @@ import axios from "axios";
 import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { jobCategoryApi, type JobCategory } from "@features/admin/services/jobCategory.service";
+import { taxonomyApi, type TaxonomyConcept } from "@/lib/api/taxonomyApi";
 import {
   fetchJobProfileListAggregates,
   jobProfileApi,
-  jobProfileListCategoryParams,
+  jobProfileListTaxonomyParams,
   type JobProfile,
 } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -94,15 +94,15 @@ export default function AdminJobProfilesPanel() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 400);
   const [sort, setSort] = useState<SortKey>("newest");
-  const initialCategory = searchParams.get("category");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | string>(initialCategory || "all");
+  const initialTaxonomyConcept = searchParams.get("taxonomyConceptId");
+  const [taxonomyFilter, setTaxonomyFilter] = useState<"all" | string>(initialTaxonomyConcept || "all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [categories, setCategories] = useState<JobCategory[]>([]);
+  const [taxonomyConcepts, setTaxonomyConcepts] = useState<TaxonomyConcept[]>([]);
 
   useEffect(() => {
-    const fromUrl = searchParams.get("category");
+    const fromUrl = searchParams.get("taxonomyConceptId");
     if (fromUrl) {
-      setCategoryFilter(fromUrl);
+      setTaxonomyFilter(fromUrl);
     }
   }, [searchParams]);
 
@@ -126,10 +126,10 @@ export default function AdminJobProfilesPanel() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await jobCategoryApi.list({ limit: 200 });
-        if (!cancelled) setCategories(data.items ?? []);
+        const { data } = await taxonomyApi.getActive();
+        if (!cancelled) setTaxonomyConcepts(data.concepts ?? []);
       } catch {
-        if (!cancelled) setCategories([]);
+        if (!cancelled) setTaxonomyConcepts([]);
       }
     })();
     return () => {
@@ -137,8 +137,7 @@ export default function AdminJobProfilesPanel() {
     };
   }, []);
 
-  const resolveCategoryName = (p: JobProfile) =>
-    p.category?.name ?? categories.find((c) => c.id === p.categoryId)?.name ?? p.categoryId;
+  const resolveTaxonomyLabel = (p: JobProfile) => p.primaryTaxonomy?.label ?? t("userDash.jobProfiles.uncategorized");
 
   useEffect(() => {
     const ac = new AbortController();
@@ -152,7 +151,7 @@ export default function AdminJobProfilesPanel() {
         const agg = await fetchJobProfileListAggregates(
           {
             q: debouncedSearch.trim() || undefined,
-            ...(categoryFilter !== "all" ? jobProfileListCategoryParams(categoryFilter) : {}),
+            ...(taxonomyFilter !== "all" ? jobProfileListTaxonomyParams(taxonomyFilter) : {}),
             order,
           },
           { signal: ac.signal }
@@ -169,7 +168,7 @@ export default function AdminJobProfilesPanel() {
       cancelled = true;
       ac.abort();
     };
-  }, [debouncedSearch, categoryFilter, sort, aggregateTick]);
+  }, [debouncedSearch, taxonomyFilter, sort, aggregateTick]);
 
   const loadPage = useCallback(
     async (cursor: string | undefined, pageNumber: number) => {
@@ -181,7 +180,7 @@ export default function AdminJobProfilesPanel() {
           limit: PAGE_SIZE,
           cursor,
           q: debouncedSearch.trim() || undefined,
-          ...(categoryFilter !== "all" ? jobProfileListCategoryParams(categoryFilter) : {}),
+          ...(taxonomyFilter !== "all" ? jobProfileListTaxonomyParams(taxonomyFilter) : {}),
           order,
         });
         const items = data.items ?? [];
@@ -203,7 +202,7 @@ export default function AdminJobProfilesPanel() {
         setLoading(false);
       }
     },
-    [debouncedSearch, categoryFilter, sort, t]
+    [debouncedSearch, taxonomyFilter, sort, t]
   );
 
   useEffect(() => {
@@ -228,7 +227,7 @@ export default function AdminJobProfilesPanel() {
     startTransition(() => {
       router.replace("/admin/dashboard?page=1", { scroll: false });
     });
-  }, [debouncedSearch, categoryFilter, sort]);
+  }, [debouncedSearch, taxonomyFilter, sort]);
 
   useEffect(() => {
     if (searchParams.get("action") !== "create") return;
@@ -238,16 +237,7 @@ export default function AdminJobProfilesPanel() {
   }, [searchParams, router]);
 
   useEffect(() => {
-    const categoryId = searchParams.get("categoryId");
-    const category = searchParams.get("category");
-    if (categoryId) {
-      setCategoryFilter(categoryId);
-      return;
-    }
-    if (category !== null) {
-      if (category === "" || category === "all") setCategoryFilter("all");
-      else setCategoryFilter(category);
-    }
+    setTaxonomyFilter(searchParams.get("taxonomyConceptId") || "all");
   }, [searchParams]);
 
   const displayItems = useMemo(() => {
@@ -390,15 +380,15 @@ export default function AdminJobProfilesPanel() {
           />
         </div>
         <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value as "all" | string)}
+          value={taxonomyFilter}
+          onChange={(e) => setTaxonomyFilter(e.target.value as "all" | string)}
           className="h-11 w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-xs focus:bg-white focus:border-[#204195] focus:outline-none"
           aria-label={t("admin.jobProfile.form.category")}
         >
           <option value="all">{t("admin.jobProfile.filter.allCategories")}</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
+          {taxonomyConcepts.map((concept) => (
+            <option key={concept.concept_id} value={concept.concept_id}>
+              {concept.label}
             </option>
           ))}
         </select>
@@ -442,7 +432,7 @@ export default function AdminJobProfilesPanel() {
               >
                 <div className="mb-4 flex items-start justify-between gap-2">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195]">
-                    <CategoryIcon name={resolveCategoryName(p)} className="size-5" />
+                    <CategoryIcon name={resolveTaxonomyLabel(p)} className="size-5" />
                   </div>
                   <span
                     className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(
@@ -474,7 +464,7 @@ export default function AdminJobProfilesPanel() {
                     className="inline-flex max-w-full truncate rounded-full bg-[#204195]/8 border border-[#204195]/15 px-2.5 py-0.5 text-[10px] font-semibold text-[#204195]"
                     title={t("admin.jobProfile.form.category")}
                   >
-                    {resolveCategoryName(p)}
+                    {resolveTaxonomyLabel(p)}
                   </span>
                   {keywordChips(p.keywords)
                     .slice(0, 3)
@@ -540,7 +530,7 @@ export default function AdminJobProfilesPanel() {
                   </td>
                   <td className="px-5 py-3.5">
                     <span className="inline-flex max-w-[12rem] truncate rounded-full bg-[#204195]/8 border border-[#204195]/15 px-2 py-0.5 text-[10px] font-semibold text-[#204195]">
-                      {resolveCategoryName(p)}
+                      {resolveTaxonomyLabel(p)}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-5 py-3.5">

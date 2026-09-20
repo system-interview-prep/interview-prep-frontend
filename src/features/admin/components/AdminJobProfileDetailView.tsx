@@ -78,7 +78,7 @@ export default function AdminJobProfileDetailView() {
 
   if (!profile) return null;
 
-  const categoryName = profile.category?.name ?? profile.categoryId;
+  const categoryName = profile.primaryTaxonomy?.label ?? "Unclassified";
 
   return (
     <div className="min-w-0 space-y-6">
