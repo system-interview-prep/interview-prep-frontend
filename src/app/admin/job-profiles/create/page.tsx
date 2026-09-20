@@ -1,18 +1,5 @@
-import { Suspense } from "react";
-import AdminJobProfileCreateView from "@features/admin/components/AdminJobProfileCreateView";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "Create job profile | INTERVIA",
-};
-
-export default function AdminCreateJobProfilePage() {
-  return (
-    <Suspense
-      fallback={
-        <p className="py-12 text-center text-sm text-on-surface-variant">Loading…</p>
-      }
-    >
-      <AdminJobProfileCreateView />
-    </Suspense>
-  );
+export default function RedirectCreateJobProfilePage() {
+  redirect("/admin/job-descriptions/create");
 }
