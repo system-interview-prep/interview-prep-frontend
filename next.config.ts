@@ -15,6 +15,30 @@ const nextConfig: NextConfig = {
     };
     return config;
   },
+  async redirects() {
+    return [
+      {
+        source: "/admin/job_descriptions",
+        destination: "/admin/job-descriptions",
+        permanent: false,
+      },
+      {
+        source: "/admin/job_descriptions/:path*",
+        destination: "/admin/job-descriptions/:path*",
+        permanent: false,
+      },
+      {
+        source: "/admin/job-description",
+        destination: "/admin/job-descriptions",
+        permanent: false,
+      },
+      {
+        source: "/admin/job-description/:path*",
+        destination: "/admin/job-descriptions/:path*",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
