@@ -62,7 +62,7 @@ export const adminEn: Record<string, string> = {
   "admin.sidebar.categories": "Job Categories",
   "admin.sidebar.questionBank": "Question Bank",
   "admin.sidebar.rubrics": "Scoring Rubrics",
-  "admin.sidebar.knowledgeBase": "Knowledge Base (RAG)",
+  "admin.sidebar.knowledgeBase": "Knowledge & Relations",
   "admin.sidebar.interviews": "Interview Sessions",
   "admin.sidebar.users": "Users & Candidates",
   "admin.sidebar.aiOverview": "AI Overview",
@@ -205,7 +205,7 @@ export const adminEn: Record<string, string> = {
   "admin.jobProfile.create.subtitle": "Upload and parse canonical job description documents",
 
   // ── Knowledge Base (RAG) ───────────────────────────────────────────────────
-  "admin.knowledgeBase": "Knowledge Base (RAG)",
+  "admin.knowledgeBase": "Knowledge & Relations",
   "admin.knowledge.field.documentId": "Document ID",
   "admin.knowledge.field.topicName": "Topic Name",
   "admin.knowledge.field.domain": "Domain",
@@ -590,7 +590,7 @@ export const adminVi: Record<string, string> = {
   "admin.sidebar.categories": "Danh mục vị trí",
   "admin.sidebar.questionBank": "Ngân hàng câu hỏi",
   "admin.sidebar.rubrics": "Tiêu chí chấm điểm",
-  "admin.sidebar.knowledgeBase": "Cơ sở tri thức (RAG)",
+  "admin.sidebar.knowledgeBase": "Tri thức & Quan hệ",
   "admin.sidebar.interviews": "Phiên phỏng vấn",
   "admin.sidebar.users": "Người dùng & Ứng viên",
   "admin.sidebar.aiOverview": "AI Overview",
@@ -733,7 +733,7 @@ export const adminVi: Record<string, string> = {
   "admin.jobProfile.create.subtitle": "Tải lên và trích xuất tài liệu mô tả công việc chuẩn hóa",
 
   // ── Knowledge Base (RAG) ───────────────────────────────────────────────────
-  "admin.knowledgeBase": "Cơ sở tri thức (RAG)",
+  "admin.knowledgeBase": "Tri thức & Quan hệ",
   "admin.knowledge.field.documentId": "Mã tài liệu (Document ID)",
   "admin.knowledge.field.topicName": "Chủ đề kiến thức",
   "admin.knowledge.field.domain": "Lĩnh vực",
