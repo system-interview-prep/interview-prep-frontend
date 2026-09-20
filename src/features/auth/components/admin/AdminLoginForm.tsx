@@ -13,7 +13,6 @@ import {
   Shield,
   ShieldAlert,
   Sparkles,
-  ChevronRight,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import {
