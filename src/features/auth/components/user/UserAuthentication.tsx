@@ -169,7 +169,7 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
       ? "bg-[#FCB625]"
       : passwordStrengthScore === 3
       ? "bg-[#4D73D9]"
-      : "bg-[#204195]";
+      : "bg-[#16A34A]";
   const strengthLabel =
     passwordStrengthScore === 1
       ? t("auth.passwordStrengthWeak") || "Yếu"
@@ -433,7 +433,7 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
                           passwordStrengthScore === 1 ? "text-[#EF5A67]" :
                           passwordStrengthScore === 2 ? "text-[#FCB625]" :
                           passwordStrengthScore === 3 ? "text-[#4D73D9]" :
-                          "text-[#204195]"
+                          "text-[#16A34A]"
                         }`}>
                           <span>{strengthLabel}</span>
                           {passwordStrengthScore === 4 && (
