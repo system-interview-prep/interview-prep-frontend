@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { apiClient, authApi, interviewApi, userApi } from "../apiClient";
+import { apiClient, authApi, userApi } from "../apiClient";
 
 describe("apiClient Services", () => {
   beforeEach(() => {
@@ -38,17 +38,9 @@ describe("apiClient Services", () => {
     });
   });
 
-  it("interviewApi.start should send POST to /interview/start", async () => {
-    const postSpy = vi.spyOn(apiClient, "post").mockResolvedValueOnce({
-      data: { id: "interview-101", topic: "React", language: "english" },
-    });
-
-    await interviewApi.start("React", "english");
-    expect(postSpy).toHaveBeenCalledWith("/interview/start", {
-      topic: "React",
-      language: "english",
-    });
-  });
+  // NOTE: interviewApi đã bị xóa vì route /interview/* không tồn tại trên BE.
+  // Dùng aiService.createSession() → POST /ai/session để thay thế.
+  // it("interviewApi.start should send POST to /interview/start", ...) ← removed
 
   it("userApi.getProfile should send GET to /user/profile", async () => {
     const getSpy = vi.spyOn(apiClient, "get").mockResolvedValueOnce({

@@ -2,29 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
 import { useNavigationLoading } from "@components/shared/NavigationLoadingProvider";
-import LanguageToggleButton from "@components/shared/LanguageToggleButton";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { startInterviewSession } from "@features/interview/services/interviewSession.service";
-import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
 import { MessageSquare, Mic, Video, ArrowRight } from "lucide-react";
-
-function initialsFromName(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase().slice(0, 2);
-  return name.slice(0, 2).toUpperCase() || "?";
-}
 
 export default function InterviewSelectPage() {
   const { t, lang } = useLanguage();
   const router = useRouter();
   const { showNavigationLoading, hideNavigationLoading } = useNavigationLoading();
-  const { profile, displayName } = useAuthProfile();
-  const [avatarError, setAvatarError] = useState(false);
-  const roleLabel = t("userDash.roleFallback");
-  const initials = useMemo(() => (displayName ? initialsFromName(displayName) : "?"), [displayName]);
 
   const startMode = async (mode: "chat" | "voice" | "video") => {
     showNavigationLoading();
@@ -45,191 +32,155 @@ export default function InterviewSelectPage() {
 
   return (
     <UserDashboardShell>
-      <main className="paper-dots min-h-screen bg-[#FEF9EE] px-4 pb-16 pt-6 text-[#234196] sm:px-6 md:px-8 md:py-10 lg:px-10 xl:px-12">
+      <main className="min-h-screen bg-[#F8FAFC] px-4 pb-16 pt-6 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
         <div className="mx-auto max-w-[1440px]">
           {/* Header */}
-          <header className="mb-8 grid gap-6 border-b-2 border-[#234196] pb-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <header className="mb-8 border-b border-[#EAEFF8] pb-6">
             <div className="max-w-2xl">
-              <span className="sticker -rotate-1 bg-[#FCB625] text-[10px] text-[#234196]">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#204195]">
                 {t("interview.select.eyebrow")}
               </span>
-              <h1 className="mt-3 font-headline text-[clamp(2rem,3vw,2.75rem)] font-extrabold leading-tight tracking-tight text-[#234196]">
+              <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-[#14244B] sm:text-4xl">
                 {t("interview.select.title")}
               </h1>
-              <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#5A6B8F] sm:text-base">
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#607096] sm:text-base">
                 {t("interview.select.subtitle")}
               </p>
             </div>
-
-            {/* Tối ưu cụm Profile & Header: Khối liên kết thống nhất + Nút ngôn ngữ độc lập */}
-            <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-              {/* Unified Avatar + Name + Role clickable pill */}
-              <Link
-                href="/dashboard"
-                className="group flex min-w-0 items-center gap-3 rounded-2xl border-2 border-[#234196] bg-white p-2 pr-4 shadow-[3px_3px_0_#234196] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[4px_4px_0_#234196] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FCB625] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
-                aria-label={t("interview.select.backDashboard")}
-                title={t("interview.select.backDashboard")}
-              >
-                {profile?.picture && !avatarError ? (
-                  <img
-                    alt={displayName || ""}
-                    className="h-11 w-11 shrink-0 rounded-xl border-2 border-[#234196] object-cover"
-                    src={profile.picture}
-                    referrerPolicy="no-referrer"
-                    onError={() => setAvatarError(true)}
-                  />
-                ) : (
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FCB625] font-headline text-sm font-extrabold text-[#234196]">
-                    {initials}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-[#234196] group-hover:underline decoration-[#FCB625] decoration-2 underline-offset-2">
-                    {displayName || t("userDash.profile.guest")}
-                  </p>
-                  <p className="font-metadata text-[9px] font-bold uppercase tracking-wider text-[#5A6B8F]">
-                    {roleLabel}
-                  </p>
-                </div>
-              </Link>
-
-              {/* Independent Language Toggle Button with matching h-11 */}
-              <LanguageToggleButton className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-2 border-[#234196] bg-white text-[#234196] shadow-[3px_3px_0_#234196] transition-all duration-150 hover:-translate-y-0.5 hover:bg-[#F0F4FC] hover:shadow-[4px_4px_0_#234196] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none" />
-            </div>
           </header>
 
-          {/* Chuẩn hóa 3 thẻ chế độ: Consistent Action Cards */}
+          {/* Consistent Action Cards */}
           <section className="mb-12" aria-label={t("interview.select.eyebrow")}>
             <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-3 lg:gap-8">
               {/* Card 1: Chat Interview */}
               <button
                 type="button"
                 onClick={goToChat}
-                className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border-2 border-[#234196] bg-white p-7 text-left shadow-[4px_4px_0_#234196] transition-all duration-200 hover:-translate-y-1.5 hover:shadow-[6px_6px_0_#234196] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FCB625]/50 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none md:p-8"
+                className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-7 text-left shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-[#204195]/40 hover:shadow-md md:p-8 cursor-pointer"
               >
-                <div className="relative z-[1]">
-                  {/* Accent Icon Box & Badge */}
-                  <div className="mb-6 flex items-center justify-between">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#F0F4FC] text-[#234196] shadow-[2px_2px_0_#234196] transition-transform duration-200 group-hover:-rotate-3">
-                      <MessageSquare className="size-7" />
-                    </div>
-                    <span className="sticker bg-[#F0F4FC] text-[9px] font-bold text-[#234196]">
+                <div>
+                  {/* Top Tag */}
+                  <div className="mb-4">
+                    <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
                       Quick Text
                     </span>
                   </div>
 
-                  <h2 className="mb-3 font-headline text-2xl font-bold text-[#17244A] transition-colors group-hover:text-[#234196]">
-                    {t("userDash.mode.chat.title")}
-                  </h2>
-                  <p className="text-sm leading-relaxed text-[#5A6B8F]">
+                  {/* Icon + Title */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600">
+                      <MessageSquare className="size-5" />
+                    </div>
+                    <h2 className="text-xl font-bold text-[#14244B] transition-colors group-hover:text-[#204195]">
+                      {t("userDash.mode.chat.title")}
+                    </h2>
+                  </div>
+
+                  <p className="mt-3.5 text-sm leading-relaxed text-[#607096]">
                     {t("userDash.mode.chat.desc")}
                   </p>
                 </div>
 
-                {/* Footer CTA luôn nằm trên cùng 1 trục ngang */}
-                <div className="relative z-[1] mt-8 border-t-2 border-[#234196]/15 pt-4">
-                  <span className="flex min-h-11 items-center justify-between font-headline text-sm font-bold text-[#234196]">
+                <div className="mt-8 border-t border-[#EAEFF8] pt-4">
+                  <span className="flex min-h-10 items-center justify-between text-sm font-semibold text-[#204195]">
                     <span>{t("userDash.mode.chat.cta")}</span>
-                    <ArrowRight className="size-5 transition-transform duration-300 group-hover:translate-x-1.5" />
+                    <ArrowRight className="size-4.5 transition-transform duration-200 group-hover:translate-x-1" />
                   </span>
                 </div>
-
-                {/* Background Watermark Icon */}
-                <MessageSquare className="pointer-events-none absolute -bottom-6 -right-4 size-36 text-[#234196] opacity-[0.03] transition-opacity group-hover:opacity-[0.06]" />
               </button>
 
               {/* Card 2: Voice Interview */}
               <button
                 type="button"
                 onClick={goToVoice}
-                className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border-2 border-[#234196] bg-white p-7 text-left shadow-[4px_4px_0_#234196] transition-all duration-200 hover:-translate-y-1.5 hover:shadow-[6px_6px_0_#234196] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FCB625]/50 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none md:p-8"
+                className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-7 text-left shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-[#204195]/40 hover:shadow-md md:p-8 cursor-pointer"
               >
-                <div className="relative z-[1]">
-                  {/* Accent Icon Box & Badge */}
-                  <div className="mb-6 flex items-center justify-between">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#EEEAFE] text-[#6552C7] shadow-[2px_2px_0_#234196] transition-transform duration-200 group-hover:-rotate-3">
-                      <Mic className="size-7" />
-                    </div>
-                    <span className="sticker bg-[#EEEAFE] text-[9px] font-bold text-[#6552C7]">
+                <div>
+                  {/* Top Tag */}
+                  <div className="mb-4">
+                    <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-[#204195]">
                       Audio AI
                     </span>
                   </div>
 
-                  <h2 className="mb-3 font-headline text-2xl font-bold text-[#17244A] transition-colors group-hover:text-[#6552C7]">
-                    {t("userDash.mode.voice.title")}
-                  </h2>
-                  <p className="text-sm leading-relaxed text-[#5A6B8F]">
+                  {/* Icon + Title */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-[#204195]">
+                      <Mic className="size-5" />
+                    </div>
+                    <h2 className="text-xl font-bold text-[#14244B] transition-colors group-hover:text-[#204195]">
+                      {t("userDash.mode.voice.title")}
+                    </h2>
+                  </div>
+
+                  <p className="mt-3.5 text-sm leading-relaxed text-[#607096]">
                     {t("userDash.mode.voice.desc")}
                   </p>
                 </div>
 
-                {/* Footer CTA luôn nằm trên cùng 1 trục ngang */}
-                <div className="relative z-[1] mt-8 border-t-2 border-[#234196]/15 pt-4">
-                  <span className="flex min-h-11 items-center justify-between font-headline text-sm font-bold text-[#6552C7]">
+                <div className="mt-8 border-t border-[#EAEFF8] pt-4">
+                  <span className="flex min-h-10 items-center justify-between text-sm font-semibold text-[#204195]">
                     <span>{t("userDash.mode.voice.cta")}</span>
-                    <ArrowRight className="size-5 transition-transform duration-300 group-hover:translate-x-1.5" />
+                    <ArrowRight className="size-4.5 transition-transform duration-200 group-hover:translate-x-1" />
                   </span>
                 </div>
-
-                {/* Background Watermark Icon */}
-                <Mic className="pointer-events-none absolute -bottom-6 -right-4 size-36 text-[#6552C7] opacity-[0.03] transition-opacity group-hover:opacity-[0.06]" />
               </button>
 
-              {/* Card 3: Video Simulation */}
+              {/* Card 3: Video Simulation (Featured) */}
               <button
                 type="button"
                 onClick={goToRoom}
-                className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border-2 border-[#234196] bg-white p-7 text-left shadow-[4px_4px_0_#234196] transition-all duration-200 hover:-translate-y-1.5 hover:shadow-[6px_6px_0_#234196] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FCB625]/50 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none md:p-8"
+                className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border-2 border-[#204195] bg-gradient-to-b from-[#F0F4FC]/80 via-white to-white p-7 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg md:p-8 cursor-pointer"
               >
-                <div className="relative z-[1]">
-                  {/* Accent Icon Box & Badge */}
-                  <div className="mb-6 flex items-center justify-between">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FCB625] text-[#234196] shadow-[2px_2px_0_#234196] transition-transform duration-200 group-hover:-rotate-3">
-                      <Video className="size-7" />
-                    </div>
-                    <span className="sticker -rotate-1 bg-[#FCB625] text-[9px] font-bold text-[#234196]">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#E29000] motion-reduce:animate-none" aria-hidden="true" />
+                <div>
+                  {/* Top Tag */}
+                  <div className="mb-4">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FCB625] px-3 py-1 text-xs font-bold text-[#14244B] shadow-xs">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#14244B]" aria-hidden="true" />
                       Live Simulation
                     </span>
                   </div>
 
-                  <h2 className="mb-3 font-headline text-2xl font-bold text-[#17244A] transition-colors group-hover:text-[#234196]">
-                    {t("userDash.mode.video.title")}
-                  </h2>
-                  <p className="text-sm leading-relaxed text-[#5A6B8F]">
+                  {/* Icon + Title */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#204195] text-white shadow-xs">
+                      <Video className="size-5" />
+                    </div>
+                    <h2 className="text-xl font-bold text-[#14244B] transition-colors group-hover:text-[#204195]">
+                      {t("userDash.mode.video.title")}
+                    </h2>
+                  </div>
+
+                  <p className="mt-3.5 text-sm leading-relaxed text-[#607096]">
                     {t("userDash.mode.video.desc")}
                   </p>
                 </div>
 
-                {/* Footer CTA luôn nằm trên cùng 1 trục ngang */}
-                <div className="relative z-[1] mt-8 border-t-2 border-[#234196]/15 pt-4">
-                  <span className="flex min-h-11 items-center justify-between font-headline text-sm font-bold text-[#234196]">
+                <div className="mt-8 border-t border-[#DCE4F3] pt-4">
+                  <span className="flex min-h-10 items-center justify-between text-sm font-bold text-[#204195]">
                     <span>{t("userDash.mode.video.cta")}</span>
-                    <ArrowRight className="size-5 transition-transform duration-300 group-hover:translate-x-1.5" />
+                    <ArrowRight className="size-4.5 transition-transform duration-200 group-hover:translate-x-1" />
                   </span>
                 </div>
-
-                {/* Background Watermark Icon */}
-                <Video className="pointer-events-none absolute -bottom-6 -right-4 size-36 text-[#234196] opacity-[0.03] transition-opacity group-hover:opacity-[0.06]" />
               </button>
             </div>
           </section>
 
-          {/* Phân tách khu vực Lịch sử */}
+          {/* Session Logs Section */}
           <section
-            className="rounded-2xl border-2 border-[#234196] bg-white p-6 sm:p-8 shadow-[4px_4px_0_#234196]"
+            className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-8"
             aria-label={t("userDash.history.title")}
           >
             <div className="mb-2">
-              <span className="sticker -rotate-1 bg-[#FCB625] text-[10px] text-[#234196]">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#204195]">
                 SESSION LOGS
               </span>
             </div>
             <div className="flex items-center justify-between pt-2">
-              <p className="text-sm text-slate-600">{t("userDash.history.title")}</p>
+              <p className="text-sm text-[#607096]">{t("userDash.history.title")}</p>
               <Link
                 href="/dashboard"
-                className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-[#204195] hover:text-[#183275] hover:underline transition-colors"
               >
                 {t("common.viewAll")}
                 <ArrowRight className="size-4" />

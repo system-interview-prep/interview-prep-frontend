@@ -69,17 +69,10 @@ export const authApi = {
     apiClient.post<AuthResponse>('/auth/google', { accessToken: token, token }),
 };
 
-// ── Interview API ─────────────────────────────────────────────────────────────
-export const interviewApi = {
-  start: (topic: string, language: string) =>
-    apiClient.post('/interview/start', { topic, language }),
-  get: (id: string) =>
-    apiClient.get(`/interview/${id}`),
-  end: (id: string) =>
-    apiClient.post(`/interview/${id}/end`),
-  list: () =>
-    apiClient.get('/interview'),
-};
+// ── Interview API ──────────────────────────────────────────────────────────────
+// NOTE: Routes /interview/start, /interview/{id}, etc. không tồn tại ở BE.
+// Dùng /ai/session (sessionsApi) để tạo/quản lý interview sessions.
+// Xem: src/lib/aiService.ts → createSession(), closeSession(), getAllSessions()
 
 // ── User API ──────────────────────────────────────────────────────────────────
 export type UserProfile = {
@@ -107,7 +100,76 @@ export const userApi = {
   uploadProfilePicture: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return apiClient.post<UserProfile>('/user/profile/picture', formData);
+    // BE hỗ trợ cả /users/me/picture và /user/profile/picture (alias)
+    return apiClient.post<UserProfile>('/users/me/picture', formData);
+  },
+};
+
+// ── Admin Portal API ──────────────────────────────────────────────────────────
+export type AdminOverviewData = {
+  totalCandidates: number;
+  totalSessions: number;
+  activeSessions: number;
+  completedSessions: number;
+  averageScore: number;
+  averageTurnaround: number;
+  sentimentScore: number;
+  monthlyTrend: Array<{ month: string; count: number }>;
+  modes: {
+    chat: number;
+    voice: number;
+    video: number;
+  };
+  cohorts: Array<{
+    id: string;
+    name: string;
+    engagement: string;
+    avgScore: string;
+    growth: string;
+    status: 'optimized' | 'monitored';
+  }>;
+  aiEngineStatus: string;
+  updatedAt: string;
+};
+
+export type AdminSessionItem = {
+  id: string;
+  candidateName: string;
+  candidateEmail: string;
+  candidateInitials: string;
+  position: string;
+  teamAndLocation: string;
+  type: 'video' | 'chat' | 'voice';
+  aiScore: number | null;
+  dateLabel: string;
+  timeLabel: string;
+  status: 'completed' | 'scheduled' | 'action_needed';
+  actionLabel: string;
+};
+
+export const adminApi = {
+  getOverview: () =>
+    apiClient.get<{ success: boolean; overview: AdminOverviewData }>('/admin/overview'),
+  getSessions: (params?: { mode?: string; search?: string; limit?: number; offset?: number }) =>
+    apiClient.get<{ success: boolean; total: number; sessions: AdminSessionItem[] }>('/admin/sessions', {
+      params,
+    }),
+};
+
+// ── CV Download API ───────────────────────────────────────────────────────────
+/**
+ * Download file CV gốc (PDF/DOCX) dưới dạng ArrayBuffer.
+ * Khớp với BE: GET /users/me/cvs/{cv_id}/download
+ */
+export const cvDownloadApi = {
+  download: async (cvId: string): Promise<{ buffer: ArrayBuffer; filename?: string }> => {
+    const response = await apiClient.get<ArrayBuffer>(
+      `/users/me/cvs/${encodeURIComponent(cvId)}/download`,
+      { responseType: 'arraybuffer' }
+    );
+    const disposition = response.headers?.['content-disposition'] as string | undefined;
+    const match = disposition?.match(/filename="?([^"\s;]+)/);
+    return { buffer: response.data, filename: match?.[1] };
   },
 };
 

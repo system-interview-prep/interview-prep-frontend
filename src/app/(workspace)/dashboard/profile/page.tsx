@@ -1,15 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AxiosError } from "axios";
-import LanguageToggleButton from "@components/shared/LanguageToggleButton";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { userApi, type UserProfile } from "@lib/apiClient";
 import { readAuthProfile, writeAuthProfile } from "@features/auth/services/auth.service";
 import { API_BASE_URL } from "@/constants";
-import { ArrowLeft, AlertCircle, X, CheckCircle2, CloudOff, Loader2, Camera, Mail, Shield, Key, Calendar, User, Save, RotateCcw } from "lucide-react";
+import { AlertCircle, X, CheckCircle2, CloudOff, Loader2, Camera, Mail, Shield, Key, Calendar, User, Save, RotateCcw } from "lucide-react";
 
 const ALLOWED_AVATAR_MIME = new Set([
   "image/jpeg",
@@ -324,58 +322,44 @@ export default function UserProfilePage() {
 
   return (
     <UserDashboardShell>
-      <main className="paper-dots min-h-screen bg-[#FEF9EE] px-4 pb-28 pt-6 text-[#234196] sm:px-6 md:px-8 md:py-10 lg:px-10 xl:px-12">
+      <main className="min-h-screen bg-[#F8FAFC] px-4 pb-28 pt-6 text-[#14244B] sm:px-6 md:px-8 md:py-10 lg:px-10 xl:px-12">
         <div className="mx-auto max-w-5xl">
-          {/* Header */}
-          <header className="mb-8 flex flex-col gap-5 border-b-2 border-[#234196] pb-6 sm:flex-row sm:items-end sm:justify-between">
+          <header className="mb-8 border-b border-[#EAEFF8] pb-6">
             <div className="max-w-2xl">
-              <span className="sticker -rotate-1 bg-[#FCB625] text-[10px] text-[#234196]">
-                {t("profile.settingsBadge")}
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#204195]">
+                {t("profile.badge")}
               </span>
-              <h1 className="mt-3 font-headline text-3xl font-extrabold tracking-tight text-[#234196] sm:text-4xl md:text-5xl">
+              <h1 className="mt-3 text-2xl font-bold tracking-tight text-[#14244B] sm:text-3xl md:text-4xl">
                 {t("profile.title")}
               </h1>
-              <p className="mt-2 text-sm leading-relaxed text-[#5A6B8F] sm:text-base">
+              <p className="mt-2 text-sm leading-relaxed text-[#607096] sm:text-base">
                 {t("profile.subtitle")}
               </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-              <LanguageToggleButton className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-[#234196] bg-white text-[#234196] shadow-[2px_2px_0_#234196] transition-all hover:bg-[#F0F4FC] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none" />
-              <Link
-                href="/dashboard"
-                className="chunky-secondary inline-flex min-h-11 items-center gap-2 px-4 py-2 text-sm font-bold"
-                aria-label={t("interview.select.backDashboard")}
-                title={t("interview.select.backDashboard")}
-              >
-                <ArrowLeft className="size-4.5" aria-hidden="true" />
-                <span>{t("interview.select.backDashboard")}</span>
-              </Link>
             </div>
           </header>
 
           {/* Feedback alerts */}
           {errorMessage && (
             <div
-              className="mb-6 flex items-start gap-3 rounded-xl border-2 border-[#D32F2F] bg-[#FFEBEE] p-4 text-sm text-[#8F1D1D] shadow-[3px_3px_0_#D32F2F]"
+              className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50/80 p-4 text-sm text-red-700"
               role="alert"
             >
-              <AlertCircle className="shrink-0 size-5 text-[#D32F2F]" aria-hidden="true" />
+              <AlertCircle className="shrink-0 size-5 text-red-600" aria-hidden="true" />
               <div className="min-w-0 flex-1 font-medium">{errorMessage}</div>
               <button
                 type="button"
                 onClick={() => setErrorMessage(null)}
-                className="shrink-0 text-[#8F1D1D] transition-opacity hover:opacity-75"
+                className="shrink-0 text-red-600 transition-opacity hover:opacity-75"
                 aria-label="Dismiss error"
               >
-                <X className="size-4.5" aria-hidden="true" />
+                <X className="size-4" aria-hidden="true" />
               </button>
             </div>
           )}
 
           {successMessage && (
             <div
-              className="mb-6 flex items-start gap-3 rounded-xl border-2 border-emerald-600 bg-emerald-50 p-4 text-sm text-emerald-900 shadow-[3px_3px_0_#059669]"
+              className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 text-sm text-emerald-800"
               role="status"
             >
               <CheckCircle2 className="shrink-0 size-5 text-emerald-600" aria-hidden="true" />
@@ -383,10 +367,10 @@ export default function UserProfilePage() {
               <button
                 type="button"
                 onClick={() => setSuccessMessage(null)}
-                className="shrink-0 text-emerald-900 transition-opacity hover:opacity-75"
+                className="shrink-0 text-emerald-700 transition-opacity hover:opacity-75"
                 aria-label="Dismiss success"
               >
-                <X className="size-4.5" aria-hidden="true" />
+                <X className="size-4" aria-hidden="true" />
               </button>
             </div>
           )}
@@ -394,37 +378,37 @@ export default function UserProfilePage() {
           {/* Main content area */}
           {loading ? (
             <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]" role="status" aria-label={t("profile.loading")}>
-              <div className="animate-pulse rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[4px_4px_0_#234196]">
-                <div className="mx-auto h-24 w-24 rounded-full bg-[#E8EDF8]" />
-                <div className="mx-auto mt-4 h-6 w-36 rounded-lg bg-[#E8EDF8]" />
-                <div className="mx-auto mt-2 h-4 w-24 rounded-lg bg-[#E8EDF8]" />
+              <div className="animate-pulse rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs">
+                <div className="mx-auto h-24 w-24 rounded-full bg-[#EAEFF8]" />
+                <div className="mx-auto mt-4 h-6 w-36 rounded-lg bg-[#EAEFF8]" />
+                <div className="mx-auto mt-2 h-4 w-24 rounded-lg bg-[#EAEFF8]" />
                 <div className="mt-8 space-y-4">
-                  <div className="h-8 rounded-lg bg-[#F0F4FC]" />
-                  <div className="h-8 rounded-lg bg-[#F0F4FC]" />
-                  <div className="h-8 rounded-lg bg-[#F0F4FC]" />
+                  <div className="h-8 rounded-lg bg-[#F8FAFC]" />
+                  <div className="h-8 rounded-lg bg-[#F8FAFC]" />
+                  <div className="h-8 rounded-lg bg-[#F8FAFC]" />
                 </div>
               </div>
-              <div className="animate-pulse rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[4px_4px_0_#234196]">
-                <div className="h-7 w-40 rounded-lg bg-[#E8EDF8]" />
-                <div className="mt-2 h-4 w-64 rounded-lg bg-[#E8EDF8]" />
+              <div className="animate-pulse rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs">
+                <div className="h-7 w-40 rounded-lg bg-[#EAEFF8]" />
+                <div className="mt-2 h-4 w-64 rounded-lg bg-[#EAEFF8]" />
                 <div className="mt-8 space-y-6">
-                  <div className="h-11 rounded-xl bg-[#F0F4FC]" />
-                  <div className="h-11 rounded-xl bg-[#F0F4FC]" />
-                  <div className="h-11 rounded-xl bg-[#F0F4FC]" />
-                  <div className="h-11 w-32 rounded-xl bg-[#E8EDF8]" />
+                  <div className="h-10 rounded-xl bg-[#F8FAFC]" />
+                  <div className="h-10 rounded-xl bg-[#F8FAFC]" />
+                  <div className="h-10 rounded-xl bg-[#F8FAFC]" />
+                  <div className="h-10 w-32 rounded-xl bg-[#EAEFF8]" />
                 </div>
               </div>
             </section>
           ) : !profile ? (
             <section
-              className="rounded-2xl border-2 border-[#D32F2F] bg-[#FFEBEE] p-8 text-center text-[#8F1D1D] shadow-[4px_4px_0_#D32F2F]"
+              className="rounded-2xl border border-red-200 bg-red-50/80 p-8 text-center text-red-700"
               role="alert">
-              <CloudOff className="size-10 text-[#D32F2F] mx-auto" aria-hidden="true" />
-              <h2 className="mt-2 font-headline text-xl font-bold">{t("profile.loadError")}</h2>
+              <CloudOff className="size-10 text-red-500 mx-auto" aria-hidden="true" />
+              <h2 className="mt-2 text-lg font-bold text-red-800">{t("profile.loadError")}</h2>
               <button
                 type="button"
                 onClick={loadProfile}
-                className="chunky-primary mt-4 px-5 py-2.5 text-sm"
+                className="mt-4 inline-flex items-center justify-center rounded-xl bg-[#204195] px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-[#183275]"
               >
                 {t("profile.retry")}
               </button>
@@ -432,12 +416,12 @@ export default function UserProfilePage() {
           ) : (
             <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[0.9fr_1.1fr]">
               {/* Cột trái: Identity & Avatar Card */}
-              <section className="rounded-2xl border-2 border-[#234196] bg-white shadow-[4px_4px_0_#234196] overflow-hidden">
-                <div className="border-b-2 border-[#234196] bg-[#F0F4FC] p-6 text-center sm:p-7">
+              <section className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
+                <div className="border-b border-[#EAEFF8] bg-[#F8FAFC] p-6 text-center sm:p-7">
                   <div className="relative mx-auto inline-block">
                     {/* Avatar Container 24x24 (96px) */}
                     <div
-                      className="group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-[#234196] bg-[#E8EDF8] shadow-[2px_2px_0_#234196]"
+                      className="group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-[#EAEFF8] shadow-sm"
                       aria-label="User avatar"
                     >
                       {displayedAvatar && !avatarLoadError ? (
@@ -449,14 +433,14 @@ export default function UserProfilePage() {
                           onError={() => setAvatarLoadError(true)}
                         />
                       ) : (
-                        <span className="font-headline text-3xl font-extrabold tracking-wider text-[#234196]">
+                        <span className="text-2xl font-bold tracking-wider text-[#204195]">
                           {currentDisplayName !== "—" ? initialsFromName(currentDisplayName) : "?"}
                         </span>
                       )}
 
                       {/* Uploading indicator overlay */}
                       {uploadingAvatar && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-[#234196]/50 text-white">
+                        <div className="absolute inset-0 flex items-center justify-center bg-[#14244B]/60 text-white">
                           <Loader2 className="animate-spin size-6" aria-hidden="true" />
                         </div>
                       )}
@@ -467,11 +451,11 @@ export default function UserProfilePage() {
                       type="button"
                       onClick={openAvatarPicker}
                       disabled={uploadingAvatar}
-                      className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#234196] bg-[#FCB625] text-[#234196] shadow-[2px_2px_0_#234196] transition-transform hover:scale-110 hover:bg-[#ffc33f] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:opacity-60"
+                      className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-[#204195] text-white shadow-sm transition-transform hover:scale-105 hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-60"
                       aria-label={t("profile.avatarChange")}
                       title={t("profile.avatarChange")}
                     >
-                      <Camera className="size-4.5" aria-hidden="true" />
+                      <Camera className="size-4" aria-hidden="true" />
                     </button>
 
                     {/* Hidden input file */}
@@ -488,61 +472,61 @@ export default function UserProfilePage() {
                     />
                   </div>
 
-                  <h2 className="mt-4 truncate font-headline text-2xl font-bold text-[#234196]">
+                  <h2 className="mt-4 truncate text-xl font-bold text-[#14244B]">
                     {currentDisplayName}
                   </h2>
                   <div className="mt-1 flex items-center justify-center gap-2">
-                    <span className="sticker bg-white text-[9px] text-[#234196]">
+                    <span className="rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-2.5 py-0.5 text-[10px] font-semibold text-[#204195]">
                       {profile.role || roleLabel}
                     </span>
                   </div>
-                  <p className="mt-2 text-xs font-medium text-[#5A6B8F]">
+                  <p className="mt-2 text-xs text-[#607096]">
                     {uploadingAvatar ? t("profile.avatarUploading") : t("profile.avatarHint")}
                   </p>
                 </div>
 
                 {/* Key-Value Details */}
                 <div className="p-6">
-                  <h3 className="mb-3 font-headline text-xs font-bold uppercase tracking-wider text-[#5A6B8F]">
+                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#607096]">
                     {t("profile.accountDetails")}
                   </h3>
-                  <div className="divide-y divide-[#E8EDF8] rounded-xl border-2 border-[#234196]/20 bg-[#FEF9EE]/50">
+                  <div className="divide-y divide-[#EAEFF8] rounded-xl border border-[#EAEFF8] bg-[#F8FAFC]/50">
                     <div className="flex items-center justify-between gap-4 p-3.5 text-sm">
-                      <span className="flex items-center gap-2 font-medium text-[#5A6B8F]">
-                        <Mail className="size-4.5 text-[#234196]" aria-hidden="true" />
+                      <span className="flex items-center gap-2 font-medium text-[#607096]">
+                        <Mail className="size-4 text-[#204195]" aria-hidden="true" />
                         {t("profile.field.email")}
                       </span>
-                      <span className="text-right font-semibold text-[#234196] break-all">
+                      <span className="text-right font-semibold text-[#14244B] break-all">
                         {profile.email || "—"}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between gap-4 p-3.5 text-sm">
-                      <span className="flex items-center gap-2 font-medium text-[#5A6B8F]">
-                        <Shield className="size-4.5 text-[#234196]" aria-hidden="true" />
+                      <span className="flex items-center gap-2 font-medium text-[#607096]">
+                        <Shield className="size-4 text-[#204195]" aria-hidden="true" />
                         {t("profile.field.role")}
                       </span>
-                      <span className="text-right font-semibold text-[#234196]">
+                      <span className="text-right font-semibold text-[#14244B]">
                         {profile.role || roleLabel}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between gap-4 p-3.5 text-sm">
-                      <span className="flex items-center gap-2 font-medium text-[#5A6B8F]">
-                        <Key className="size-4.5 text-[#234196]" aria-hidden="true" />
+                      <span className="flex items-center gap-2 font-medium text-[#607096]">
+                        <Key className="size-4 text-[#204195]" aria-hidden="true" />
                         {t("profile.field.provider")}
                       </span>
-                      <span className="inline-flex items-center rounded-md border border-[#234196] bg-white px-2 py-0.5 text-xs font-bold uppercase text-[#234196]">
+                      <span className="inline-flex items-center rounded-md border border-[#DCE4F3] bg-white px-2 py-0.5 text-xs font-semibold uppercase text-[#14244B]">
                         {profile.provider || "LOCAL"}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between gap-4 p-3.5 text-sm">
-                      <span className="flex items-center gap-2 font-medium text-[#5A6B8F]">
-                        <Calendar className="size-4.5 text-[#234196]" aria-hidden="true" />
+                      <span className="flex items-center gap-2 font-medium text-[#607096]">
+                        <Calendar className="size-4 text-[#204195]" aria-hidden="true" />
                         {t("profile.field.joined")}
                       </span>
-                      <span className="text-right font-semibold text-[#234196]">
+                      <span className="text-right font-semibold text-[#14244B]">
                         {formatDate(profile.created_at)}
                       </span>
                     </div>
@@ -551,12 +535,12 @@ export default function UserProfilePage() {
               </section>
 
               {/* Cột phải: Form cập nhật thông tin (Edit Profile Card) */}
-              <section className="rounded-2xl border-2 border-[#234196] bg-white p-6 sm:p-7 shadow-[4px_4px_0_#234196]">
-                <div className="mb-6 border-b-2 border-[#234196]/15 pb-4">
-                  <h2 className="font-headline text-2xl font-bold text-[#234196]">
+              <section className="rounded-2xl border border-[#DCE4F3] bg-white p-6 sm:p-7 shadow-xs">
+                <div className="mb-6 border-b border-[#EAEFF8] pb-4">
+                  <h2 className="text-xl font-bold text-[#14244B]">
                     {t("profile.editTitle")}
                   </h2>
-                  <p className="mt-1 text-sm text-[#5A6B8F]">
+                  <p className="mt-1 text-sm text-[#607096]">
                     {t("profile.editHint")}
                   </p>
                 </div>
@@ -564,15 +548,15 @@ export default function UserProfilePage() {
                 <form onSubmit={onSubmit} className="space-y-5">
                   {/* Họ và tên */}
                   <label className="block space-y-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#234196]">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
                       {t("profile.field.name")}
                     </span>
                     <div className="relative flex items-center">
-                      <User className="pointer-events-none absolute left-3.5 size-5 text-[#5A6B8F]" aria-hidden="true" />
+                      <User className="pointer-events-none absolute left-3.5 size-4 text-[#607096]" aria-hidden="true" />
                       <input
                         id="profile-name-input"
                         type="text"
-                        className="h-11 w-full rounded-xl border-2 border-[#234196] bg-white pl-11 pr-4 text-sm font-medium text-[#234196] placeholder:text-[#8DA3D2] transition-colors focus:border-[#234196] focus:outline-none focus:ring-2 focus:ring-[#FCB625]"
+                        className="h-10 w-full rounded-xl border border-[#DCE4F3] bg-white pl-10 pr-4 text-sm font-medium text-[#14244B] placeholder:text-[#607096]/50 transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
                         value={form.name}
                         onChange={(e) => setField("name", e.target.value)}
                         placeholder={t("profile.field.namePlaceholder")}
@@ -582,15 +566,15 @@ export default function UserProfilePage() {
 
                   {/* Ngày sinh */}
                   <label className="block space-y-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#234196]">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
                       {t("profile.field.dob")}
                     </span>
                     <div className="relative flex items-center">
-                      <Calendar className="pointer-events-none absolute left-3.5 size-5 text-[#5A6B8F]" aria-hidden="true" />
+                      <Calendar className="pointer-events-none absolute left-3.5 size-4 text-[#607096]" aria-hidden="true" />
                       <input
                         id="profile-dob-input"
                         type="date"
-                        className="h-11 w-full rounded-xl border-2 border-[#234196] bg-white pl-11 pr-4 text-sm font-medium text-[#234196] transition-colors focus:border-[#234196] focus:outline-none focus:ring-2 focus:ring-[#FCB625]"
+                        className="h-10 w-full rounded-xl border border-[#DCE4F3] bg-white pl-10 pr-4 text-sm font-medium text-[#14244B] transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
                         value={form.dob}
                         onChange={(e) => setField("dob", e.target.value)}
                       />
@@ -599,40 +583,40 @@ export default function UserProfilePage() {
 
                   {/* Email (Read-only) */}
                   <label className="block space-y-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#5A6B8F]">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#607096]">
                       {t("profile.field.emailReadonly")}
                     </span>
                     <div className="relative flex items-center">
-                      <Mail className="pointer-events-none absolute left-3.5 size-5 text-[#5A6B8F]" aria-hidden="true" />
+                      <Mail className="pointer-events-none absolute left-3.5 size-4 text-[#607096]" aria-hidden="true" />
                       <input
                         id="profile-email-input"
                         type="email"
-                        className="h-11 w-full cursor-not-allowed rounded-xl border-2 border-[#234196]/40 bg-[#F0F4FC] pl-11 pr-4 text-sm font-medium text-[#5A6B8F] select-none"
+                        className="h-10 w-full cursor-not-allowed rounded-xl border border-[#EAEFF8] bg-[#F8FAFC] pl-10 pr-4 text-sm font-medium text-[#607096] select-none"
                         value={profile.email || ""}
                         readOnly
                         aria-readonly="true"
                       />
                     </div>
-                    <p className="text-[11px] text-[#5A6B8F]">
+                    <p className="text-[11px] text-[#607096]">
                       {t("profile.emailReadonlyNotice")}
                     </p>
                   </label>
 
                   {/* Form actions */}
-                  <div className="flex flex-wrap items-center gap-3 pt-4 border-t-2 border-[#234196]/10">
+                  <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-[#EAEFF8]">
                     <button
                       type="submit"
                       disabled={saving || !isDirty}
-                      className="chunky-primary min-h-11 px-6 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2"
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {saving ? (
                         <>
-                          <Loader2 className="animate-spin size-4.5" aria-hidden="true" />
+                          <Loader2 className="animate-spin size-4" aria-hidden="true" />
                           <span>{t("profile.saving")}</span>
                         </>
                       ) : (
                         <>
-                          <Save className="size-4.5" aria-hidden="true" />
+                          <Save className="size-4" aria-hidden="true" />
                           <span>{t("profile.save")}</span>
                         </>
                       )}
@@ -642,14 +626,14 @@ export default function UserProfilePage() {
                       type="button"
                       onClick={resetForm}
                       disabled={saving || !isDirty}
-                      className="chunky-secondary min-h-11 px-5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2"
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <RotateCcw className="size-4.5" aria-hidden="true" />
+                      <RotateCcw className="size-4" aria-hidden="true" />
                       <span>{t("profile.reset")}</span>
                     </button>
 
                     {isDirty && (
-                      <span className="sticker ml-auto bg-[#FCB625] text-[9px] text-[#234196]">
+                      <span className="ml-auto rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-800">
                         {t("profile.unsavedChanges")}
                       </span>
                     )}

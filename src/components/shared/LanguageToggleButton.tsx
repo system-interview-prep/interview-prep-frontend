@@ -87,9 +87,15 @@ const LANGUAGE_OPTIONS: {
 
 interface LanguageToggleButtonProps {
   className?: string;
+  placement?: "top" | "bottom";
+  compact?: boolean;
 }
 
-export default function LanguageToggleButton({ className }: LanguageToggleButtonProps = {}) {
+export default function LanguageToggleButton({
+  className,
+  placement = "bottom",
+  compact = false,
+}: LanguageToggleButtonProps = {}) {
   const { language, setLanguage } = useLanguage();
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -135,26 +141,36 @@ export default function LanguageToggleButton({ className }: LanguageToggleButton
         onClick={() => setOpen((prev) => !prev)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`inline-flex h-10 items-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-3 text-sm font-bold text-[#204195] shadow-[0_5px_16px_rgba(20,36,75,0.04)] transition-all duration-200 hover:border-[#204195]/25 hover:bg-[#F7F9FD] ${className ?? ""}`}
+        title={compact ? current.label : undefined}
+        className={
+          compact
+            ? `flex h-9 w-9 items-center justify-center rounded-xl border border-[#DCE4F3] bg-white transition-colors hover:bg-[#F7F9FD] ${className ?? ""}`
+            : `flex h-11 items-center gap-2 rounded-[14px] border border-[#DCE4F3] bg-white px-3 text-sm font-bold text-[#204195] transition-colors hover:bg-[#F7F9FD] ${className ?? ""}`
+        }
       >
         <LanguageFlag code={current.code} className="h-[16px] w-[24px]" />
-        <span>{current.shortLabel}</span>
-        <ChevronDown
-          className={`size-4 transition-transform duration-200 ${
-            open ? "rotate-180" : ""
-          }`}
-        />
+        {!compact && (
+          <>
+            <span>{current.shortLabel}</span>
+            <ChevronDown
+              className={`size-4 transition-transform duration-200 ${
+                open ? "rotate-180" : ""
+              }`}
+            />
+          </>
+        )}
       </button>
 
       {open && (
         <div
           role="menu"
-          className="
-            absolute right-0 top-[calc(100%+10px)] z-50 min-w-[180px]
+          className={`
+            absolute right-0 z-50 min-w-[180px]
             overflow-hidden rounded-2xl border border-[#DCE4F3]
             bg-white p-1.5
             shadow-[0_18px_45px_rgba(20,36,75,0.12)]
-          "
+            ${placement === "top" ? "bottom-[calc(100%+8px)]" : "top-[calc(100%+10px)]"}
+          `}
         >
           {LANGUAGE_OPTIONS.map((item) => {
             const active = item.code === language;

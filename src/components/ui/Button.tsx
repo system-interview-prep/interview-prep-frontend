@@ -61,6 +61,7 @@ export const Button: React.FC<ButtonProps> = ({
   size,
   children,
   href,
+  icon,
   iconFill = false,
   ...props
 }) => {

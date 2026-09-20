@@ -151,33 +151,92 @@ export async function fetchJobProfileListAggregates(
 }
 
 export const jobProfileApi = {
+  // ── Job Description CRUD ─────────────────────────────────────────────────────
+  /** Khớp BE: GET /admin/job-descriptions */
   list: (params?: ListJobProfilesParams, config?: { signal?: AbortSignal }) =>
     api.get<JobProfileListResponse>("/admin/job-descriptions", { params, ...config }),
-  get: (id: string) => api.get<JobProfile>(`/admin/job-descriptions/${id}`),
+  /** Khớp BE: GET /admin/job-descriptions/{id} */
+  get: (id: string) => api.get<JobProfile>(`/admin/job-descriptions/${encodeURIComponent(id)}`),
+  /** Khớp BE: PATCH /admin/job-descriptions/{id} (admin only) */
   update: (id: string, body: { description?: string | null }) =>
-    api.patch<JobProfile>(`/admin/job-descriptions/${id}`, body),
-  delete: (id: string) => api.delete<void>(`/admin/job-descriptions/${id}`),
+    api.patch<JobProfile>(`/admin/job-descriptions/${encodeURIComponent(id)}`, body),
+  /** Khớp BE: DELETE /admin/job-descriptions/{id} (admin only) */
+  delete: (id: string) => api.delete<void>(`/admin/job-descriptions/${encodeURIComponent(id)}`),
 
+  // ── Upload flow ───────────────────────────────────────────────────────────────
+  /** Khớp BE: POST /admin/job-descriptions/uploads (admin only) */
   uploadJd: async (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
     return api.post<JobProfileUpload>("/admin/job-descriptions/uploads", fd);
   },
-  getUpload: (id: string) => api.get<JobProfileUpload>(`/admin/job-descriptions/uploads/${id}`),
+  /** Khớp BE: GET /admin/job-descriptions/uploads/{id} */
+  getUpload: (id: string) =>
+    api.get<JobProfileUpload>(`/admin/job-descriptions/uploads/${encodeURIComponent(id)}`),
+  /** Khớp BE: POST /admin/job-descriptions/uploads/{id}/reparse */
   reparseUpload: (id: string) =>
-    api.post<JobProfileUpload>(`/admin/job-descriptions/uploads/${id}/reparse`),
+    api.post<JobProfileUpload>(`/admin/job-descriptions/uploads/${encodeURIComponent(id)}/reparse`),
+  /** Khớp BE: PATCH /admin/job-descriptions/uploads/{id} */
   updateUpload: (
     id: string,
     body: { structuredData?: Record<string, unknown> | null; extractedMetadata?: Record<string, unknown> | null }
-  ) => api.patch<JobProfileUpload>(`/admin/job-descriptions/uploads/${id}`, body),
+  ) => api.patch<JobProfileUpload>(`/admin/job-descriptions/uploads/${encodeURIComponent(id)}`, body),
+  /** Khớp BE: POST /admin/job-descriptions/uploads/{id}/finalize */
   finalizeUpload: (
     id: string,
     body: {
       title: string;
-      categoryId: string;
+      primaryTaxonomyConceptId?: string;
+      categoryId?: string;
       keywords?: string[];
       status?: JobProfileStatus;
       description?: string;
     }
-  ) => api.post<{ id: string }>(`/admin/job-descriptions/uploads/${id}/finalize`, body),
+  ) => api.post<JobProfile>(`/admin/job-descriptions/uploads/${encodeURIComponent(id)}/finalize`, body),
+
+  /**
+   * Download file JD gốc (PDF/DOCX).
+   * Khớp với BE: GET /admin/job-descriptions/uploads/{id}/download
+   */
+  downloadUpload: async (
+    id: string
+  ): Promise<{ buffer: ArrayBuffer; filename: string; contentType: string }> => {
+    const response = await api.get<ArrayBuffer>(
+      `/admin/job-descriptions/uploads/${encodeURIComponent(id)}/download`,
+      { responseType: "arraybuffer" }
+    );
+    const disposition = response.headers?.["content-disposition"] as string | undefined;
+    const match = disposition?.match(/filename="?([^"\s;]+)/);
+    const ct =
+      (response.headers?.["content-type"] as string | undefined) ?? "application/octet-stream";
+    return {
+      buffer: response.data,
+      filename: match?.[1] ?? "jd-file",
+      contentType: ct,
+    };
+  },
+
+  /**
+   * Trả về URL để mở EventSource stream trạng thái JD upload parsing.
+   * Khớp với BE: GET /admin/job-descriptions/uploads/{id}/events (SSE)
+   *
+   * @example
+   * ```ts
+   * const url = jobProfileApi.getUploadEventsUrl(uploadId);
+   * const es = new EventSource(url);
+   * es.onmessage = (e) => console.log(JSON.parse(e.data));
+   * es.onerror = () => es.close();
+   * ```
+   */
+  getUploadEventsUrl: (id: string, accessToken?: string): string => {
+    const base = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
+    const url = new URL(
+      `${base}/admin/job-descriptions/uploads/${encodeURIComponent(id)}/events`
+    );
+    if (accessToken) url.searchParams.set("token", accessToken);
+    return url.toString();
+  },
 };
+
+/** Alias dùng route /admin/job-profiles/* (BE hỗ trợ cả hai) */
+export const jobProfileApiLegacy = jobProfileApi;

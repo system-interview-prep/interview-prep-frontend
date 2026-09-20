@@ -1,9 +1,8 @@
 "use client";
 
 import axios from "axios";
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Search, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { jobCategoryApi, type JobCategory } from "@features/admin/services/jobCategory.service";
 import {
@@ -13,6 +12,7 @@ import {
 } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { UserJobProfileCard } from "@features/user-dashboard/components/UserJobProfileCard";
+import { JobInterviewCvModal } from "@features/user-dashboard/components/JobInterviewCvModal";
 
 /** Keep in sync with admin job profiles list (`AdminJobProfilesPanel`). */
 const PAGE_SIZE = 12;
@@ -62,6 +62,7 @@ export default function UserJobsBoard() {
   const debouncedSearch = useDebouncedValue(search, 400);
   const [categoryFilter, setCategoryFilter] = useState<"all" | string>("all");
   const [categories, setCategories] = useState<JobCategory[]>([]);
+  const [cvModalJob, setCvModalJob] = useState<JobProfile | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,37 +162,34 @@ export default function UserJobsBoard() {
 
   return (
     <div className="min-w-0 space-y-8">
-      <div className="flex flex-col gap-3 border-b-2 border-[#234196] pb-7">
-        <Link
-          href="/dashboard"
-          className="inline-flex min-h-11 w-fit items-center gap-1 text-sm font-bold"
-        >
-          <ArrowLeft className="size-5" aria-hidden="true" />
-          <span className="underline decoration-[#FCB625] decoration-4 underline-offset-4">{t("userDash.jobProfiles.backToDashboard")}</span>
-        </Link>
-        <div><span className="sticker -rotate-1 bg-[#FCB625]">{t("userDash.jobs.eyebrow")}</span></div>
-        <h1 className="font-headline text-4xl font-bold tracking-tight md:text-5xl">
+      <div className="flex flex-col gap-3 border-b border-[#EAEFF8] pb-6">
+        <div>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#204195]">
+            {t("userDash.jobs.eyebrow")}
+          </span>
+        </div>
+        <h1 className="text-3xl font-extrabold tracking-tight text-[#14244B] md:text-4xl">
           {t("userDash.jobProfiles.pageTitle")}
         </h1>
-        <p className="max-w-2xl text-sm leading-6 text-[#5A6B8F]">{t("userDash.jobProfiles.pageSubtitle")}</p>
+        <p className="max-w-2xl text-sm leading-6 text-[#607096]">{t("userDash.jobProfiles.pageSubtitle")}</p>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border-2 border-[#234196] bg-white p-3 shadow-[3px_3px_0_#234196] sm:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="grid gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-3 shadow-xs sm:grid-cols-[minmax(0,1fr)_auto]">
         <div className="relative min-w-[min(100%,280px)] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-[#5A6B8F]" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-[#607096]" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("admin.jobProfile.searchPlaceholder")}
-            className="min-h-12 w-full rounded-xl border-2 border-[#234196] bg-[#F0F4FC] py-2.5 pl-10 pr-3 text-sm text-[#234196] placeholder:text-[#5A6B8F] focus:bg-white focus:outline-none"
+            className="min-h-11 w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-10 pr-3 text-sm text-[#14244B] placeholder:text-[#607096] transition-all focus:border-[#204195] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]/20"
             aria-label={t("admin.jobProfile.searchPlaceholder")}
           />
         </div>
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value as "all" | string)}
-          className="min-h-12 w-full rounded-xl border-2 border-[#234196] bg-white px-4 py-2.5 text-sm font-bold text-[#234196] focus:outline-none sm:w-auto"
+          className="min-h-11 w-full rounded-xl border border-[#DCE4F3] bg-white px-4 py-2 text-sm font-semibold text-[#14244B] transition-all focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/20 sm:w-auto"
           aria-label={t("admin.jobProfile.form.category")}
         >
           <option value="all">{t("admin.jobProfile.filter.allCategories")}</option>
@@ -204,19 +202,25 @@ export default function UserJobsBoard() {
       </div>
 
       {error && (
-        <div className="rounded-xl border-2 border-[#D32F2F] bg-[#FFEBEE] px-4 py-3 text-sm text-[#8F1D1D] shadow-[3px_3px_0_#D32F2F]" role="alert">
+        <div className="rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-800 shadow-xs" role="alert">
           {error}
         </div>
       )}
 
       {loading ? (
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label={t("admin.jobProfile.loading")}>
-          {[0, 1, 2, 3, 4, 5].map((item) => <div key={item} className="h-64 animate-pulse rounded-2xl border-2 border-[#234196] bg-[#F0F4FC] motion-reduce:animate-none" />)}
+          {[0, 1, 2, 3, 4, 5].map((item) => (
+            <div key={item} className="h-64 animate-pulse rounded-2xl border border-[#DCE4F3] bg-white shadow-xs motion-reduce:animate-none" />
+          ))}
         </div>
       ) : profiles.length === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-[#234196] bg-[#F0F4FC] px-6 py-16 text-center">
-          <Briefcase className="mx-auto size-12 text-[#234196]" aria-hidden="true" />
-          <p className="mt-4 text-sm text-[#5A6B8F]">{debouncedSearch.trim() || categoryFilter !== "all" ? t("admin.jobProfile.noMatch") : t("userDash.jobProfiles.empty")}</p>
+        <div className="rounded-2xl border border-dashed border-[#DCE4F3] bg-white px-6 py-16 text-center shadow-xs">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0F4FC] text-[#204195]">
+            <Briefcase className="size-7" aria-hidden="true" />
+          </div>
+          <p className="mt-4 text-sm font-medium text-[#607096]">
+            {debouncedSearch.trim() || categoryFilter !== "all" ? t("admin.jobProfile.noMatch") : t("userDash.jobProfiles.empty")}
+          </p>
         </div>
       ) : (
         <>
@@ -236,12 +240,12 @@ export default function UserJobsBoard() {
               />
             ))}
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
             <button
               type="button"
               onClick={handlePrevPage}
               disabled={loading || pageBackStack.length === 0}
-              className="chunky-secondary min-h-11 min-w-[7rem] px-5 text-sm disabled:cursor-not-allowed disabled:opacity-45"
+              className="inline-flex min-h-10 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-4 text-xs font-semibold text-[#14244B] shadow-xs transition-all hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ChevronLeft className="size-4" />
               {t("userDash.jobProfiles.pagePrev")}
@@ -250,7 +254,7 @@ export default function UserJobsBoard() {
               type="button"
               onClick={handleNextPage}
               disabled={loading || !nextPageStart}
-              className="chunky-primary min-h-11 min-w-[7rem] px-5 text-sm disabled:cursor-not-allowed disabled:opacity-45"
+              className="inline-flex min-h-10 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-4 text-xs font-semibold text-white shadow-xs transition-all hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {t("userDash.jobProfiles.pageNext")}
               <ChevronRight className="size-4" />
@@ -258,6 +262,12 @@ export default function UserJobsBoard() {
           </div>
         </>
       )}
+      <JobInterviewCvModal
+        open={cvModalJob !== null}
+        jobTitle={cvModalJob?.title ?? ""}
+        jobProfileId={cvModalJob?.id}
+        onClose={() => setCvModalJob(null)}
+      />
     </div>
   );
 }
