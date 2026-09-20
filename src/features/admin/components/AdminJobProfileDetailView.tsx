@@ -51,7 +51,7 @@ export default function AdminJobProfileDetailView() {
     setDeleting(true);
     try {
       await jobProfileApi.delete(profile.id);
-      router.push("/admin/dashboard");
+      router.push("/admin/job-descriptions");
     } catch {
       alert(t("admin.jobProfile.deleteError"));
       setDeleting(false);
@@ -68,7 +68,7 @@ export default function AdminJobProfileDetailView() {
     return (
       <div className="space-y-4">
         <div className="rounded-xl border border-error/30 bg-error-container/20 px-4 py-3 text-sm text-error">{error}</div>
-        <Link href="/admin/dashboard" className="inline-flex items-center gap-2 text-primary hover:underline">
+        <Link href="/admin/job-descriptions" className="inline-flex items-center gap-2 text-primary hover:underline">
           <ArrowLeft className="size-4" />
           {t("admin.jobProfile.detail.back")}
         </Link>
@@ -83,7 +83,7 @@ export default function AdminJobProfileDetailView() {
   return (
     <div className="min-w-0 space-y-6">
       <Link
-        href="/admin/dashboard"
+        href="/admin/job-descriptions"
         className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-primary hover:underline"
       >
         <ArrowLeft className="size-4" />
