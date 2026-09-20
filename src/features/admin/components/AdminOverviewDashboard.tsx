@@ -259,7 +259,7 @@ export default function AdminOverviewDashboard() {
           <div className="grid grid-cols-1 gap-3">
             <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
               <p className="text-xs font-bold uppercase tracking-wider text-[#607096]">
-                {t("admin.sidebar.jobBoard") || "Hồ sơ tuyển dụng (JD)"}
+                {t("admin.sidebar.jobBoard") || "Mô tả công việc (JD)"}
               </p>
               <div className="mt-2 flex items-baseline gap-1.5">
                 {jobProfileCount !== null ? (
@@ -267,10 +267,10 @@ export default function AdminOverviewDashboard() {
                 ) : (
                   <span className="text-xs text-[#8A98B8]">{t("admin.common.loading") || "Đang tải..."}</span>
                 )}
-                <span className="text-xs text-[#607096]">{t("admin.jobProfile.unit") || "hồ sơ"}</span>
+                <span className="text-xs text-[#607096]">{t("admin.jobProfile.unit") || "JD"}</span>
               </div>
               <Link
-                href="/admin/job-profiles"
+                href="/admin/job-descriptions"
                 className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#204195] hover:underline"
               >
                 <span>{t("admin.common.viewList") || "Xem danh sách"}</span>
@@ -289,13 +289,13 @@ export default function AdminOverviewDashboard() {
       >
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <Link
-            href="/admin/job-profiles/create"
+            href="/admin/job-descriptions/create"
             className="group flex flex-col items-center rounded-xl border border-[#DCE4F3] bg-white p-4 text-center transition-all hover:border-[#204195] hover:shadow-xs"
           >
             <div className="mb-2 flex size-10 items-center justify-center rounded-xl bg-[#EEF2FD] text-[#204195] group-hover:bg-[#204195] group-hover:text-white transition-colors">
               <FileText className="size-5" />
             </div>
-            <span className="text-xs font-bold text-[#14244B]">{t("admin.sidebar.createProfile") || "Tạo Job Profile"}</span>
+            <span className="text-xs font-bold text-[#14244B]">{t("admin.sidebar.createProfile") || "Tạo Job Description"}</span>
             <span className="text-[10.5px] text-[#607096] mt-0.5">{t("admin.dashboard.action.createProfileSub") || "Tải lên JD mới"}</span>
           </Link>
 
