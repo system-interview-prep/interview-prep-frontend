@@ -1,4 +1,3 @@
-import AdminDashboardShell from "@features/admin/components/AdminDashboardShell";
 import AdminJobCategoriesView from "@features/admin/components/AdminJobCategoriesView";
 
 export const metadata = {
@@ -6,9 +5,5 @@ export const metadata = {
 };
 
 export default function AdminJobCategoriesPage() {
-  return (
-    <AdminDashboardShell>
-      <AdminJobCategoriesView />
-    </AdminDashboardShell>
-  );
+  return <AdminJobCategoriesView />;
 }

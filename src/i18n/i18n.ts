@@ -1,3 +1,5 @@
+import { adminEn, adminVi } from "./admin.dict";
+
 export type Lang = "en" | "vi";
 
 export const DEFAULT_LANG: Lang = "en";
@@ -10,6 +12,7 @@ export function normalizeLang(value: string | undefined | null): Lang {
 type Dict = Record<string, string>;
 
 const en: Dict = {
+  ...adminEn,
   "nav.platform": "Platform",
   "marketing.brandCurator": "INTERVIA",
   "resources.metaTitle": "Resources | INTERVIA",
@@ -2069,6 +2072,7 @@ const en: Dict = {
 };
 
 const vi: Dict = {
+  ...adminVi,
   "nav.platform": "Nền tảng",
   "marketing.brandCurator": "INTERVIA AI",
   "resources.metaTitle": "Tài nguyên | INTERVIA AI",

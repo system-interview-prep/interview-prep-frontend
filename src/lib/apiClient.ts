@@ -105,6 +105,57 @@ export const userApi = {
   },
 };
 
+// ── Admin Portal API ──────────────────────────────────────────────────────────
+export type AdminOverviewData = {
+  totalCandidates: number;
+  totalSessions: number;
+  activeSessions: number;
+  completedSessions: number;
+  averageScore: number;
+  averageTurnaround: number;
+  sentimentScore: number;
+  monthlyTrend: Array<{ month: string; count: number }>;
+  modes: {
+    chat: number;
+    voice: number;
+    video: number;
+  };
+  cohorts: Array<{
+    id: string;
+    name: string;
+    engagement: string;
+    avgScore: string;
+    growth: string;
+    status: 'optimized' | 'monitored';
+  }>;
+  aiEngineStatus: string;
+  updatedAt: string;
+};
+
+export type AdminSessionItem = {
+  id: string;
+  candidateName: string;
+  candidateEmail: string;
+  candidateInitials: string;
+  position: string;
+  teamAndLocation: string;
+  type: 'video' | 'chat' | 'voice';
+  aiScore: number | null;
+  dateLabel: string;
+  timeLabel: string;
+  status: 'completed' | 'scheduled' | 'action_needed';
+  actionLabel: string;
+};
+
+export const adminApi = {
+  getOverview: () =>
+    apiClient.get<{ success: boolean; overview: AdminOverviewData }>('/admin/overview'),
+  getSessions: (params?: { mode?: string; search?: string; limit?: number; offset?: number }) =>
+    apiClient.get<{ success: boolean; total: number; sessions: AdminSessionItem[] }>('/admin/sessions', {
+      params,
+    }),
+};
+
 // ── CV Download API ───────────────────────────────────────────────────────────
 /**
  * Download file CV gốc (PDF/DOCX) dưới dạng ArrayBuffer.
