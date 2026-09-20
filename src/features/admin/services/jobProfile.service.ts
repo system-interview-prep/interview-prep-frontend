@@ -2,18 +2,17 @@ import api from "@lib/apiClient";
 
 export type JobProfileStatus = "ACTIVE" | "DRAFT" | "ARCHIVED";
 
-/** Nested category when API populates the relation */
-export type JobProfileCategory = {
-  id: string;
-  name: string;
-  description?: string | null;
+export type JobProfileTaxonomy = {
+  version: string;
+  conceptId: string;
+  label: string;
+  kind: string;
 };
 
 export type JobProfile = {
   id: string;
   title: string;
-  categoryId: string;
-  category?: JobProfileCategory;
+  primaryTaxonomy?: JobProfileTaxonomy | null;
   keywords?: string[];
   description?: string | null;
   /** schema-validated canonical JD returned by the parser */
@@ -60,21 +59,21 @@ export type JobProfileListResponse = {
 
 export type CreateJobProfileBody = {
   title: string;
-  categoryId: string;
+  primaryTaxonomyConceptId?: string;
   keywords?: string[];
   status?: JobProfileStatus;
 };
 
 export type JobProfileFormState = {
   title: string;
-  categoryId: string;
+  primaryTaxonomyConceptId: string;
   keywords: string;
   status: JobProfileStatus;
 };
 
 export const emptyJobProfileForm: JobProfileFormState = {
   title: "",
-  categoryId: "",
+  primaryTaxonomyConceptId: "",
   keywords: "",
   status: "ACTIVE",
 };
@@ -94,28 +93,18 @@ export function keywordsArrayToInput(a: string[] | undefined | null): string {
 export type ListJobProfilesParams = {
   limit?: number;
   cursor?: string;
-  /** Preferred filter */
-  categoryId?: string;
-  /** Backend compatibility alias for legacy slug filters */
-  category?: string;
+  /** Filter by the primary concept in the active taxonomy. */
+  taxonomyConceptId?: string;
   q?: string;
   order?: "asc" | "desc";
 };
 
-/** Map dashboard filter value to query params (UUID/ObjectId → categoryId, else → category alias). */
-export function jobProfileListCategoryParams(
+/** Map a primary-taxonomy concept to the backend query parameter. */
+export function jobProfileListTaxonomyParams(
   filter: string
-): Pick<ListJobProfilesParams, "categoryId" | "category"> {
+): Pick<ListJobProfilesParams, "taxonomyConceptId"> {
   if (filter === "all") return {};
-  if (
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filter)
-  ) {
-    return { categoryId: filter };
-  }
-  if (/^[a-f0-9]{24}$/i.test(filter)) {
-    return { categoryId: filter };
-  }
-  return { category: filter };
+  return { taxonomyConceptId: filter };
 }
 
 const AGGREGATE_FETCH_LIMIT = 100;
@@ -174,7 +163,7 @@ export const jobProfileApi = {
     id: string,
     body: {
       title: string;
-      categoryId: string;
+      primaryTaxonomyConceptId?: string;
       keywords?: string[];
       status?: JobProfileStatus;
       description?: string;

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import MDEditor from "@uiw/react-md-editor";
-import { jobCategoryApi, type JobCategory } from "@features/admin/services/jobCategory.service";
+import { taxonomyApi, type TaxonomyConcept } from "@/lib/api/taxonomyApi";
 import {
   emptyJobProfileForm,
   jobProfileApi,
@@ -589,8 +589,8 @@ export default function AdminJobProfileCreateView() {
   const isEditMode = Boolean(editId);
 
   const [form, setForm] = useState<JobProfileFormState>(emptyJobProfileForm);
-  const [categories, setCategories] = useState<JobCategory[]>([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [taxonomyConcepts, setTaxonomyConcepts] = useState<TaxonomyConcept[]>([]);
+  const [loadingTaxonomy, setLoadingTaxonomy] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [jdFile, setJdFile] = useState<File | null>(null);
@@ -669,17 +669,17 @@ export default function AdminJobProfileCreateView() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await jobCategoryApi.list({ limit: 200 });
+        const { data } = await taxonomyApi.getActive();
         if (cancelled) return;
-        const items = data.items ?? [];
-        setCategories(items);
+        const items = (data.concepts ?? []).filter((concept) => ["domain", "occupation", "job_family"].includes(concept.kind));
+        setTaxonomyConcepts(items);
         setForm((f) => {
-          return f.categoryId ? f : { ...f, categoryId: items[0]?.id ?? "" };
+          return f.primaryTaxonomyConceptId ? f : { ...f, primaryTaxonomyConceptId: items[0]?.concept_id ?? "" };
         });
       } catch {
-        if (!cancelled) setError(t("admin.jobCategories.errorLoad"));
+        if (!cancelled) setError("Unable to load the active taxonomy.");
       } finally {
-        if (!cancelled) setLoadingCategories(false);
+        if (!cancelled) setLoadingTaxonomy(false);
       }
     })();
     return () => {
@@ -737,7 +737,7 @@ export default function AdminJobProfileCreateView() {
     }
   }, [isEditMode, editBusy, editId, descriptionHtml, router, t]);
 
-  const pageBusy = loadingCategories;
+  const pageBusy = loadingTaxonomy;
 
   const canUpload = Boolean(jdFile) && !uploading && !uploadId;
   const canFinalize = Boolean(uploadId) && jpStatus === "DONE" && !finalizeBusy;
@@ -767,7 +767,7 @@ export default function AdminJobProfileCreateView() {
 
   const handleFinalize = async () => {
     if (!uploadId || finalizeBusy) return;
-    if (!form.title.trim() || !form.categoryId) {
+    if (!form.title.trim()) {
       setError("Missing title/category");
       return;
     }
@@ -776,7 +776,7 @@ export default function AdminJobProfileCreateView() {
     try {
       const { data } = await jobProfileApi.finalizeUpload(uploadId, {
         title: form.title.trim(),
-        categoryId: form.categoryId,
+        primaryTaxonomyConceptId: form.primaryTaxonomyConceptId || undefined,
         keywords: keywordsStringToArray(form.keywords),
         status: form.status,
         description: descriptionHtml.trim() ? descriptionHtml : undefined,
@@ -1075,16 +1075,17 @@ export default function AdminJobProfileCreateView() {
 
         <div>
           <label className="mb-1 block text-xs font-medium text-on-surface-variant">
-            Category
+            Primary taxonomy
           </label>
           <select
-            value={form.categoryId}
-            onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
+            value={form.primaryTaxonomyConceptId}
+            onChange={(e) => setForm((f) => ({ ...f, primaryTaxonomyConceptId: e.target.value }))}
             className="w-full rounded-lg border border-outline-variant/30 px-3 py-2.5 text-sm"
           >
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
+            <option value="">No taxonomy classification</option>
+            {taxonomyConcepts.map((concept) => (
+              <option key={concept.concept_id} value={concept.concept_id}>
+                {concept.label}
               </option>
             ))}
           </select>
