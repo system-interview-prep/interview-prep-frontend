@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { MessageSquare, Brain, Database, Settings, HelpCircle, LogOut, Plus, Briefcase, Layers, User } from "lucide-react";
+import { MessageSquare, Brain, Database, Settings, HelpCircle, LogOut, Plus, Briefcase, User } from "lucide-react";
 import AdminDashboardJobNav from "./AdminDashboardJobNav";
 import AdminSidebarBrand from "./AdminSidebarBrand";
 import AdminAuthBadge from "./AdminAuthBadge";
@@ -87,7 +87,6 @@ export default async function AdminDashboardShell({ children }: { children: Reac
       <nav className="fixed bottom-4 left-4 right-4 z-50 grid grid-cols-4 rounded-xl border-2 border-[#234196] bg-white p-2 shadow-[4px_4px_0_#234196] md:hidden" aria-label={t("admin.sidebar.jobNavAria")}>
         <Link href="/admin/dashboard" className="flex min-h-12 flex-col items-center justify-center rounded-lg bg-[#FCB625] px-1 text-[9px] font-bold"><Briefcase className="size-5 mb-0.5" aria-hidden="true" />{t("admin.sidebar.jobBoard")}</Link>
         <Link href="/admin/job-profiles/create" className="flex min-h-12 flex-col items-center justify-center rounded-lg px-1 text-[9px] font-bold hover:bg-[#F0F4FC]"><Plus className="size-5 mb-0.5" aria-hidden="true" />{t("admin.sidebar.createProfile")}</Link>
-        <Link href="/admin/job-profiles/categories" className="flex min-h-12 flex-col items-center justify-center rounded-lg px-1 text-[9px] font-bold hover:bg-[#F0F4FC]"><Layers className="size-5 mb-0.5" aria-hidden="true" />{t("admin.sidebar.categories")}</Link>
         <Link href="/admin/profile" className="flex min-h-12 flex-col items-center justify-center rounded-lg px-1 text-[9px] font-bold hover:bg-[#F0F4FC]"><User className="size-5 mb-0.5" aria-hidden="true" />{t("userDash.nav.profile")}</Link>
       </nav>
     </div>
