@@ -72,12 +72,12 @@ function normalizeStatus(status: JobProfile["status"]): "ACTIVE" | "DRAFT" | "AR
 function statusBadgeClass(status: JobProfile["status"]): string {
   const normalized = normalizeStatus(status);
   if (normalized === "DRAFT") {
-    return "border-2 border-amber-700 bg-amber-100 text-amber-800";
+    return "bg-amber-50 text-amber-800 border border-amber-200";
   }
   if (normalized === "ARCHIVED") {
-    return "border-2 border-slate-600 bg-slate-200 text-slate-700";
+    return "bg-slate-50 text-slate-700 border border-slate-200";
   }
-  return "border-2 border-emerald-700 bg-emerald-100 text-emerald-800";
+  return "bg-emerald-50 text-emerald-800 border border-emerald-200";
 }
 
 export default function AdminJobProfilesPanel() {
@@ -312,62 +312,77 @@ export default function AdminJobProfilesPanel() {
   }, [lang]);
 
   return (
-    <div className="mx-auto min-w-0 max-w-[1440px] space-y-0">
+    <div className="mx-auto min-w-0 max-w-[1440px] space-y-6">
       {error && (
-        <div className="mb-5 rounded-xl border-2 border-[#D32F2F] bg-[#FFEBEE] px-4 py-3 text-sm text-[#8F1D1D] shadow-[3px_3px_0_#D32F2F]" role="alert">
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-xs" role="alert">
           {error}
         </div>
       )}
 
-      <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-        <div className="max-w-2xl">
-          <span className="sticker -rotate-1 bg-[#FCB625]">{t("admin.sidebar.jobBoard")}</span>
-          <h1 className="mt-4 font-headline text-4xl font-extrabold tracking-tight md:text-5xl">
+      {/* Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#204195]/8 border border-[#204195]/15 px-3 py-1 text-xs font-semibold text-[#204195]">
+            <Briefcase className="size-3.5" />
+            {t("admin.sidebar.jobBoard")}
+          </span>
+          <h1 className="mt-2.5 font-headline text-2xl font-bold tracking-tight text-[#14244B] md:text-3xl">
             {t("admin.dashboard.title")}
           </h1>
-          <p className="mt-3 max-w-xl leading-7 text-[#5A6B8F]">{t("admin.dashboard.subtitle")}</p>
+          <p className="mt-1 max-w-xl text-xs text-[#607096]">{t("admin.dashboard.subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Link href="/admin/job-profiles/create" className="chunky-primary min-h-12 px-5 text-sm"><Plus className="size-5" aria-hidden="true" />{t("admin.sidebar.createProfile")}</Link>
-          <div className="inline-flex shrink-0 rounded-xl border-2 border-[#234196] bg-white p-1 shadow-[2px_2px_0_#234196]">
-          <button
-            type="button"
-            onClick={() => setViewMode("grid")}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-              viewMode === "grid" ? "bg-[#FCB625] text-[#234196]" : "text-[#5A6B8F] hover:bg-[#F0F4FC] hover:text-[#234196]"
-            }`}
+          <Link
+            href="/admin/job-profiles/create"
+            className="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] hover:bg-[#183275] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99]"
           >
-            {t("admin.jobProfile.view.grid")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("list")}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-              viewMode === "list" ? "bg-[#FCB625] text-[#234196]" : "text-[#5A6B8F] hover:bg-[#F0F4FC] hover:text-[#234196]"
-            }`}
-          >
-            {t("admin.jobProfile.view.list")}
-          </button>
+            <Plus className="size-4" aria-hidden="true" />
+            {t("admin.sidebar.createProfile")}
+          </Link>
+          <div className="inline-flex shrink-0 rounded-xl border border-[#DCE4F3] bg-white p-1 shadow-xs">
+            <button
+              type="button"
+              onClick={() => setViewMode("grid")}
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                viewMode === "grid"
+                  ? "bg-[#EEF2FD] text-[#204195] font-bold"
+                  : "text-[#607096] hover:bg-[#F2F5FC] hover:text-[#204195]"
+              }`}
+            >
+              {t("admin.jobProfile.view.grid")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                viewMode === "list"
+                  ? "bg-[#EEF2FD] text-[#204195] font-bold"
+                  : "text-[#607096] hover:bg-[#F2F5FC] hover:text-[#204195]"
+              }`}
+            >
+              {t("admin.jobProfile.view.list")}
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="mb-8 grid gap-3 rounded-2xl border-2 border-[#234196] bg-white p-3 shadow-[3px_3px_0_#234196] sm:grid-cols-2 xl:grid-cols-[minmax(18rem,1fr)_auto_auto]">
+      {/* Filter and Search Bar */}
+      <div className="grid gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-3.5 shadow-xs sm:grid-cols-2 xl:grid-cols-[minmax(18rem,1fr)_auto_auto]">
         <div className="relative min-w-[min(100%,320px)] flex-1">
-          <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 size-5 text-[#5A6B8F]" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#8A9ABA]" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("admin.jobProfile.searchPlaceholder")}
-            className="min-h-12 w-full rounded-xl border-2 border-[#234196] bg-[#F0F4FC] py-3 pl-12 pr-4 text-sm text-[#234196] placeholder:text-[#5A6B8F] focus:bg-white focus:outline-none"
+            className="h-11 w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2.5 pl-10 pr-4 text-xs font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-xs focus:bg-white focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15"
             aria-label={t("admin.jobProfile.searchPlaceholder")}
           />
         </div>
         <select
-          value={taxonomyFilter}
-          onChange={(e) => setTaxonomyFilter(e.target.value as "all" | string)}
-          className="min-h-12 w-full rounded-xl border-2 border-[#234196] bg-white px-4 py-3 text-sm font-bold text-[#234196] focus:outline-none"
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value as "all" | string)}
+          className="h-11 w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-xs focus:bg-white focus:border-[#204195] focus:outline-none"
           aria-label={t("admin.jobProfile.form.category")}
         >
           <option value="all">{t("admin.jobProfile.filter.allCategories")}</option>
@@ -380,7 +395,7 @@ export default function AdminJobProfilesPanel() {
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
-          className="min-h-12 w-full rounded-xl border-2 border-[#234196] bg-white px-4 py-3 text-sm font-bold text-[#234196] focus:outline-none"
+          className="h-11 w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-xs focus:bg-white focus:border-[#204195] focus:outline-none"
           aria-label={t("admin.jobProfile.sortLabel")}
         >
           <option value="newest">{t("admin.jobProfile.sort.newest")}</option>
@@ -390,27 +405,34 @@ export default function AdminJobProfilesPanel() {
         </select>
       </div>
 
-      {loading && <div className="grid gap-5 md:grid-cols-2" role="status" aria-label={t("admin.jobProfile.loading")}>{[0, 1, 2, 3].map((item) => <div key={item} className="h-72 animate-pulse rounded-2xl border-2 border-[#234196] bg-[#F0F4FC] motion-reduce:animate-none" />)}</div>}
+      {loading && (
+        <div className="grid gap-5 md:grid-cols-2" role="status" aria-label={t("admin.jobProfile.loading")}>
+          {[0, 1, 2, 3].map((item) => (
+            <div key={item} className="h-64 animate-pulse rounded-2xl border border-[#DCE4F3] bg-white shadow-xs motion-reduce:animate-none" />
+          ))}
+        </div>
+      )}
 
       {!loading && profiles.length === 0 && (
-        <div className="rounded-2xl border-2 border-dashed border-[#234196] bg-[#F0F4FC] px-6 py-20 text-center flex flex-col items-center">
-          <Briefcase className="mb-4 size-12 text-[#234196]" />
-          <p className="text-[#5A6B8F]">{t("admin.jobProfile.empty")}</p>
+        <div className="rounded-2xl border border-dashed border-[#DCE4F3] bg-white px-6 py-20 text-center flex flex-col items-center shadow-xs">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0F4FC] text-[#204195] mb-3">
+            <Briefcase className="size-7" />
+          </div>
+          <p className="text-sm font-medium text-[#607096]">{t("admin.jobProfile.empty")}</p>
         </div>
       )}
 
       {!loading && profiles.length > 0 && displayItems.length > 0 && viewMode === "grid" && (
         <div className="space-y-6">
-
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             {displayItems.map((p) => (
               <article
                 key={p.id}
-                className="group flex min-h-0 flex-col rounded-2xl border-2 border-[#234196] bg-white p-6 text-[#234196] shadow-[3px_3px_0_#234196] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#234196] motion-reduce:transition-none"
+                className="group flex min-h-0 flex-col rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs transition-all duration-200 hover:border-[#204195]/40 hover:shadow-md motion-reduce:transition-none"
               >
                 <div className="mb-4 flex items-start justify-between gap-2">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FCB625]">
-                    <CategoryIcon name={resolveTaxonomyLabel(p)} className="size-5" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195]">
+                    <CategoryIcon name={resolveCategoryName(p)} className="size-5" />
                   </div>
                   <span
                     className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(
@@ -420,29 +442,26 @@ export default function AdminJobProfilesPanel() {
                     {normalizeStatus(p.status)}
                   </span>
                 </div>
-                <h2 className="mb-2 line-clamp-2 font-headline text-xl font-extrabold leading-snug">
+                <h2 className="mb-2 line-clamp-2 font-headline text-lg font-bold text-[#14244B] leading-snug transition-colors group-hover:text-[#204195]">
                   <Link href={`/admin/job-profiles/${p.id}`} className="hover:underline">
                     {p.title}
                   </Link>
                 </h2>
-                <p className="mb-5 line-clamp-3 flex-1 whitespace-pre-wrap text-sm leading-relaxed text-[#5A6B8F]">
+                <p className="mb-5 line-clamp-3 flex-1 whitespace-pre-wrap text-xs leading-relaxed text-[#607096]">
                   {(() => {
                     const raw = String((p as Record<string, unknown>)?.description || "").trim();
                     if (!raw) return "—";
-                    // If description is HTML, show a plain-text preview.
                     const isHtml = /^\s*<[a-z][\w-]*(\s[^>]*)?>/i.test(raw);
                     const text = isHtml
                       ? raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
                       : raw;
-
-                    // Remove markdown headings like "## " at start of lines for list preview.
                     const cleaned = text.replace(/^\s*#{1,6}\s*/gm, "").trim();
                     return cleaned || "—";
                   })()}
                 </p>
-                <div className="mb-5 flex flex-wrap gap-2">
+                <div className="mb-5 flex flex-wrap gap-1.5">
                   <span
-                    className="sticker inline-flex max-w-full truncate bg-[#F0F4FC] text-[9px]"
+                    className="inline-flex max-w-full truncate rounded-full bg-[#204195]/8 border border-[#204195]/15 px-2.5 py-0.5 text-[10px] font-semibold text-[#204195]"
                     title={t("admin.jobProfile.form.category")}
                   >
                     {resolveTaxonomyLabel(p)}
@@ -452,33 +471,33 @@ export default function AdminJobProfilesPanel() {
                     .map((k) => (
                       <span
                         key={k}
-                        className="max-w-full truncate rounded-lg border-2 border-dashed border-[#234196] bg-[#FEF9EE] px-2.5 py-1 text-[10px] font-medium leading-tight"
+                        className="max-w-full truncate rounded-lg border border-[#DCE4F3] bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-medium text-[#607096]"
                       >
                         {k}
                       </span>
                     ))}
                 </div>
-                <div className="mt-auto flex items-center justify-between border-t-2 border-[#234196] pt-4">
-                  <span className="text-xs text-[#5A6B8F]">
+                <div className="mt-auto flex items-center justify-between border-t border-[#EAEFF8] pt-4">
+                  <span className="text-[11px] text-[#607096]">
                     {t("admin.jobProfile.card.updated")}:{" "}
                     {formatRelativeShort(p.updatedAt ?? p.createdAt ?? "", lang)}
                   </span>
-                  <div className="flex items-center">
+                  <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => handleEdit(p.id)}
-                      className="grid min-h-11 min-w-11 place-items-center rounded-lg transition hover:bg-[#F0F4FC]"
+                      className="grid h-8 w-8 place-items-center rounded-lg text-[#607096] transition hover:bg-[#F0F4FC] hover:text-[#204195]"
                       aria-label={t("admin.jobProfile.card.edit")}
                     >
-                      <Edit className="size-5" />
+                      <Edit className="size-4" />
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(p.id)}
-                      className="grid min-h-11 min-w-11 place-items-center rounded-lg text-[#D32F2F] transition hover:bg-[#FFEBEE]"
+                      className="grid h-8 w-8 place-items-center rounded-lg text-red-500 transition hover:bg-red-50"
                       aria-label={t("admin.jobProfile.card.delete")}
                     >
-                      <Trash2 className="size-5" />
+                      <Trash2 className="size-4" />
                     </button>
                   </div>
                 </div>
@@ -489,32 +508,32 @@ export default function AdminJobProfilesPanel() {
       )}
 
       {!loading && profiles.length > 0 && displayItems.length > 0 && viewMode === "list" && (
-        <div className="overflow-x-auto rounded-2xl border-2 border-[#234196] bg-white shadow-[3px_3px_0_#234196]">
+        <div className="overflow-x-auto rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
           <table className="w-full min-w-[760px] border-collapse text-left text-sm">
             <thead>
-              <tr className="border-b-2 border-[#234196] bg-[#F0F4FC] text-xs font-bold uppercase tracking-wider text-[#5A6B8F]">
-                <th className="px-5 py-4">{t("admin.jobProfile.list.title")}</th>
-                <th className="px-5 py-4">{t("admin.jobProfile.list.category")}</th>
-                <th className="px-5 py-4">{t("admin.jobProfile.list.status")}</th>
-                <th className="px-5 py-4">{t("admin.jobProfile.list.keywords")}</th>
-                <th className="px-5 py-4">{t("admin.jobProfile.list.updated")}</th>
-                <th className="px-5 py-4 text-right align-middle">{t("admin.jobProfile.list.actions")}</th>
+              <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
+                <th className="px-5 py-3.5">{t("admin.jobProfile.list.title")}</th>
+                <th className="px-5 py-3.5">{t("admin.jobProfile.list.category")}</th>
+                <th className="px-5 py-3.5">{t("admin.jobProfile.list.status")}</th>
+                <th className="px-5 py-3.5">{t("admin.jobProfile.list.keywords")}</th>
+                <th className="px-5 py-3.5">{t("admin.jobProfile.list.updated")}</th>
+                <th className="px-5 py-3.5 text-right align-middle">{t("admin.jobProfile.list.actions")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y-2 divide-[#234196]">
+            <tbody className="divide-y divide-[#EAEFF8] text-xs">
               {displayItems.map((p) => (
-                <tr key={p.id} className="hover:bg-[#FEF9EE]">
-                  <td className="px-5 py-4 font-semibold text-on-surface">
-                    <Link href={`/admin/job-profiles/${p.id}`} className="hover:text-primary hover:underline">
+                <tr key={p.id} className="transition-colors hover:bg-[#F8FAFC]">
+                  <td className="px-5 py-3.5 font-semibold text-[#14244B]">
+                    <Link href={`/admin/job-profiles/${p.id}`} className="hover:text-[#204195] hover:underline">
                       {p.title}
                     </Link>
                   </td>
-                  <td className="px-5 py-4">
-                    <span className="sticker inline-flex max-w-[12rem] truncate bg-[#F0F4FC] text-[8px]">
-                      {resolveTaxonomyLabel(p)}
+                  <td className="px-5 py-3.5">
+                    <span className="inline-flex max-w-[12rem] truncate rounded-full bg-[#204195]/8 border border-[#204195]/15 px-2 py-0.5 text-[10px] font-semibold text-[#204195]">
+                      {resolveCategoryName(p)}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-5 py-4">
+                  <td className="whitespace-nowrap px-5 py-3.5">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(
                         p.status
@@ -523,34 +542,42 @@ export default function AdminJobProfilesPanel() {
                       {normalizeStatus(p.status)}
                     </span>
                   </td>
-                  <td className="max-w-md px-5 py-4">
+                  <td className="max-w-md px-5 py-3.5">
                     {keywordChips(p.keywords).length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-1">
                         {keywordChips(p.keywords).map((k) => (
                           <span
                             key={k}
-                            className="inline-block max-w-[10rem] truncate rounded-lg border-2 border-dashed border-[#234196] bg-[#FEF9EE] px-2 py-0.5 text-[10px] font-medium"
+                            className="inline-block max-w-[10rem] truncate rounded-lg border border-[#DCE4F3] bg-[#F8FAFC] px-1.5 py-0.5 text-[10px] font-medium text-[#607096]"
                           >
                             {k}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <span className="text-on-surface-variant">—</span>
+                      <span className="text-[#8A9ABA]">—</span>
                     )}
                   </td>
-                  <td className="whitespace-nowrap px-5 py-4 text-[#5A6B8F]">
+                  <td className="whitespace-nowrap px-5 py-3.5 text-[#607096]">
                     {formatDate(p.updatedAt ?? p.createdAt ?? "", lang)}
                   </td>
-                  <td className="whitespace-nowrap px-5 py-4 text-right align-middle">
-                    <div className="inline-flex items-center justify-end gap-0.5">
+                  <td className="whitespace-nowrap px-5 py-3.5 text-right align-middle">
+                    <div className="inline-flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(p.id)}
+                        className="inline-flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[#607096] hover:bg-[#F0F4FC] hover:text-[#204195]"
+                        aria-label={t("admin.jobProfile.card.edit")}
+                      >
+                        <Edit className="size-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(p.id)}
-                        className="inline-flex shrink-0 items-center justify-center rounded-lg p-2 text-error hover:bg-error-container/30"
+                        className="inline-flex shrink-0 items-center justify-center rounded-lg p-1.5 text-red-500 hover:bg-red-50"
                         aria-label={t("admin.jobProfile.card.delete")}
                       >
-                        <Trash2 className="size-5" />
+                        <Trash2 className="size-4" />
                       </button>
                     </div>
                   </td>
@@ -561,11 +588,12 @@ export default function AdminJobProfilesPanel() {
         </div>
       )}
 
-      <div className="mt-8 flex flex-col gap-4 rounded-2xl border-2 border-[#234196] bg-[#F0F4FC] p-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-[#5A6B8F]">
-          <span className="inline-flex min-h-11 items-center gap-2 px-3">
-            <Archive className="size-4.5 text-[#234196]" />
-            <span className="font-bold text-[#234196]">
+      {/* Pagination */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-3.5 sm:flex-row sm:items-center sm:justify-between shadow-xs">
+        <p className="text-xs text-[#607096]">
+          <span className="inline-flex items-center gap-1.5 px-1">
+            <Archive className="size-4 text-[#204195]" />
+            <span className="font-bold text-[#14244B]">
               {aggregateLoading && listAggregate === null ? "…" : listAggregate?.total ?? profiles.length}
             </span>
             <span>{pagerText.items}</span>
@@ -576,26 +604,25 @@ export default function AdminJobProfilesPanel() {
             type="button"
             onClick={() => goToPage(page - 1)}
             disabled={loading || page <= 1}
-            className="chunky-secondary min-h-11 px-4 text-sm disabled:opacity-50"
+            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-xl border border-[#DCE4F3] bg-white px-3 text-xs font-semibold text-[#14244B] shadow-xs transition-all hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <ChevronLeft className="size-4.5" />
+            <ChevronLeft className="size-4" />
             {pagerText.prev}
           </button>
-          <span className="inline-flex min-h-11 min-w-[6rem] items-center justify-center px-2 text-sm font-bold">
+          <span className="inline-flex min-h-9 min-w-[5rem] items-center justify-center px-2 text-xs font-bold text-[#14244B]">
             {pagerText.page} {page}
           </span>
           <button
             type="button"
             onClick={() => goToPage(page + 1)}
             disabled={loading || !nextCursor}
-            className="chunky-primary min-h-11 px-4 text-sm disabled:opacity-50"
+            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-xl bg-[#204195] px-3 text-xs font-semibold text-white shadow-xs transition-all hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {pagerText.next}
-            <ChevronRight className="size-4.5" />
+            <ChevronRight className="size-4" />
           </button>
         </div>
       </div>
-
     </div>
   );
 }

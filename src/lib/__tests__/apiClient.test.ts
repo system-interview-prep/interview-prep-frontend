@@ -34,8 +34,13 @@ describe("apiClient Services", () => {
       email: "reg@example.com",
       password: "pass123",
       phone: "0123456789",
+      role: "CANDIDATE",
     });
   });
+
+  // NOTE: interviewApi đã bị xóa vì route /interview/* không tồn tại trên BE.
+  // Dùng aiService.createSession() → POST /ai/session để thay thế.
+  // it("interviewApi.start should send POST to /interview/start", ...) ← removed
 
   it("userApi.getProfile should send GET to /user/profile", async () => {
     const getSpy = vi.spyOn(apiClient, "get").mockResolvedValueOnce({

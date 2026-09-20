@@ -739,140 +739,66 @@ export default function KnowledgeBaseClient({
         </div>
       )}
 
-      {/* Sidebar Navigation */}
-      <aside className="fixed left-0 top-0 z-50 flex h-dvh w-80 flex-col overflow-y-auto overscroll-contain bg-[#f2f4f6] font-headline antialiased tracking-tight dark:bg-slate-900 xl:w-96">
-        <div className="flex flex-col h-full py-12 px-6">
-          <AdminSidebarBrand />
+      {/* Main Content Area */}
+      <div className="w-full space-y-6">
+        {/* Top Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
+          <div>
+            <h1 className="font-headline text-2xl font-bold tracking-tight text-[#14244B] sm:text-3xl">
+              {t("admin.knowledgeBase") || "Cơ sở tri thức (RAG)"}
+            </h1>
+            <p className="mt-1 text-xs text-[#607096]">
+              Quản lý tài liệu vector, chunk embeddings và thử nghiệm truy hồi thông tin phỏng vấn.
+            </p>
+          </div>
 
-          <nav className="flex-1 space-y-2">
-            <Link
-              className="flex items-center gap-4 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
-              href="/admin/dashboard"
+          {/* Tab Switcher */}
+          <div className="flex rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-1 shadow-xs">
+            <button
+              onClick={() => setActiveTab("catalog")}
+              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+                activeTab === "catalog"
+                  ? "bg-white text-[#204195] shadow-xs"
+                  : "text-[#607096] hover:text-[#204195]"
+              }`}
             >
-              <LayoutDashboard className="size-5" />
-              <span>{t("common.dashboard")}</span>
-            </Link>
-            <Link
-              className="flex items-center gap-4 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
-              href="/admin/interviews"
+              <List className="size-4" />
+              Quản lý Unit
+            </button>
+            <button
+              onClick={() => setActiveTab("editor")}
+              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+                activeTab === "editor"
+                  ? "bg-white text-[#204195] shadow-xs"
+                  : "text-[#607096] hover:text-[#204195]"
+              }`}
             >
-              <Video className="size-5" />
-              <span>{t("admin.interviews")}</span>
-            </Link>
-            <Link
-              className="flex items-center gap-4 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
-              href="/admin/insights"
+              {isEditMode ? <FileEdit className="size-4" /> : <PlusSquare className="size-4" />}
+              {isEditMode ? "Sửa tài liệu" : "Biên tập & Nạp"}
+            </button>
+            <button
+              onClick={() => setActiveTab("playground")}
+              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+                activeTab === "playground"
+                  ? "bg-white text-[#204195] shadow-xs"
+                  : "text-[#607096] hover:text-[#204195]"
+              }`}
             >
-              <Brain className="size-5" />
-              <span>{t("admin.aiInsights")}</span>
-            </Link>
-            <Link
-              className="flex items-center gap-4 px-4 py-3 rounded-lg text-[#003d9b] dark:text-blue-400 font-bold border-r-4 border-[#003d9b] dark:border-blue-400 bg-white/50 dark:bg-white/5"
-              href="/admin/knowledge-base"
-            >
-              <BookOpen className="size-5" />
-              <span>{t("admin.knowledgeBase")}</span>
-            </Link>
-            <Link
-              className="flex items-center gap-4 px-4 py-3 rounded-lg text-[#434654] dark:text-slate-400 font-medium hover:bg-[#e0e3e5] dark:hover:bg-slate-800 transition-colors duration-200"
-              href="/admin/settings"
-            >
-              <Settings className="size-5" />
-              <span>{t("common.settings")}</span>
-            </Link>
-          </nav>
-
-          <div className="mt-auto space-y-2 pt-6 border-t border-outline-variant/20">
-            <Button variant="gradient" size="md" icon="auto_awesome" iconFill className="w-full mb-6">
-              {t("admin.settings.startAiAnalysis")}
-            </Button>
-            <Link
-              className="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-[#e0e3e5] transition-colors duration-200"
-              href="/admin/help"
-            >
-              <HelpCircle className="size-5" />
-              <span>{t("common.helpCenter")}</span>
-            </Link>
-            <Link
-              className="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-[#e0e3e5] transition-colors duration-200"
-              href="/logout"
-            >
-              <LogOut className="size-5" />
-              <span>{t("common.logout")}</span>
-            </Link>
+              <FlaskConical className="size-4" />
+              RAG Playground
+            </button>
           </div>
         </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <div className="ml-80 min-h-screen flex flex-col bg-surface xl:ml-96">
-        {/* Top Header Navbar */}
-        <header className="flex justify-between items-center h-20 px-12 sticky top-0 bg-[#f7f9fb] dark:bg-slate-950 z-40 border-b border-outline-variant/5">
-          <div className="flex items-center gap-6">
-            <h2 className="text-xl font-black text-[#191c1e] dark:text-white font-headline">
-              {t("admin.topbar.title")}
-            </h2>
-            
-            {/* Custom Tab Switcher */}
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl gap-1">
-              <button
-                onClick={() => setActiveTab("catalog")}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
-                  activeTab === "catalog"
-                    ? "bg-white dark:bg-slate-700 text-primary shadow"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                }`}
-              >
-                <List className="size-4" />
-                Quản lý Unit
-              </button>
-              <button
-                onClick={() => setActiveTab("editor")}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
-                  activeTab === "editor"
-                    ? "bg-white dark:bg-slate-700 text-primary shadow"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                }`}
-              >
-                {isEditMode ? <FileEdit className="size-4" /> : <PlusSquare className="size-4" />}
-                {isEditMode ? "Sửa tài liệu" : "Biên tập & Nạp"}
-              </button>
-              <button
-                onClick={() => setActiveTab("playground")}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
-                  activeTab === "playground"
-                    ? "bg-white dark:bg-slate-700 text-primary shadow"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                }`}
-              >
-                <FlaskConical className="size-4" />
-                RAG Playground
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-6">
-            <LanguageToggleButton className="rounded-full p-2 transition-colors hover:bg-surface-container" />
-            <Link href="/admin/profile" aria-label="Open profile settings">
-              <div className="h-10 w-10 rounded-full overflow-hidden border-2 border-outline-variant/30">
-                <img
-                  alt="Administrator Profile"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2PaN3-0pU4S-qEkEvMq-k8OLUcC_FHxLyPcloSmcN31xwjvzJtFjKByuhHM1AGBo-y82OnD8GcbBKJdRyzHOQGDCNeQj9L8OwJhs6Jiu96vGtvSdPOFDFMngbsnXqSebPxq36xqFHgA9gNZLPm8MMk5titPOdWgL4giUiUc0t7KtrMJ5YFmwrKruBN5yHTt_b07szL4CrFLevJABdeiHkgrL87j70DioANLK3s7SVwJmNzX2qDB02_qTiZvjwIT_g03g-_OtbOLZF"
-                />
-              </div>
-            </Link>
-          </div>
-        </header>
 
         {/* Content Canvas */}
-        <main className="p-12 flex-1">
+        <div className="w-full">
           {/* TAB 1: CATALOG OF KNOWLEDGE UNITS */}
           {activeTab === "catalog" && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-3xl font-black font-headline tracking-tight">Danh sách các Tri Thức nguồn (Units)</h1>
-                  <p className="text-slate-500 text-sm mt-1">
+                  <h2 className="text-xl font-bold font-headline tracking-tight text-[#14244B]">Danh sách các Tri Thức nguồn (Units)</h2>
+                  <p className="text-[#607096] text-xs mt-1">
                     Xem, kích hoạt/vô hiệu hóa, đánh giá tự động và quản lý vòng đời dữ liệu RAG.
                   </p>
                 </div>
@@ -889,8 +815,8 @@ export default function KnowledgeBaseClient({
               <div className="grid grid-cols-12 gap-8 items-start">
                 {/* Left Category Column */}
                 <div className="col-span-12 lg:col-span-3 space-y-4">
-                  <div className="bg-[#f8fafc] dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
+                  <div className="bg-white border border-[#DCE4F3] rounded-2xl p-5 shadow-xs">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#607096] mb-4 flex items-center gap-2">
                       <Tags className="size-4" />
                       Phân loại theo Domain
                     </h3>
@@ -899,8 +825,8 @@ export default function KnowledgeBaseClient({
                         onClick={() => setSelectedDomain(null)}
                         className={`w-full flex justify-between items-center px-4 py-2.5 rounded-xl text-left text-xs font-bold transition-all duration-200 ${
                           selectedDomain === null
-                            ? "bg-[#003d9b] text-white shadow-md shadow-blue-500/20"
-                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            ? "bg-[#204195] text-white shadow-xs"
+                            : "text-[#607096] hover:bg-[#F8FAFC] hover:text-[#204195]"
                         }`}
                       >
                         <span className="flex items-center gap-2">
@@ -908,7 +834,7 @@ export default function KnowledgeBaseClient({
                           Tất cả tri thức
                         </span>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-                          selectedDomain === null ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                          selectedDomain === null ? "bg-white/20 text-white" : "bg-[#EEF2FD] text-[#204195]"
                         }`}>
                           {documents.length}
                         </span>
@@ -922,8 +848,8 @@ export default function KnowledgeBaseClient({
                             onClick={() => setSelectedDomain(dom)}
                             className={`w-full flex justify-between items-center px-4 py-2.5 rounded-xl text-left text-xs font-bold transition-all duration-200 capitalize ${
                               selectedDomain === dom
-                                ? "bg-[#003d9b] text-white shadow-md shadow-blue-500/20"
-                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                ? "bg-[#204195] text-white shadow-xs"
+                                : "text-[#607096] hover:bg-[#F8FAFC] hover:text-[#204195]"
                             }`}
                           >
                             <span className="flex items-center gap-2">
@@ -1643,7 +1569,7 @@ export default function KnowledgeBaseClient({
               </div>
             </div>
           )}
-        </main>
+        </div>
       </div>
 
       {/* AI QUALITY EVALUATION REPORT MODAL */}

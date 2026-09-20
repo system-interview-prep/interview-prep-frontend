@@ -124,8 +124,6 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
     { href: "/dashboard/settings", label: t("userDash.nav.settings"), Icon: Settings, active: isActive.settings },
   ];
 
-  const navItems = [...navGroupMain, ...navGroupTools];
-
   const handleLogout = () => {
     setShowLogoutModal(false);
     router.push("/logout");

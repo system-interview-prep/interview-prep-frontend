@@ -6,6 +6,7 @@ import useMascotMood from "../hooks/useMascotMood";
 
 export function GlobalMascot() {
   const pathname = usePathname();
+  const isAdminRoute = pathname?.startsWith("/admin");
   const isAuthRoute =
     pathname === "/login" ||
     pathname === "/signup" ||
@@ -15,7 +16,7 @@ export function GlobalMascot() {
     pathname?.startsWith("/logout");
 
   const { mood, speechText, isHidden } = useMascotMood();
-  if (isAuthRoute || isHidden) return null;
+  if (isAdminRoute || isAuthRoute || isHidden) return null;
   return <MascotContainer mood={mood} speechText={speechText} />;
 }
 
