@@ -39,7 +39,7 @@ export const adminEn: Record<string, string> = {
   "admin.login.passwordPlaceholder": "••••••••",
   "admin.login.submit": "Sign in as Admin",
   "admin.login.submitting": "Signing in...",
-  "admin.login.backToIntervia": "← Back to INTERVIA",
+  "admin.login.backToIntervia": "Back to INTERVIA",
   "admin.login.restrictedNotice": "Restricted area. All access sessions are logged and audited.",
   "admin.login.error.notAdmin": "This account is not authorized to access the Admin Console.",
   "admin.login.error.invalidCredentials": "Invalid email or password.",

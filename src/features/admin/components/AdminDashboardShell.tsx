@@ -419,7 +419,24 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
           <div className={`shrink-0 border-t border-[#EAEFF8] bg-white space-y-2 ${isCollapsed ? "p-2" : "p-3"}`}>
             {!isCollapsed ? (
               <>
-                {/* 1. Admin Profile Card (PROFILE FIRST) */}
+                {/* 1. Utility row: [Help] | [Language] */}
+                <div className="flex items-center justify-between px-1">
+                  <Link
+                    href="/admin/help"
+                    className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold transition-colors ${
+                      isActive.help
+                        ? "bg-[#204195]/10 text-[#204195]"
+                        : "text-[#607096] hover:bg-[#F7F9FD] hover:text-[#204195]"
+                    }`}
+                  >
+                    <HelpCircle className="size-3.5" />
+                    <span>{t("common.helpCenter") || "Trợ giúp"}</span>
+                  </Link>
+
+                  <LanguageToggleButton placement="top" className="h-7 rounded-xl px-2 text-xs" />
+                </div>
+
+                {/* 2. Admin Profile Card */}
                 <div className="flex items-center justify-between gap-2 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-1.5 transition-colors hover:border-[#C5D2E7] hover:bg-[#FAFBFE]">
                   <Link
                     href="/admin/profile"
@@ -464,27 +481,27 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
                     <LogOut className="size-3.5" />
                   </button>
                 </div>
-
-                {/* 2. Utility row: [Help] | [Language] (LANGUAGE SECOND) */}
-                <div className="flex items-center justify-between px-1">
-                  <Link
-                    href="/admin/help"
-                    className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold transition-colors ${
-                      isActive.help
-                        ? "bg-[#204195]/10 text-[#204195]"
-                        : "text-[#607096] hover:bg-[#F7F9FD] hover:text-[#204195]"
-                    }`}
-                  >
-                    <HelpCircle className="size-3.5" />
-                    <span>{t("common.helpCenter") || "Trợ giúp"}</span>
-                  </Link>
-
-                  <LanguageToggleButton placement="top" className="h-7 rounded-xl px-2 text-xs" />
-                </div>
               </>
             ) : (
               <div className="flex flex-col items-center gap-2">
-                {/* PROFILE FIRST */}
+                {/* 1. LANGUAGE AND HELP */}
+                <LanguageToggleButton compact placement="top" />
+
+                <Link
+                  href="/admin/help"
+                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors ${
+                    isActive.help
+                      ? "bg-[#204195]/10 text-[#204195]"
+                      : "text-[#607096] hover:bg-[#F7F9FD] hover:text-[#204195]"
+                  }`}
+                  title={t("common.helpCenter") || "Trợ giúp"}
+                >
+                  <HelpCircle className="size-4" />
+                </Link>
+
+                <div className="w-8 h-px bg-[#EAEFF8] my-0.5" />
+
+                {/* 2. PROFILE SECOND */}
                 <Link
                   href="/admin/profile"
                   className="flex h-9 w-9 items-center justify-center"
@@ -506,23 +523,6 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
                       {displayName ? initialsFromName(displayName) : "A"}
                     </div>
                   )}
-                </Link>
-
-                <div className="w-8 h-px bg-[#EAEFF8] my-0.5" />
-
-                {/* LANGUAGE SECOND */}
-                <LanguageToggleButton compact placement="top" />
-
-                <Link
-                  href="/admin/help"
-                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors ${
-                    isActive.help
-                      ? "bg-[#204195]/10 text-[#204195]"
-                      : "text-[#607096] hover:bg-[#F7F9FD] hover:text-[#204195]"
-                  }`}
-                  title={t("common.helpCenter") || "Trợ giúp"}
-                >
-                  <HelpCircle className="size-4" />
                 </Link>
               </div>
             )}
