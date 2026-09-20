@@ -273,11 +273,6 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
           <nav className="space-y-4">
             {/* Group: Main */}
             <div>
-              {!isCollapsed && (
-                <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-widest text-[#9FAEC8]">
-                  {t("userDash.nav.groupMain")}
-                </p>
-              )}
               <ul className="space-y-0.5">
                 {navGroupMain.map((item) => {
                   const active = item.active;
@@ -316,11 +311,6 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
 
             {/* Group: Tools */}
             <div>
-              {!isCollapsed && (
-                <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-widest text-[#9FAEC8]">
-                  {t("userDash.nav.groupTools")}
-                </p>
-              )}
               <ul className="space-y-0.5">
                 {navGroupTools.map((item) => {
                   const active = item.active;
