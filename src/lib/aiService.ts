@@ -481,33 +481,47 @@ export async function matchCvDirect(payload: {
 }
 
 export type InterviewQuestionPlan = {
-  sessionId: string;
-  candidateId: string;
-  jobId: string;
+  position: string;
   language: string;
-  stages: Array<{ name: string; targetCount: number }>;
+  count: number;
+  /** Legacy fields (cũ – có thể không có) */
+  sessionId?: string;
+  candidateId?: string;
+  jobId?: string;
+  stages?: Array<{ name: string; targetCount: number }>;
 };
 
 export type InterviewQuestionItem = {
   id: string;
   order: number;
-  stage: string;
-  category: string;
-  difficulty: string;
-  question_text: string;
-  expected_signals: string[];
-  source_refs: { cv: string[]; jp: string[] };
-  created_at: string;
+  /** Tên stage (nếu có plan đa giai đoạn) */
+  stage?: string;
+  /** Vị trí/vai trò phỏng vấn */
+  position?: string;
+  question: string;
+  question_text?: string;
+  created_at?: string;
 };
 
+/**
+ * Generate interview questions cho một session.
+ *
+ * **Kết nối BE**: `POST /ai/session/{session_id}/questions/generate`
+ *
+ * BE nhận: `{ count, position, language }`
+ * BE trả: `{ sessionId, questions: string[], plan: { position, language, count } }`
+ *
+ * @param params.sessionId  ID session đã tạo bằng createSession()
+ * @param params.position   Vị trí/chủ đề phỏng vấn (ví dụ "Software Engineer")
+ * @param params.count      Số câu hỏi (1-20, mặc định 5)
+ * @param params.language   Ngôn ngữ ("English" | "Vietnamese")
+ */
 export async function generateInterviewQuestions(params: {
   sessionId: string;
-  candidateId: string;
-  jobId: string;
+  position?: string;
+  count?: number;
   language?: string;
-  totalQuestions?: number;
-  force?: boolean;
-}): Promise<{ plan: InterviewQuestionPlan; questions: InterviewQuestionItem[] }> {
+}): Promise<{ sessionId: string; questions: string[]; plan: { position: string; language: string; count: number } }> {
   const res = await fetch(
     `${API_BASE_URL}/ai/session/${encodeURIComponent(params.sessionId)}/questions/generate`,
     {
@@ -517,11 +531,9 @@ export async function generateInterviewQuestions(params: {
         ...getAuthHeaders(),
       },
       body: JSON.stringify({
-        candidateId: params.candidateId,
-        jobId: params.jobId,
-        language: params.language || "Vietnamese",
-        totalQuestions: params.totalQuestions,
-        force: Boolean(params.force),
+        count: params.count ?? 5,
+        position: params.position ?? "General",
+        language: params.language ?? "English",
       }),
     }
   );
@@ -529,12 +541,23 @@ export async function generateInterviewQuestions(params: {
   return res.json();
 }
 
-export async function downloadCvPdf(candidateId: string): Promise<ArrayBuffer> {
-  const res = await fetch(`${API_BASE_URL}/users/me/cvs/${encodeURIComponent(candidateId)}/download`, {
+/**
+ * Download file CV gốc (PDF/DOCX) của user hiện tại.
+ *
+ * **Kết nối BE**: `GET /users/me/cvs/{cv_id}/download`
+ *
+ * @returns ArrayBuffer của file CV
+ * @deprecated Dùng `cvDownloadApi.download(cvId)` từ `@lib/apiClient` để có thêm filename.
+ */
+export async function downloadCv(cvId: string): Promise<ArrayBuffer> {
+  const res = await fetch(`${API_BASE_URL}/users/me/cvs/${encodeURIComponent(cvId)}/download`, {
     headers: {
       ...getAuthHeaders(),
     },
   });
-  if (!res.ok) throw new Error("Failed to download CV PDF");
+  if (!res.ok) throw new Error("Failed to download CV");
   return res.arrayBuffer();
 }
+
+/** @deprecated Use downloadCv() instead */
+export const downloadCvPdf = downloadCv;
