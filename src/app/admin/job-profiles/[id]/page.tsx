@@ -1,14 +1,10 @@
-import { Suspense } from "react";
-import AdminJobProfileDetailView from "@features/admin/components/AdminJobProfileDetailView";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "Job profile | INTERVIA",
-};
-
-export default function AdminJobProfileDetailPage() {
-  return (
-    <Suspense fallback={<div className="text-on-surface-variant">…</div>}>
-      <AdminJobProfileDetailView />
-    </Suspense>
-  );
+export default async function RedirectJobProfileDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  redirect(`/admin/job-descriptions/${encodeURIComponent(id)}`);
 }
