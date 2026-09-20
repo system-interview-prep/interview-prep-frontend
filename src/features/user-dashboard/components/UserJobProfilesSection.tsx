@@ -4,7 +4,6 @@ import axios from "axios";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
-import { jobCategoryApi, type JobCategory } from "@features/admin/services/jobCategory.service";
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { UserJobProfileCard } from "@features/user-dashboard/components/UserJobProfileCard";
@@ -36,28 +35,11 @@ export default function UserJobProfilesSection() {
   const [profiles, setProfiles] = useState<JobProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<JobCategory[]>([]);
   const [cvModalJob, setCvModalJob] = useState<JobProfile | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await jobCategoryApi.list({ limit: 200 });
-        if (!cancelled) setCategories(data.items ?? []);
-      } catch {
-        if (!cancelled) setCategories([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const resolveCategoryName = useCallback(
-    (p: JobProfile) =>
-      p.category?.name ?? categories.find((c) => c.id === p.categoryId)?.name ?? p.categoryId,
-    [categories]
+    (p: JobProfile) => p.primaryTaxonomy?.label ?? t("userDash.jobProfiles.uncategorized"),
+    [t]
   );
 
   useEffect(() => {

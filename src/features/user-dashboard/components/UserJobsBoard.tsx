@@ -4,10 +4,8 @@ import axios from "axios";
 import { useCallback, useEffect, useState } from "react";
 import { Search, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { jobCategoryApi, type JobCategory } from "@features/admin/services/jobCategory.service";
 import {
   jobProfileApi,
-  jobProfileListCategoryParams,
   type JobProfile,
 } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -60,29 +58,11 @@ export default function UserJobsBoard() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 400);
-  const [categoryFilter, setCategoryFilter] = useState<"all" | string>("all");
-  const [categories, setCategories] = useState<JobCategory[]>([]);
   const [cvModalJob, setCvModalJob] = useState<JobProfile | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await jobCategoryApi.list({ limit: 200 });
-        if (!cancelled) setCategories(data.items ?? []);
-      } catch {
-        if (!cancelled) setCategories([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const resolveCategoryName = useCallback(
-    (p: JobProfile) =>
-      p.category?.name ?? categories.find((c) => c.id === p.categoryId)?.name ?? p.categoryId,
-    [categories]
+    (p: JobProfile) => p.primaryTaxonomy?.label ?? t("userDash.jobProfiles.uncategorized"),
+    [t]
   );
 
   const loadPage = useCallback(
@@ -105,7 +85,6 @@ export default function UserJobsBoard() {
             limit: PAGE_SIZE,
             cursor,
             q: debouncedSearch.trim() || undefined,
-            ...(categoryFilter !== "all" ? jobProfileListCategoryParams(categoryFilter) : {}),
             order: "desc",
           });
 
@@ -139,7 +118,7 @@ export default function UserJobsBoard() {
         setLoading(false);
       }
     },
-    [debouncedSearch, categoryFilter, t]
+    [debouncedSearch, t]
   );
 
   useEffect(() => {
@@ -186,19 +165,6 @@ export default function UserJobsBoard() {
             aria-label={t("admin.jobProfile.searchPlaceholder")}
           />
         </div>
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value as "all" | string)}
-          className="min-h-11 w-full rounded-xl border border-[#DCE4F3] bg-white px-4 py-2 text-sm font-semibold text-[#14244B] transition-all focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/20 sm:w-auto"
-          aria-label={t("admin.jobProfile.form.category")}
-        >
-          <option value="all">{t("admin.jobProfile.filter.allCategories")}</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
       </div>
 
       {error && (
@@ -219,7 +185,7 @@ export default function UserJobsBoard() {
             <Briefcase className="size-7" aria-hidden="true" />
           </div>
           <p className="mt-4 text-sm font-medium text-[#607096]">
-            {debouncedSearch.trim() || categoryFilter !== "all" ? t("admin.jobProfile.noMatch") : t("userDash.jobProfiles.empty")}
+            {debouncedSearch.trim() ? t("admin.jobProfile.noMatch") : t("userDash.jobProfiles.empty")}
           </p>
         </div>
       ) : (

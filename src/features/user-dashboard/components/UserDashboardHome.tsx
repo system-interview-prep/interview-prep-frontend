@@ -15,7 +15,6 @@ import {
   Clock,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { jobCategoryApi, type JobCategory } from "@features/admin/services/jobCategory.service";
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
 import { JobInterviewCvModal } from "@features/user-dashboard/components/JobInterviewCvModal";
 import { LearningResources, PracticeModes, RecentActivity, type StoredDashboardSession } from "./DashboardSections";
@@ -72,7 +71,6 @@ function DashboardSkeleton({ label }: { label: string }) {
 export function UserDashboardHome({ onNavigate, onStartVideo, videoError, onDismissVideoError }: Props) {
   const { t, lang } = useLanguage();
   const [profiles, setProfiles] = useState<JobProfile[]>([]);
-  const [categories, setCategories] = useState<JobCategory[]>([]);
   const [sessions, setSessions] = useState<StoredDashboardSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -82,10 +80,10 @@ export function UserDashboardHome({ onNavigate, onStartVideo, videoError, onDism
     setLoading(true);
     setError(false);
     setSessions(readSessions());
-    const [profilesResult, categoriesResult] = await Promise.allSettled([
-      jobProfileApi.list({ limit: 6, order: "desc" }),
-      jobCategoryApi.list({ limit: 200 }),
-    ]);
+    const profilesResult = await Promise.resolve(jobProfileApi.list({ limit: 6, order: "desc" })).then(
+      (value) => ({ status: "fulfilled" as const, value }),
+      (reason) => ({ status: "rejected" as const, reason }),
+    );
     if (profilesResult.status === "fulfilled") {
       setProfiles((profilesResult.value.data.items ?? []).filter((profile) => profile.status === "ACTIVE"));
     } else {
@@ -93,7 +91,6 @@ export function UserDashboardHome({ onNavigate, onStartVideo, videoError, onDism
       setError(true);
       if (axios.isAxiosError(profilesResult.reason)) console.error("Dashboard profiles:", profilesResult.reason.message);
     }
-    setCategories(categoriesResult.status === "fulfilled" ? categoriesResult.value.data.items ?? [] : []);
     setLoading(false);
   }, []);
 
@@ -109,7 +106,7 @@ export function UserDashboardHome({ onNavigate, onStartVideo, videoError, onDism
   }, []);
 
   const activeJob = profiles[0];
-  const categoryName = (profile: JobProfile) => profile.category?.name ?? categories.find((category) => category.id === profile.categoryId)?.name ?? t("userDash.jobProfiles.uncategorized");
+  const categoryName = (profile: JobProfile) => profile.primaryTaxonomy?.label ?? t("userDash.jobProfiles.uncategorized");
   const overview = useMemo(() => {
     const now = new Date();
     const start = new Date(now);
