@@ -69,17 +69,10 @@ export const authApi = {
     apiClient.post<AuthResponse>('/auth/google', { accessToken: token, token }),
 };
 
-// ── Interview API ─────────────────────────────────────────────────────────────
-export const interviewApi = {
-  start: (topic: string, language: string) =>
-    apiClient.post('/interview/start', { topic, language }),
-  get: (id: string) =>
-    apiClient.get(`/interview/${id}`),
-  end: (id: string) =>
-    apiClient.post(`/interview/${id}/end`),
-  list: () =>
-    apiClient.get('/interview'),
-};
+// ── Interview API ──────────────────────────────────────────────────────────────
+// NOTE: Routes /interview/start, /interview/{id}, etc. không tồn tại ở BE.
+// Dùng /ai/session (sessionsApi) để tạo/quản lý interview sessions.
+// Xem: src/lib/aiService.ts → createSession(), closeSession(), getAllSessions()
 
 // ── User API ──────────────────────────────────────────────────────────────────
 export type UserProfile = {
@@ -107,7 +100,25 @@ export const userApi = {
   uploadProfilePicture: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return apiClient.post<UserProfile>('/user/profile/picture', formData);
+    // BE hỗ trợ cả /users/me/picture và /user/profile/picture (alias)
+    return apiClient.post<UserProfile>('/users/me/picture', formData);
+  },
+};
+
+// ── CV Download API ───────────────────────────────────────────────────────────
+/**
+ * Download file CV gốc (PDF/DOCX) dưới dạng ArrayBuffer.
+ * Khớp với BE: GET /users/me/cvs/{cv_id}/download
+ */
+export const cvDownloadApi = {
+  download: async (cvId: string): Promise<{ buffer: ArrayBuffer; filename?: string }> => {
+    const response = await apiClient.get<ArrayBuffer>(
+      `/users/me/cvs/${encodeURIComponent(cvId)}/download`,
+      { responseType: 'arraybuffer' }
+    );
+    const disposition = response.headers?.['content-disposition'] as string | undefined;
+    const match = disposition?.match(/filename="?([^"\s;]+)/);
+    return { buffer: response.data, filename: match?.[1] };
   },
 };
 

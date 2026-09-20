@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Upload } from "lucide-react";
 import CareerJourneyMorph from "../../graphics/CareerJourneyMorph";
 import { CAREER_JOURNEY_STEPS } from "../../data/landing.data";
-import { fadeInReveal } from "../../motion/variants";
+import { EASE_CUSTOM, fadeInReveal } from "../../motion/variants";
 
 export function CareerJourney() {
   const [activeStep, setActiveStep] = useState(0);

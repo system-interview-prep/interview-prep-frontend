@@ -1,6 +1,6 @@
 "use client";
 
-import { Mascot } from "page-mascot";
+import { Mascot } from "./Mascot";
 import type { MascotMood } from "../types";
 
 export interface SpriteMascotProps {

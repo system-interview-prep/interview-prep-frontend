@@ -392,28 +392,30 @@ export default function UserMyCvsPage() {
   };
 
   const selectClass =
-    "h-11 w-full min-w-0 rounded-lg border border-[#AAB8D6] bg-white px-3 text-sm font-semibold text-[#234196] outline-none transition-colors focus:border-[#234196] focus:ring-2 focus:ring-[#FCB625]/50 disabled:cursor-not-allowed disabled:bg-[#E5EAF5] disabled:text-[#7A87A5]";
+    "h-10 w-full min-w-0 rounded-xl border border-[#DCE4F3] bg-white px-3 text-xs font-medium text-[#14244B] outline-none transition-all focus:border-[#204195] focus:ring-2 focus:ring-[#204195]/20 disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#A0AEC0]";
   const filterLabelClass =
-    "mb-1.5 block h-4 truncate text-[10px] font-bold uppercase leading-4 tracking-[0.14em] text-[#5A6B8F]";
+    "mb-1.5 block h-4 truncate text-[11px] font-semibold text-[#607096]";
   const badgeClass =
     "inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-bold uppercase";
 
   return (
-    <main className="paper-dots min-h-screen bg-[#FEF9EE] px-4 py-6 text-[#234196] sm:px-6 md:px-8 md:py-10 lg:px-10 xl:px-12">
+    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
       <div className="mx-auto max-w-[1120px]">
-      <header className="mb-8 border-b-2 border-[#234196] pb-7">
+      <header className="mb-8 border-b border-[#EAEFF8] pb-6">
         <div className="max-w-2xl">
-          <span className="sticker -rotate-1 bg-[#FCB625]">{t("userDash.myCvs.eyebrow")}</span>
-          <h1 className="mt-4 font-headline text-4xl font-extrabold tracking-tight md:text-5xl">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#204195]">
+            {t("userDash.myCvs.eyebrow")}
+          </span>
+          <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-[#14244B] md:text-4xl">
             {t("userDash.myCvs.headerTitle")}
           </h1>
-          <p className="mt-3 text-sm leading-6 text-[#5A6B8F]">{t("userDash.myCvs.headerSubtitle")}</p>
+          <p className="mt-2 text-sm leading-6 text-[#607096]">{t("userDash.myCvs.headerSubtitle")}</p>
         </div>
       </header>
 
       <div>
         <div className="space-y-8">
-          <div className="overflow-hidden rounded-2xl border-2 border-[#234196] bg-white p-1 shadow-[5px_5px_0_#234196]">
+          <div className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-2 shadow-xs">
             <div
               role="region"
               aria-label={t("userDash.myCvs.uploadDropRegionAria")}
@@ -427,33 +429,33 @@ export default function UserMyCvsPage() {
               }}
               onDragOver={(e) => e.preventDefault()}
               onDrop={onDrop}
-              className={`group flex flex-col items-center rounded-[calc(1rem-4px)] border-2 border-dashed p-8 text-center transition-colors md:p-12 ${
-                dragOver ? "border-[#234196] bg-[#FCB625]/20" : "border-[#234196] bg-[#F0F4FC]"
+              className={`group flex flex-col items-center rounded-xl border-2 border-dashed p-8 text-center transition-colors md:p-12 ${
+                dragOver ? "border-[#204195] bg-[#204195]/5" : "border-[#C9D7F1] bg-[#F8FAFC]"
               }`}
             >
-              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-[#234196] bg-[#FCB625] transition-transform duration-300 group-hover:-rotate-2 motion-reduce:transform-none">
-                <Upload className="size-10 text-[#234196]" />
+              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F0F4FC] text-[#204195] shadow-xs">
+                <Upload className="size-8" />
               </div>
-              <h2 className="font-headline text-3xl font-bold">{t("userDash.myCvs.uploadTitle")}</h2>
-              <p className="mb-8 mt-2 max-w-md text-sm leading-6 text-[#5A6B8F]">{t("userDash.myCvs.uploadHint")}</p>
-              <div className="mb-8 flex flex-wrap justify-center gap-3">
+              <h2 className="text-2xl font-bold text-[#14244B]">{t("userDash.myCvs.uploadTitle")}</h2>
+              <p className="mb-6 mt-1.5 max-w-md text-sm leading-6 text-[#607096]">{t("userDash.myCvs.uploadHint")}</p>
+              <div className="mb-2 flex flex-wrap justify-center gap-3">
                 <button
                   type="button"
                   onClick={() => inputPdfRef.current?.click()}
-                  className="chunky-secondary flex min-h-11 cursor-pointer items-center gap-1.5 px-4 text-sm"
+                  className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-4 text-xs font-semibold text-[#14244B] shadow-xs transition-all hover:border-[#204195] hover:bg-[#F0F4FC]"
                   aria-label={t("userDash.myCvs.pickPdf")}
                 >
                   <FileText className="size-4 text-error" />
-                  <span className="font-bold">PDF</span>
+                  <span>PDF</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => inputWordRef.current?.click()}
-                  className="chunky-primary flex min-h-11 cursor-pointer items-center gap-1.5 px-4 text-sm"
+                  className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl bg-[#204195] px-4 text-xs font-semibold text-white shadow-xs transition-all hover:bg-[#183275]"
                   aria-label={t("userDash.myCvs.pickWord")}
                 >
-                  <FileText className="size-4 text-primary" />
-                  <span className="font-bold">DOCX</span>
+                  <FileText className="size-4 text-white" />
+                  <span>DOCX</span>
                 </button>
               </div>
               <input
@@ -471,7 +473,7 @@ export default function UserMyCvsPage() {
                 onChange={onUpload}
               />
               {analyzeError && (
-                <p className="mt-4 rounded-xl border-2 border-[#D32F2F] bg-[#FFEBEE] px-4 py-3 text-sm text-[#8F1D1D]" role="alert">
+                <p className="mt-4 rounded-xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-800" role="alert">
                   {analyzeError}
                 </p>
               )}
@@ -480,53 +482,53 @@ export default function UserMyCvsPage() {
 
           {trackingCvId ? (
             <div
-              className="flex items-start gap-3 rounded-xl border-2 border-[#234196] bg-[#FCB625]/20 px-4 py-3 shadow-[3px_3px_0_#234196]"
+              className="flex items-start gap-3 rounded-2xl border border-[#C9D7F1] bg-[#F0F4FC] px-4 py-3 shadow-xs"
               role="status"
               aria-live="polite"
             >
-              <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-[#234196] motion-reduce:animate-none" />
+              <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-[#204195] motion-reduce:animate-none" />
               <div className="min-w-0 flex-1">
-                <p className="font-headline text-sm font-bold">{t("userDash.myCvs.processingTitle")}</p>
-                <p className="mt-0.5 text-sm text-[#5A6B8F]">
+                <p className="text-sm font-bold text-[#14244B]">{t("userDash.myCvs.processingTitle")}</p>
+                <p className="mt-0.5 text-xs text-[#607096]">
                   {labelForCvStatus(t, cvProcessStatus)}
                 </p>
                 {cvStatusPayload?.status === "FAILED" && cvStatusPayload.error ? (
-                  <p className="mt-2 text-sm text-error">{String(cvStatusPayload.error)}</p>
+                  <p className="mt-1.5 text-xs text-error">{String(cvStatusPayload.error)}</p>
                 ) : null}
               </div>
             </div>
           ) : null}
 
-          <section className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-8">
-            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <section className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs md:p-8">
+            <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="font-headline text-2xl font-bold">{t("userDash.myCvs.listTitle")}</h2>
-                <p className="mt-1 text-xs text-[#5A6B8F]">
+                <h2 className="text-xl font-bold text-[#14244B]">{t("userDash.myCvs.listTitle")}</h2>
+                <p className="mt-1 text-xs text-[#607096]">
                   {apiConnected ? t("userDash.myCvs.listHintApi") : t("userDash.myCvs.listHint")}
                 </p>
               </div>
-              <p className="w-fit rounded-full bg-[#FCB625] px-3 py-1.5 font-metadata text-[9px] font-bold uppercase tracking-[0.12em] text-[#234196]">
+              <p className="w-fit rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3 py-1 text-xs font-semibold text-[#204195]">
                 {t("userDash.myCvs.listCount").replace("{count}", String(filtered.length))}
               </p>
             </div>
 
             {listError && (
               <div
-                className="mb-4 rounded-xl border-2 border-[#D32F2F] bg-[#FFEBEE] px-4 py-3 text-sm text-[#8F1D1D]"
+                className="mb-4 rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-800"
                 role="alert"
               >
                 {listError}
               </div>
             )}
 
-            <div className="mb-6 grid grid-cols-1 gap-3 rounded-xl bg-[#F0F4FC] p-4 sm:grid-cols-2 xl:grid-cols-[minmax(180px,1.1fr)_minmax(220px,1.35fr)_minmax(115px,.65fr)_minmax(145px,.8fr)_minmax(125px,.7fr)]">
+            <div className="mb-6 grid grid-cols-1 gap-3 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4 sm:grid-cols-2 xl:grid-cols-[minmax(180px,1.1fr)_minmax(220px,1.35fr)_minmax(115px,.65fr)_minmax(145px,.8fr)_minmax(125px,.7fr)]">
               <div className="min-w-0 sm:col-span-2 xl:col-span-1">
                 <label htmlFor="cv-search" className={filterLabelClass}>
                   {t("userDash.myCvs.searchLabel")}
                 </label>
                 <div className="relative">
                   <Search
-                    className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-[#5A6B8F]"
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#607096]"
                     aria-hidden="true"
                   />
                   <input
@@ -535,7 +537,7 @@ export default function UserMyCvsPage() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder={t("userDash.myCvs.searchPlaceholder")}
-                    className="h-11 w-full rounded-lg border border-[#AAB8D6] bg-white pl-10 pr-3 text-sm font-semibold text-[#234196] outline-none transition-colors placeholder:font-normal placeholder:text-[#7A87A5] focus:border-[#234196] focus:ring-2 focus:ring-[#FCB625]/50"
+                    className="h-10 w-full rounded-xl border border-[#DCE4F3] bg-white pl-9 pr-3 text-xs font-medium text-[#14244B] outline-none transition-all placeholder:text-[#607096] focus:border-[#204195] focus:ring-2 focus:ring-[#204195]/20"
                   />
                 </div>
               </div>
@@ -605,18 +607,26 @@ export default function UserMyCvsPage() {
             </div>
 
             {initialLoading ? (
-              <div className="space-y-3 py-3" role="status" aria-label={t("admin.jobProfile.loading")}>{[0, 1, 2].map((item) => <div key={item} className="h-20 animate-pulse rounded-xl bg-[#F0F4FC] motion-reduce:animate-none" />)}</div>
+              <div className="space-y-3 py-3" role="status" aria-label={t("admin.jobProfile.loading")}>
+                {[0, 1, 2].map((item) => <div key={item} className="h-20 animate-pulse rounded-xl bg-[#F0F4FC] motion-reduce:animate-none" />)}
+              </div>
             ) : files.length === 0 ? (
-              <div className="rounded-xl border-2 border-dashed border-[#234196] bg-[#F0F4FC] px-5 py-12 text-center"><FileText className="mx-auto size-10 text-[#234196]" aria-hidden="true" /><p className="mt-3 text-sm text-[#5A6B8F]">{t("userDash.myCvs.emptyList")}</p></div>
+              <div className="rounded-2xl border border-dashed border-[#DCE4F3] bg-[#F8FAFC] px-5 py-12 text-center">
+                <FileText className="mx-auto size-10 text-[#204195]" aria-hidden="true" />
+                <p className="mt-3 text-sm text-[#607096]">{t("userDash.myCvs.emptyList")}</p>
+              </div>
             ) : filtered.length === 0 ? (
-              <div className="rounded-xl border-2 border-dashed border-[#234196] bg-[#FEF9EE] px-5 py-12 text-center"><SearchX className="mx-auto size-10 text-[#234196]" aria-hidden="true" /><p className="mt-3 text-sm text-[#5A6B8F]">{t("userDash.myCvs.emptyFiltered")}</p></div>
+              <div className="rounded-2xl border border-dashed border-[#DCE4F3] bg-[#F8FAFC] px-5 py-12 text-center">
+                <SearchX className="mx-auto size-10 text-[#204195]" aria-hidden="true" />
+                <p className="mt-3 text-sm text-[#607096]">{t("userDash.myCvs.emptyFiltered")}</p>
+              </div>
             ) : (
               <>
-                <div className="hidden overflow-hidden rounded-xl border border-[#C8D2E8] md:block">
+                <div className="hidden overflow-hidden rounded-xl border border-[#EAEFF8] md:block">
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[780px] border-collapse text-left text-sm">
                       <thead>
-                      <tr className="border-b border-[#C8D2E8] bg-[#F0F4FC] text-xs font-bold uppercase tracking-[0.12em] text-[#234196]">
+                      <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
                         <th className="px-4 py-3">{t("userDash.myCvs.colCandidate")}</th>
                         <th className="px-4 py-3">{t("userDash.myCvs.colType")}</th>
                         <th className="px-4 py-3">{t("userDash.myCvs.colStatus")}</th>
@@ -624,18 +634,18 @@ export default function UserMyCvsPage() {
                         <th className="w-24 px-4 py-3 text-center">{t("userDash.myCvs.colActions")}</th>
                       </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#DCE3F1] bg-white">
+                      <tbody className="divide-y divide-[#EAEFF8] bg-white">
                       {filtered.map((f) => (
-                        <tr key={f.id} className="transition-colors hover:bg-[#FEF9EE]">
+                        <tr key={f.id} className="transition-colors hover:bg-[#F8FAFC]">
                           <td className="px-4 py-4 align-middle">
                             <div className="flex items-start gap-3">
                               <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F0F4FC]" aria-hidden="true">
                                 <FileText className={`size-5 ${typeIconClass(f)}`} />
                               </span>
                               <div className="min-w-0">
-                                <p className="font-semibold text-[#234196]">{displayName(f.name)}</p>
-                                  <p className="truncate text-xs text-[#5A6B8F]">{f.name}</p>
-                                  <CareerClassificationSummary status={effectiveCvStatus(f) ?? undefined} parsedData={f.parsedData} compact />
+                                <p className="font-semibold text-[#14244B]">{displayName(f.name)}</p>
+                                <p className="truncate text-xs text-[#607096]">{f.name}</p>
+                                <CareerClassificationSummary status={effectiveCvStatus(f) ?? undefined} parsedData={f.parsedData} compact />
                               </div>
                             </div>
                           </td>
@@ -650,17 +660,17 @@ export default function UserMyCvsPage() {
                                 {labelForCvStatus(t, effectiveCvStatus(f))}
                               </span>
                             ) : (
-                              <span className="text-[#7A87A5]">—</span>
+                              <span className="text-[#A0AEC0]">—</span>
                             )}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-4 align-middle text-[#5A6B8F]">
+                          <td className="whitespace-nowrap px-4 py-4 align-middle text-xs text-[#607096]">
                             {formatDate(f.uploadedAt)}
                           </td>
                           <td className="px-4 py-4 text-center align-middle">
                             <button
                               type="button"
                               onClick={() => confirmRemoveFile(f.id)}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#C9362B] transition-colors hover:bg-[#FFF0EE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FCB625]"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-rose-600 transition-colors hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]"
                               aria-label={t("profile.removeAria")}
                             >
                               <Trash2 className="size-4" aria-hidden="true" />
@@ -677,15 +687,15 @@ export default function UserMyCvsPage() {
                   {filtered.map((f) => (
                     <li
                       key={f.id}
-                      className="rounded-xl border border-[#C8D2E8] bg-white p-4 shadow-sm"
+                      className="rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-xs"
                     >
                       <div className="flex items-start gap-3">
                         <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F0F4FC]" aria-hidden="true">
                           <FileText className={`size-5 ${typeIconClass(f)}`} />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-[#234196]">{displayName(f.name)}</p>
-                          <p className="truncate text-xs text-[#5A6B8F]">{f.name}</p>
+                          <p className="font-semibold text-[#14244B]">{displayName(f.name)}</p>
+                          <p className="truncate text-xs text-[#607096]">{f.name}</p>
                           <CareerClassificationSummary status={effectiveCvStatus(f) ?? undefined} parsedData={f.parsedData} compact />
                           {effectiveCvStatus(f) ? (
                             <div className="mt-2">
@@ -694,7 +704,7 @@ export default function UserMyCvsPage() {
                               </span>
                             </div>
                           ) : null}
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#5A6B8F]">
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#607096]">
                             <span className={`${badgeClass} ${typeBadgeClass(f)}`}>
                               {typeLabel(f)}
                             </span>
@@ -704,7 +714,7 @@ export default function UserMyCvsPage() {
                         <button
                           type="button"
                           onClick={() => confirmRemoveFile(f.id)}
-                          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-[#C9362B] transition-colors hover:bg-[#FFF0EE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FCB625]"
+                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-rose-600 transition-colors hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]"
                           aria-label={t("profile.removeAria")}
                         >
                           <Trash2 className="size-4" aria-hidden="true" />
@@ -723,22 +733,22 @@ export default function UserMyCvsPage() {
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={t("userDash.myCvs.confirmDelete")}>
           <button
             type="button"
-            className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"
+            className="absolute inset-0 bg-black/40 backdrop-blur-xs"
             onClick={closeDeleteModal}
             aria-label={t("interview.cvUpload.cancel")}
           />
-          <div className="relative z-10 w-full max-w-md rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[6px_6px_0_#234196]">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg border-2 border-[#C9362B] bg-[#FFF0EE] text-[#C9362B]">
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-2xl">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
               <Trash2 className="size-5" aria-hidden="true" />
             </div>
-            <h3 className="mt-4 font-headline text-xl font-bold text-[#234196]">{t("userDash.myCvs.confirmDelete")}</h3>
-            <p className="mt-2 break-all rounded-lg border border-[#234196]/25 bg-[#F0F4FC] px-3 py-2 text-sm text-[#5A6B8F]">{deleteTarget.name}</p>
+            <h3 className="mt-4 text-lg font-bold text-[#14244B]">{t("userDash.myCvs.confirmDelete")}</h3>
+            <p className="mt-2 break-all rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-3 py-2 text-xs text-[#607096]">{deleteTarget.name}</p>
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={closeDeleteModal}
                 disabled={deleting}
-                className="chunky-secondary min-h-11 px-5 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#DCE4F3] bg-white px-4 text-xs font-semibold text-[#14244B] shadow-xs transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {t("interview.cvUpload.cancel")}
               </button>
@@ -746,7 +756,7 @@ export default function UserMyCvsPage() {
                 type="button"
                 onClick={() => void handleConfirmDelete()}
                 disabled={deleting}
-                className="min-h-11 rounded-lg border-2 border-[#8F251E] bg-[#C9362B] px-5 py-2 text-sm font-bold text-white shadow-[3px_3px_0_#8F251E] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl bg-rose-600 px-4 text-xs font-semibold text-white shadow-xs transition-all hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {deleting ? t("admin.jobProfile.loading") : t("profile.removeAria")}
               </button>

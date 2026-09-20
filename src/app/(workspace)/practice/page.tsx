@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import LanguageToggleButton from "@components/shared/LanguageToggleButton";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
 import { useQuestionTimer } from "@features/interview/hooks/useQuestionTimer";
 import { QuestionTimerBadge } from "@features/interview/components/QuestionTimerBadge";
 import { Check, Loader2, GraduationCap, Info, ArrowLeft, ArrowRight, Hourglass, Lightbulb, RotateCcw, LayoutDashboard } from "lucide-react";
@@ -21,19 +19,11 @@ const CORRECT: Record<QuestionId, number> = {
 
 const LETTERS = ["A", "B", "C"] as const;
 
-function initialsFromName(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase().slice(0, 2);
-  return name.slice(0, 2).toUpperCase() || "?";
-}
-
 export default function PracticePage() {
   const { t } = useLanguage();
-  const { profile, displayName } = useAuthProfile();
   const fieldsetId = useId();
 
   const [step, setStep] = useState(0);
-  const [avatarError, setAvatarError] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
   const [answers, setAnswers] = useState<(number | null)[]>(() =>
     QUESTION_IDS.map(() => null),
@@ -81,8 +71,6 @@ export default function PracticePage() {
     const completedCount = answers.filter((a) => a !== null).length;
     return Math.min(100, Math.round((completedCount / QUESTION_IDS.length) * 100));
   }, [answers]);
-
-  const roleLabel = t("userDash.roleFallback");
 
   // Xử lý chọn câu trả lời (bị khóa nếu đang trong hiệu ứng chuyển câu)
   const handleSelect = useCallback(
@@ -272,54 +260,20 @@ export default function PracticePage() {
 
   return (
     <UserDashboardShell>
-      <main className="paper-dots min-h-screen bg-[#FEF9EE] px-4 pb-28 pt-6 text-[#234196] sm:px-6 md:px-8 md:py-10 lg:px-10 xl:px-12">
+      <main className="min-h-screen bg-[#F8FAFC] px-4 pb-28 pt-6 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
         <div className="mx-auto max-w-6xl">
           {/* Header */}
-          <header className="mb-8 grid gap-6 border-b-2 border-[#234196] pb-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <header className="mb-8 border-b border-[#EAEFF8] pb-6">
             <div className="max-w-2xl">
-              <span className="sticker -rotate-1 bg-[#FCB625] text-[10px] text-[#234196]">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#204195]">
                 {t("practice.eyebrow")}
               </span>
-              <h1 className="mt-3 font-headline text-3xl font-extrabold tracking-tight text-[#234196] sm:text-4xl md:text-5xl">
+              <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-[#14244B] sm:text-4xl">
                 {t("practice.title")}
               </h1>
-              <p className="mt-2 text-sm leading-relaxed text-[#5A6B8F] sm:text-base">
+              <p className="mt-2 text-sm leading-relaxed text-[#607096] sm:text-base">
                 {t("practice.subtitle")}
               </p>
-            </div>
-
-            {/* Profile badge & Language switcher */}
-            <div className="flex min-w-0 items-center rounded-2xl border-2 border-[#234196] bg-white p-2 shadow-[3px_3px_0_#234196] lg:max-w-sm">
-              <Link
-                href="/dashboard"
-                className="shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FCB625]"
-                aria-label={t("interview.select.backDashboard")}
-                title={t("interview.select.backDashboard")}
-              >
-                {profile?.picture && !avatarError ? (
-                  <img
-                    alt={displayName || ""}
-                    className="h-11 w-11 rounded-xl border-2 border-[#234196] object-cover"
-                    src={profile.picture}
-                    referrerPolicy="no-referrer"
-                    onError={() => setAvatarError(true)}
-                  />
-                ) : (
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FCB625] font-headline text-sm font-extrabold text-[#234196]">
-                    {displayName ? initialsFromName(displayName) : "?"}
-                  </div>
-                )}
-              </Link>
-              <div className="min-w-0 flex-1 px-3">
-                <p className="truncate text-sm font-bold text-[#234196]">
-                  {displayName || t("userDash.profile.guest")}
-                </p>
-                <p className="mt-0.5 font-metadata text-[9px] font-bold text-[#5A6B8F] uppercase tracking-wider">
-                  {roleLabel}
-                </p>
-              </div>
-              <div className="h-8 w-px shrink-0 bg-[#B7C6E6]" aria-hidden="true" />
-              <LanguageToggleButton className="ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#234196] transition-colors hover:bg-[#F0F4FC]" />
             </div>
           </header>
 
@@ -327,12 +281,12 @@ export default function PracticePage() {
             /* Layout 2 cột: Cột chính 8 cols, Cột phụ tinh gọn 4 cols */
             <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
               {/* ================= CỘT CHÍNH (8 COLS) ================= */}
-              <div className="lg:col-span-8 space-y-6">
+              <div className="space-y-6 lg:col-span-8">
                 <div
-                  className={`overflow-hidden rounded-2xl border-2 bg-white transition-colors duration-200 ${
+                  className={`overflow-hidden rounded-2xl border bg-white shadow-xs transition-colors duration-200 ${
                     isTimingOut
-                      ? "border-[#D32F2F] shadow-[4px_4px_0_#D32F2F]"
-                      : "border-[#234196] shadow-[4px_4px_0_#234196]"
+                      ? "border-red-300 ring-1 ring-red-400"
+                      : "border-[#DCE4F3]"
                   }`}
                 >
                   {/* Thanh tiến trình trên cùng */}
@@ -342,20 +296,20 @@ export default function PracticePage() {
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-label={`Tiến độ làm bài: ${progressPct}%`}
-                    className="h-2 w-full bg-[#E8EDF8]"
+                    className="h-1.5 w-full bg-[#EAEFF8]"
                   >
                     <div
-                      className="h-full rounded-r-full bg-[#FCB625] transition-[width] duration-300 ease-out"
+                      className="h-full rounded-r-full bg-[#204195] transition-[width] duration-300 ease-out"
                       style={{ width: `${progressPct}%` }}
                     />
                   </div>
 
                   <div className="p-6 sm:p-8">
                     {/* Interactive Question Matrix: Quick Jump Stepper & Countdown Timer */}
-                    <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b-2 border-[#234196]/10 pb-5">
+                    <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-[#EAEFF8] pb-5">
                       <div className="flex flex-wrap items-center gap-3">
                         <div className="flex items-center gap-2">
-                          <span className="font-headline text-xs font-bold uppercase tracking-wider text-[#5A6B8F]">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-[#607096]">
                             Câu hỏi:
                           </span>
                           {/* Matrix Stepper Buttons */}
@@ -365,32 +319,27 @@ export default function PracticePage() {
                               const isAnswered = answers[index] !== null || (isCurrent && picked !== null);
 
                               let stepperClass =
-                                "border-[#B7C6E6] bg-white text-[#5A6B8F] hover:border-[#234196] hover:bg-[#FEF9EE]";
+                                "border-[#DCE4F3] bg-white text-[#607096] hover:border-[#204195]/40 hover:bg-[#F8FAFC]";
 
                               if (isCurrent) {
-                                stepperClass = isTimingOut
-                                  ? "border-[#D32F2F] bg-red-50 text-[#D32F2F] font-extrabold shadow-[2px_2px_0_#D32F2F] ring-2 ring-[#D32F2F] ring-offset-1"
-                                  : "border-[#234196] bg-[#FCB625] text-[#234196] font-extrabold shadow-[2px_2px_0_#234196] ring-2 ring-[#234196] ring-offset-1";
+                                stepperClass = "border-[#204195] bg-[#204195] text-white shadow-xs";
                               } else if (isAnswered) {
-                                stepperClass =
-                                  "border-[#234196] bg-[#234196] text-white font-bold shadow-[2px_2px_0_#234196]";
+                                stepperClass = "border-[#C9D7F1] bg-[#F0F4FC] text-[#204195] font-semibold";
                               }
 
                               return (
                                 <button
                                   key={id}
                                   type="button"
+                                  role="tab"
+                                  aria-selected={isCurrent}
                                   disabled={isTimingOut}
                                   onClick={() => handleJump(index)}
-                                  className={`flex h-9 min-w-9 items-center justify-center rounded-xl border-2 px-2.5 text-xs transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none disabled:pointer-events-none disabled:opacity-60 ${stepperClass}`}
-                                  aria-current={isCurrent ? "step" : undefined}
-                                  aria-label={`Chuyển tới Câu ${index + 1} (${
-                                    isCurrent ? "Đang làm" : isAnswered ? "Đã trả lời" : "Chưa trả lời"
-                                  })`}
+                                  className={`inline-flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-xs font-bold transition-all ${stepperClass}`}
                                 >
                                   <span>{index + 1}</span>
                                   {isAnswered && !isCurrent && (
-                                    <Check className="ml-0.5 size-3.5" aria-hidden="true" />
+                                    <Check className="ml-0.5 size-3" aria-hidden="true" />
                                   )}
                                 </button>
                               );
@@ -409,24 +358,23 @@ export default function PracticePage() {
                       </div>
 
                       {/* Phím tắt gợi ý */}
-                      <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#5A6B8F]">
-                        <span className="font-metadata text-[10px]">Phím tắt:</span>
-                        <kbd className="rounded border border-[#234196] bg-[#FEF9EE] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#234196] shadow-[1px_1px_0_#234196]">
+                      <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#607096]">
+                        <span>Phím tắt:</span>
+                        <kbd className="rounded-md border border-[#DCE4F3] bg-[#F8FAFC] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#14244B]">
                           1-3
                         </kbd>
-                        <span className="text-[#B7C6E6]">/</span>
-                        <kbd className="rounded border border-[#234196] bg-[#FEF9EE] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#234196] shadow-[1px_1px_0_#234196]">
+                        <span className="text-[#DCE4F3]">/</span>
+                        <kbd className="rounded-md border border-[#DCE4F3] bg-[#F8FAFC] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#14244B]">
                           Enter ↵
                         </kbd>
                       </div>
                     </div>
-
                     {/* Phản hồi thị giác khi hết thời gian (Auto-advance 800ms) */}
                     {isTimingOut && (
                       <div
                         role="alert"
                         aria-live="assertive"
-                        className="mb-5 flex items-center justify-between rounded-xl border-2 border-[#D32F2F] bg-red-50 p-3 text-xs sm:text-sm font-bold text-[#D32F2F] shadow-[2px_2px_0_#D32F2F] animate-in fade-in duration-150"
+                        className="mb-5 flex items-center justify-between rounded-xl border border-red-200 bg-red-50/80 p-3.5 text-xs sm:text-sm font-semibold text-red-600 animate-in fade-in duration-150"
                       >
                         <div className="flex items-center gap-2">
                           <Loader2 className="animate-spin size-4" aria-hidden="true" />
@@ -436,7 +384,7 @@ export default function PracticePage() {
                               : "Hết thời gian! Đang chuyển câu tiếp theo..."}
                           </span>
                         </div>
-                        <span className="rounded bg-[#D32F2F] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white">
+                        <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                           {picked !== null || answers[step] !== null ? "Đã lưu đáp án" : "Bỏ trống"}
                         </span>
                       </div>
@@ -445,12 +393,12 @@ export default function PracticePage() {
                     {/* Tiêu đề câu hỏi */}
                     <h2
                       id={`question-label-${step}`}
-                      className="mb-6 font-headline text-xl font-bold leading-snug text-[#17244A] sm:text-2xl"
+                      className="mb-6 text-xl font-bold leading-snug text-[#14244B] sm:text-2xl"
                     >
                       {t(`practice.${qid}.question`)}
                     </h2>
 
-                    {/* Danh sách options (No-Layout-Shift Card Design) */}
+                    {/* Danh sách options */}
                     <fieldset
                       role="radiogroup"
                       aria-labelledby={`question-label-${step}`}
@@ -467,16 +415,16 @@ export default function PracticePage() {
                             key={i}
                             htmlFor={optionId}
                             onClick={() => !isTimingOut && handleSelect(i)}
-                            className={`group flex min-h-[76px] w-full items-center rounded-2xl border-2 p-4 text-left transition-all duration-150 sm:p-5 ${
+                            className={`group flex min-h-[68px] w-full items-center rounded-xl border p-4 text-left transition-all duration-150 sm:px-5 sm:py-4 ${
                               isTimingOut
                                 ? "cursor-not-allowed opacity-65 pointer-events-none"
-                                : "cursor-pointer hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                                : "cursor-pointer"
                             } ${
                               isPicked
                                 ? isTimingOut
-                                  ? "border-[#D32F2F] bg-red-50/50 shadow-[4px_4px_0_#D32F2F]"
-                                  : "border-[#234196] bg-[#F0F4FC] shadow-[4px_4px_0_#234196]"
-                                : "border-[#B7C6E6] bg-white hover:border-[#234196] hover:bg-[#FEF9EE] hover:shadow-[3px_3px_0_#234196]"
+                                  ? "border-red-300 bg-red-50/60 ring-1 ring-red-400"
+                                  : "border-[#204195] bg-[#F0F4FC] ring-1 ring-[#204195]"
+                                : "border-[#DCE4F3] bg-white hover:border-[#204195]/50 hover:bg-[#F8FAFC]"
                             }`}
                           >
                             <input
@@ -493,12 +441,12 @@ export default function PracticePage() {
 
                             {/* Badge chữ cái A, B, C */}
                             <div
-                              className={`mr-4 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 text-base font-headline font-bold transition-colors ${
+                              className={`mr-4 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-sm font-bold transition-colors ${
                                 isPicked
                                   ? isTimingOut
-                                    ? "border-[#D32F2F] bg-[#D32F2F] text-white"
-                                    : "border-[#234196] bg-[#FCB625] text-[#234196]"
-                                  : "border-[#B7C6E6] bg-white text-[#5A6B8F] group-hover:border-[#234196] group-hover:text-[#234196]"
+                                    ? "border-red-500 bg-red-600 text-white"
+                                    : "border-[#204195] bg-[#204195] text-white"
+                                  : "border-[#DCE4F3] bg-[#F8FAFC] text-[#607096] group-hover:border-[#204195]/40 group-hover:text-[#204195]"
                               }`}
                             >
                               {LETTERS[i]}
@@ -507,33 +455,35 @@ export default function PracticePage() {
                             {/* Nội dung câu trả lời */}
                             <span
                               className={`flex-1 text-sm sm:text-base leading-snug ${
-                                isPicked ? "font-bold text-[#17244A]" : "font-medium text-[#344467]"
+                                isPicked ? "font-semibold text-[#14244B]" : "text-[#344467]"
                               }`}
                             >
                               {label}
                             </span>
 
                             {/* Phím tắt gợi ý số */}
-                            <span className="hidden sm:inline-block ml-3 shrink-0 rounded border border-transparent px-2 py-0.5 font-mono text-[11px] text-[#8DA3D2] group-hover:border-[#B7C6E6] group-hover:text-[#5A6B8F]">
-                              [{i + 1}]
+                            <span className="hidden sm:inline-block ml-3 shrink-0 rounded border border-[#DCE4F3] bg-[#F8FAFC] px-1.5 py-0.5 font-mono text-[10px] text-[#607096]">
+                              {i + 1}
                             </span>
                           </label>
                         );
                       })}
                     </fieldset>
 
-                    {/* Vùng Coach Note: Thiết kế mượt mà tránh giật layout */}
+                    {/* Vùng Coach Note */}
                     <div className="mt-6">
                       {(picked !== null || answers[step] !== null) ? (
                         <div
-                          className="rounded-xl border-2 border-[#234196] bg-[#FFF9E6] p-4 sm:p-5 shadow-[3px_3px_0_#234196] animate-in fade-in slide-in-from-top-2 duration-200"
+                          className="rounded-xl border border-[#C9D7F1] bg-[#F0F4FC]/70 p-4 sm:p-5 animate-in fade-in slide-in-from-top-2 duration-200"
                           role="region"
                           aria-live="polite"
                         >
                           <div className="flex items-start gap-3">
-                            <GraduationCap className="mt-0.5 size-6 text-[#FCB625] shrink-0" aria-hidden="true" />
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#204195]/10 text-[#204195]">
+                              <GraduationCap className="size-4.5" aria-hidden="true" />
+                            </div>
                             <div className="text-sm leading-relaxed text-[#344467]">
-                              <p className="font-bold text-[#234196]">
+                              <p className="font-semibold text-[#204195]">
                                 {t("practice.coachNote")}
                               </p>
                               <p className="mt-1">{t(`practice.${qid}.feedback`)}</p>
@@ -541,23 +491,23 @@ export default function PracticePage() {
                           </div>
                         </div>
                       ) : (
-                        <div className="flex min-h-[52px] items-center rounded-xl border border-dashed border-[#B7C6E6] px-4 py-3 text-xs text-[#5A6B8F]">
-                          <Info className="mr-2 size-4 text-[#8DA3D2] shrink-0" aria-hidden="true" />
+                        <div className="flex min-h-[48px] items-center rounded-xl border border-dashed border-[#DCE4F3] px-4 py-3 text-xs text-[#607096]">
+                          <Info className="mr-2 size-4 text-[#607096] shrink-0" aria-hidden="true" />
                           <span>{t("practice.pickHint")}</span>
                         </div>
                       )}
                     </div>
 
                     {/* Thanh điều hướng Prev / Next */}
-                    <div className="mt-8 flex flex-col-reverse gap-3 border-t-2 border-[#234196]/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="mt-8 flex flex-col-reverse gap-3 border-t border-[#EAEFF8] pt-6 sm:flex-row sm:items-center sm:justify-between">
                       <button
                         type="button"
                         onClick={handlePrev}
                         disabled={step === 0 || isTimingOut}
-                        className="chunky-secondary inline-flex min-h-12 items-center justify-center gap-2 px-5 py-3 text-sm font-bold disabled:pointer-events-none disabled:opacity-35 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-5 py-2.5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F8FAFC] disabled:pointer-events-none disabled:opacity-40"
                         aria-label={t("practice.prev")}
                       >
-                        <ArrowLeft className="size-4.5" aria-hidden="true" />
+                        <ArrowLeft className="size-4" aria-hidden="true" />
                         <span>{t("practice.prev")}</span>
                       </button>
 
@@ -565,7 +515,7 @@ export default function PracticePage() {
                         type="button"
                         disabled={isTimingOut || (picked === null && answers[step] === null)}
                         onClick={handleNext}
-                        className="chunky-primary inline-flex min-h-12 items-center justify-center gap-2 px-8 py-3 font-headline font-bold disabled:cursor-not-allowed disabled:opacity-45 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#204195] px-6 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <span>
                           {isTimingOut
@@ -575,9 +525,9 @@ export default function PracticePage() {
                             : t("practice.next")}
                         </span>
                         {isTimingOut ? (
-                          <Hourglass className="size-4.5" aria-hidden="true" />
+                          <Hourglass className="size-4" aria-hidden="true" />
                         ) : (
-                          <ArrowRight className="size-4.5" aria-hidden="true" />
+                          <ArrowRight className="size-4" aria-hidden="true" />
                         )}
                       </button>
                     </div>
@@ -586,30 +536,29 @@ export default function PracticePage() {
               </div>
 
               {/* ================= CỘT PHỤ TINH GỌN (4 COLS) ================= */}
-              {/* Không có quảng cáo rườm rà. Chỉ giữ lại 2 khối hữu ích: Mẹo AI & Tổng quan tiến độ */}
               <div className="flex flex-col gap-6 lg:col-span-4">
-                {/* 1. Mẹo phỏng vấn từ AI (AI Tip Card màu xanh #234196) */}
+                {/* 1. Mẹo phỏng vấn từ AI */}
                 <section
-                  className="rounded-2xl border-2 border-[#234196] bg-[#234196] p-6 text-white shadow-[4px_4px_0_#FCB625]"
+                  className="rounded-2xl border border-[#204195]/20 bg-gradient-to-br from-[#14244B] via-[#204195] to-[#183275] p-6 text-white shadow-xs"
                   aria-label="Mẹo phỏng vấn từ AI"
                 >
                   <div className="mb-3 flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-white bg-[#FCB625] text-[#234196]">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-[#FCB625]">
                       <Lightbulb className="size-5" aria-hidden="true" />
                     </div>
-                    <h3 className="font-headline text-lg font-bold">
+                    <h3 className="text-base font-bold text-white">
                       {t("practice.tip.title")}
                     </h3>
                   </div>
 
-                  <p className="text-xs sm:text-sm leading-relaxed text-white/85">
+                  <p className="text-xs sm:text-sm leading-relaxed text-white/80">
                     {t("practice.tip.body")}
                   </p>
 
-                  <div className="mt-4 pt-3 border-t border-white/15">
+                  <div className="mt-4 pt-3 border-t border-white/10">
                     <Link
                       href="/resources"
-                      className="inline-flex items-center text-xs font-bold text-[#FCB625] underline decoration-[#FCB625] decoration-2 underline-offset-4 transition-opacity hover:opacity-90"
+                      className="inline-flex items-center text-xs font-semibold text-[#FCB625] transition-opacity hover:opacity-90"
                     >
                       <span>{t("practice.tip.link")}</span>
                       <ArrowRight className="ml-1 size-3.5" aria-hidden="true" />
@@ -617,16 +566,16 @@ export default function PracticePage() {
                   </div>
                 </section>
 
-                {/* 2. Tổng quan tiến độ làm bài (Progress & Stats Card) */}
+                {/* 2. Tổng quan tiến độ làm bài */}
                 <section
-                  className="rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[4px_4px_0_#234196]"
+                  className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs"
                   aria-label="Tổng quan tiến độ làm bài"
                 >
-                  <div className="mb-5 flex items-center justify-between border-b-2 border-[#234196]/10 pb-3">
-                    <h3 className="font-headline text-base font-bold text-[#234196]">
+                  <div className="mb-5 flex items-center justify-between border-b border-[#EAEFF8] pb-3">
+                    <h3 className="text-sm font-bold text-[#14244B]">
                       {t("practice.stats.title")}
                     </h3>
-                    <span className="sticker bg-[#F0F4FC] text-[9px] text-[#234196]">
+                    <span className="rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-2.5 py-0.5 text-[10px] font-semibold text-[#204195]">
                       Đang thực hiện
                     </span>
                   </div>
@@ -634,15 +583,15 @@ export default function PracticePage() {
                   <div className="space-y-4">
                     {/* Số câu đã hoàn thành */}
                     <div>
-                      <div className="mb-1.5 flex justify-between text-xs font-bold">
-                        <span className="text-[#5A6B8F]">Số câu hoàn thành</span>
-                        <span className="text-[#234196]">
+                      <div className="mb-1.5 flex justify-between text-xs font-medium">
+                        <span className="text-[#607096]">Số câu hoàn thành</span>
+                        <span className="font-semibold text-[#14244B]">
                           {answeredCount} / {QUESTION_IDS.length}
                         </span>
                       </div>
-                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#E8EDF8]">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-[#EAEFF8]">
                         <div
-                          className="h-full rounded-full bg-[#FCB625] transition-all duration-300"
+                          className="h-full rounded-full bg-[#204195] transition-all duration-300"
                           style={{ width: `${progressPct}%` }}
                         />
                       </div>
@@ -650,15 +599,15 @@ export default function PracticePage() {
 
                     {/* Độ chính xác hiện tại */}
                     <div>
-                      <div className="mb-1.5 flex justify-between text-xs font-bold">
-                        <span className="text-[#5A6B8F]">{t("practice.stats.accuracy")}</span>
-                        <span className="text-[#2E7D32]">
+                      <div className="mb-1.5 flex justify-between text-xs font-medium">
+                        <span className="text-[#607096]">{t("practice.stats.accuracy")}</span>
+                        <span className="font-semibold text-emerald-600">
                           {answeredCount ? `${runningPct}%` : "—"}
                         </span>
                       </div>
-                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#E8EDF8]">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-[#EAEFF8]">
                         <div
-                          className="h-full rounded-full bg-[#2E7D32] transition-all duration-300"
+                          className="h-full rounded-full bg-emerald-500 transition-all duration-300"
                           style={{ width: `${answeredCount ? runningPct : 0}%` }}
                         />
                       </div>
@@ -666,20 +615,20 @@ export default function PracticePage() {
 
                     {/* Thời gian câu hiện tại */}
                     <div>
-                      <div className="mb-1.5 flex justify-between text-xs font-bold">
-                        <span className="text-[#5A6B8F]">Thời gian câu {step + 1}</span>
+                      <div className="mb-1.5 flex justify-between text-xs font-medium">
+                        <span className="text-[#607096]">Thời gian câu {step + 1}</span>
                         <span
-                          className={`font-mono text-xs ${
-                            timer.isWarning || isTimingOut ? "font-extrabold text-[#D32F2F] animate-pulse" : "text-[#234196]"
+                          className={`font-mono text-xs font-semibold ${
+                            timer.isWarning || isTimingOut ? "text-red-600 animate-pulse font-bold" : "text-[#14244B]"
                           }`}
                         >
                           {isTimingOut ? "00:00 (Hết giờ)" : timer.formattedTime}
                         </span>
                       </div>
-                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#E8EDF8]">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-[#EAEFF8]">
                         <div
                           className={`h-full rounded-full transition-all duration-300 ${
-                            timer.isWarning || isTimingOut ? "bg-[#D32F2F]" : "bg-[#234196]"
+                            timer.isWarning || isTimingOut ? "bg-red-500" : "bg-[#204195]"
                           }`}
                           style={{ width: `${Math.max(0, 100 - timer.progressPct)}%` }}
                         />
@@ -687,9 +636,9 @@ export default function PracticePage() {
                     </div>
 
                     {/* Nhịp làm bài */}
-                    <div className="flex items-center justify-between pt-2 border-t border-[#E8EDF8] text-xs">
-                      <span className="font-medium text-[#5A6B8F]">{t("practice.stats.pace")}</span>
-                      <span className="font-bold text-[#234196]">
+                    <div className="flex items-center justify-between pt-2 border-t border-[#EAEFF8] text-xs">
+                      <span className="text-[#607096]">{t("practice.stats.pace")}</span>
+                      <span className="font-semibold text-[#14244B]">
                         {t("practice.stats.paceValue")}
                       </span>
                     </div>
@@ -698,16 +647,16 @@ export default function PracticePage() {
               </div>
             </div>
           ) : (
-            /* ================= MÀN HÌNH TỔNG KẾT CHUYÊN NGHIỆP ================= */
+            /* ================= MÀN HÌNH TỔNG KẾT ================= */
             <div className="mx-auto max-w-3xl space-y-8 animate-in fade-in duration-300">
               {/* Thẻ điểm lớn trực quan */}
-              <div className="overflow-hidden rounded-2xl border-2 border-[#234196] bg-white text-center shadow-[6px_6px_0_#234196]">
-                <div className="border-b-2 border-[#234196] bg-[#234196] px-8 py-10 text-white">
-                  <span className="sticker bg-[#FCB625] text-[10px] text-[#234196]">
+              <div className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white text-center shadow-xs">
+                <div className="bg-gradient-to-br from-[#14244B] via-[#204195] to-[#183275] px-8 py-10 text-white">
+                  <span className="inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-[#FCB625] backdrop-blur-xs">
                     {t("practice.finish")}
                   </span>
 
-                  <p className="mt-3 font-headline text-6xl font-black tabular-nums tracking-tight">
+                  <p className="mt-3 text-6xl font-extrabold tabular-nums tracking-tight">
                     {score}/{QUESTION_IDS.length}
                   </p>
 
@@ -719,7 +668,7 @@ export default function PracticePage() {
 
                   {/* Badge đánh giá năng lực */}
                   <div className="mt-4 flex flex-col items-center">
-                    <span className={`sticker border-2 text-xs font-extrabold ${assessmentBadge.bg}`}>
+                    <span className="rounded-full bg-white/20 px-3.5 py-1 text-xs font-bold text-white backdrop-blur-xs">
                       {assessmentBadge.label}
                     </span>
                     <p className="mt-2 max-w-md text-xs text-white/80">
@@ -729,16 +678,16 @@ export default function PracticePage() {
                 </div>
 
                 {/* Thống kê tỷ lệ % */}
-                <div className="grid grid-cols-2 divide-x-2 divide-[#234196]/15 border-b-2 border-[#234196]/15 bg-[#FEF9EE] p-4 text-center">
+                <div className="grid grid-cols-2 divide-x divide-[#DCE4F3] border-b border-[#DCE4F3] bg-[#F8FAFC] p-5 text-center">
                   <div>
-                    <p className="text-xs font-medium text-[#5A6B8F]">Tỷ lệ chính xác</p>
-                    <p className="font-headline text-2xl font-black text-[#2E7D32]">
+                    <p className="text-xs font-medium text-[#607096]">Tỷ lệ chính xác</p>
+                    <p className="mt-1 text-2xl font-extrabold text-emerald-600">
                       {Math.round((score / QUESTION_IDS.length) * 100)}%
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-[#5A6B8F]">Số câu hoàn thành</p>
-                    <p className="font-headline text-2xl font-black text-[#234196]">
+                    <p className="text-xs font-medium text-[#607096]">Số câu hoàn thành</p>
+                    <p className="mt-1 text-2xl font-extrabold text-[#14244B]">
                       {QUESTION_IDS.length}/{QUESTION_IDS.length}
                     </p>
                   </div>
@@ -750,17 +699,17 @@ export default function PracticePage() {
                     <button
                       type="button"
                       onClick={restart}
-                      className="chunky-primary min-h-12 px-7 py-3 font-bold flex items-center justify-center gap-2"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#204195] px-7 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-[#183275]"
                     >
-                      <RotateCcw className="size-4.5" aria-hidden="true" />
+                      <RotateCcw className="size-4" aria-hidden="true" />
                       <span>{t("practice.restart")}</span>
                     </button>
 
                     <Link
                       href="/dashboard"
-                      className="chunky-secondary inline-flex min-h-12 items-center justify-center gap-2 px-7 py-3 font-bold"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-7 py-2.5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F8FAFC]"
                     >
-                      <LayoutDashboard className="size-4.5" aria-hidden="true" />
+                      <LayoutDashboard className="size-4" aria-hidden="true" />
                       <span>{t("practice.done.backDash")}</span>
                     </Link>
                   </div>
@@ -768,17 +717,17 @@ export default function PracticePage() {
               </div>
 
               {/* Danh sách tóm tắt từng câu hỏi (Review Breakdown) */}
-              <div className="rounded-2xl border-2 border-[#234196] bg-white p-6 sm:p-8 shadow-[4px_4px_0_#234196]">
-                <div className="mb-6 border-b-2 border-[#234196]/10 pb-4">
-                  <h3 className="font-headline text-xl font-bold text-[#234196]">
+              <div className="rounded-2xl border border-[#DCE4F3] bg-white p-6 sm:p-8 shadow-xs">
+                <div className="mb-6 border-b border-[#EAEFF8] pb-4">
+                  <h3 className="text-lg font-bold text-[#14244B]">
                     Chi tiết từng câu hỏi & Lời khuyên
                   </h3>
-                  <p className="mt-1 text-xs text-[#5A6B8F]">
+                  <p className="mt-1 text-xs text-[#607096]">
                     Phân tích kết quả chi tiết kèm nhận xét chuyên sâu từ Coach cho từng câu.
                   </p>
                 </div>
 
-                <div className="space-y-6 divide-y divide-[#E8EDF8]">
+                <div className="space-y-6 divide-y divide-[#EAEFF8]">
                   {QUESTION_IDS.map((id, index) => {
                     const userAns = answers[index];
                     const isCorrect = userAns === CORRECT[id];
@@ -791,21 +740,21 @@ export default function PracticePage() {
                     return (
                       <div key={id} className={index > 0 ? "pt-6" : ""}>
                         <div className="flex items-start justify-between gap-3">
-                          <span className="sticker bg-[#F0F4FC] text-[9px] text-[#234196]">
+                          <span className="rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-2.5 py-0.5 text-[10px] font-semibold text-[#204195]">
                             Câu {index + 1}
                           </span>
                           <span
-                            className={`sticker text-[9px] font-bold ${
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
                               isCorrect
-                                ? "bg-emerald-100 text-emerald-800 border-emerald-700"
-                                : "bg-red-100 text-red-800 border-red-700"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : "bg-red-50 text-red-700 border border-red-200"
                             }`}
                           >
                             {isCorrect ? "Đúng" : "Chưa chính xác"}
                           </span>
                         </div>
 
-                        <p className="mt-3 font-headline text-base font-bold text-[#17244A]">
+                        <p className="mt-3 text-base font-bold text-[#14244B]">
                           {t(`practice.${id}.question`)}
                         </p>
 
@@ -815,31 +764,31 @@ export default function PracticePage() {
                             const isUserPicked = userAns === optIndex;
                             const isAnsCorrect = optIndex === CORRECT[id];
 
-                            let itemClass = "border-[#E8EDF8] bg-white text-[#5A6B8F]";
+                            let itemClass = "border-[#DCE4F3] bg-white text-[#607096]";
                             if (isAnsCorrect) {
                               itemClass =
-                                "border-[#2E7D32] bg-emerald-50 text-[#1B5E20] font-semibold";
+                                "border-emerald-200 bg-emerald-50/70 text-emerald-800 font-medium";
                             } else if (isUserPicked && !isAnsCorrect) {
                               itemClass =
-                                "border-[#D32F2F] bg-red-50 text-[#8F1D1D] font-semibold";
+                                "border-red-200 bg-red-50/70 text-red-800 font-medium";
                             }
 
                             return (
                               <div
                                 key={optIndex}
-                                className={`flex items-center gap-3 rounded-xl border-2 px-3.5 py-2.5 text-xs sm:text-sm ${itemClass}`}
+                                className={`flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-xs sm:text-sm ${itemClass}`}
                               >
-                                <span className="font-headline font-bold text-xs">
+                                <span className="font-bold text-xs">
                                   {LETTERS[optIndex]}.
                                 </span>
                                 <span className="flex-1 leading-snug">{opt}</span>
                                 {isAnsCorrect && (
-                                  <span className="sticker border-0 bg-emerald-600 px-2 py-0.5 text-[8px] text-white">
+                                  <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-semibold text-white">
                                     Đáp án đúng
                                   </span>
                                 )}
                                 {isUserPicked && !isAnsCorrect && (
-                                  <span className="sticker border-0 bg-red-600 px-2 py-0.5 text-[8px] text-white">
+                                  <span className="rounded-full bg-red-600 px-2 py-0.5 text-[9px] font-semibold text-white">
                                     Bạn đã chọn
                                   </span>
                                 )}
@@ -849,8 +798,8 @@ export default function PracticePage() {
                         </div>
 
                         {/* Coach feedback */}
-                        <div className="mt-3 rounded-xl border border-[#234196]/20 bg-[#FFF9E6] p-3.5 text-xs text-[#344467]">
-                          <span className="font-bold text-[#234196]">
+                        <div className="mt-3 rounded-xl border border-[#C9D7F1] bg-[#F0F4FC]/60 p-3.5 text-xs text-[#344467]">
+                          <span className="font-semibold text-[#204195]">
                             {t("practice.coachNote")}:
                           </span>{" "}
                           {t(`practice.${id}.feedback`)}

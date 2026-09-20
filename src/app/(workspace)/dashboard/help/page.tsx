@@ -193,22 +193,22 @@ export default function HelpCenterPage() {
 
   return (
     <UserDashboardShell>
-      <div className="min-h-full bg-[#FEF9EE] p-4 sm:p-6 lg:p-10">
+      <div className="min-h-full bg-[#F8FAFC] p-4 sm:p-6 lg:p-10">
         <div className="mx-auto max-w-6xl space-y-8">
           {/* HERO HEADER & SEARCH */}
-          <header className="relative overflow-hidden rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[4px_4px_0_#234196] sm:p-10">
+          <header className="relative overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-10">
             <div className="mx-auto max-w-3xl space-y-6 text-center">
-              {/* Eyebrow Sticker */}
-              <div className="inline-flex -rotate-1 items-center gap-2 rounded-lg border-2 border-[#234196] bg-[#FCB625] px-3.5 py-1 text-xs font-black uppercase tracking-wider text-[#234196] shadow-[2px_2px_0_#234196]">
-                <Headset className="size-4" />
+              {/* Eyebrow */}
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3.5 py-1 text-xs font-semibold text-[#204195]">
+                <Headset className="size-3.5" />
                 HỖ TRỢ 24/7 &amp; HƯỚNG DẪN KỸ THUẬT
               </div>
 
               {/* Title */}
-              <h1 className="font-headline text-3xl font-black tracking-tight text-[#234196] sm:text-4xl md:text-5xl">
+              <h1 className="text-2xl font-bold tracking-tight text-[#14244B] sm:text-3xl md:text-4xl">
                 Bạn đang gặp khó khăn gì?
               </h1>
-              <p className="mx-auto max-w-xl text-sm font-medium text-[#5A6B8F] sm:text-base">
+              <p className="mx-auto max-w-xl text-sm leading-relaxed text-[#607096] sm:text-base">
                 Tìm câu trả lời nhanh cho các vấn đề kết nối phòng phỏng vấn, tối ưu hóa CV và chính sách tài khoản.
               </p>
 
@@ -218,30 +218,30 @@ export default function HelpCenterPage() {
                   Tìm kiếm bài viết trợ giúp
                 </label>
                 <div className="relative flex items-center">
-                  <Search className="absolute left-4 size-6 text-[#234196]" />
+                  <Search className="absolute left-4 size-5 text-[#607096]" />
                   <input
                     id={searchInputId}
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Tìm kiếm giải pháp: micro, camera, điểm ATS, VietQR, ngắt lời AI..."
-                    className="w-full rounded-2xl border-2 border-[#234196] bg-[#FEF9EE] py-3.5 pl-12 pr-12 text-sm font-bold text-[#234196] placeholder-[#5A6B8F]/70 shadow-[3px_3px_0_#234196] transition-all focus:bg-white focus:outline-none sm:text-base"
+                    className="w-full rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] py-3.5 pl-12 pr-12 text-sm font-medium text-[#14244B] placeholder-[#607096]/60 transition-all focus:border-[#204195] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#204195] sm:text-base"
                   />
                   {searchQuery && (
                     <button
                       type="button"
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-4 rounded-lg p-1 text-[#5A6B8F] hover:bg-[#234196]/10 hover:text-[#234196]"
+                      className="absolute right-4 rounded-lg p-1 text-[#607096] hover:bg-[#F8FAFC] hover:text-[#14244B]"
                       aria-label="Xóa từ khóa tìm kiếm"
                     >
-                      <X className="size-5" />
+                      <X className="size-4" />
                     </button>
                   )}
                 </div>
 
                 {/* Quick Search Tag Pills */}
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-xs">
-                  <span className="font-bold text-[#5A6B8F]">Tìm nhanh:</span>
+                  <span className="font-medium text-[#607096]">Tìm nhanh:</span>
                   {[
                     "Lỗi micro / camera",
                     "Ngắt lời AI",
@@ -253,7 +253,7 @@ export default function HelpCenterPage() {
                       key={tag}
                       type="button"
                       onClick={() => setSearchQuery(tag)}
-                      className="rounded-lg border border-[#234196]/30 bg-[#F0F4FC] px-2.5 py-1 font-semibold text-[#234196] transition-colors hover:border-[#234196] hover:bg-[#FCB625]"
+                      className="rounded-lg border border-[#DCE4F3] bg-white px-2.5 py-1 font-medium text-[#14244B] transition-colors hover:border-[#204195]/40 hover:bg-[#F0F4FC] hover:text-[#204195]"
                     >
                       {tag}
                     </button>
@@ -266,10 +266,10 @@ export default function HelpCenterPage() {
           {/* 4 QUICK ACCESS CARDS */}
           <section aria-labelledby="heading-quick-topics" className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 id="heading-quick-topics" className="font-headline text-xl font-black text-[#234196]">
+              <h2 id="heading-quick-topics" className="text-lg font-bold text-[#14244B]">
                 Nhóm chủ đề trợ giúp nhanh
               </h2>
-              <span className="text-xs font-bold text-[#5A6B8F]">Chọn chủ đề để lọc bài viết</span>
+              <span className="text-xs text-[#607096]">Chọn chủ đề để lọc bài viết</span>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -309,30 +309,30 @@ export default function HelpCenterPage() {
                     onClick={() =>
                       setSelectedCategory(selectedCategory === topic.id ? "all" : topic.id)
                     }
-                    className={`flex flex-col justify-between rounded-2xl border-2 p-5 text-left transition-all ${
+                    className={`flex flex-col justify-between rounded-2xl border p-5 text-left transition-all ${
                       isSelected
-                        ? "border-[#234196] bg-[#FCB625] shadow-[4px_4px_0_#234196] translate-y-[-2px]"
-                        : "border-[#234196] bg-white shadow-[3px_3px_0_#234196] hover:bg-[#F0F4FC] hover:translate-y-[-1px]"
+                        ? "border-[#204195] bg-[#F0F4FC] ring-1 ring-[#204195] shadow-xs"
+                        : "border-[#DCE4F3] bg-white shadow-xs hover:border-[#204195]/40 hover:bg-[#F8FAFC]"
                     }`}
                   >
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-[#234196] bg-white text-[#234196] shadow-[2px_2px_0_#234196]">
-                          <TopicIcon className="size-6" />
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195]">
+                            <TopicIcon className="size-4.5" />
+                          </div>
+                          <h3 className="truncate text-sm font-bold text-[#14244B]">{topic.title}</h3>
                         </div>
-                        <span className="rounded-md border border-[#234196]/30 bg-white/70 px-2 py-0.5 text-[10px] font-mono font-bold text-[#234196]">
+                        <span className="shrink-0 rounded-full border border-[#DCE4F3] bg-white px-2 py-0.5 text-[10px] font-semibold text-[#607096]">
                           {topic.count}
                         </span>
                       </div>
-                      <div>
-                        <h3 className="text-sm font-black text-[#234196] sm:text-base">{topic.title}</h3>
-                        <p className="mt-1 text-xs text-[#5A6B8F] line-clamp-2">{topic.desc}</p>
-                      </div>
+                      <p className="text-xs text-[#607096] line-clamp-2">{topic.desc}</p>
                     </div>
 
-                    <div className="mt-4 flex items-center gap-1 text-xs font-bold text-[#234196]">
+                    <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#204195]">
                       <span>{isSelected ? "Đang lọc câu hỏi" : "Xem câu hỏi"}</span>
-                      {isSelected ? <Check className="size-4" /> : <ArrowRight className="size-4" />}
+                      {isSelected ? <Check className="size-3.5" /> : <ArrowRight className="size-3.5" />}
                     </div>
                   </button>
                 );
@@ -343,18 +343,18 @@ export default function HelpCenterPage() {
           {/* INTERACTIVE FAQ ACCORDION */}
           <section
             aria-labelledby="heading-faq-list"
-            className="rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[4px_4px_0_#234196] sm:p-8"
+            className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-8"
           >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b-2 border-[#234196]/15 pb-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#EAEFF8] pb-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FEF9EE] text-[#234196] shadow-[2px_2px_0_#234196]">
-                  <HelpCircle className="size-6" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195]">
+                  <HelpCircle className="size-5" />
                 </div>
                 <div>
-                  <h2 id="heading-faq-list" className="font-headline text-xl font-black text-[#234196]">
+                  <h2 id="heading-faq-list" className="text-lg font-bold text-[#14244B]">
                     Câu hỏi thường gặp (FAQ)
                   </h2>
-                  <p className="text-xs text-[#5A6B8F]">
+                  <p className="text-xs text-[#607096]">
                     Tìm thấy <strong>{filteredFaqs.length}</strong> bài viết phù hợp
                     {selectedCategory !== "all" && " trong nhóm đang chọn"}
                   </p>
@@ -365,23 +365,23 @@ export default function HelpCenterPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedCategory("all")}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-[#234196] hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#204195] hover:underline"
                 >
-                  <FilterX className="size-4" />
+                  <FilterX className="size-3.5" />
                   Hiển thị tất cả
                 </button>
               )}
             </div>
 
             {/* List */}
-            <div className="mt-6 divide-y-2 divide-[#234196]/10">
+            <div className="mt-6 divide-y divide-[#EAEFF8]">
               {filteredFaqs.length === 0 ? (
                 <div className="py-10 text-center">
-                  <SearchX className="mx-auto size-10 text-[#5A6B8F]" />
-                  <p className="mt-2 text-sm font-bold text-[#234196]">
+                  <SearchX className="mx-auto size-10 text-[#607096]" />
+                  <p className="mt-2 text-sm font-semibold text-[#14244B]">
                     Không tìm thấy bài viết nào cho từ khóa &quot;{searchQuery}&quot;
                   </p>
-                  <p className="text-xs text-[#5A6B8F]">
+                  <p className="text-xs text-[#607096]">
                     Vui lòng thử từ khóa khác hoặc gửi yêu cầu hỗ trợ trực tiếp ở biểu mẫu phía dưới.
                   </p>
                 </div>
@@ -398,17 +398,17 @@ export default function HelpCenterPage() {
                         onClick={() => setOpenFaqId(isOpen ? null : faq.id)}
                         aria-expanded={isOpen}
                         aria-controls={`faq-answer-${faq.id}`}
-                        className="flex w-full items-start justify-between gap-4 text-left transition-colors hover:text-[#234196]"
+                        className="flex w-full items-start justify-between gap-4 text-left transition-colors hover:text-[#204195]"
                       >
                         <div className="space-y-1">
-                          <span className="inline-block rounded border border-[#234196]/20 bg-[#F0F4FC] px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-[#234196]">
+                          <span className="inline-block rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-2 py-0.5 text-[10px] font-semibold uppercase text-[#204195]">
                             {faq.categoryLabel}
                           </span>
-                          <h3 className="text-sm font-black text-[#234196] sm:text-base">{faq.question}</h3>
+                          <h3 className="text-sm font-bold text-[#14244B] sm:text-base">{faq.question}</h3>
                         </div>
                         <div
-                          className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 border-[#234196] text-[#234196] transition-transform duration-200 ${
-                            isOpen ? "rotate-180 bg-[#FCB625]" : "bg-white"
+                          className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#DCE4F3] transition-all duration-200 ${
+                            isOpen ? "rotate-180 bg-[#F0F4FC] text-[#204195] border-[#C9D7F1]" : "bg-white text-[#607096]"
                           }`}
                         >
                           <ChevronDown className="size-4" />
@@ -419,17 +419,17 @@ export default function HelpCenterPage() {
                       {isOpen && (
                         <div
                           id={`faq-answer-${faq.id}`}
-                          className="mt-3.5 space-y-3 rounded-xl border-2 border-[#234196]/15 bg-[#FEF9EE] p-4 text-xs sm:text-sm"
+                          className="mt-3.5 space-y-3 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4 text-xs sm:text-sm"
                         >
-                          <p className="font-medium leading-relaxed text-[#234196]">{faq.answer}</p>
+                          <p className="leading-relaxed text-[#344467]">{faq.answer}</p>
 
                           {faq.tips && faq.tips.length > 0 && (
-                            <div className="rounded-lg border-2 border-[#234196]/20 bg-white p-3 space-y-1.5">
-                              <p className="font-bold text-[#234196] flex items-center gap-1.5">
-                                <Lightbulb className="size-4 text-amber-600" />
+                            <div className="rounded-lg border border-[#DCE4F3] bg-white p-3.5 space-y-1.5">
+                              <p className="font-semibold text-[#14244B] flex items-center gap-1.5">
+                                <Lightbulb className="size-4 text-amber-500" />
                                 Các bước xử lý cụ thể:
                               </p>
-                              <ul className="list-disc space-y-1 pl-5 text-[#5A6B8F]">
+                              <ul className="list-disc space-y-1 pl-5 text-[#607096]">
                                 {faq.tips.map((tip, idx) => (
                                   <li key={idx}>{tip}</li>
                                 ))}
@@ -438,13 +438,13 @@ export default function HelpCenterPage() {
                           )}
 
                           {/* Helpful Feedback Box */}
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#234196]/15 pt-3">
-                            <span className="text-[11px] font-bold text-[#5A6B8F]">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#EAEFF8] pt-3">
+                            <span className="text-[11px] text-[#607096]">
                               Thông tin này có giúp ích cho bạn không?
                             </span>
 
                             {feedback ? (
-                              <span className="inline-flex items-center gap-1 font-bold text-emerald-700 text-xs">
+                              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 text-xs">
                                 <CheckCircle2 className="size-4" />
                                 Cảm ơn bạn đã đóng góp phản hồi!
                               </span>
@@ -453,16 +453,16 @@ export default function HelpCenterPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleFeedback(faq.id, "yes")}
-                                  className="inline-flex items-center gap-1 rounded-md border border-[#234196] bg-white px-2 py-1 text-[11px] font-bold text-[#234196] hover:bg-[#F0F4FC]"
+                                  className="inline-flex items-center gap-1 rounded-md border border-[#DCE4F3] bg-white px-2 py-1 text-[11px] font-medium text-[#14244B] hover:bg-[#F8FAFC]"
                                   aria-label="Đánh giá hữu ích"
                                 >
-                                  <ThumbsUp className="size-3" />
+                                  <ThumbsUp className="size-3 text-[#204195]" />
                                   Hữu ích
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleFeedback(faq.id, "no")}
-                                  className="inline-flex items-center gap-1 rounded-md border border-[#234196] bg-white px-2 py-1 text-[11px] font-bold text-[#5A6B8F] hover:bg-[#F0F4FC]"
+                                  className="inline-flex items-center gap-1 rounded-md border border-[#DCE4F3] bg-white px-2 py-1 text-[11px] font-medium text-[#607096] hover:bg-[#F8FAFC]"
                                   aria-label="Đánh giá chưa giải quyết được"
                                 >
                                   <ThumbsDown className="size-3" />
@@ -483,19 +483,19 @@ export default function HelpCenterPage() {
           {/* CONTACT CHANNELS & TICKET SUPPORT CARD */}
           <section
             aria-labelledby="heading-support-contact"
-            className="rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[4px_4px_0_#234196] sm:p-8"
+            className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-8"
           >
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
               {/* LEFT COLUMN: CONTACT CHANNELS (5 cols) */}
-              <div className="space-y-6 lg:col-span-5 lg:border-r-2 lg:border-[#234196]/15 lg:pr-8">
+              <div className="space-y-6 lg:col-span-5 lg:border-r lg:border-[#EAEFF8] lg:pr-8">
                 <div className="space-y-2">
-                  <div className="inline-flex items-center gap-1.5 rounded-md border border-[#234196] bg-[#FEF9EE] px-2.5 py-0.5 text-[10px] font-mono font-black uppercase text-[#234196]">
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-2.5 py-0.5 text-[10px] font-semibold uppercase text-[#204195]">
                     TRỢ GIÚP TRỰC TIẾP
                   </div>
-                  <h2 id="heading-support-contact" className="font-headline text-2xl font-black text-[#234196]">
+                  <h2 id="heading-support-contact" className="text-xl font-bold text-[#14244B]">
                     Liên hệ Kỹ thuật viên
                   </h2>
-                  <p className="text-xs font-medium text-[#5A6B8F] sm:text-sm">
+                  <p className="text-xs text-[#607096] sm:text-sm">
                     Đội ngũ kỹ sư hỗ trợ trực tiếp từ <strong>08:00 - 22:00 hàng ngày</strong> (kể cả cuối tuần).
                   </p>
                 </div>
@@ -503,42 +503,42 @@ export default function HelpCenterPage() {
                 {/* Direct Channel Cards */}
                 <div className="space-y-3">
                   {/* Hotline / Zalo */}
-                  <div className="flex items-center gap-3.5 rounded-xl border-2 border-[#234196]/20 bg-[#FEF9EE] p-3.5">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[#234196] bg-white text-[#234196]">
-                      <PhoneCall className="size-5" />
+                  <div className="flex items-center gap-3.5 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white border border-[#DCE4F3] text-[#204195]">
+                      <PhoneCall className="size-4" />
                     </div>
                     <div>
-                      <p className="text-xs font-black uppercase text-[#234196]">Hotline &amp; Zalo Hỗ trợ</p>
-                      <p className="font-mono text-sm font-bold text-[#234196]">0988.123.456 (Zalo OA)</p>
-                      <span className="text-[10px] text-emerald-700 font-bold">● Phản hồi dưới 5 phút</span>
+                      <p className="text-xs font-semibold uppercase text-[#14244B]">Hotline &amp; Zalo Hỗ trợ</p>
+                      <p className="font-mono text-sm font-bold text-[#204195]">0988.123.456 (Zalo OA)</p>
+                      <span className="text-[10px] text-emerald-600 font-semibold">● Phản hồi dưới 5 phút</span>
                     </div>
                   </div>
 
                   {/* Email Support */}
-                  <div className="flex items-center gap-3.5 rounded-xl border-2 border-[#234196]/20 bg-[#F0F4FC] p-3.5">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[#234196] bg-white text-[#234196]">
-                      <Mail className="size-5" />
+                  <div className="flex items-center gap-3.5 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white border border-[#DCE4F3] text-[#204195]">
+                      <Mail className="size-4" />
                     </div>
                     <div>
-                      <p className="text-xs font-black uppercase text-[#234196]">Email Kỹ thuật</p>
-                      <p className="font-mono text-xs font-bold text-[#234196]">support@intervia.ai</p>
-                      <span className="text-[10px] text-[#5A6B8F]">Phản hồi trong 2 giờ làm việc</span>
+                      <p className="text-xs font-semibold uppercase text-[#14244B]">Email Kỹ thuật</p>
+                      <p className="font-mono text-xs font-bold text-[#204195]">support@intervia.ai</p>
+                      <span className="text-[10px] text-[#607096]">Phản hồi trong 2 giờ làm việc</span>
                     </div>
                   </div>
 
                   {/* Community Discord / Telegram */}
-                  <div className="flex items-center gap-3.5 rounded-xl border-2 border-[#234196]/20 bg-white p-3.5 shadow-[2px_2px_0_#234196]">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FCB625] text-[#234196]">
-                      <MessageSquare className="size-5" />
+                  <div className="flex items-center gap-3.5 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white border border-[#DCE4F3] text-[#204195]">
+                      <MessageSquare className="size-4" />
                     </div>
                     <div>
-                      <p className="text-xs font-black uppercase text-[#234196]">Cộng đồng Luyện phỏng vấn</p>
-                      <p className="text-xs font-medium text-[#5A6B8F]">Hơn 5,000 ứng viên &amp; Tech Leads</p>
+                      <p className="text-xs font-semibold uppercase text-[#14244B]">Cộng đồng Luyện phỏng vấn</p>
+                      <p className="text-xs text-[#607096]">Hơn 5,000 ứng viên &amp; Tech Leads</p>
                       <a
                         href="https://discord.com"
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[11px] font-bold text-[#234196] underline"
+                        className="text-[11px] font-semibold text-[#204195] hover:underline"
                       >
                         Tham gia Discord cộng đồng &rarr;
                       </a>
@@ -547,8 +547,8 @@ export default function HelpCenterPage() {
                 </div>
 
                 {/* Remote Assistance Note */}
-                <div className="rounded-xl border border-dashed border-[#234196]/40 p-3 text-xs text-[#5A6B8F]">
-                  <p className="font-bold text-[#234196]">Hỗ trợ từ xa qua UltraViewer / AnyDesk:</p>
+                <div className="rounded-xl border border-dashed border-[#DCE4F3] p-3 text-xs text-[#607096]">
+                  <p className="font-semibold text-[#14244B]">Hỗ trợ từ xa qua UltraViewer / AnyDesk:</p>
                   <p className="mt-0.5">
                     Nếu gặp lỗi phần cứng hoặc mạng WebRTC khó xử lý, kỹ thuật viên có thể hỗ trợ kiểm tra trực tiếp máy tính của bạn.
                   </p>
@@ -558,19 +558,19 @@ export default function HelpCenterPage() {
               {/* RIGHT COLUMN: SUBMIT TICKET FORM (7 cols) */}
               <div className="space-y-4 lg:col-span-7">
                 <div className="space-y-1">
-                  <h3 className="font-headline text-xl font-black text-[#234196]">Gửi yêu cầu hỗ trợ nhanh</h3>
-                  <p className="text-xs text-[#5A6B8F]">
+                  <h3 className="text-lg font-bold text-[#14244B]">Gửi yêu cầu hỗ trợ nhanh</h3>
+                  <p className="text-xs text-[#607096]">
                     Báo cáo sự cố hoặc gửi ý kiến đóng góp trực tiếp đến nhóm phát triển.
                   </p>
                 </div>
 
                 {/* Success Alert */}
                 {ticketSuccessId && (
-                  <div className="rounded-xl border-2 border-emerald-600 bg-emerald-50 p-4 shadow-[2px_2px_0_#047857]">
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                     <div className="flex items-start gap-3">
-                      <CheckCircle className="size-6 text-emerald-700 shrink-0" />
+                      <CheckCircle className="size-5 text-emerald-600 shrink-0" />
                       <div>
-                        <p className="text-sm font-bold text-emerald-900">
+                        <p className="text-sm font-semibold text-emerald-900">
                           Đã gửi yêu cầu hỗ trợ thành công!
                         </p>
                         <p className="mt-0.5 text-xs text-emerald-800">
@@ -579,7 +579,7 @@ export default function HelpCenterPage() {
                         <button
                           type="button"
                           onClick={() => setTicketSuccessId(null)}
-                          className="mt-2 text-xs font-bold text-emerald-900 underline"
+                          className="mt-2 text-xs font-semibold text-emerald-700 underline"
                         >
                           Gửi thêm yêu cầu khác
                         </button>
@@ -592,14 +592,14 @@ export default function HelpCenterPage() {
                   {/* Category & Email */}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <label htmlFor={ticketCategoryId} className="text-xs font-black uppercase text-[#234196]">
+                      <label htmlFor={ticketCategoryId} className="text-xs font-semibold uppercase text-[#14244B]">
                         Loại vấn đề:
                       </label>
                       <select
                         id={ticketCategoryId}
                         value={ticketCategory}
                         onChange={(e) => setTicketCategory(e.target.value)}
-                        className="w-full rounded-xl border-2 border-[#234196] bg-white px-3 py-2 text-xs font-bold text-[#234196] shadow-[2px_2px_0_#234196] focus:bg-[#FEF9EE] focus:outline-none"
+                        className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3 py-2 text-xs font-medium text-[#14244B] transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
                       >
                         <option value="webrtc">Lỗi Camera / Micro WebRTC</option>
                         <option value="ai_voice">Giọng nói &amp; Nhận diện AI</option>
@@ -611,7 +611,7 @@ export default function HelpCenterPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label htmlFor={ticketEmailId} className="text-xs font-black uppercase text-[#234196]">
+                      <label htmlFor={ticketEmailId} className="text-xs font-semibold uppercase text-[#14244B]">
                         Email nhận phản hồi:
                       </label>
                       <input
@@ -621,14 +621,14 @@ export default function HelpCenterPage() {
                         onChange={(e) => setTicketEmail(e.target.value)}
                         placeholder="email@example.com"
                         required
-                        className="w-full rounded-xl border-2 border-[#234196] bg-white px-3 py-2 text-xs font-bold text-[#234196] shadow-[2px_2px_0_#234196] focus:bg-[#FEF9EE] focus:outline-none"
+                        className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3 py-2 text-xs font-medium text-[#14244B] transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
                       />
                     </div>
                   </div>
 
                   {/* Subject */}
                   <div className="space-y-1.5">
-                    <label htmlFor={ticketSubjectId} className="text-xs font-black uppercase text-[#234196]">
+                    <label htmlFor={ticketSubjectId} className="text-xs font-semibold uppercase text-[#14244B]">
                       Tiêu đề sự cố:
                     </label>
                     <input
@@ -638,13 +638,13 @@ export default function HelpCenterPage() {
                       onChange={(e) => setTicketSubject(e.target.value)}
                       placeholder="Ví dụ: Phòng phỏng vấn báo lỗi 'Device in use' dù đã tắt Zoom"
                       required
-                      className="w-full rounded-xl border-2 border-[#234196] bg-white px-3.5 py-2 text-xs font-bold text-[#234196] shadow-[2px_2px_0_#234196] focus:bg-[#FEF9EE] focus:outline-none"
+                      className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-medium text-[#14244B] transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
                     />
                   </div>
 
                   {/* Description */}
                   <div className="space-y-1.5">
-                    <label htmlFor={ticketDescId} className="text-xs font-black uppercase text-[#234196]">
+                    <label htmlFor={ticketDescId} className="text-xs font-semibold uppercase text-[#14244B]">
                       Mô tả chi tiết vấn đề:
                     </label>
                     <textarea
@@ -654,7 +654,7 @@ export default function HelpCenterPage() {
                       onChange={(e) => setTicketDescription(e.target.value)}
                       placeholder="Mô tả cụ thể thông báo lỗi hiển thị trên màn hình, thiết bị bạn đang dùng (Windows/Mac, trình duyệt Chrome/Safari)..."
                       required
-                      className="w-full rounded-xl border-2 border-[#234196] bg-white p-3 text-xs font-medium text-[#234196] shadow-[2px_2px_0_#234196] focus:bg-[#FEF9EE] focus:outline-none"
+                      className="w-full rounded-xl border border-[#DCE4F3] bg-white p-3 text-xs font-medium text-[#14244B] transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
                     />
                   </div>
 
@@ -663,7 +663,7 @@ export default function HelpCenterPage() {
                     <button
                       type="submit"
                       disabled={isSubmittingTicket}
-                      className="inline-flex items-center gap-2 rounded-xl border-2 border-[#234196] bg-[#FCB625] px-6 py-2.5 text-xs font-black text-[#234196] shadow-[3px_3px_0_#234196] transition-all hover:bg-[#ffc33f] hover:translate-y-[-1px] active:translate-y-[2px] active:shadow-none disabled:opacity-50 sm:text-sm"
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#204195] px-6 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#183275] disabled:opacity-50 sm:text-sm"
                     >
                       {isSubmittingTicket ? (
                         <>

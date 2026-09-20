@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
@@ -10,7 +9,6 @@ import {
   CheckCircle2,
   X,
   Settings,
-  ArrowLeft,
   RotateCcw,
   Loader2,
   Save,
@@ -333,63 +331,54 @@ export default function SettingsPage() {
           role="status"
           aria-live="polite"
           aria-atomic="true"
-          className="fixed right-4 top-20 z-50 flex items-center gap-3 rounded-xl border-2 border-[#234196] bg-[#FCB625] px-5 py-3.5 font-bold text-[#234196] shadow-[4px_4px_0_#234196] transition-all animate-in fade-in slide-in-from-top-3 md:right-8"
+          className="fixed right-4 top-20 z-50 flex items-center gap-3 rounded-xl border border-[#DCE4F3] bg-white px-5 py-3.5 font-medium text-[#14244B] shadow-lg transition-all animate-in fade-in slide-in-from-top-3 md:right-8"
         >
           {toastMessage.type === "error" ? (
-            <AlertCircle className="size-6 shrink-0" />
+            <AlertCircle className="size-5 shrink-0 text-red-600" />
           ) : toastMessage.type === "info" ? (
-            <Info className="size-6 shrink-0" />
+            <Info className="size-5 shrink-0 text-[#204195]" />
           ) : (
-            <CheckCircle2 className="size-6 shrink-0" />
+            <CheckCircle2 className="size-5 shrink-0 text-emerald-600" />
           )}
-          <span className="text-sm md:text-base">{toastMessage.text}</span>
+          <span className="text-sm font-medium">{toastMessage.text}</span>
           <button
             type="button"
             onClick={() => setToastMessage(null)}
-            className="ml-2 rounded p-1 hover:bg-black/10"
+            className="ml-2 rounded-lg p-1 text-[#607096] hover:bg-[#F8FAFC]"
             aria-label="Đóng thông báo"
           >
-            <X className="size-5" />
+            <X className="size-4" />
           </button>
         </aside>
       )}
 
-      <div className="min-h-full bg-[#FEF9EE] p-4 sm:p-6 lg:p-10">
+      <div className="min-h-full bg-[#F8FAFC] p-4 sm:p-6 lg:p-10">
         <div className="mx-auto max-w-6xl space-y-8">
           {/* HEADER SECTION */}
-          <header className="rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[4px_4px_0_#234196] sm:p-8">
+          <header className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-8">
             <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
               <div className="space-y-2">
-                {/* Eyebrow Sticker */}
-                <div className="inline-flex -rotate-1 items-center gap-1.5 rounded-lg border-2 border-[#234196] bg-[#FCB625] px-3 py-1 text-xs font-black uppercase tracking-wider text-[#234196] shadow-[2px_2px_0_#234196]">
-                  <Settings className="size-4 leading-none shrink-0" />
+                {/* Eyebrow */}
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3 py-1 text-xs font-semibold text-[#204195]">
+                  <Settings className="size-3.5 leading-none shrink-0" />
                   HỆ THỐNG &amp; TÀI KHOẢN
                 </div>
 
                 {/* H1 Title */}
-                <h1 className="font-headline text-3xl font-black tracking-tight text-[#234196] sm:text-4xl">
+                <h1 className="text-2xl font-bold tracking-tight text-[#14244B] sm:text-3xl">
                   Cài đặt &amp; Tùy chọn
                 </h1>
-                <p className="max-w-2xl text-sm font-medium text-[#5A6B8F] sm:text-base">
+                <p className="max-w-2xl text-sm leading-relaxed text-[#607096]">
                   Quản lý hành vi người phỏng vấn AI, tần suất thông báo, tăng cường bảo mật phiên đăng nhập và bảo lưu dữ liệu cá nhân.
                 </p>
               </div>
 
               {/* Header Action Buttons */}
               <div className="flex flex-wrap items-center gap-3">
-                <Link
-                  href="/dashboard"
-                  className="inline-flex items-center gap-1.5 rounded-xl border-2 border-[#234196] bg-white px-4 py-2.5 text-xs font-bold text-[#234196] shadow-[3px_3px_0_#234196] transition-all hover:bg-[#F0F4FC] hover:translate-y-[-1px] active:translate-y-[2px] active:shadow-none sm:text-sm"
-                  aria-label="Quay lại Dashboard"
-                >
-                  <ArrowLeft className="size-4 shrink-0" />
-                  Dashboard
-                </Link>
-
                 <button
                   type="button"
                   onClick={handleResetDefaults}
-                  className="inline-flex items-center gap-1.5 rounded-xl border-2 border-[#234196] bg-white px-4 py-2.5 text-xs font-bold text-[#5A6B8F] shadow-[3px_3px_0_#234196] transition-all hover:bg-[#F0F4FC] hover:text-[#234196] hover:translate-y-[-1px] active:translate-y-[2px] active:shadow-none sm:text-sm"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-4 py-2.5 text-xs font-semibold text-[#607096] transition-colors hover:bg-[#F8FAFC] hover:text-[#14244B] sm:text-sm"
                   aria-label="Khôi phục cài đặt gốc"
                 >
                   <RotateCcw className="size-4 shrink-0" />
@@ -400,7 +389,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={handleSaveSettings}
                   disabled={isSaving}
-                  className="inline-flex items-center gap-2 rounded-xl border-2 border-[#234196] bg-[#FCB625] px-5 py-2.5 text-xs font-black text-[#234196] shadow-[3px_3px_0_#234196] transition-all hover:bg-[#ffc33f] hover:translate-y-[-1px] active:translate-y-[2px] active:shadow-none disabled:opacity-60 sm:text-sm"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#204195] px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#183275] disabled:opacity-60 sm:text-sm"
                   aria-label="Lưu tất cả thay đổi cài đặt"
                 >
                   {isSaving ? (
@@ -419,7 +408,7 @@ export default function SettingsPage() {
             </div>
 
             {/* QUICK NAV / FILTER TABS */}
-            <nav aria-label="Bộ lọc cài đặt" className="mt-8 flex flex-wrap gap-2 border-t-2 border-[#234196]/15 pt-5">
+            <nav aria-label="Bộ lọc cài đặt" className="mt-8 flex flex-wrap gap-2 border-t border-[#EAEFF8] pt-5">
               {[
                 { id: "all", label: "Tất cả mục", icon: Sliders },
                 { id: "ai", label: "Cấu hình AI & Giọng nói", icon: Brain },
@@ -435,10 +424,10 @@ export default function SettingsPage() {
                     type="button"
                     onClick={() => setActiveTab(tab.id as typeof activeTab)}
                     aria-pressed={isSelected}
-                    className={`inline-flex items-center gap-2 rounded-xl border-2 px-3.5 py-2 text-xs font-bold transition-all sm:text-sm ${
+                    className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors sm:text-sm ${
                       isSelected
-                        ? "border-[#234196] bg-[#FCB625] text-[#234196] shadow-[2px_2px_0_#234196]"
-                        : "border-transparent text-[#5A6B8F] hover:border-[#234196] hover:bg-[#F0F4FC] hover:text-[#234196]"
+                        ? "bg-[#204195] text-white shadow-xs"
+                        : "text-[#607096] hover:bg-[#F0F4FC] hover:text-[#204195]"
                     }`}
                   >
                     <IconComp className="size-4 shrink-0" />
@@ -455,23 +444,23 @@ export default function SettingsPage() {
             {(activeTab === "all" || activeTab === "ai") && (
               <section
                 aria-labelledby="heading-ai-settings"
-                className="flex flex-col justify-between rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[4px_4px_0_#234196] sm:p-7"
+                className="flex flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-7"
               >
                 <div className="space-y-6">
                   {/* Card Header */}
-                  <div className="flex items-start justify-between border-b-2 border-[#234196]/15 pb-4">
+                  <div className="flex items-start justify-between border-b border-[#EAEFF8] pb-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FEF9EE] text-[#234196] shadow-[2px_2px_0_#234196]">
-                        <Brain className="size-6 shrink-0" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195]">
+                        <Brain className="size-5 shrink-0" />
                       </div>
                       <div>
-                        <h2 id="heading-ai-settings" className="font-headline text-xl font-black text-[#234196]">
+                        <h2 id="heading-ai-settings" className="text-lg font-bold text-[#14244B]">
                           Cấu hình Phỏng vấn &amp; AI
                         </h2>
-                        <p className="text-xs text-[#5A6B8F]">Giọng đọc, tốc độ và giao thức kết nối phòng WebRTC</p>
+                        <p className="text-xs text-[#607096]">Giọng đọc, tốc độ và giao thức kết nối phòng WebRTC</p>
                       </div>
                     </div>
-                    <span className="rounded-md border-2 border-[#234196] bg-[#FEF9EE] px-2 py-0.5 font-mono text-[10px] font-black uppercase text-[#234196]">
+                    <span className="rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-2.5 py-0.5 text-[10px] font-semibold text-[#204195]">
                       AI PREFERENCES
                     </span>
                   </div>
@@ -479,19 +468,19 @@ export default function SettingsPage() {
                   {/* Field 1: Giọng đọc AI */}
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <label htmlFor={voiceSelectId} className="text-xs font-black uppercase tracking-wider text-[#234196]">
+                      <label htmlFor={voiceSelectId} className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
                         Giọng đọc AI mặc định:
                       </label>
                       <button
                         type="button"
                         onClick={handlePreviewVoice}
-                        className="inline-flex items-center gap-1 rounded-lg border-2 border-[#234196] bg-[#FEF9EE] px-2.5 py-1 text-xs font-bold text-[#234196] shadow-[2px_2px_0_#234196] transition-all hover:bg-[#FCB625] active:translate-y-[1px] active:shadow-none"
+                        className="inline-flex items-center gap-1 rounded-lg border border-[#DCE4F3] bg-white px-2.5 py-1 text-xs font-semibold text-[#204195] transition-colors hover:bg-[#F0F4FC]"
                         aria-label="Nghe thử giọng đọc AI hiện tại"
                       >
                         {isPlayingVoice ? (
-                          <Volume2 className="size-4 shrink-0" />
+                          <Volume2 className="size-3.5 shrink-0" />
                         ) : (
-                          <Play className="size-4 shrink-0" />
+                          <Play className="size-3.5 shrink-0" />
                         )}
                         {isPlayingVoice ? "Đang phát..." : "Nghe thử"}
                       </button>
@@ -502,7 +491,7 @@ export default function SettingsPage() {
                         id={voiceSelectId}
                         value={settings.aiVoice}
                         onChange={(e) => setSettings({ ...settings, aiVoice: e.target.value })}
-                        className="w-full appearance-none rounded-xl border-2 border-[#234196] bg-white px-4 py-3 pr-10 text-sm font-semibold text-[#234196] shadow-[2px_2px_0_#234196] transition-colors focus:border-[#234196] focus:bg-[#FEF9EE] focus:outline-none"
+                        className="w-full appearance-none rounded-xl border border-[#DCE4F3] bg-white px-4 py-2.5 pr-10 text-sm font-medium text-[#14244B] transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
                       >
                         {AI_VOICES.map((v) => (
                           <option key={v.id} value={v.id}>
@@ -510,17 +499,17 @@ export default function SettingsPage() {
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 size-5 text-[#234196]" />
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 size-4 text-[#607096]" />
                     </div>
                   </div>
 
                   {/* Field 2: Tốc độ phản hồi */}
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-black uppercase tracking-wider text-[#234196]">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
                         Tốc độ phản hồi giọng nói:
                       </span>
-                      <span className="rounded bg-[#F0F4FC] px-2 py-0.5 font-mono text-xs font-bold text-[#234196]">
+                      <span className="rounded-md border border-[#C9D7F1] bg-[#F0F4FC] px-2 py-0.5 font-mono text-xs font-semibold text-[#204195]">
                         {settings.speechRate.toFixed(1)}x
                       </span>
                     </div>
@@ -538,14 +527,14 @@ export default function SettingsPage() {
                             type="button"
                             onClick={() => setSettings({ ...settings, speechRate: item.rate })}
                             aria-pressed={isSelected}
-                            className={`flex flex-col items-center justify-center rounded-xl border-2 p-2.5 transition-all text-center ${
+                            className={`flex flex-col items-center justify-center rounded-xl border p-2.5 transition-all text-center ${
                               isSelected
-                                ? "border-[#234196] bg-[#FCB625] text-[#234196] shadow-[2px_2px_0_#234196] font-bold"
-                                : "border-[#234196]/30 bg-white text-[#5A6B8F] hover:border-[#234196] hover:bg-[#F0F4FC]"
+                                ? "border-[#204195] bg-[#F0F4FC] text-[#204195] ring-1 ring-[#204195] font-semibold"
+                                : "border-[#DCE4F3] bg-white text-[#607096] hover:border-[#204195]/40 hover:bg-[#F8FAFC]"
                             }`}
                           >
-                            <span className="text-xs font-bold sm:text-sm">{item.label}</span>
-                            <span className="text-[10px] opacity-80">{item.sub}</span>
+                            <span className="text-xs font-semibold sm:text-sm">{item.label}</span>
+                            <span className="text-[10px] opacity-75">{item.sub}</span>
                           </button>
                         );
                       })}
@@ -554,16 +543,16 @@ export default function SettingsPage() {
 
                   {/* Field 3: Ngôn ngữ phỏng vấn ưu tiên */}
                   <div className="space-y-2.5">
-                    <span className="text-xs font-black uppercase tracking-wider text-[#234196]">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
                       Ngôn ngữ phỏng vấn ưu tiên:
                     </span>
                     <div className="grid grid-cols-2 gap-3">
                       <label
                         htmlFor={languageViId}
-                        className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-3 transition-all ${
+                        className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${
                           settings.interviewLanguage === "vi"
-                            ? "border-[#234196] bg-[#F0F4FC] font-bold text-[#234196] shadow-[2px_2px_0_#234196]"
-                            : "border-[#234196]/30 bg-white text-[#5A6B8F] hover:border-[#234196]"
+                            ? "border-[#204195] bg-[#F0F4FC] font-semibold text-[#204195] ring-1 ring-[#204195]"
+                            : "border-[#DCE4F3] bg-white text-[#607096] hover:border-[#204195]/40"
                         }`}
                       >
                         <input
@@ -573,20 +562,20 @@ export default function SettingsPage() {
                           value="vi"
                           checked={settings.interviewLanguage === "vi"}
                           onChange={() => setSettings({ ...settings, interviewLanguage: "vi" })}
-                          className="h-4 w-4 accent-[#234196]"
+                          className="h-4 w-4 accent-[#204195]"
                         />
                         <div className="text-xs">
-                          <p className="font-bold">Tiếng Việt</p>
-                          <p className="text-[10px] text-[#5A6B8F]">Doanh nghiệp nội địa</p>
+                          <p className="font-semibold text-[#14244B]">Tiếng Việt</p>
+                          <p className="text-[10px] text-[#607096]">Doanh nghiệp nội địa</p>
                         </div>
                       </label>
 
                       <label
                         htmlFor={languageEnId}
-                        className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-3 transition-all ${
+                        className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${
                           settings.interviewLanguage === "en"
-                            ? "border-[#234196] bg-[#F0F4FC] font-bold text-[#234196] shadow-[2px_2px_0_#234196]"
-                            : "border-[#234196]/30 bg-white text-[#5A6B8F] hover:border-[#234196]"
+                            ? "border-[#204195] bg-[#F0F4FC] font-semibold text-[#204195] ring-1 ring-[#204195]"
+                            : "border-[#DCE4F3] bg-white text-[#607096] hover:border-[#204195]/40"
                         }`}
                       >
                         <input
@@ -596,32 +585,32 @@ export default function SettingsPage() {
                           value="en"
                           checked={settings.interviewLanguage === "en"}
                           onChange={() => setSettings({ ...settings, interviewLanguage: "en" })}
-                          className="h-4 w-4 accent-[#234196]"
+                          className="h-4 w-4 accent-[#204195]"
                         />
                         <div className="text-xs">
-                          <p className="font-bold">English</p>
-                          <p className="text-[10px] text-[#5A6B8F]">Global / Multi-national</p>
+                          <p className="font-semibold text-[#14244B]">English</p>
+                          <p className="text-[10px] text-[#607096]">Global / Multi-national</p>
                         </div>
                       </label>
                     </div>
                   </div>
 
                   {/* Field 4: Chế độ Camera WebRTC */}
-                  <div className="rounded-xl border-2 border-[#234196]/20 bg-[#FEF9EE] p-4">
+                  <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
                     <div className="flex items-center justify-between gap-4">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <Video className="size-5 text-[#234196]" />
-                          <span className="text-xs font-black uppercase tracking-wider text-[#234196]">
+                          <Video className="size-4 text-[#204195]" />
+                          <span className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
                             Tự động bật Camera khi vào phòng WebRTC
                           </span>
                         </div>
-                        <p className="text-xs text-[#5A6B8F]">
+                        <p className="text-xs text-[#607096]">
                           Phân tích ánh mắt, biểu cảm khuôn mặt để nâng cao điểm đánh giá tự tin.
                         </p>
                       </div>
 
-                      {/* Chunky Switch */}
+                      {/* SaaS Switch */}
                       <button
                         type="button"
                         role="switch"
@@ -630,13 +619,13 @@ export default function SettingsPage() {
                         onClick={() =>
                           setSettings({ ...settings, autoCameraWebRTC: !settings.autoCameraWebRTC })
                         }
-                        className={`relative inline-flex h-7 w-13 shrink-0 cursor-pointer rounded-full border-2 border-[#234196] transition-colors duration-200 ease-in-out focus:outline-none ${
-                          settings.autoCameraWebRTC ? "bg-[#FCB625]" : "bg-[#E2E8F0]"
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          settings.autoCameraWebRTC ? "bg-[#204195]" : "bg-gray-300"
                         }`}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full border-2 border-[#234196] bg-white shadow-[1px_1px_0_#234196] transition duration-200 ease-in-out ${
-                            settings.autoCameraWebRTC ? "translate-x-6" : "translate-x-0.5"
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                            settings.autoCameraWebRTC ? "translate-x-5" : "translate-x-0"
                           }`}
                         />
                       </button>
@@ -644,8 +633,8 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 border-t-2 border-[#234196]/10 pt-4 text-right">
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#5A6B8F]">
+                <div className="mt-6 border-t border-[#EAEFF8] pt-4 text-right">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#607096]">
                     <BadgeCheck className="size-4 text-emerald-600" />
                     Tự động đồng bộ với phòng phỏng vấn Mock Interview
                   </span>
@@ -657,23 +646,23 @@ export default function SettingsPage() {
             {(activeTab === "all" || activeTab === "notifications") && (
               <section
                 aria-labelledby="heading-notifications"
-                className="flex flex-col justify-between rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[4px_4px_0_#234196] sm:p-7"
+                className="flex flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-7"
               >
                 <div className="space-y-6">
                   {/* Card Header */}
-                  <div className="flex items-start justify-between border-b-2 border-[#234196]/15 pb-4">
+                  <div className="flex items-start justify-between border-b border-[#EAEFF8] pb-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FEF9EE] text-[#234196] shadow-[2px_2px_0_#234196]">
-                        <BellRing className="size-6 shrink-0" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195]">
+                        <BellRing className="size-5 shrink-0" />
                       </div>
                       <div>
-                        <h2 id="heading-notifications" className="font-headline text-xl font-black text-[#234196]">
+                        <h2 id="heading-notifications" className="text-lg font-bold text-[#14244B]">
                           Cài đặt Thông báo
                         </h2>
-                        <p className="text-xs text-[#5A6B8F]">Quản lý nhắc lịch luyện tập và bản tin tiến độ</p>
+                        <p className="text-xs text-[#607096]">Quản lý nhắc lịch luyện tập và bản tin tiến độ</p>
                       </div>
                     </div>
-                    <span className="rounded-md border-2 border-[#234196] bg-[#FEF9EE] px-2 py-0.5 font-mono text-[10px] font-black uppercase text-[#234196]">
+                    <span className="rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-2.5 py-0.5 text-[10px] font-semibold text-[#204195]">
                       ALERTS &amp; EMAIL
                     </span>
                   </div>
@@ -681,15 +670,15 @@ export default function SettingsPage() {
                   {/* List of Notification Toggles */}
                   <div className="space-y-4">
                     {/* Toggle 1: Lịch nhắc luyện tập */}
-                    <div className="flex items-start justify-between gap-4 rounded-xl border-2 border-[#234196]/15 bg-white p-3.5 transition-colors hover:bg-[#F0F4FC]/40">
+                    <div className="flex items-start justify-between gap-4 rounded-xl border border-[#DCE4F3] bg-white p-3.5 transition-colors hover:bg-[#F8FAFC]">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <Calendar className="size-5 text-[#234196]" />
-                          <span className="text-xs font-black uppercase tracking-wider text-[#234196]">
+                          <Calendar className="size-4 text-[#204195]" />
+                          <span className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
                             Nhắc nhở lịch luyện tập hàng tuần
                           </span>
                         </div>
-                        <p className="text-xs text-[#5A6B8F]">
+                        <p className="text-xs text-[#607096]">
                           Nhận email vào đầu tuần để duy trì thói quen trả lời câu hỏi và kiểm tra độ phản xạ.
                         </p>
                       </div>
@@ -702,28 +691,28 @@ export default function SettingsPage() {
                         onClick={() =>
                           setSettings({ ...settings, notifyWeeklyReminder: !settings.notifyWeeklyReminder })
                         }
-                        className={`relative inline-flex h-7 w-13 shrink-0 cursor-pointer rounded-full border-2 border-[#234196] transition-colors duration-200 ease-in-out focus:outline-none ${
-                          settings.notifyWeeklyReminder ? "bg-[#FCB625]" : "bg-[#E2E8F0]"
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          settings.notifyWeeklyReminder ? "bg-[#204195]" : "bg-gray-300"
                         }`}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full border-2 border-[#234196] bg-white shadow-[1px_1px_0_#234196] transition duration-200 ease-in-out ${
-                            settings.notifyWeeklyReminder ? "translate-x-6" : "translate-x-0.5"
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                            settings.notifyWeeklyReminder ? "translate-x-5" : "translate-x-0"
                           }`}
                         />
                       </button>
                     </div>
 
                     {/* Toggle 2: Gợi ý việc làm mới */}
-                    <div className="flex items-start justify-between gap-4 rounded-xl border-2 border-[#234196]/15 bg-white p-3.5 transition-colors hover:bg-[#F0F4FC]/40">
+                    <div className="flex items-start justify-between gap-4 rounded-xl border border-[#DCE4F3] bg-white p-3.5 transition-colors hover:bg-[#F8FAFC]">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <Briefcase className="size-5 text-[#234196]" />
-                          <span className="text-xs font-black uppercase tracking-wider text-[#234196]">
+                          <Briefcase className="size-4 text-[#204195]" />
+                          <span className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
                             Gợi ý việc làm mới phù hợp (Job Match)
                           </span>
                         </div>
-                        <p className="text-xs text-[#5A6B8F]">
+                        <p className="text-xs text-[#607096]">
                           Thông báo ngay khi có Job mở tuyển dụng phù hợp với kết quả phỏng vấn và CV của bạn.
                         </p>
                       </div>
@@ -736,28 +725,28 @@ export default function SettingsPage() {
                         onClick={() =>
                           setSettings({ ...settings, notifyJobMatch: !settings.notifyJobMatch })
                         }
-                        className={`relative inline-flex h-7 w-13 shrink-0 cursor-pointer rounded-full border-2 border-[#234196] transition-colors duration-200 ease-in-out focus:outline-none ${
-                          settings.notifyJobMatch ? "bg-[#FCB625]" : "bg-[#E2E8F0]"
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          settings.notifyJobMatch ? "bg-[#204195]" : "bg-gray-300"
                         }`}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full border-2 border-[#234196] bg-white shadow-[1px_1px_0_#234196] transition duration-200 ease-in-out ${
-                            settings.notifyJobMatch ? "translate-x-6" : "translate-x-0.5"
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                            settings.notifyJobMatch ? "translate-x-5" : "translate-x-0"
                           }`}
                         />
                       </button>
                     </div>
 
                     {/* Toggle 3: Báo cáo phân tích kỹ năng & tiến độ */}
-                    <div className="flex items-start justify-between gap-4 rounded-xl border-2 border-[#234196]/15 bg-white p-3.5 transition-colors hover:bg-[#F0F4FC]/40">
+                    <div className="flex items-start justify-between gap-4 rounded-xl border border-[#DCE4F3] bg-white p-3.5 transition-colors hover:bg-[#F8FAFC]">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <TrendingUp className="size-5 text-[#234196]" />
-                          <span className="text-xs font-black uppercase tracking-wider text-[#234196]">
+                          <TrendingUp className="size-4 text-[#204195]" />
+                          <span className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
                             Báo cáo phân tích tiến độ định kỳ
                           </span>
                         </div>
-                        <p className="text-xs text-[#5A6B8F]">
+                        <p className="text-xs text-[#607096]">
                           Gửi bảng phân tích chỉ số STAR, tỷ lệ trả lời đúng và các điểm yếu cần khắc phục qua email.
                         </p>
                       </div>
@@ -770,28 +759,28 @@ export default function SettingsPage() {
                         onClick={() =>
                           setSettings({ ...settings, notifyProgressReport: !settings.notifyProgressReport })
                         }
-                        className={`relative inline-flex h-7 w-13 shrink-0 cursor-pointer rounded-full border-2 border-[#234196] transition-colors duration-200 ease-in-out focus:outline-none ${
-                          settings.notifyProgressReport ? "bg-[#FCB625]" : "bg-[#E2E8F0]"
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          settings.notifyProgressReport ? "bg-[#204195]" : "bg-gray-300"
                         }`}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full border-2 border-[#234196] bg-white shadow-[1px_1px_0_#234196] transition duration-200 ease-in-out ${
-                            settings.notifyProgressReport ? "translate-x-6" : "translate-x-0.5"
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                            settings.notifyProgressReport ? "translate-x-5" : "translate-x-0"
                           }`}
                         />
                       </button>
                     </div>
 
                     {/* Toggle 4: Âm thanh thông báo tương tác */}
-                    <div className="flex items-start justify-between gap-4 rounded-xl border-2 border-[#234196]/15 bg-white p-3.5 transition-colors hover:bg-[#F0F4FC]/40">
+                    <div className="flex items-start justify-between gap-4 rounded-xl border border-[#DCE4F3] bg-white p-3.5 transition-colors hover:bg-[#F8FAFC]">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <Volume2 className="size-5 text-[#234196]" />
-                          <span className="text-xs font-black uppercase tracking-wider text-[#234196]">
+                          <Volume2 className="size-4 text-[#204195]" />
+                          <span className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
                             Hiệu ứng âm thanh bài làm (Sound FX)
                           </span>
                         </div>
-                        <p className="text-xs text-[#5A6B8F]">
+                        <p className="text-xs text-[#607096]">
                           Tiếng chuông đếm ngược 10 giây cuối và tiếng xác nhận khi hoàn thành câu hỏi trắc nghiệm.
                         </p>
                       </div>
@@ -804,13 +793,13 @@ export default function SettingsPage() {
                         onClick={() =>
                           setSettings({ ...settings, notifySoundFx: !settings.notifySoundFx })
                         }
-                        className={`relative inline-flex h-7 w-13 shrink-0 cursor-pointer rounded-full border-2 border-[#234196] transition-colors duration-200 ease-in-out focus:outline-none ${
-                          settings.notifySoundFx ? "bg-[#FCB625]" : "bg-[#E2E8F0]"
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          settings.notifySoundFx ? "bg-[#204195]" : "bg-gray-300"
                         }`}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full border-2 border-[#234196] bg-white shadow-[1px_1px_0_#234196] transition duration-200 ease-in-out ${
-                            settings.notifySoundFx ? "translate-x-6" : "translate-x-0.5"
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                            settings.notifySoundFx ? "translate-x-5" : "translate-x-0"
                           }`}
                         />
                       </button>
@@ -818,9 +807,9 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 border-t-2 border-[#234196]/10 pt-4 text-right">
-                  <span className="text-xs text-[#5A6B8F]">
-                    Gửi tới: <strong className="text-[#234196]">{profile?.email || "Chưa xác định"}</strong>
+                <div className="mt-6 border-t border-[#EAEFF8] pt-4 text-right">
+                  <span className="text-xs text-[#607096]">
+                    Gửi tới: <strong className="text-[#14244B]">{profile?.email || "Chưa xác định"}</strong>
                   </span>
                 </div>
               </section>
@@ -830,45 +819,45 @@ export default function SettingsPage() {
             {(activeTab === "all" || activeTab === "security") && (
               <section
                 aria-labelledby="heading-security"
-                className="flex flex-col justify-between rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[4px_4px_0_#234196] sm:p-7"
+                className="flex flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-7"
               >
                 <div className="space-y-6">
                   {/* Card Header */}
-                  <div className="flex items-start justify-between border-b-2 border-[#234196]/15 pb-4">
+                  <div className="flex items-start justify-between border-b border-[#EAEFF8] pb-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[#234196] bg-[#FEF9EE] text-[#234196] shadow-[2px_2px_0_#234196]">
-                        <Shield className="size-6 shrink-0" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195]">
+                        <Shield className="size-5 shrink-0" />
                       </div>
                       <div>
-                        <h2 id="heading-security" className="font-headline text-xl font-black text-[#234196]">
+                        <h2 id="heading-security" className="text-lg font-bold text-[#14244B]">
                           Bảo mật &amp; Xác thực
                         </h2>
-                        <p className="text-xs text-[#5A6B8F]">Đổi mật khẩu, liên kết SSO và kiểm soát phiên</p>
+                        <p className="text-xs text-[#607096]">Đổi mật khẩu, liên kết SSO và kiểm soát phiên</p>
                       </div>
                     </div>
-                    <span className="rounded-md border-2 border-[#234196] bg-[#FEF9EE] px-2 py-0.5 font-mono text-[10px] font-black uppercase text-[#234196]">
+                    <span className="rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-2.5 py-0.5 text-[10px] font-semibold text-[#204195]">
                       ACCOUNT SECURITY
                     </span>
                   </div>
 
                   {/* Section: Linked Accounts */}
                   <div className="space-y-3">
-                    <span className="text-xs font-black uppercase tracking-wider text-[#234196]">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
                       Tài khoản liên kết:
                     </span>
 
-                    <div className="rounded-xl border-2 border-[#234196]/20 bg-[#F0F4FC]/40 p-3.5">
+                    <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-[#234196] bg-white font-black text-[#234196] shadow-[1px_1px_0_#234196]">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#DCE4F3] bg-white font-bold text-[#14244B] shadow-2xs">
                             G
                           </div>
                           <div>
-                            <p className="text-xs font-black text-[#234196]">Google Account</p>
-                            <p className="text-[11px] text-[#5A6B8F]">{profile?.email || "Chưa đồng bộ"}</p>
+                            <p className="text-xs font-bold text-[#14244B]">Google Account</p>
+                            <p className="text-[11px] text-[#607096]">{profile?.email || "Chưa đồng bộ"}</p>
                           </div>
                         </div>
-                        <span className="inline-flex items-center gap-1 rounded-md border border-emerald-600 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                        <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
                           <CheckCircle2 className="size-3 text-emerald-600" />
                           Đã liên kết
                         </span>
@@ -877,23 +866,23 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Section: Password Action */}
-                  <div className="rounded-xl border-2 border-[#234196] bg-white p-4 shadow-[2px_2px_0_#234196]">
+                  <div className="rounded-xl border border-[#DCE4F3] bg-white p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <p className="text-xs font-black uppercase tracking-wider text-[#234196]">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
                           Mật khẩu đăng nhập
                         </p>
-                        <p className="text-xs text-[#5A6B8F]">
+                        <p className="text-xs text-[#607096]">
                           Cập nhật mật khẩu thường xuyên để tăng cường an toàn thông tin.
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setIsPasswordModalOpen(true)}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-xl border-2 border-[#234196] bg-[#FCB625] px-4 py-2 text-xs font-bold text-[#234196] shadow-[2px_2px_0_#234196] transition-all hover:bg-[#ffc33f] hover:translate-y-[-1px] active:translate-y-[1px] active:shadow-none"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-4 py-2 text-xs font-semibold text-[#14244B] transition-colors hover:bg-[#F8FAFC]"
                         aria-label="Mở cửa sổ đổi mật khẩu"
                       >
-                        <Key className="size-4 shrink-0" />
+                        <Key className="size-3.5 shrink-0 text-[#204195]" />
                         Đổi mật khẩu
                       </button>
                     </div>
@@ -901,29 +890,29 @@ export default function SettingsPage() {
 
                   {/* Section: Active Sessions */}
                   <div className="space-y-2">
-                    <span className="text-xs font-black uppercase tracking-wider text-[#234196]">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
                       Phiên đăng nhập hiện tại:
                     </span>
-                    <div className="flex items-center justify-between rounded-xl border-2 border-[#234196]/15 bg-white p-3 text-xs">
+                    <div className="flex items-center justify-between rounded-xl border border-[#DCE4F3] bg-white p-3 text-xs">
                       <div className="flex items-center gap-2.5">
-                        <Laptop className="size-5 text-[#234196]" />
+                        <Laptop className="size-4 text-[#204195]" />
                         <div>
-                          <p className="font-bold text-[#234196]">Chrome trên Windows (Thiết bị này)</p>
-                          <p className="text-[10px] text-[#5A6B8F]">IP: 14.232.188.xxx • Việt Nam</p>
+                          <p className="font-semibold text-[#14244B]">Chrome trên Windows (Thiết bị này)</p>
+                          <p className="text-[10px] text-[#607096]">IP: 14.232.188.xxx • Việt Nam</p>
                         </div>
                       </div>
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                      <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
                         Đang hoạt động
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-6 border-t-2 border-[#234196]/10 pt-4 text-right">
+                <div className="mt-6 border-t border-[#EAEFF8] pt-4 text-right">
                   <button
                     type="button"
                     onClick={() => showToast("Đã đăng xuất khỏi tất cả các thiết bị khác!", "info")}
-                    className="text-xs font-bold text-[#D32F2F] hover:underline"
+                    className="text-xs font-semibold text-red-600 hover:underline"
                   >
                     Đăng xuất khỏi các thiết bị khác
                   </button>
@@ -935,38 +924,38 @@ export default function SettingsPage() {
             {(activeTab === "all" || activeTab === "danger") && (
               <section
                 aria-labelledby="heading-danger"
-                className="flex flex-col justify-between rounded-2xl border-2 border-[#D32F2F] bg-white p-6 shadow-[4px_4px_0_#D32F2F] sm:p-7"
+                className="flex flex-col justify-between rounded-2xl border border-red-200 bg-white p-6 shadow-xs sm:p-7"
               >
                 <div className="space-y-6">
                   {/* Card Header */}
-                  <div className="flex items-start justify-between border-b-2 border-[#D32F2F]/20 pb-4">
+                  <div className="flex items-start justify-between border-b border-red-100 pb-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[#D32F2F] bg-[#FFEbee] text-[#D32F2F] shadow-[2px_2px_0_#D32F2F]">
-                        <AlertTriangle className="size-6 shrink-0 text-[#D32F2F]" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600">
+                        <AlertTriangle className="size-5 shrink-0" />
                       </div>
                       <div>
-                        <h2 id="heading-danger" className="font-headline text-xl font-black text-[#D32F2F]">
+                        <h2 id="heading-danger" className="text-lg font-bold text-red-700">
                           Quản lý dữ liệu &amp; Vùng nguy hiểm
                         </h2>
-                        <p className="text-xs text-[#5A6B8F]">Xuất hồ sơ phỏng vấn hoặc hủy kích hoạt tài khoản</p>
+                        <p className="text-xs text-[#607096]">Xuất hồ sơ phỏng vấn hoặc hủy kích hoạt tài khoản</p>
                       </div>
                     </div>
-                    <span className="rounded-md border-2 border-[#D32F2F] bg-[#FFEbee] px-2 py-0.5 font-mono text-[10px] font-black uppercase text-[#D32F2F]">
+                    <span className="rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[10px] font-semibold text-red-700">
                       DANGER ZONE
                     </span>
                   </div>
 
                   {/* Section: Export Data */}
-                  <div className="rounded-xl border-2 border-[#234196]/20 bg-[#FEF9EE] p-4">
+                  <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <Download className="size-5 text-[#234196]" />
-                          <span className="text-xs font-black uppercase tracking-wider text-[#234196]">
+                          <Download className="size-4 text-[#204195]" />
+                          <span className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
                             Tải về toàn bộ dữ liệu phỏng vấn
                           </span>
                         </div>
-                        <p className="text-xs text-[#5A6B8F]">
+                        <p className="text-xs text-[#607096]">
                           Xuất toàn bộ phiên luyện tập, phân tích STAR và danh sách CV sang tệp định dạng JSON.
                         </p>
                       </div>
@@ -974,23 +963,23 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={handleExportData}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-xl border-2 border-[#234196] bg-white px-4 py-2 text-xs font-bold text-[#234196] shadow-[2px_2px_0_#234196] transition-all hover:bg-[#F0F4FC] hover:translate-y-[-1px] active:translate-y-[1px] active:shadow-none"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-4 py-2 text-xs font-semibold text-[#14244B] transition-colors hover:bg-[#F8FAFC]"
                         aria-label="Tải về dữ liệu lịch sử phỏng vấn"
                       >
-                        <FileDown className="size-4 shrink-0" />
+                        <FileDown className="size-3.5 shrink-0 text-[#204195]" />
                         Export Data
                       </button>
                     </div>
                   </div>
 
                   {/* Section: Delete Account Warning */}
-                  <div className="rounded-xl border-2 border-[#D32F2F]/30 bg-[#FFEbee]/60 p-4">
+                  <div className="rounded-xl border border-red-200 bg-red-50/50 p-4">
                     <div className="space-y-3">
                       <div>
-                        <p className="text-xs font-black uppercase tracking-wider text-[#D32F2F]">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-red-700">
                           Xóa tài khoản vĩnh viễn
                         </p>
-                        <p className="text-xs text-[#5A6B8F]">
+                        <p className="text-xs text-[#607096]">
                           Hành động này sẽ xóa toàn bộ lịch sử luyện tập, CV đã tải lên và không thể hoàn tác lại.
                         </p>
                       </div>
@@ -1001,7 +990,7 @@ export default function SettingsPage() {
                           setDeleteConfirmationInput("");
                           setIsDeleteModalOpen(true);
                         }}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#D32F2F] bg-white px-4 py-2.5 text-xs font-black text-[#D32F2F] shadow-[3px_3px_0_#D32F2F] transition-all hover:bg-[#D32F2F] hover:text-white active:translate-y-[2px] active:shadow-none"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-300 bg-white px-4 py-2.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-600 hover:text-white"
                         aria-label="Xác nhận xóa tài khoản vĩnh viễn"
                       >
                         <Trash2 className="size-4 shrink-0" />
@@ -1011,8 +1000,8 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 border-t-2 border-[#D32F2F]/20 pt-4 text-right">
-                  <span className="text-[11px] font-semibold text-[#5A6B8F]">
+                <div className="mt-6 border-t border-red-100 pt-4 text-right">
+                  <span className="text-[11px] font-medium text-[#607096]">
                     Tuân thủ tiêu chuẩn quyền riêng tư GDPR &amp; bảo mật dữ liệu cá nhân
                   </span>
                 </div>
@@ -1028,20 +1017,20 @@ export default function SettingsPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="password-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
         >
-          <div className="w-full max-w-md rounded-2xl border-2 border-[#234196] bg-white p-6 shadow-[6px_6px_0_#234196] sm:p-7">
-            <div className="flex items-center justify-between border-b-2 border-[#234196]/15 pb-4">
+          <div className="w-full max-w-md rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xl sm:p-7">
+            <div className="flex items-center justify-between border-b border-[#EAEFF8] pb-4">
               <div className="flex items-center gap-2.5">
-                <Lock className="size-6 text-[#234196]" />
-                <h3 id="password-modal-title" className="font-headline text-lg font-black text-[#234196]">
+                <Lock className="size-5 text-[#204195]" />
+                <h3 id="password-modal-title" className="text-base font-bold text-[#14244B]">
                   Đổi mật khẩu tài khoản
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsPasswordModalOpen(false)}
-                className="rounded-lg border-2 border-[#234196] p-1 text-[#234196] transition-all hover:bg-[#F0F4FC]"
+                className="rounded-lg p-1 text-[#607096] transition-colors hover:bg-[#F8FAFC]"
                 aria-label="Đóng cửa sổ"
               >
                 <X className="size-4" />
@@ -1050,14 +1039,14 @@ export default function SettingsPage() {
 
             <form onSubmit={handleChangePasswordSubmit} className="mt-5 space-y-4">
               {passwordError && (
-                <div className="rounded-xl border-2 border-[#D32F2F] bg-[#FFEbee] p-3 text-xs font-bold text-[#D32F2F]">
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700">
                   {passwordError}
                 </div>
               )}
 
               {/* Mật khẩu cũ */}
               <div className="space-y-1.5">
-                <label htmlFor={currentPasswordId} className="text-xs font-black uppercase text-[#234196]">
+                <label htmlFor={currentPasswordId} className="text-xs font-semibold uppercase text-[#14244B]">
                   Mật khẩu hiện tại:
                 </label>
                 <input
@@ -1067,20 +1056,20 @@ export default function SettingsPage() {
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full rounded-xl border-2 border-[#234196] px-3.5 py-2.5 text-sm font-medium text-[#234196] shadow-[2px_2px_0_#234196] focus:bg-[#FEF9EE] focus:outline-none"
+                  className="w-full rounded-xl border border-[#DCE4F3] px-3.5 py-2.5 text-sm font-medium text-[#14244B] transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
                 />
               </div>
 
               {/* Mật khẩu mới */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label htmlFor={newPasswordId} className="text-xs font-black uppercase text-[#234196]">
+                  <label htmlFor={newPasswordId} className="text-xs font-semibold uppercase text-[#14244B]">
                     Mật khẩu mới:
                   </label>
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="text-[11px] font-bold text-[#5A6B8F] hover:text-[#234196]"
+                    className="text-[11px] font-semibold text-[#204195] hover:underline"
                   >
                     {showPassword ? "Ẩn" : "Hiện"}
                   </button>
@@ -1092,7 +1081,7 @@ export default function SettingsPage() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Tối thiểu 6 ký tự"
                   required
-                  className="w-full rounded-xl border-2 border-[#234196] px-3.5 py-2.5 text-sm font-medium text-[#234196] shadow-[2px_2px_0_#234196] focus:bg-[#FEF9EE] focus:outline-none"
+                  className="w-full rounded-xl border border-[#DCE4F3] px-3.5 py-2.5 text-sm font-medium text-[#14244B] transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
                 />
 
                 {/* Password strength bar */}
@@ -1112,7 +1101,7 @@ export default function SettingsPage() {
                         />
                       ))}
                     </div>
-                    <p className="text-[10px] font-bold text-[#5A6B8F]">
+                    <p className="text-[10px] font-medium text-[#607096]">
                       Độ mạnh: {passwordStrength <= 2 ? "Trung bình" : "Mạnh & An toàn"}
                     </p>
                   </div>
@@ -1121,7 +1110,7 @@ export default function SettingsPage() {
 
               {/* Xác nhận mật khẩu mới */}
               <div className="space-y-1.5">
-                <label htmlFor={confirmPasswordId} className="text-xs font-black uppercase text-[#234196]">
+                <label htmlFor={confirmPasswordId} className="text-xs font-semibold uppercase text-[#14244B]">
                   Xác nhận mật khẩu mới:
                 </label>
                 <input
@@ -1131,7 +1120,7 @@ export default function SettingsPage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Nhập lại mật khẩu mới"
                   required
-                  className="w-full rounded-xl border-2 border-[#234196] px-3.5 py-2.5 text-sm font-medium text-[#234196] shadow-[2px_2px_0_#234196] focus:bg-[#FEF9EE] focus:outline-none"
+                  className="w-full rounded-xl border border-[#DCE4F3] px-3.5 py-2.5 text-sm font-medium text-[#14244B] transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
                 />
               </div>
 
@@ -1140,14 +1129,14 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setIsPasswordModalOpen(false)}
-                  className="rounded-xl border-2 border-[#234196] px-4 py-2 text-xs font-bold text-[#5A6B8F] hover:bg-[#F0F4FC]"
+                  className="rounded-xl border border-[#DCE4F3] px-4 py-2 text-xs font-semibold text-[#607096] transition-colors hover:bg-[#F8FAFC]"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
                   disabled={isUpdatingPassword}
-                  className="inline-flex items-center gap-2 rounded-xl border-2 border-[#234196] bg-[#FCB625] px-5 py-2 text-xs font-black text-[#234196] shadow-[3px_3px_0_#234196] hover:bg-[#ffc33f] active:translate-y-[1px] disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#204195] px-5 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#183275] disabled:opacity-60"
                 >
                   {isUpdatingPassword ? "Đang cập nhật..." : "Lưu mật khẩu mới"}
                 </button>
@@ -1163,20 +1152,20 @@ export default function SettingsPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="delete-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
         >
-          <div className="w-full max-w-md rounded-2xl border-2 border-[#D32F2F] bg-white p-6 shadow-[6px_6px_0_#D32F2F] sm:p-7">
-            <div className="flex items-center justify-between border-b-2 border-[#D32F2F]/20 pb-4">
-              <div className="flex items-center gap-2.5 text-[#D32F2F]">
-                <AlertTriangle className="size-6 shrink-0" />
-                <h3 id="delete-modal-title" className="font-headline text-lg font-black">
+          <div className="w-full max-w-md rounded-2xl border border-red-200 bg-white p-6 shadow-xl sm:p-7">
+            <div className="flex items-center justify-between border-b border-red-100 pb-4">
+              <div className="flex items-center gap-2.5 text-red-600">
+                <AlertTriangle className="size-5 shrink-0" />
+                <h3 id="delete-modal-title" className="text-base font-bold text-red-700">
                   Xác nhận xóa tài khoản vĩnh viễn
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="rounded-lg border-2 border-[#D32F2F] p-1 text-[#D32F2F] transition-all hover:bg-[#FFEbee]"
+                className="rounded-lg p-1 text-[#607096] transition-colors hover:bg-red-50"
                 aria-label="Đóng cửa sổ"
               >
                 <X className="size-4" />
@@ -1184,7 +1173,7 @@ export default function SettingsPage() {
             </div>
 
             <form onSubmit={handleDeleteAccountSubmit} className="mt-5 space-y-4">
-              <div className="rounded-xl border-2 border-[#D32F2F] bg-[#FFEbee] p-3.5 text-xs text-[#8F1D1D]">
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-800">
                 <p className="font-bold">CẢNH BÁO NGUY HIỂM:</p>
                 <p className="mt-1">
                   Mọi buổi phỏng vấn mô phỏng, kết quả phân tích AI và CV đã lưu trữ sẽ bị hủy hoàn toàn ngay lập tức.
@@ -1192,8 +1181,8 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor={deleteConfirmId} className="text-xs font-bold text-[#234196]">
-                  Vui lòng nhập lại email của bạn (<span className="font-mono font-bold text-[#D32F2F]">{profile?.email || "DELETE"}</span>) để xác nhận:
+                <label htmlFor={deleteConfirmId} className="text-xs font-medium text-[#14244B]">
+                  Vui lòng nhập lại email của bạn (<span className="font-mono font-bold text-red-600">{profile?.email || "DELETE"}</span>) để xác nhận:
                 </label>
                 <input
                   id={deleteConfirmId}
@@ -1202,7 +1191,7 @@ export default function SettingsPage() {
                   onChange={(e) => setDeleteConfirmationInput(e.target.value)}
                   placeholder={profile?.email || "DELETE"}
                   required
-                  className="w-full rounded-xl border-2 border-[#D32F2F] px-3.5 py-2.5 text-sm font-medium text-[#D32F2F] shadow-[2px_2px_0_#D32F2F] focus:outline-none"
+                  className="w-full rounded-xl border border-red-300 px-3.5 py-2.5 text-sm font-medium text-red-700 transition-colors focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
                 />
               </div>
 
@@ -1210,7 +1199,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setIsDeleteModalOpen(false)}
-                  className="rounded-xl border-2 border-[#234196] px-4 py-2 text-xs font-bold text-[#5A6B8F] hover:bg-[#F0F4FC]"
+                  className="rounded-xl border border-[#DCE4F3] px-4 py-2 text-xs font-semibold text-[#607096] transition-colors hover:bg-[#F8FAFC]"
                 >
                   Hủy bỏ
                 </button>
@@ -1220,7 +1209,7 @@ export default function SettingsPage() {
                     isDeletingAccount ||
                     deleteConfirmationInput.toLowerCase().trim() !== (profile?.email || "delete").toLowerCase().trim()
                   }
-                  className="inline-flex items-center gap-2 rounded-xl border-2 border-[#D32F2F] bg-[#D32F2F] px-5 py-2 text-xs font-black text-white shadow-[3px_3px_0_#8F1D1D] hover:bg-[#B71C1C] active:translate-y-[1px] disabled:opacity-40"
+                  className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-red-700 disabled:opacity-40"
                 >
                   {isDeletingAccount ? "Đang xóa tài khoản..." : "Xác nhận xóa vĩnh viễn"}
                 </button>
