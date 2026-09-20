@@ -12,8 +12,8 @@ export default function AdminDashboardJobNav() {
   const pathname = usePathname();
   const { t } = useLanguage();
 
-  const isJobBoard = pathname === "/admin/dashboard";
-  const isCreate = pathname.startsWith("/admin/job-profiles/create");
+  const isJobBoard = pathname === "/admin/dashboard" || pathname === "/admin/job-descriptions" || pathname === "/admin/job-profiles";
+  const isCreate = pathname.startsWith("/admin/job-descriptions/create") || pathname.startsWith("/admin/job-profiles/create");
 
   return (
     <nav className="space-y-2" aria-label={t("admin.sidebar.jobNavAria")}>
@@ -30,7 +30,7 @@ export default function AdminDashboardJobNav() {
       </Link>
 
       <Link
-        href="/admin/job-profiles/create"
+        href="/admin/job-descriptions/create"
         className={`flex items-center gap-3 rounded-xl border-2 px-3 py-2.5 transition-all ${
           isCreate
             ? "border-[#234196] bg-[#FCB625] font-bold text-[#234196] shadow-[2px_2px_0_#234196]"
