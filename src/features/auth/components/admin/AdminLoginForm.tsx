@@ -13,6 +13,7 @@ import {
   Shield,
   ShieldAlert,
   Sparkles,
+  ChevronRight,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import {
@@ -29,6 +30,7 @@ export default function AdminLoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [demoFilled, setDemoFilled] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -84,7 +86,7 @@ export default function AdminLoginForm() {
       if (userRole !== "ADMIN") {
         setErrorMessage(
           t("admin.login.error.notAdmin") ||
-            "Tài khoản này không có quyền truy cập hệ thống quản trị."
+          "Tài khoản này không có quyền truy cập hệ thống quản trị."
         );
         return;
       }
@@ -144,7 +146,7 @@ export default function AdminLoginForm() {
           </div>
 
           {/* Error Message Area */}
-          <div className="min-h-[20px] mt-5">
+          <div className="min-h-[20px] mt-3">
             {errorMessage && (
               <div
                 role="alert"
@@ -157,14 +159,16 @@ export default function AdminLoginForm() {
             )}
           </div>
 
+
+
           {/* Admin Login Form */}
-          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          <form onSubmit={handleSubmit} className="mt-3 space-y-4">
             <div>
               <label
                 htmlFor="admin-email"
                 className="mb-1.5 block text-xs font-bold text-[#14244B]"
               >
-                {t("admin.login.emailLabel") || "Email Quản trị viên"}
+                {t("admin.login.emailLabel") || "Email"}
               </label>
               <div className="relative">
                 <Mail
@@ -235,6 +239,31 @@ export default function AdminLoginForm() {
               </span>
             </button>
           </form>
+
+          {/* Demo Account Quick Fill - Only in non-production */}
+          {process.env.NODE_ENV !== "production" && (
+            <button
+              type="button"
+              onClick={() => {
+                setEmail("admin@intervia.io");
+                setPassword("Admin@123456");
+                setDemoFilled(true);
+              }}
+              className="mt-4 flex w-full items-center justify-between gap-3 rounded-[14px] border border-[#DCE4F3] bg-[#F7F9FD] p-3.5 text-left transition-colors hover:border-[#204195]/35 hover:bg-[#EEF3FC] cursor-pointer"
+            >
+              <div>
+                <p className="text-[13px] font-bold text-[#14244B]">
+                  {t("admin.login.demoTitle") || "Tài khoản demo"}
+                </p>
+                <p className="mt-0.5 font-mono text-[13px] font-semibold text-[#204195]">
+                  admin@intervia.io
+                </p>
+                <p className={`mt-1.5 text-[11px] font-medium ${demoFilled ? "text-emerald-600" : "text-[#607096]"}`}>
+                  {demoFilled ? (t("admin.login.demoFilled") || "✓ Đã điền tài khoản demo") : (t("admin.login.demoPrompt") || "Nhấn để tự động điền thông tin đăng nhập")}
+                </p>
+              </div>
+            </button>
+          )}
         </div>
       </main>
 

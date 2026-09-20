@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
@@ -122,8 +123,6 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
   const navGroupTools = [
     { href: "/dashboard/settings", label: t("userDash.nav.settings"), Icon: Settings, active: isActive.settings },
   ];
-
-  const navItems = [...navGroupMain, ...navGroupTools];
 
   const handleLogout = () => {
     setShowLogoutModal(false);

@@ -41,7 +41,7 @@ export class BackendProxyObservabilityProvider implements AIObservabilityProvide
     return [];
   }
 
-  async getTraceDetail(_traceId: string): Promise<AITraceItem | null> {
+  async getTraceDetail(): Promise<AITraceItem | null> {
     return null;
   }
 

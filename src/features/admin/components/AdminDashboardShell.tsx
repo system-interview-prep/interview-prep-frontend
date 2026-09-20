@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
@@ -73,11 +74,7 @@ function getSidebarServerSnapshot(): boolean {
 export default function AdminDashboardShell({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
   const pathname = usePathname();
-  const router = useRouter();
 
-  if (pathname === "/admin/login") {
-    return <>{children}</>;
-  }
   const { profile } = useAuthProfile();
   const [avatarError, setAvatarError] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -126,6 +123,10 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     }),
     [pathname]
   );
+
+  if (pathname === "/admin/login") {
+    return <>{children}</>;
+  }
 
   const navBase =
     "flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-xs transition-all duration-150 motion-reduce:transition-none";

@@ -65,13 +65,15 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
   const ruleSymbol = /[^A-Za-z0-9]/.test(password);
 
   const passwordStrengthScore = useMemo(() => {
+    if (!password) return 0;
     let score = 0;
     if (ruleLength) score++;
     if (ruleCase) score++;
     if (ruleNumber) score++;
     if (ruleSymbol) score++;
-    return score;
-  }, [ruleLength, ruleCase, ruleNumber, ruleSymbol]);
+    
+    return Math.max(1, score);
+  }, [password, ruleLength, ruleCase, ruleNumber, ruleSymbol]);
 
   async function handleCompleteAuth(data: AuthResponse) {
     const { isAdmin } = completeAuthSession(data);
@@ -161,17 +163,21 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
   }
 
   const strengthColor =
-    passwordStrengthScore <= 1
-      ? "bg-[#EF4444]"
-      : passwordStrengthScore <= 3
+    passwordStrengthScore === 1
+      ? "bg-[#EF5A67]"
+      : passwordStrengthScore === 2
       ? "bg-[#FCB625]"
-      : "bg-[#10B981]";
+      : passwordStrengthScore === 3
+      ? "bg-[#4D73D9]"
+      : "bg-[#204195]";
   const strengthLabel =
-    passwordStrengthScore <= 1
-      ? t("auth.strengthWeak")
-      : passwordStrengthScore <= 3
-      ? t("auth.strengthGood")
-      : t("auth.strengthStrong");
+    passwordStrengthScore === 1
+      ? t("auth.passwordStrengthWeak") || "Yếu"
+      : passwordStrengthScore === 2
+      ? t("auth.passwordStrengthFair") || "Khá"
+      : passwordStrengthScore === 3
+      ? t("auth.passwordStrengthGood") || "Tốt"
+      : t("auth.passwordStrengthStrong") || "Mạnh";
 
   return (
     <div className="relative flex min-h-screen w-full flex-col justify-center items-center bg-white px-4 sm:px-6 py-12 text-[#14244B]">
@@ -353,7 +359,7 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
                     type="button"
                     onClick={() => {
                       alert(
-                        "Tính năng khôi phục mật khẩu đang được phát triển. Vui lòng liên hệ support@intervia.io."
+                        t("auth.forgotPasswordAlert") || "Tính năng khôi phục mật khẩu đang được phát triển. Vui lòng liên hệ support@intervia.io."
                       );
                     }}
                     className="text-xs font-semibold text-[#204195] hover:underline cursor-pointer"
@@ -388,79 +394,59 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              {formErrors.password && (
-                <p className="mt-1 text-xs text-red-600 font-medium">
-                  {formErrors.password}
-                </p>
-              )}
-            </div>
-
-            {mode === "signup" && (
-              <div className="space-y-3 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-[#607096]">
-                    {t("auth.passwordStrength")}
-                  </span>
-                  <span
-                    className={`font-bold ${
-                      passwordStrengthScore <= 1
-                        ? "text-red-500"
-                        : passwordStrengthScore <= 3
-                        ? "text-amber-500"
-                        : "text-emerald-600"
-                    }`}
-                  >
-                    {strengthLabel}
-                  </span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#EAEFF8]">
-                  <div
-                    className={`h-full transition-all duration-300 ${strengthColor}`}
-                    style={{
-                      width: `${(Math.min(passwordStrengthScore, 4) / 4) * 100}%`,
-                    }}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-[#607096]">
-                  <div className="flex items-center gap-1.5">
-                    <Check
-                      size={12}
-                      className={ruleLength ? "text-emerald-600" : "text-[#8A98B8]"}
-                    />
-                    <span className={ruleLength ? "text-[#14244B] font-medium" : ""}>
-                      {t("auth.passwordRule.length")}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Check
-                      size={12}
-                      className={ruleCase ? "text-emerald-600" : "text-[#8A98B8]"}
-                    />
-                    <span className={ruleCase ? "text-[#14244B] font-medium" : ""}>
-                      {t("auth.passwordRule.case")}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Check
-                      size={12}
-                      className={ruleNumber ? "text-emerald-600" : "text-[#8A98B8]"}
-                    />
-                    <span className={ruleNumber ? "text-[#14244B] font-medium" : ""}>
-                      {t("auth.passwordRule.number")}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Check
-                      size={12}
-                      className={ruleSymbol ? "text-emerald-600" : "text-[#8A98B8]"}
-                    />
-                    <span className={ruleSymbol ? "text-[#14244B] font-medium" : ""}>
-                      {t("auth.passwordRule.symbol")}
-                    </span>
-                  </div>
+              <div className="mt-2 flex flex-col gap-2">
+                {mode === "signup" && (
+                    <div 
+                       role="progressbar"
+                       aria-valuemin={0}
+                       aria-valuemax={4}
+                       aria-valuenow={passwordStrengthScore}
+                       aria-label={passwordStrengthScore > 0 ? strengthLabel : (t("auth.passwordStrength") || "Password strength")}
+                       className="flex items-center gap-2"
+                    >
+                       {[1, 2, 3, 4].map((level) => (
+                         <div
+                           key={level}
+                           className={`h-[5px] flex-1 rounded-full transition-all duration-300 ease-out ${
+                             passwordStrengthScore >= level
+                               ? `${strengthColor} ${passwordStrengthScore === level ? 'scale-x-[1.03]' : ''}`
+                               : "bg-[#E8EDF6]"
+                           }`}
+                         />
+                       ))}
+                    </div>
+                )}
+                    
+                <div className="flex items-center justify-between gap-4">
+                  {formErrors.password ? (
+                    <p className="text-xs text-red-600 font-medium leading-relaxed flex-1">
+                      {formErrors.password}
+                    </p>
+                  ) : mode === "signup" ? (
+                    <>
+                      <p className="text-xs text-[#607096] leading-relaxed flex-1">
+                        {t("auth.passwordHelper") || "Ít nhất 8 ký tự, gồm chữ hoa, chữ thường và số."}
+                      </p>
+                      
+                      {passwordStrengthScore > 0 && (
+                        <div className={`flex items-center gap-1.5 shrink-0 text-xs font-bold ${
+                          passwordStrengthScore === 1 ? "text-[#EF5A67]" :
+                          passwordStrengthScore === 2 ? "text-[#FCB625]" :
+                          passwordStrengthScore === 3 ? "text-[#4D73D9]" :
+                          "text-[#204195]"
+                        }`}>
+                          <span>{strengthLabel}</span>
+                          {passwordStrengthScore === 4 && (
+                            <Sparkles size={14} className="text-[#FCB625]" />
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : null}
                 </div>
               </div>
-            )}
+            </div>
+
 
             {mode === "signup" && (
               <div>
