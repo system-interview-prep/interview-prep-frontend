@@ -36,7 +36,7 @@ const NAV_SECTIONS: NavSection[] = [
       {
         href: "/admin/dashboard",
         labelKey: "admin.sidebar.jobBoard",
-        defaultLabel: "Hồ sơ tuyển dụng",
+        defaultLabel: "Mô tả công việc (JD)",
         icon: LayoutDashboard,
         exact: true,
       },
@@ -54,9 +54,9 @@ const NAV_SECTIONS: NavSection[] = [
     defaultTitle: "Nghiệp vụ & Dữ liệu",
     items: [
       {
-        href: "/admin/job-profiles/create",
+        href: "/admin/job-descriptions/create",
         labelKey: "admin.sidebar.createProfile",
-        defaultLabel: "Tạo Job Profile",
+        defaultLabel: "Tạo Job Description",
         icon: Plus,
       },
       {
