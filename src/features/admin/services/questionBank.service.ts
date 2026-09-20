@@ -34,6 +34,9 @@ export type CreateQuestionDraftPayload = {
   taxonomyMappings: Array<{ conceptId: string; purpose: "TARGET_ROLE" | "TARGET_SKILL" | "PRIMARY_COMPETENCY" | "SUPPORTING_COMPETENCY"; relevance: number }>;
 };
 
+export type ImportSummary = { importId: string; status: string; totalRows: number; validRows: number; warningRows: number; errorRows: number };
+export type ImportRow = { rowId: string; rowNumber: number; status: string; payload: Record<string, unknown>; errors: Array<{ field: string; code: string }>; warnings: Array<{ field: string; code: string }> };
+
 export const questionBankApi = {
   list: (params: QuestionListParams = {}) =>
     api.get<QuestionListResponse>("/admin/question-bank/questions", { params }),
@@ -41,4 +44,10 @@ export const questionBankApi = {
     api.get<QuestionBankItem>(`/admin/question-bank/questions/${encodeURIComponent(questionId)}`),
   createDraft: (payload: CreateQuestionDraftPayload) =>
     api.post<{ questionId: string; questionVersionId: string; version: string; status: string }>("/admin/question-bank/questions/drafts", payload),
+  downloadImportTemplate: (format: "csv" | "xlsx") => api.get(`/admin/question-bank/imports/template?format=${format}`, { responseType: "blob" }),
+  uploadImport: (file: File) => { const body = new FormData(); body.append("file", file); return api.post<ImportSummary>("/admin/question-bank/imports", body); },
+  getImportRows: (importId: string) => api.get<{ items: ImportRow[] }>(`/admin/question-bank/imports/${encodeURIComponent(importId)}/rows`),
+  patchImportRow: (importId: string, rowId: string, payload: Record<string, unknown>) => api.patch(`/admin/question-bank/imports/${encodeURIComponent(importId)}/rows/${encodeURIComponent(rowId)}`, payload),
+  downloadImportReport: (importId: string) => api.get(`/admin/question-bank/imports/${encodeURIComponent(importId)}/report`, { responseType: "blob" }),
+  commitImport: (importId: string, idempotencyKey: string) => api.post(`/admin/question-bank/imports/${encodeURIComponent(importId)}/commit`, undefined, { headers: { "Idempotency-Key": idempotencyKey } }),
 };
