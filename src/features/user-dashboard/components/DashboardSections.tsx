@@ -92,13 +92,15 @@ export function PracticeModes({
                   {t("common.recommended") || "Recommended"}
                 </div>
               )}
-              <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${mode.iconWrap}`}>
-                <mode.Icon className="size-5" aria-hidden="true" />
+              <div className="flex items-center gap-3">
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${mode.iconWrap}`}>
+                  <mode.Icon className="size-5" aria-hidden="true" />
+                </div>
+                <h3 className="text-xl font-bold text-[#14244B]">
+                  {t(`userDash.mode.${mode.key}.title`)}
+                </h3>
               </div>
-              <h3 className="mt-5 text-xl font-bold text-[#14244B]">
-                {t(`userDash.mode.${mode.key}.title`)}
-              </h3>
-              <p className="mt-2 flex-1 text-sm leading-6 text-[#607096]">
+              <p className="mt-3 flex-1 text-sm leading-6 text-[#607096]">
                 {t(`userDash.mode.${mode.key}.benefit`)}
               </p>
               <dl className="mt-6 flex flex-wrap gap-x-5 gap-y-2 border-t border-[#DCE4F3] pt-4 text-xs">
@@ -256,41 +258,46 @@ export function LearningResources({ onNavigate, t }: { onNavigate: (href: string
 
   return (
     <section aria-labelledby="learning-title">
-      <div className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs grid lg:grid-cols-12">
-        <div className="border-b border-[#DCE4F3] bg-gradient-to-br from-[#F0F4FC] to-white p-6 sm:p-8 lg:col-span-5 lg:border-b-0 lg:border-r">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-white px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#204195]">
-            {t("userDash.learning.eyebrow")}
-          </span>
-          <h2 id="learning-title" className="mt-3 text-2xl font-bold tracking-tight text-[#14244B] sm:text-3xl">
-            {t("userDash.learning.title")}
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-[#607096]">{t("userDash.learning.subtitle")}</p>
+      <div className="mb-6">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#C9D7F1] bg-white px-3.5 py-1 text-xs font-bold text-[#204195] shadow-xs">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#FCB625]" />
+          <span>{t("userDash.learning.eyebrow")}</span>
         </div>
+        <h2 id="learning-title" className="mt-3 font-headline text-2xl font-extrabold tracking-tight text-[#14244B] sm:text-3xl">
+          {t("userDash.learning.title")}
+        </h2>
+        <p className="mt-1 text-sm text-[#607096] max-w-2xl">{t("userDash.learning.subtitle")}</p>
+      </div>
 
-        <div className="grid divide-y divide-[#DCE4F3] sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:col-span-7">
-          {resources.map((resource) => (
-            <button
-              key={resource.href}
-              type="button"
-              onClick={() => onNavigate(resource.href)}
-              className="group flex flex-col justify-between p-6 text-left transition-colors hover:bg-[#F8FAFC]"
-            >
-              <div>
-                <span className={`inline-flex rounded-xl p-2.5 ${resource.tone}`} aria-hidden="true">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        {resources.map((resource) => (
+          <article
+            key={resource.href}
+            className="group flex flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-[#204195]/40 hover:shadow-md md:p-7"
+          >
+            <div>
+              <div className="flex items-center gap-3">
+                <span className={`inline-flex shrink-0 rounded-xl p-2.5 ${resource.tone}`} aria-hidden="true">
                   <resource.Icon className="size-5" />
                 </span>
-                <h3 className="mt-4 text-lg font-bold text-[#14244B] transition-colors group-hover:text-[#204195]">
+                <h3 className="text-xl font-bold text-[#14244B] transition-colors group-hover:text-[#204195]">
                   {t(resource.title)}
                 </h3>
-                <p className="mt-1.5 text-sm leading-6 text-[#607096]">{t(resource.body)}</p>
               </div>
-              <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[#204195] group-hover:text-[#183275]">
-                {t(resource.cta)}
+              <p className="mt-3.5 text-sm leading-relaxed text-[#607096]">{t(resource.body)}</p>
+            </div>
+            <div className="mt-6 border-t border-[#EAEFF8] pt-4">
+              <button
+                type="button"
+                onClick={() => onNavigate(resource.href)}
+                className="inline-flex items-center gap-1.5 text-sm font-bold text-[#204195] hover:text-[#183275] transition-colors cursor-pointer"
+              >
+                <span>{t(resource.cta)}</span>
                 <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transition-none" aria-hidden="true" />
-              </span>
-            </button>
-          ))}
-        </div>
+              </button>
+            </div>
+          </article>
+        ))}
       </div>
     </section>
   );

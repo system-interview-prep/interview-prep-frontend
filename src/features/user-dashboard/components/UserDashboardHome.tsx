@@ -176,11 +176,13 @@ export function UserDashboardHome({ onNavigate, onStartVideo, videoError, onDism
         <aside className="flex flex-col justify-between border-t border-white/15 bg-white/[0.04] backdrop-blur-xs p-6 sm:p-8 lg:col-span-4 lg:border-l lg:border-t-0 lg:p-10">
           <div>
             <p className="text-xs font-bold text-[#FCB625] uppercase tracking-wider">{t("userDash.next.activeProfile")}</p>
-            <div className="mt-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 border border-white/20 text-[#FCB625]">
-              <Briefcase className="size-6" aria-hidden="true" />
+            <div className="mt-4 flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 border border-white/20 text-[#FCB625]">
+                <Briefcase className="size-5" aria-hidden="true" />
+              </div>
+              <h3 className="font-headline text-xl font-bold text-white leading-tight">{activeJob?.title ?? t("userDash.next.profileEmptyTitle")}</h3>
             </div>
-            <h3 className="mt-4 font-headline text-xl font-bold text-white">{activeJob?.title ?? t("userDash.next.profileEmptyTitle")}</h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-white/75">{activeJob ? categoryName(activeJob) : t("userDash.next.profileEmptyBody")}</p>
+            <p className="mt-2.5 text-sm leading-relaxed text-white/75">{activeJob ? categoryName(activeJob) : t("userDash.next.profileEmptyBody")}</p>
           </div>
           <button type="button" onClick={() => onNavigate(activeJob ? `/dashboard/jobs/${activeJob.id}` : "/dashboard/jobs")} className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-white/90 hover:text-white hover:underline underline-offset-4 cursor-pointer">
             <span>{activeJob ? t("userDash.next.viewProfile") : t("userDash.next.chooseProfile")}</span>
@@ -202,38 +204,36 @@ export function UserDashboardHome({ onNavigate, onStartVideo, videoError, onDism
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <article className="rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs hover:shadow-sm transition-all sm:col-span-2">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold text-[#607096] uppercase tracking-wider">{t("userDash.overview.readiness")}</p>
-                <p className="mt-2 font-headline text-3xl font-extrabold text-[#14244B]">—</p>
-              </div>
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#204195]/10 text-[#204195]" aria-hidden="true">
-                <TrendingUp className="size-5" />
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#204195]/10 text-[#204195]" aria-hidden="true">
+                <TrendingUp className="size-4.5" />
               </span>
+              <h3 className="text-xs font-bold text-[#607096] uppercase tracking-wider">{t("userDash.overview.readiness")}</h3>
             </div>
-            <p className="mt-3 max-w-lg text-sm text-[#607096]">{t("userDash.overview.readinessEmpty")}</p>
-            <button type="button" onClick={beginRecommended} className="mt-4 text-sm font-bold text-[#204195] hover:underline cursor-pointer">
+            <p className="mt-3 font-headline text-3xl font-extrabold text-[#14244B]">—</p>
+            <p className="mt-2 max-w-lg text-sm text-[#607096]">{t("userDash.overview.readinessEmpty")}</p>
+            <button type="button" onClick={beginRecommended} className="mt-3 text-sm font-bold text-[#204195] hover:underline cursor-pointer">
               {t("userDash.overview.readinessCta")} →
             </button>
           </article>
           <article className="rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs hover:shadow-sm transition-all">
-            <div className="flex items-center justify-between">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#287A4B]/10 text-[#287A4B]">
-                <Calendar className="size-5" />
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#287A4B]/10 text-[#287A4B]">
+                <Calendar className="size-4.5" />
               </span>
+              <h3 className="text-sm font-bold text-[#14244B]">{t("userDash.overview.weekSessions")}</h3>
             </div>
-            <p className="mt-4 font-headline text-3xl font-extrabold text-[#14244B] tabular-nums">{overview.thisWeek}</p>
-            <h3 className="mt-1 text-sm font-bold text-[#14244B]">{t("userDash.overview.weekSessions")}</h3>
+            <p className="mt-3 font-headline text-3xl font-extrabold text-[#14244B] tabular-nums">{overview.thisWeek}</p>
             <p className="mt-1 text-xs text-[#607096]">{t("userDash.overview.weekSessionsHelp")}</p>
           </article>
           <article className="rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs hover:shadow-sm transition-all">
-            <div className="flex items-center justify-between">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#FCB625]/20 text-[#E59E10]">
-                <Flame className="size-5 fill-current" />
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#FCB625]/20 text-[#E59E10]">
+                <Flame className="size-4.5 fill-current" />
               </span>
+              <h3 className="text-sm font-bold text-[#14244B]">{t("userDash.overview.streak")}</h3>
             </div>
-            <p className="mt-4 font-headline text-3xl font-extrabold text-[#14244B] tabular-nums">{overview.streak}</p>
-            <h3 className="mt-1 text-sm font-bold text-[#14244B]">{t("userDash.overview.streak")}</h3>
+            <p className="mt-3 font-headline text-3xl font-extrabold text-[#14244B] tabular-nums">{overview.streak}</p>
             <p className="mt-1 text-xs text-[#607096]">{t("userDash.overview.streakHelp")}</p>
           </article>
           <article className="rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs hover:shadow-sm transition-all sm:col-span-2 lg:col-span-4">
