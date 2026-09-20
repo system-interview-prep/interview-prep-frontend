@@ -30,6 +30,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
+  Tags,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
@@ -100,6 +101,7 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
       jobProfiles: pathname === "/admin/job-profiles" || (pathname.startsWith("/admin/job-profiles/") && !pathname.startsWith("/admin/job-profiles/create")),
       createJob: pathname.startsWith("/admin/job-profiles/create"),
       questionBank: pathname.startsWith("/admin/question-bank"),
+      taxonomy: pathname.startsWith("/admin/taxonomy"),
       rubrics: pathname.startsWith("/admin/rubrics"),
       knowledgeBase: pathname.startsWith("/admin/knowledge-base"),
       interviews: pathname.startsWith("/admin/interviews"),
@@ -155,6 +157,7 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
   const navGroupContent: NavItem[] = [
     { href: "/admin/job-profiles", label: t("admin.sidebar.jobBoard") || "Job Descriptions (JD)", Icon: Briefcase, active: isActive.jobProfiles },
     { href: "/admin/question-bank", label: t("admin.sidebar.questionBank") || "Question Bank", Icon: FileQuestion, active: isActive.questionBank },
+    { href: "/admin/taxonomy", label: "Taxonomy", Icon: Tags, active: isActive.taxonomy },
     { href: "/admin/rubrics", label: t("admin.sidebar.rubrics") || "Scoring Rubrics", Icon: ClipboardCheck, active: isActive.rubrics },
     { href: "/admin/knowledge-base", label: t("admin.sidebar.knowledgeBase") || "Knowledge Base (RAG)", Icon: Database, active: isActive.knowledgeBase },
   ];
