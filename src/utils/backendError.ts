@@ -7,6 +7,12 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function extractFromPayload(payload: unknown): string {
   if (typeof payload === "string") return payload.trim();
+  if (Array.isArray(payload)) {
+    return payload
+      .map((item) => extractFromPayload(item))
+      .filter(Boolean)
+      .join("; ");
+  }
   const rec = asRecord(payload);
   if (!rec) return "";
 
@@ -16,6 +22,24 @@ function extractFromPayload(payload: unknown): string {
   if (code) return code;
   if (error) return error;
   if (message) return message;
+
+  // FastAPI validation errors use { detail: [{ loc, msg, type }, ...] }.
+  const detail = rec.detail;
+  if (typeof detail === "string") return detail.trim();
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        const itemRecord = asRecord(item);
+        if (!itemRecord) return extractFromPayload(item);
+        const msg = typeof itemRecord.msg === "string" ? itemRecord.msg.trim() : "";
+        const location = Array.isArray(itemRecord.loc)
+          ? itemRecord.loc.filter((part) => part !== "body").join(".")
+          : "";
+        return location && msg ? `${location}: ${msg}` : msg;
+      })
+      .filter(Boolean)
+      .join("; ");
+  }
   return "";
 }
 
@@ -26,7 +50,11 @@ function extractRawError(input: unknown): string {
   if (!rec) return "";
 
   const direct = extractFromPayload(rec);
-  if (direct) return direct;
+  // Axios puts ERR_BAD_REQUEST on the error object even when the server has
+  // a much more useful FastAPI detail payload in response.data.
+  if (direct && !["ERR_BAD_REQUEST", "BAD_REQUEST"].includes(direct.toUpperCase())) {
+    return direct;
+  }
 
   const response = asRecord(rec.response);
   if (response) {
@@ -86,7 +114,12 @@ export function resolveBackendErrorMessage(
   if (mappedKey) return t(mappedKey);
 
   const raw = extractRawError(input);
-  if (raw) return raw;
+  // Axios' generic code is not useful to users; prefer the HTTP status when
+  // the server did not provide a structured detail message.
+  if (raw && !["ERR_BAD_REQUEST", "BAD_REQUEST"].includes(raw.toUpperCase())) return raw;
+  const response = asRecord(asRecord(input)?.response);
+  const status = response && typeof response.status === "number" ? response.status : 0;
+  if (status) return `Request failed (HTTP ${status}).`;
 
   return t(fallbackKey);
 }
