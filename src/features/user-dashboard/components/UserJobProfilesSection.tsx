@@ -6,8 +6,12 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { UserJobProfileCard } from "@features/user-dashboard/components/UserJobProfileCard";
 import { JobInterviewCvModal } from "@features/user-dashboard/components/JobInterviewCvModal";
+import {
+  JobCard,
+  JobCardSkeleton,
+  mapJobToJobCard,
+} from "@/components/jobs";
 
 const PREVIEW_LIMIT = 6;
 
@@ -15,32 +19,40 @@ function isActiveProfile(profile: JobProfile): boolean {
   return profile.status === "ACTIVE";
 }
 
-function formatRelativeShort(iso: string, locale: string) {
-  try {
-    const d = new Date(iso);
-    const now = Date.now();
-    const diff = now - d.getTime();
-    const days = Math.floor(diff / (24 * 60 * 60 * 1000));
-    if (days <= 0) return locale === "vi" ? "Hôm nay" : "Today";
-    if (days === 1) return locale === "vi" ? "Hôm qua" : "Yesterday";
-    if (days < 7) return locale === "vi" ? `${days} ngày trước` : `${days} days ago`;
-    return d.toLocaleDateString(locale === "vi" ? "vi-VN" : "en-US", { dateStyle: "medium" });
-  } catch {
-    return iso;
-  }
-}
-
 export default function UserJobProfilesSection() {
-  const { t, lang } = useLanguage();
+  const { t } = useLanguage();
   const [profiles, setProfiles] = useState<JobProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cvModalJob, setCvModalJob] = useState<JobProfile | null>(null);
 
-  const resolveCategoryName = useCallback(
-    (p: JobProfile) => p.primaryTaxonomy?.label ?? t("userDash.jobProfiles.uncategorized"),
-    [t]
-  );
+  // Client-side saved jobs
+  const [savedJobIds, setSavedJobIds] = useState<Set<string>>(() => {
+    try {
+      if (typeof window === "undefined") return new Set();
+      const raw = localStorage.getItem("candidate.saved_job_ids");
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const handleToggleSave = useCallback((jobId: string, currentSaved: boolean) => {
+    setSavedJobIds((prev) => {
+      const next = new Set(prev);
+      if (currentSaved) {
+        next.delete(jobId);
+      } else {
+        next.add(jobId);
+      }
+      try {
+        localStorage.setItem("candidate.saved_job_ids", JSON.stringify(Array.from(next)));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,57 +82,54 @@ export default function UserJobProfilesSection() {
     };
   }, [t]);
 
-  function keywordsLine(keywords: string[] | undefined): string {
-    if (!keywords?.length) return "—";
-    return keywords.slice(0, 6).join(", ");
-  }
-
   return (
     <section className="mb-16">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="font-headline text-2xl font-bold tracking-tight text-on-surface md:text-3xl">
+          <h2 className="font-headline text-2xl font-bold tracking-tight text-[#14244B] md:text-3xl">
             {t("userDash.jobProfiles.title")}
           </h2>
-          <p className="mt-1 max-w-2xl text-sm text-on-surface-variant">{t("userDash.jobProfiles.previewSubtitle")}</p>
+          <p className="mt-1 max-w-2xl text-sm text-[#607096]">{t("userDash.jobProfiles.previewSubtitle")}</p>
         </div>
         <Link
           href="/dashboard/jobs"
-          className="inline-flex shrink-0 items-center gap-1 text-sm font-bold text-primary hover:underline"
+          className="inline-flex shrink-0 items-center gap-1 text-sm font-bold text-[#204195] hover:underline"
         >
           {t("userDash.jobProfiles.viewAll")}
-          <ArrowRight className="size-5" />
+          <ArrowRight className="size-4" />
         </Link>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-error/25 bg-error-container/15 px-3 py-2.5 text-sm text-error" role="alert">
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
           {error}
         </div>
       )}
 
       {loading ? (
-        <p className="py-8 text-center text-sm text-on-surface-variant">{t("admin.jobProfile.loading")}</p>
-      ) : profiles.length === 0 ? (
-        <p className="py-8 text-center text-sm text-on-surface-variant">{t("userDash.jobProfiles.empty")}</p>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {profiles.map((p) => (
-            <UserJobProfileCard
-              key={p.id}
-              jobId={p.id}
-              viewDetailAria={t("userDash.jobProfiles.viewDetailAria")}
-              title={p.title}
-              categoryLabel={resolveCategoryName(p)}
-              keywordsLine={keywordsLine(p.keywords)}
-              updatedShort={formatRelativeShort(p.updatedAt ?? p.createdAt ?? "", lang)}
-              updatedPrefix={`${t("admin.jobProfile.card.updated")}:`}
-              interviewCta={t("userDash.jobProfiles.interviewNow")}
-              onInterview={() => setCvModalJob(p)}
-            />
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <JobCardSkeleton key={i} />
           ))}
         </div>
+      ) : profiles.length === 0 ? (
+        <p className="py-8 text-center text-sm text-[#607096]">{t("userDash.jobProfiles.empty")}</p>
+      ) : (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {profiles.map((p) => {
+            const cardData = mapJobToJobCard(p, { savedJobIds });
+            return (
+              <JobCard
+                key={p.id}
+                job={cardData}
+                onToggleSave={handleToggleSave}
+                onInterview={() => setCvModalJob(p)}
+              />
+            );
+          })}
+        </div>
       )}
+
       <JobInterviewCvModal
         open={cvModalJob !== null}
         jobTitle={cvModalJob?.title ?? ""}
