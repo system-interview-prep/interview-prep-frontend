@@ -1,16 +1,22 @@
 "use client";
 
 import axios from "axios";
-import { useCallback, useEffect, useState } from "react";
-import { Search, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Search, ChevronLeft, ChevronRight, Bookmark, Globe2, Home } from "lucide-react";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   jobProfileApi,
   type JobProfile,
 } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { UserJobProfileCard } from "@features/user-dashboard/components/UserJobProfileCard";
 import { JobInterviewCvModal } from "@features/user-dashboard/components/JobInterviewCvModal";
+import {
+  JobCard,
+  JobCardSkeleton,
+  JobCardEmptyState,
+  mapJobToJobCard,
+  WorkplaceType,
+} from "@/components/jobs";
 
 /** Keep in sync with admin job profiles list (`AdminJobProfilesPanel`). */
 const PAGE_SIZE = 12;
@@ -20,32 +26,12 @@ type PageStart = {
   bufferedActive: JobProfile[];
 };
 
-function formatRelativeShort(iso: string, locale: string) {
-  try {
-    const d = new Date(iso);
-    const now = Date.now();
-    const diff = now - d.getTime();
-    const days = Math.floor(diff / (24 * 60 * 60 * 1000));
-    if (days <= 0) return locale === "vi" ? "Hôm nay" : "Today";
-    if (days === 1) return locale === "vi" ? "Hôm qua" : "Yesterday";
-    if (days < 7) return locale === "vi" ? `${days} ngày trước` : `${days} days ago`;
-    return d.toLocaleDateString(locale === "vi" ? "vi-VN" : "en-US", { dateStyle: "medium" });
-  } catch {
-    return iso;
-  }
-}
-
-function keywordsLine(keywords: string[] | undefined): string {
-  if (!keywords?.length) return "—";
-  return keywords.slice(0, 6).join(", ");
-}
-
 function isActiveProfile(profile: JobProfile): boolean {
   return profile.status === "ACTIVE";
 }
 
 export default function UserJobsBoard() {
-  const { t, lang } = useLanguage();
+  const { t } = useLanguage();
   const [profiles, setProfiles] = useState<JobProfile[]>([]);
   /** Snapshot stack for previous pages to support exact back navigation. */
   const [pageBackStack, setPageBackStack] = useState<PageStart[]>([]);
@@ -60,10 +46,37 @@ export default function UserJobsBoard() {
   const debouncedSearch = useDebouncedValue(search, 400);
   const [cvModalJob, setCvModalJob] = useState<JobProfile | null>(null);
 
-  const resolveCategoryName = useCallback(
-    (p: JobProfile) => p.primaryTaxonomy?.label ?? t("userDash.jobProfiles.uncategorized"),
-    [t]
-  );
+  // Client-side saved jobs
+  const [savedJobIds, setSavedJobIds] = useState<Set<string>>(() => {
+    try {
+      if (typeof window === "undefined") return new Set();
+      const raw = localStorage.getItem("candidate.saved_job_ids");
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Client-side quick filter
+  const [workplaceFilter, setWorkplaceFilter] = useState<"all" | WorkplaceType>("all");
+  const [showSavedOnly, setShowSavedOnly] = useState(false);
+
+  const handleToggleSave = useCallback((jobId: string, currentSaved: boolean) => {
+    setSavedJobIds((prev) => {
+      const next = new Set(prev);
+      if (currentSaved) {
+        next.delete(jobId);
+      } else {
+        next.add(jobId);
+      }
+      try {
+        localStorage.setItem("candidate.saved_job_ids", JSON.stringify(Array.from(next)));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
 
   const loadPage = useCallback(
     async (start: PageStart) => {
@@ -139,31 +152,126 @@ export default function UserJobsBoard() {
     void loadPage(prevStart);
   };
 
+  // Filter profiles on client by workplaceType or saved status if selected
+  const visibleProfiles = useMemo(() => {
+    return profiles.filter((p) => {
+      if (showSavedOnly && !savedJobIds.has(p.id)) {
+        return false;
+      }
+      if (workplaceFilter !== "all") {
+        const card = mapJobToJobCard(p);
+        if (card.location?.workplaceType !== workplaceFilter) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [profiles, showSavedOnly, savedJobIds, workplaceFilter]);
+
+  const handleClearFilters = () => {
+    setSearch("");
+    setWorkplaceFilter("all");
+    setShowSavedOnly(false);
+  };
+
   return (
-    <div className="min-w-0 space-y-8">
-      <div className="flex flex-col gap-3 border-b border-[#EAEFF8] pb-6">
+    <div className="min-w-0 space-y-6 sm:space-y-8">
+      {/* Header */}
+      <div className="flex flex-col gap-2.5 border-b border-[#EAEFF8] pb-6">
         <div>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#204195]">
             {t("userDash.jobs.eyebrow")}
           </span>
         </div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-[#14244B] md:text-4xl">
+        <h1 className="text-2xl font-extrabold tracking-tight text-[#14244B] sm:text-3xl md:text-4xl">
           {t("userDash.jobProfiles.pageTitle")}
         </h1>
-        <p className="max-w-2xl text-sm leading-6 text-[#607096]">{t("userDash.jobProfiles.pageSubtitle")}</p>
+        <p className="max-w-2xl text-xs leading-relaxed text-[#607096] sm:text-sm sm:leading-6">
+          {t("userDash.jobProfiles.pageSubtitle")}
+        </p>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-3 shadow-xs sm:grid-cols-[minmax(0,1fr)_auto]">
-        <div className="relative min-w-[min(100%,280px)] flex-1">
+      {/* Search & Quick Filters Bar */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+        {/* Search input */}
+        <div className="relative min-w-[min(100%,320px)] flex-1">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-[#607096]" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("admin.jobProfile.searchPlaceholder")}
-            className="min-h-11 w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-10 pr-3 text-sm text-[#14244B] placeholder:text-[#607096] transition-all focus:border-[#204195] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]/20"
+            className="min-h-10 w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-10 pr-3 text-sm text-[#14244B] placeholder:text-[#607096] transition-all focus:border-[#204195] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]/20"
             aria-label={t("admin.jobProfile.searchPlaceholder")}
           />
+        </div>
+
+        {/* Quick filter pills */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              setWorkplaceFilter("all");
+              setShowSavedOnly(false);
+            }}
+            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+              workplaceFilter === "all" && !showSavedOnly
+                ? "bg-[#204195] text-white shadow-xs"
+                : "border border-[#DCE4F3] bg-[#F8FAFC] text-[#607096] hover:bg-[#EEF2FD] hover:text-[#204195]"
+            }`}
+          >
+            {t("interview.cvAnalysis.reqFilterAll") || "Tất cả"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setWorkplaceFilter("remote");
+              setShowSavedOnly(false);
+            }}
+            className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+              workplaceFilter === "remote" && !showSavedOnly
+                ? "bg-[#204195] text-white shadow-xs"
+                : "border border-[#DCE4F3] bg-[#F8FAFC] text-[#607096] hover:bg-[#EEF2FD] hover:text-[#204195]"
+            }`}
+          >
+            <Globe2 className="size-3" />
+            <span>{t("jobs.workplace.remote") || "Từ xa"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setWorkplaceFilter("hybrid");
+              setShowSavedOnly(false);
+            }}
+            className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+              workplaceFilter === "hybrid" && !showSavedOnly
+                ? "bg-[#204195] text-white shadow-xs"
+                : "border border-[#DCE4F3] bg-[#F8FAFC] text-[#607096] hover:bg-[#EEF2FD] hover:text-[#204195]"
+            }`}
+          >
+            <Home className="size-3" />
+            <span>{t("jobs.workplace.hybrid") || "Linh hoạt"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowSavedOnly((s) => !s)}
+            className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+              showSavedOnly
+                ? "bg-[#204195] text-white shadow-xs"
+                : "border border-[#DCE4F3] bg-[#F8FAFC] text-[#607096] hover:bg-[#EEF2FD] hover:text-[#204195]"
+            }`}
+          >
+            <Bookmark className={`size-3 ${showSavedOnly ? "fill-current" : ""}`} />
+            <span>{t("jobs.card.saved") || "Đã lưu"}</span>
+            {savedJobIds.size > 0 && (
+              <span className={`ml-0.5 rounded-full px-1.5 py-0.2 text-[10px] ${showSavedOnly ? "bg-white/20 text-white" : "bg-[#EEF2FD] text-[#204195]"}`}>
+                {savedJobIds.size}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -173,39 +281,36 @@ export default function UserJobsBoard() {
         </div>
       )}
 
+      {/* Loading State: Grid of modern Skeletons */}
       {loading ? (
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label={t("admin.jobProfile.loading")}>
-          {[0, 1, 2, 3, 4, 5].map((item) => (
-            <div key={item} className="h-64 animate-pulse rounded-2xl border border-[#DCE4F3] bg-white shadow-xs motion-reduce:animate-none" />
+          {Array.from({ length: 6 }).map((_, item) => (
+            <JobCardSkeleton key={item} />
           ))}
         </div>
-      ) : profiles.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[#DCE4F3] bg-white px-6 py-16 text-center shadow-xs">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0F4FC] text-[#204195]">
-            <Briefcase className="size-7" aria-hidden="true" />
-          </div>
-          <p className="mt-4 text-sm font-medium text-[#607096]">
-            {debouncedSearch.trim() ? t("admin.jobProfile.noMatch") : t("userDash.jobProfiles.empty")}
-          </p>
-        </div>
+      ) : visibleProfiles.length === 0 ? (
+        /* Empty State with Clear Filters */
+        <JobCardEmptyState
+          onClearFilters={search || workplaceFilter !== "all" || showSavedOnly ? handleClearFilters : undefined}
+        />
       ) : (
+        /* Job Cards Grid */
         <>
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {profiles.map((p) => (
-              <UserJobProfileCard
-                key={p.id}
-                jobId={p.id}
-                viewDetailAria={t("userDash.jobProfiles.viewDetailAria")}
-                title={p.title}
-                categoryLabel={resolveCategoryName(p)}
-                keywordsLine={keywordsLine(p.keywords)}
-                updatedShort={formatRelativeShort(p.updatedAt ?? p.createdAt ?? "", lang)}
-                updatedPrefix={`${t("admin.jobProfile.card.updated")}:`}
-                interviewCta={t("userDash.jobProfiles.interviewNow")}
-                onInterview={() => setCvModalJob(p)}
-              />
-            ))}
+            {visibleProfiles.map((p) => {
+              const cardData = mapJobToJobCard(p, { savedJobIds });
+              return (
+                <JobCard
+                  key={p.id}
+                  job={cardData}
+                  onToggleSave={handleToggleSave}
+                  onInterview={() => setCvModalJob(p)}
+                />
+              );
+            })}
           </div>
+
+          {/* Pagination Controls */}
           <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
             <button
               type="button"
@@ -228,6 +333,8 @@ export default function UserJobsBoard() {
           </div>
         </>
       )}
+
+      {/* CV Selection Modal for Mock Interview */}
       <JobInterviewCvModal
         open={cvModalJob !== null}
         jobTitle={cvModalJob?.title ?? ""}
