@@ -19,6 +19,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { formatUserRole } from "@/i18n/roles";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
 import LanguageToggleButton from "@components/shared/LanguageToggleButton";
 
@@ -77,7 +78,7 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
 
   const displayName = profile?.name || profile?.email || "";
   const primaryRole = profile?.roles?.[0];
-  const roleLabel = primaryRole ? t(`userDash.role.${primaryRole}`) : t("userDash.roleFallback");
+  const roleLabel = formatUserRole(primaryRole, t);
 
   /** Active styles only after hydration so SSR and first client paint match (avoids usePathname mismatch warnings). */
   const navReady = useIsClient();
