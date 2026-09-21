@@ -98,8 +98,15 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     () => ({
       dashboard: pathname === "/admin/dashboard" || pathname === "/admin",
       users: pathname.startsWith("/admin/users"),
-      jobProfiles: pathname === "/admin/job-profiles" || (pathname.startsWith("/admin/job-profiles/") && !pathname.startsWith("/admin/job-profiles/create")),
-      createJob: pathname.startsWith("/admin/job-profiles/create"),
+      jobProfiles:
+        pathname === "/admin/job-descriptions" ||
+        pathname === "/admin/job-profiles" ||
+        ((pathname.startsWith("/admin/job-descriptions/") || pathname.startsWith("/admin/job-profiles/")) &&
+          !pathname.startsWith("/admin/job-descriptions/create") &&
+          !pathname.startsWith("/admin/job-profiles/create")),
+      createJob:
+        pathname.startsWith("/admin/job-descriptions/create") ||
+        pathname.startsWith("/admin/job-profiles/create"),
       questionBank: pathname.startsWith("/admin/question-bank"),
       taxonomy: pathname.startsWith("/admin/taxonomy"),
       rubrics: pathname.startsWith("/admin/rubrics"),
@@ -155,7 +162,7 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
   ];
 
   const navGroupContent: NavItem[] = [
-    { href: "/admin/job-profiles", label: t("admin.sidebar.jobBoard") || "Job Descriptions (JD)", Icon: Briefcase, active: isActive.jobProfiles },
+    { href: "/admin/job-descriptions", label: t("admin.sidebar.jobBoard") || "Job Descriptions (JD)", Icon: Briefcase, active: isActive.jobProfiles },
     { href: "/admin/question-bank", label: t("admin.sidebar.questionBank") || "Question Bank", Icon: FileQuestion, active: isActive.questionBank },
     { href: "/admin/taxonomy", label: "Taxonomy", Icon: Tags, active: isActive.taxonomy },
     { href: "/admin/rubrics", label: t("admin.sidebar.rubrics") || "Scoring Rubrics", Icon: ClipboardCheck, active: isActive.rubrics },
@@ -335,20 +342,20 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
               </div>
             )}
 
-            {/* Quick Action: New Job Profile */}
+            {/* Quick Action: New Job Description */}
             {!isCollapsed ? (
               <Link
-                href="/admin/job-profiles/create"
+                href="/admin/job-descriptions/create"
                 className="flex min-h-9 w-full items-center justify-center gap-2 rounded-xl bg-[#204195] hover:bg-[#183275] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99]"
               >
                 <Plus className="size-3.5" />
-                <span>{t("admin.sidebar.createProfile") || "Tạo Job Profile"}</span>
+                <span>{t("admin.sidebar.createProfile") || "Tạo Job Description"}</span>
               </Link>
             ) : (
               <Link
-                href="/admin/job-profiles/create"
+                href="/admin/job-descriptions/create"
                 className="flex h-9 w-9 mx-auto items-center justify-center rounded-xl bg-[#204195] hover:bg-[#183275] text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99]"
-                title={t("admin.sidebar.createProfile") || "Tạo Job Profile"}
+                title={t("admin.sidebar.createProfile") || "Tạo Job Description"}
               >
                 <Plus className="size-4" />
               </Link>

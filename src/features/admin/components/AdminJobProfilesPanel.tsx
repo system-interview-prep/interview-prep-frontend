@@ -3,7 +3,7 @@
 import Link from "next/link";
 import axios from "axios";
 import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { taxonomyApi, type TaxonomyConcept } from "@/lib/api/taxonomyApi";
 import {
@@ -83,6 +83,7 @@ function statusBadgeClass(status: JobProfile["status"]): string {
 export default function AdminJobProfilesPanel() {
   const { t, lang } = useLanguage();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const [profiles, setProfiles] = useState<JobProfile[]>([]);
@@ -117,7 +118,7 @@ export default function AdminJobProfilesPanel() {
   const handleEdit = useCallback(
     (id: string) => {
       if (!id?.trim()) return;
-      router.push(`/admin/job-profiles/create?id=${encodeURIComponent(id)}`);
+      router.push(`/admin/job-descriptions/create?id=${encodeURIComponent(id)}`);
     },
     [router],
   );
@@ -211,7 +212,10 @@ export default function AdminJobProfilesPanel() {
     const requested = Number.parseInt(searchParams.get("page") ?? "1", 10);
     const safePage = Number.isFinite(requested) && requested > 0 ? requested : 1;
     if (safePage !== 1) {
-      router.replace("/admin/dashboard?page=1", { scroll: false });
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("page", "1");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     }
     setPage(1);
     setPageCursors({ 1: undefined });
@@ -225,14 +229,19 @@ export default function AdminJobProfilesPanel() {
     setNextCursor(undefined);
     loadPage(undefined, 1);
     startTransition(() => {
-      router.replace("/admin/dashboard?page=1", { scroll: false });
+      if (searchParams.get("page") && searchParams.get("page") !== "1") {
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete("page");
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      }
     });
   }, [debouncedSearch, taxonomyFilter, sort]);
 
   useEffect(() => {
     if (searchParams.get("action") !== "create") return;
     startTransition(() => {
-      router.replace("/admin/job-profiles/create", { scroll: false });
+      router.replace("/admin/job-descriptions/create", { scroll: false });
     });
   }, [searchParams, router]);
 
@@ -297,7 +306,14 @@ export default function AdminJobProfilesPanel() {
     setPage(nextPage);
     void loadPage(cursor, nextPage);
     startTransition(() => {
-      router.replace(`/admin/dashboard?page=${nextPage}`, { scroll: false });
+      const params = new URLSearchParams(searchParams.toString());
+      if (nextPage === 1) {
+        params.delete("page");
+      } else {
+        params.set("page", String(nextPage));
+      }
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     });
   };
 
@@ -333,7 +349,7 @@ export default function AdminJobProfilesPanel() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Link
-            href="/admin/job-profiles/create"
+            href="/admin/job-descriptions/create"
             className="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] hover:bg-[#183275] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99]"
           >
             <Plus className="size-4" aria-hidden="true" />
@@ -443,7 +459,7 @@ export default function AdminJobProfilesPanel() {
                   </span>
                 </div>
                 <h2 className="mb-2 line-clamp-2 font-headline text-lg font-bold text-[#14244B] leading-snug transition-colors group-hover:text-[#204195]">
-                  <Link href={`/admin/job-profiles/${p.id}`} className="hover:underline">
+                  <Link href={`/admin/job-descriptions/${p.id}`} className="hover:underline">
                     {p.title}
                   </Link>
                 </h2>
@@ -524,7 +540,7 @@ export default function AdminJobProfilesPanel() {
               {displayItems.map((p) => (
                 <tr key={p.id} className="transition-colors hover:bg-[#F8FAFC]">
                   <td className="px-5 py-3.5 font-semibold text-[#14244B]">
-                    <Link href={`/admin/job-profiles/${p.id}`} className="hover:text-[#204195] hover:underline">
+                    <Link href={`/admin/job-descriptions/${p.id}`} className="hover:text-[#204195] hover:underline">
                       {p.title}
                     </Link>
                   </td>
