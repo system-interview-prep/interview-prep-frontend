@@ -59,7 +59,7 @@ function CategoryIcon({ name, className = "size-5" }: { name: string; className?
   return <Briefcase className={className} />;
 }
 
-function keywordChips(keywords: string[] | undefined): string[] {
+function keywordChips(keywords: string[] | null | undefined): string[] {
   if (!keywords?.length) return [];
   return keywords.slice(0, 8);
 }
