@@ -106,7 +106,7 @@ export default function UserJobDetailView() {
 
   const categoryName = profile.primaryTaxonomy?.label ?? t("userDash.jobProfiles.uncategorized");
   const keywords = profile.keywords?.filter(Boolean) ?? [];
-  const formattedSalary = profile.salary ? formatSalary(profile.salary, lang) : null;
+  const formattedSalary = profile.salary ? formatSalary(profile.salary, undefined, lang) : null;
   const formattedExp = profile.experience ? formatExperience(profile.experience, lang) : null;
 
   return (
