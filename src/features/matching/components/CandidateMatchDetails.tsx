@@ -1,7 +1,14 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { jobProfileApi } from "@features/admin/services/jobProfile.service";
+import { userCvApi } from "@features/resume/services/userCv.service";
+import {
+  analyzeMatchClarifications,
+  type ClarificationRequest,
+} from "../services/clarification.service";
 import type { HumanizedRequirement, RequirementGroup } from "../types/match-details.types";
+import { ClarificationPanel } from "./ClarificationPanel";
 import { EvidenceInspector } from "./EvidenceInspector";
 import { RequirementGroupCard } from "./RequirementGroupCard";
 import { RequirementItemCard } from "./RequirementItemCard";
@@ -23,6 +30,9 @@ export function CandidateMatchDetails({
   const [selectedRequirementId, setSelectedRequirementId] = useState<string | null>(() =>
     requirements[0]?.id ?? groups[0]?.items[0]?.id ?? null
   );
+  const [clarificationRequests, setClarificationRequests] = useState<ClarificationRequest[]>([]);
+  const [clarificationLoading, setClarificationLoading] = useState(false);
+  const [clarificationError, setClarificationError] = useState<string | null>(null);
 
   const summaryCounts = useMemo(
     () =>
@@ -38,6 +48,76 @@ export function CandidateMatchDetails({
       ),
     [requirements]
   );
+
+  const unknownRequirementKey = useMemo(
+    () =>
+      requirements
+        .filter((item) => item.status === "unknown")
+        .map((item) => item.id)
+        .sort()
+        .join("|"),
+    [requirements]
+  );
+
+  useEffect(() => {
+    if (!unknownRequirementKey || typeof window === "undefined") {
+      setClarificationRequests([]);
+      setClarificationError(null);
+      setClarificationLoading(false);
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const candidateId = params.get("candidateId")?.trim() ?? "";
+    const jobId = params.get("jobId")?.trim() ?? "";
+    if (!candidateId || !jobId) return;
+
+    let cancelled = false;
+    const unknownIds = new Set(unknownRequirementKey.split("|").filter(Boolean));
+
+    const loadClarifications = async () => {
+      setClarificationLoading(true);
+      setClarificationError(null);
+
+      try {
+        const [jobResponse, cvResponse] = await Promise.all([
+          jobProfileApi.get(jobId),
+          userCvApi.get(candidateId),
+        ]);
+        const job = jobResponse.data.structuredData;
+        const resume = cvResponse.data.parsedData;
+
+        if (!job || !resume) {
+          throw new Error("canonical_match_input_unavailable");
+        }
+
+        const analysis = await analyzeMatchClarifications({
+          schemaVersion: "2.1",
+          job: job as Record<string, unknown>,
+          resume: resume as unknown as Record<string, unknown>,
+          asyncProcessing: false,
+        });
+
+        if (!cancelled) {
+          setClarificationRequests(
+            analysis.clarificationRequests.filter((request) => unknownIds.has(request.requirementId))
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setClarificationRequests([]);
+          setClarificationError("clarification_unavailable");
+        }
+      } finally {
+        if (!cancelled) setClarificationLoading(false);
+      }
+    };
+
+    void loadClarifications();
+    return () => {
+      cancelled = true;
+    };
+  }, [unknownRequirementKey]);
 
   const groupedRequirementIds = useMemo(
     () => new Set(groups.flatMap((group) => group.items.map((item) => item.id))),
@@ -186,6 +266,15 @@ export function CandidateMatchDetails({
 
       <div className="grid min-h-[520px] lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] lg:divide-x lg:divide-slate-200">
         <div className="min-w-0 space-y-5 p-4 sm:p-5">
+          {summaryCounts.unknown > 0 && (
+            <ClarificationPanel
+              requests={clarificationRequests}
+              requirements={allRequirements}
+              loading={clarificationLoading}
+              error={clarificationError}
+            />
+          )}
+
           {hasVisibleCriteria ? (
             <>
               {renderSection(
