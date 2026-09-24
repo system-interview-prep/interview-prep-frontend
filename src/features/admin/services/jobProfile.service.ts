@@ -110,6 +110,23 @@ export type JobProfileListResponse = {
   total?: number;
 };
 
+export type JobDescriptionVersion = {
+  id: string;
+  jobDescriptionId: string;
+  versionNumber: number;
+  status: "DRAFT" | "ACTIVE" | "SUPERSEDED";
+  processingStatus: ProcessingStatus;
+  filename?: string | null;
+  checksum?: string | null;
+  error?: string | null;
+  createdAt: string;
+  publishedAt?: string | null;
+  rawText?: string | null;
+  structuredData?: Record<string, unknown> | null;
+  extractedMetadata?: Record<string, unknown> | null;
+  metadata?: Record<string, unknown>;
+};
+
 export type FinalizeUploadBody = {
   title: string;
   companyName?: string | null;
@@ -198,7 +215,7 @@ export const initialFinalizeForm: CanonicalFinalizeFormState = {
   applyUrl: "",
   externalJobId: "",
   postedAt: "",
-  listingStatus: "ACTIVE",
+  listingStatus: "DRAFT",
 };
 
 export function serializeFinalizePayload(
@@ -391,10 +408,30 @@ export const jobProfileApi = {
   /** Khớp BE: GET /admin/job-descriptions/{id} */
   get: (id: string) => api.get<JobProfile>(`/admin/job-descriptions/${encodeURIComponent(id)}`),
   /** Khớp BE: PATCH /admin/job-descriptions/{id} (admin only) */
-  update: (id: string, body: { description?: string | null }) =>
+  update: (id: string, body: Partial<FinalizeUploadBody>) =>
     api.patch<JobProfile>(`/admin/job-descriptions/${encodeURIComponent(id)}`, body),
   /** Khớp BE: DELETE /admin/job-descriptions/{id} (admin only) */
   delete: (id: string) => api.delete<void>(`/admin/job-descriptions/${encodeURIComponent(id)}`),
+  listVersions: (id: string) =>
+    api.get<{ items: JobDescriptionVersion[] }>(
+      `/admin/job-descriptions/${encodeURIComponent(id)}/versions`
+    ),
+  getVersion: (id: string, versionId: string) =>
+    api.get<JobDescriptionVersion>(
+      `/admin/job-descriptions/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}`
+    ),
+  createVersion: (id: string, file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return api.post<JobDescriptionVersion>(
+      `/admin/job-descriptions/${encodeURIComponent(id)}/versions`,
+      fd
+    );
+  },
+  publishVersion: (id: string, versionId: string) =>
+    api.post<JobProfile>(
+      `/admin/job-descriptions/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/publish`
+    ),
 
   // ── Upload flow ───────────────────────────────────────────────────────────────
   /** Khớp BE: POST /admin/job-descriptions/uploads (admin only) */
@@ -406,6 +443,8 @@ export const jobProfileApi = {
   /** Khớp BE: GET /admin/job-descriptions/uploads/{id} */
   getUpload: (id: string) =>
     api.get<JobProfileUpload>(`/admin/job-descriptions/uploads/${encodeURIComponent(id)}`),
+  deleteUpload: (id: string) =>
+    api.delete<void>(`/admin/job-descriptions/uploads/${encodeURIComponent(id)}`),
   /** Khớp BE: POST /admin/job-descriptions/uploads/{id}/reparse */
   reparseUpload: (id: string) =>
     api.post<JobProfileUpload>(`/admin/job-descriptions/uploads/${encodeURIComponent(id)}/reparse`),

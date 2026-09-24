@@ -194,4 +194,27 @@ describe("Admin Job Finalize Serializer & API Contract (PR5)", () => {
     expect(payload.seniority).toBe("fresher");
     expect(payload.source?.type).toBe("greenhouse");
   });
+
+  it("uses the JD version history endpoints", async () => {
+    get.mockResolvedValueOnce({ data: { items: [] } });
+    post.mockResolvedValue({ data: { id: "version-2" } });
+    const file = new File(["jd"], "jd-v2.pdf", { type: "application/pdf" });
+
+    await jobProfileApi.listVersions("job/1");
+    await jobProfileApi.getVersion("job/1", "version/2");
+    await jobProfileApi.createVersion("job/1", file);
+    await jobProfileApi.publishVersion("job/1", "version/2");
+
+    expect(get).toHaveBeenCalledWith("/admin/job-descriptions/job%2F1/versions");
+    expect(get).toHaveBeenCalledWith("/admin/job-descriptions/job%2F1/versions/version%2F2");
+    expect(post).toHaveBeenNthCalledWith(
+      1,
+      "/admin/job-descriptions/job%2F1/versions",
+      expect.any(FormData)
+    );
+    expect(post).toHaveBeenNthCalledWith(
+      2,
+      "/admin/job-descriptions/job%2F1/versions/version%2F2/publish"
+    );
+  });
 });

@@ -13,12 +13,13 @@ import {
   keywordsStringToArray,
   type JobProfileFormState,
   type CanonicalFinalizeFormState,
+  type JobDescriptionVersion,
   initialFinalizeForm,
   serializeFinalizePayload,
 } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useJpUploadStatus } from "@features/resume/hooks/useJpUploadStatus";
-import { ArrowLeft, UploadCloud, FileText, Sparkles, Building2, MapPin, Briefcase, Clock, Coins, Globe, Upload, Trash2 } from "lucide-react";
+import { ArrowLeft, UploadCloud, FileText, Sparkles, Building2, MapPin, Briefcase, Clock, Coins, Globe, Upload, Trash2, CheckCircle2, Eye, History, LoaderCircle } from "lucide-react";
 import { getCompanyInitials } from "@/components/jobs/job-card.utils";
 import { humanizeKey } from "@/utils";
 import CanonicalJdReview from "./job-description/CanonicalJdReview";
@@ -600,6 +601,7 @@ export default function AdminJobProfileCreateView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = String(searchParams.get("id") || "").trim();
+  const draftUploadId = String(searchParams.get("upload") || "").trim();
   const isEditMode = Boolean(editId);
 
   const [form, setForm] = useState<JobProfileFormState>(emptyJobProfileForm);
@@ -635,13 +637,17 @@ export default function AdminJobProfileCreateView() {
   const [error, setError] = useState<string | null>(null);
 
   const [jdFile, setJdFile] = useState<File | null>(null);
-  const [uploadId, setUploadId] = useState<string | null>(null);
+  const [uploadId, setUploadId] = useState<string | null>(draftUploadId || null);
   const [uploading, setUploading] = useState(false);
   const { status: jpStatus, latestUpload } = useJpUploadStatus(uploadId);
   const [finalizeBusy, setFinalizeBusy] = useState(false);
   const [reparseBusy, setReparseBusy] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
   const [descriptionHtml, setDescriptionHtml] = useState<string>("");
+  const [versions, setVersions] = useState<JobDescriptionVersion[]>([]);
+  const [selectedVersion, setSelectedVersion] = useState<JobDescriptionVersion | null>(null);
+  const [versionFile, setVersionFile] = useState<File | null>(null);
+  const [versionBusy, setVersionBusy] = useState(false);
 
   const [editableCanonicalUi, setEditableCanonicalUi] = useState<any | null>(null);
   const [editableExtras, setEditableExtras] = useState<any | null>(null);
@@ -764,6 +770,9 @@ export default function AdminJobProfileCreateView() {
         const items = filtered.length > 0 ? filtered : allConcepts;
         setTaxonomyConcepts(items);
         setForm((f) => {
+          // A parsed upload will supply its own primary classification.  Do
+          // not race it by selecting the first taxonomy item while parsing.
+          if (uploadId) return f;
           return f.primaryTaxonomyConceptId ? f : { ...f, primaryTaxonomyConceptId: items[0]?.concept_id ?? "" };
         });
       } catch {
@@ -775,7 +784,7 @@ export default function AdminJobProfileCreateView() {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [t, uploadId]);
 
   const handleCancel = useCallback(() => {
     router.push("/admin/job-descriptions");
@@ -789,10 +798,15 @@ export default function AdminJobProfileCreateView() {
       setEditBusy(true);
       setError(null);
       try {
-        const { data } = await jobProfileApi.get(editId);
+        const [{ data }, { data: versionData }] = await Promise.all([
+          jobProfileApi.get(editId),
+          jobProfileApi.listVersions(editId),
+        ]);
         if (cancelled) return;
         const desc = stripMarkdownHeadings(String((data as any)?.description || ""));
         setDescriptionHtml(desc);
+        setVersions(versionData.items ?? []);
+        setFinalizeForm((f) => ({ ...f, title: data.title || "", companyName: data.company?.name || "", location: data.location || "", workMode: data.workMode || "", employmentType: data.employmentType || "", seniority: data.seniority || "", primaryTaxonomyConceptId: data.primaryTaxonomy?.conceptId || "", keywords: (data.keywords || []).join(", "), listingStatus: data.listingStatus === "ACTIVE" ? "ACTIVE" : "DRAFT" }));
       } catch (err: unknown) {
         const msg = axios.isAxiosError(err)
           ? String((err.response?.data as { message?: string })?.message ?? err.message)
@@ -810,12 +824,77 @@ export default function AdminJobProfileCreateView() {
 
   const canSaveEdit = isEditMode && !editBusy;
 
+  const refreshVersions = useCallback(async () => {
+    if (!editId) return;
+    const { data } = await jobProfileApi.listVersions(editId);
+    setVersions(data.items ?? []);
+  }, [editId]);
+
+  const handleViewVersion = useCallback(async (versionId: string) => {
+    if (!editId) return;
+    setError(null);
+    try {
+      const { data } = await jobProfileApi.getVersion(editId, versionId);
+      setSelectedVersion(data);
+    } catch (err: unknown) {
+      setError(axios.isAxiosError(err) ? String((err.response?.data as any)?.detail ?? err.message) : "Không thể tải nội dung version.");
+    }
+  }, [editId]);
+
+  useEffect(() => {
+    if (!isEditMode || !versions.some((v) => ["PENDING", "PROCESSING"].includes(v.processingStatus))) return;
+    const timer = window.setInterval(() => void refreshVersions(), 2000);
+    return () => window.clearInterval(timer);
+  }, [isEditMode, versions, refreshVersions]);
+
+  useEffect(() => {
+    if (!isEditMode || versions.length === 0) return;
+    const summary = selectedVersion
+      ? versions.find((version) => version.id === selectedVersion.id)
+      : versions.find((version) => version.status === "ACTIVE") ?? versions[0];
+    if (!summary) return;
+    if (!selectedVersion || summary.processingStatus !== selectedVersion.processingStatus || summary.status !== selectedVersion.status) {
+      void handleViewVersion(summary.id);
+    }
+  }, [isEditMode, versions, selectedVersion, handleViewVersion]);
+
+  const handleCreateVersion = async () => {
+    if (!editId || !versionFile || versionBusy) return;
+    setVersionBusy(true);
+    setError(null);
+    try {
+      const { data } = await jobProfileApi.createVersion(editId, versionFile);
+      setVersionFile(null);
+      setSelectedVersion(data);
+      await refreshVersions();
+    } catch (err: unknown) {
+      setError(axios.isAxiosError(err) ? String((err.response?.data as any)?.detail ?? err.message) : "Khong the tao version moi.");
+    } finally {
+      setVersionBusy(false);
+    }
+  };
+
+  const handlePublishVersion = async (versionId: string) => {
+    if (!editId || versionBusy || !window.confirm("Publish version nay cho ung vien?")) return;
+    setVersionBusy(true);
+    setError(null);
+    try {
+      await jobProfileApi.publishVersion(editId, versionId);
+      await refreshVersions();
+      await handleViewVersion(versionId);
+    } catch (err: unknown) {
+      setError(axios.isAxiosError(err) ? String((err.response?.data as any)?.detail ?? err.message) : "Khong the publish version.");
+    } finally {
+      setVersionBusy(false);
+    }
+  };
+
   const handleSaveEdit = useCallback(async () => {
     if (!isEditMode || editBusy) return;
     setEditBusy(true);
     setError(null);
     try {
-      await jobProfileApi.update(editId, { description: descriptionHtml.trim() ? descriptionHtml : "" });
+      await jobProfileApi.update(editId, serializeFinalizePayload(finalizeForm, finalizeForm.title, descriptionHtml));
       router.push(`/admin/job-descriptions/${editId}`);
     } catch (err: unknown) {
       const msg = axios.isAxiosError(err)
@@ -825,7 +904,7 @@ export default function AdminJobProfileCreateView() {
     } finally {
       setEditBusy(false);
     }
-  }, [isEditMode, editBusy, editId, descriptionHtml, router, t]);
+  }, [isEditMode, editBusy, editId, finalizeForm, descriptionHtml, router, t]);
 
   const pageBusy = loadingTaxonomy;
 
@@ -844,6 +923,7 @@ export default function AdminJobProfileCreateView() {
     try {
       const { data } = await jobProfileApi.uploadJd(jdFile);
       setUploadId(data.id);
+      router.replace(`/admin/job-descriptions/create?upload=${encodeURIComponent(data.id)}`);
 
     } catch (err: unknown) {
       const msg = axios.isAxiosError(err)
@@ -855,7 +935,7 @@ export default function AdminJobProfileCreateView() {
     }
   };
 
-  const handleFinalize = async () => {
+  const handleFinalize = async (listingStatus: "DRAFT" | "ACTIVE") => {
     if (!uploadId || finalizeBusy) return;
     const title = finalizeForm.title.trim();
     if (!title) {
@@ -863,17 +943,9 @@ export default function AdminJobProfileCreateView() {
       return;
     }
 
-    // Validate salary currency/period if numeric salary is given
+    // Salary metadata is optional; only reject an internally inconsistent range.
     const hasNumericSalary = Boolean(finalizeForm.salaryMin.trim() || finalizeForm.salaryMax.trim());
     if (hasNumericSalary) {
-      if (!finalizeForm.salaryCurrency.trim()) {
-        setError("Vui lòng chọn loại tiền tệ khi nhập mức lương.");
-        return;
-      }
-      if (!finalizeForm.salaryPeriod) {
-        setError("Vui lòng chọn kỳ trả lương (tháng, năm, giờ) khi nhập mức lương.");
-        return;
-      }
       const minNum = Number(finalizeForm.salaryMin.trim() || 0);
       const maxNum = Number(finalizeForm.salaryMax.trim() || 0);
       if (finalizeForm.salaryMin.trim() && finalizeForm.salaryMax.trim() && minNum > maxNum) {
@@ -895,7 +967,11 @@ export default function AdminJobProfileCreateView() {
     setFinalizeBusy(true);
     setError(null);
     try {
-      const payload = serializeFinalizePayload(finalizeForm, title, descriptionHtml);
+      const payload = serializeFinalizePayload(
+        { ...finalizeForm, listingStatus },
+        title,
+        descriptionHtml
+      );
 
       const { data } = await jobProfileApi.finalizeUpload(uploadId, payload);
       router.push(`/admin/job-descriptions/${data.id}`);
@@ -906,6 +982,25 @@ export default function AdminJobProfileCreateView() {
       setError(msg);
     } finally {
       setFinalizeBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    const targetId = isEditMode ? editId : uploadId;
+    if (!targetId || !window.confirm("Xóa JD này? Thao tác không thể hoàn tác.")) return;
+    setError(null);
+    try {
+      if (isEditMode) {
+        await jobProfileApi.delete(targetId);
+      } else {
+        await jobProfileApi.deleteUpload(targetId);
+      }
+      router.push("/admin/job-descriptions");
+    } catch (err: unknown) {
+      const msg = axios.isAxiosError(err)
+        ? String((err.response?.data as { message?: string })?.message ?? err.message)
+        : t("admin.jobProfile.error.save");
+      setError(msg);
     }
   };
 
@@ -1043,6 +1138,103 @@ export default function AdminJobProfileCreateView() {
               <p className="py-10 text-center text-sm text-[#607096]">{t("admin.jobProfile.loading")}</p>
             ) : (
               <div className="space-y-6">
+                {isEditMode && (
+                  <section className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
+                    <div className="border-b border-[#DCE4F3] bg-gradient-to-r from-[#EEF2FD] to-white p-5 md:p-6">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="flex gap-3">
+                          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#204195] text-white"><History className="size-5" /></div>
+                          <div>
+                            <h2 className="font-headline text-lg font-bold text-[#14244B]">Lịch sử file JD</h2>
+                            <p className="mt-1 max-w-xl text-sm text-[#607096]">File mới luôn được phân tích thành bản nháp. Ứng viên vẫn sử dụng bản đang hoạt động cho đến khi bạn chủ động xuất bản.</p>
+                          </div>
+                        </div>
+                        <label className="group cursor-pointer rounded-xl border-2 border-dashed border-[#AFC0E5] bg-white px-4 py-3 transition hover:border-[#204195] hover:bg-[#F8FAFF]">
+                          <div className="flex items-center gap-3">
+                            <UploadCloud className="size-5 text-[#204195]" />
+                            <div>
+                              <div className="text-xs font-bold text-[#14244B]">{versionFile?.name || "Chọn file JD mới"}</div>
+                              <div className="text-[11px] text-[#607096]">PDF, DOCX hoặc hình ảnh</div>
+                            </div>
+                          </div>
+                          <input type="file" accept=".pdf,.docx,.png,.jpg,.jpeg,.webp" onChange={(e) => setVersionFile(e.target.files?.[0] ?? null)} className="hidden" />
+                        </label>
+                      </div>
+                      {versionFile && (
+                        <div className="mt-4 flex justify-end">
+                          <button type="button" onClick={handleCreateVersion} disabled={versionBusy}
+                            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#204195] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#183275] disabled:opacity-50">
+                            {versionBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                            {versionBusy ? "Đang tạo và gửi parser…" : "Tạo bản nháp mới"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid min-w-0 lg:grid-cols-[340px_1fr]">
+                      <div className="space-y-2 border-b border-[#DCE4F3] bg-[#F8FAFC] p-4 lg:border-b-0 lg:border-r">
+                        {versions.map((version) => {
+                          const active = selectedVersion?.id === version.id;
+                          const parsing = ["PENDING", "PROCESSING"].includes(version.processingStatus);
+                          return (
+                            <button key={version.id} type="button" onClick={() => void handleViewVersion(version.id)}
+                              className={`w-full rounded-xl border p-3 text-left transition ${active ? "border-[#204195] bg-white shadow-sm ring-2 ring-[#204195]/10" : "border-[#DCE4F3] bg-white/70 hover:border-[#AFC0E5] hover:bg-white"}`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="rounded-md bg-[#14244B] px-2 py-1 text-[11px] font-bold text-white">v{version.versionNumber}</span>
+                                    <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${version.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : version.status === "DRAFT" ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-600"}`}>{version.status}</span>
+                                  </div>
+                                  <div className="mt-2 truncate text-xs font-semibold text-[#14244B]">{version.filename || "Không có tên file"}</div>
+                                  <div className="mt-1 flex items-center gap-1.5 text-[11px] text-[#607096]">
+                                    {parsing ? <LoaderCircle className="size-3 animate-spin text-[#204195]" /> : <CheckCircle2 className="size-3 text-emerald-600" />}
+                                    Parser: {version.processingStatus}
+                                  </div>
+                                </div>
+                                <Eye className="mt-1 size-4 shrink-0 text-[#607096]" />
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="min-w-0 p-5 md:p-6">
+                        {!selectedVersion ? (
+                          <div className="flex min-h-48 items-center justify-center text-sm text-[#607096]">Chọn một version để xem kết quả phân tích.</div>
+                        ) : selectedVersion.processingStatus !== "DONE" ? (
+                          <div className="flex min-h-56 flex-col items-center justify-center text-center">
+                            <LoaderCircle className="size-8 animate-spin text-[#204195]" />
+                            <div className="mt-3 font-bold text-[#14244B]">Đang phân tích v{selectedVersion.versionNumber}</div>
+                            <p className="mt-1 text-sm text-[#607096]">Kết quả sẽ tự động hiển thị tại đây khi parser hoàn tất.</p>
+                            {selectedVersion.error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{selectedVersion.error}</p>}
+                          </div>
+                        ) : (
+                          <div className="space-y-5">
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EAEFF8] pb-4">
+                              <div>
+                                <div className="text-xs font-bold uppercase tracking-wider text-[#204195]">Nội dung đã phân tích · v{selectedVersion.versionNumber}</div>
+                                <div className="mt-1 text-xs text-[#607096]">Kiểm tra dữ liệu trước khi xuất bản cho ứng viên.</div>
+                              </div>
+                              {selectedVersion.status !== "ACTIVE" && (
+                                <button type="button" onClick={() => handlePublishVersion(selectedVersion.id)} disabled={versionBusy}
+                                  className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50">
+                                  <CheckCircle2 className="size-4" /> Xuất bản version này
+                                </button>
+                              )}
+                            </div>
+                            {selectedVersion.structuredData ? (
+                              <CanonicalJdReview data={selectedVersion.structuredData} />
+                            ) : selectedVersion.rawText ? (
+                              renderDescriptionPreview(selectedVersion.rawText)
+                            ) : (
+                              <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">Parser đã hoàn tất nhưng chưa có dữ liệu để xem.</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </section>
+                )}
                 {!isEditMode && uploadId && (
                   <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-4 py-3 shadow-2xs">
                     <div className="text-sm font-semibold text-[#14244B]">
@@ -1171,7 +1363,7 @@ export default function AdminJobProfileCreateView() {
         
 
   {/* Canonical Review & Finalize Form */}
-  {!isEditMode && (
+  {(
     <div className="mb-8 space-y-5">
       {/* 1. Basic Information */}
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
@@ -1693,6 +1885,13 @@ export default function AdminJobProfileCreateView() {
     </button>
 
     {isEditMode ? (
+      <>
+      <button
+        onClick={handleDelete}
+        className="inline-flex min-h-10 items-center justify-center rounded-xl border border-red-200 bg-white px-5 py-2.5 text-xs sm:text-sm font-semibold text-red-700 hover:bg-red-50"
+      >
+        Xóa JD
+      </button>
       <button
         onClick={handleSaveEdit}
         disabled={!canSaveEdit}
@@ -1700,14 +1899,30 @@ export default function AdminJobProfileCreateView() {
       >
         {editBusy ? "Đang lưu..." : "Lưu thay đổi"}
       </button>
+      </>
     ) : (
-      <button
-        onClick={handleFinalize}
-        disabled={!canFinalize}
-        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] hover:bg-[#183275] active:bg-[#122557] px-6 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {finalizeBusy ? "Đang lưu..." : "Hoàn tất JD"}
-      </button>
+      <>
+        <button
+          onClick={handleDelete}
+          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-red-200 bg-white px-5 py-2.5 text-xs sm:text-sm font-semibold text-red-700 hover:bg-red-50"
+        >
+          Xóa JD
+        </button>
+        <button
+          onClick={() => handleFinalize("DRAFT")}
+          disabled={!canFinalize}
+          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#204195] bg-white px-5 py-2.5 text-xs sm:text-sm font-bold text-[#204195] disabled:opacity-50"
+        >
+          {finalizeBusy ? "Đang lưu..." : "Lưu nháp"}
+        </button>
+        <button
+          onClick={() => handleFinalize("ACTIVE")}
+          disabled={!canFinalize}
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] hover:bg-[#183275] active:bg-[#122557] px-6 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {finalizeBusy ? "Đang đăng..." : "Đăng job"}
+        </button>
+      </>
     )}
   </div>
 </section>
