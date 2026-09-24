@@ -1,0 +1,46 @@
+name: Jev Clarification UI CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/jev-clarification-ui
+    paths:
+      - "src/features/matching/**"
+      - "src/features/admin/services/jobProfile.service.ts"
+      - "src/features/resume/**"
+      - "src/lib/aiService.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/jev-clarification-ui-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run matching tests
+        run: |
+          npm test -- src/features/matching/__tests__/clarification.test.ts src/features/matching/__tests__/candidateMatchDetails.test.ts
+
+      - name: Build frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:5000
+        run: npm run build
