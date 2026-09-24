@@ -11,7 +11,7 @@ on:
       - "src/features/resume/**"
       - "src/lib/aiService.ts"
       - "package.json"
-      - "package-lock.json"
+      - "pnpm-lock.yaml"
       - ".github/workflows/jev-clarification-ui-ci.yml"
 
 permissions:
@@ -26,21 +26,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "11.10.0"
+          run_install: false
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
-          cache-dependency-path: package-lock.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps --no-audit --no-fund
+        run: pnpm install --frozen-lockfile
 
-      - name: Run matching tests
-        run: |
-          npm test -- src/features/matching/__tests__/clarification.test.ts src/features/matching/__tests__/candidateMatchDetails.test.ts
+      - name: Run tests
+        run: pnpm test
 
       - name: Build frontend
         env:
           NEXT_PUBLIC_API_URL: http://localhost:5000
-        run: npm run build
+        run: pnpm build
