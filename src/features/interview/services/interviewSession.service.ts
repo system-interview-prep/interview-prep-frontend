@@ -56,6 +56,17 @@ export async function startInterviewSession({
       durationMinutes,
     });
     sessionId = session.sessionId;
+
+    try {
+      await interviewRuntimeApi.buildPlan(sessionId);
+    } catch (error) {
+      try {
+        await interviewRuntimeApi.close(sessionId);
+      } catch {
+        /* best-effort compensation; preserve the planner error */
+      }
+      throw error;
+    }
   } else {
     const sessionType = mode === "video" ? "Call" : mode === "voice" ? "Voice" : "Chat";
     const legacy = await createSession({
