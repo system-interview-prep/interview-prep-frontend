@@ -62,6 +62,10 @@ export async function startInterviewSession({
       if (plan.status !== "READY") {
         throw new Error(`Interview plan is not READY: ${plan.status}`);
       }
+      const selection = await interviewRuntimeApi.selectQuestions(sessionId);
+      if (selection.status !== "LOCKED" || selection.turns.length === 0) {
+        throw new Error("Interview question selection did not produce locked turns");
+      }
     } catch (error) {
       try {
         await interviewRuntimeApi.close(sessionId);
