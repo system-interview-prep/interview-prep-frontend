@@ -470,6 +470,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                     {t("userDash.jobCvModal.noSavedYet")}
                   </p>
                 ) : (
+                  <div className="max-h-56 overflow-y-auto pr-1 -mr-1">
                   <ul className="space-y-2.5" role="radiogroup" aria-label={t("userDash.jobCvModal.savedSection")}>
                     {visibleFiles.map((f) => (
                       <li key={f.id}>
@@ -518,6 +519,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                       </li>
                     ))}
                   </ul>
+                  </div>
                 )}
               </div>
 
