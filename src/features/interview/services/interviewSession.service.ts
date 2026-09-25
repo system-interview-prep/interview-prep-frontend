@@ -58,7 +58,10 @@ export async function startInterviewSession({
     sessionId = session.sessionId;
 
     try {
-      await interviewRuntimeApi.buildPlan(sessionId);
+      const plan = await interviewRuntimeApi.buildPlan(sessionId);
+      if (plan.status !== "READY") {
+        throw new Error(`Interview plan is not READY: ${plan.status}`);
+      }
     } catch (error) {
       try {
         await interviewRuntimeApi.close(sessionId);
