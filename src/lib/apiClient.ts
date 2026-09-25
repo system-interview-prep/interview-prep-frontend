@@ -92,9 +92,9 @@ export const authApi = {
 };
 
 // ── Interview API ──────────────────────────────────────────────────────────────
-// NOTE: Routes /interview/start, /interview/{id}, etc. không tồn tại ở BE.
-// Dùng /ai/session (sessionsApi) để tạo/quản lý interview sessions.
-// Xem: src/lib/aiService.ts → createSession(), closeSession(), getAllSessions()
+// Structured CV→JD interview flows use /api/v1/interviews/sessions via
+// features/interview/services/interviewRuntime.service.ts.
+// Legacy standalone chat/voice practice still uses /ai/session temporarily.
 
 // ── User API ──────────────────────────────────────────────────────────────────
 export type UserProfile = {
