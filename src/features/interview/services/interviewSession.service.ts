@@ -56,6 +56,20 @@ export async function startInterviewSession({
       durationMinutes,
     });
     sessionId = session.sessionId;
+
+    try {
+      const plan = await interviewRuntimeApi.buildPlan(sessionId);
+      if (plan.status !== "READY") {
+        throw new Error(`Interview plan is not READY: ${plan.status}`);
+      }
+    } catch (error) {
+      try {
+        await interviewRuntimeApi.close(sessionId);
+      } catch {
+        /* best-effort compensation; preserve the planner error */
+      }
+      throw error;
+    }
   } else {
     const sessionType = mode === "video" ? "Call" : mode === "voice" ? "Voice" : "Chat";
     const legacy = await createSession({

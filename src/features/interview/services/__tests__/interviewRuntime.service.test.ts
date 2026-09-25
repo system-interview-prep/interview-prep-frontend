@@ -55,4 +55,41 @@ describe("interview runtime API contract", () => {
       "/api/v1/interviews/sessions/session%201",
     );
   });
+  it("builds and reads a competency plan", async () => {
+    post.mockResolvedValueOnce({
+      data: {
+        planId: "plan-1",
+        sessionId: "session-1",
+        schemaVersion: "1.0",
+        status: "READY",
+        policyVersion: "interview-planner-v1",
+        questionBudget: 6,
+        targetQuestionCount: 6,
+        sourceContext: {},
+        targets: [],
+        createdAt: "2026-09-25T00:00:00Z",
+        updatedAt: "2026-09-25T00:00:00Z",
+      },
+    });
+    get.mockResolvedValueOnce({
+      data: {
+        planId: "plan-1",
+        sessionId: "session-1",
+        status: "READY",
+      },
+    });
+
+    const built = await interviewRuntimeApi.buildPlan("session 1");
+    const loaded = await interviewRuntimeApi.getPlan("session 1");
+
+    expect(post).toHaveBeenCalledWith(
+      "/api/v1/interviews/sessions/session%201/plan",
+    );
+    expect(get).toHaveBeenCalledWith(
+      "/api/v1/interviews/sessions/session%201/plan",
+    );
+    expect(built.status).toBe("READY");
+    expect(loaded.planId).toBe("plan-1");
+  });
+
 });

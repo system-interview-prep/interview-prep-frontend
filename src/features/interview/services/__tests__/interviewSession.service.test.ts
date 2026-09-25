@@ -4,12 +4,14 @@ const {
   closeLegacySession,
   createLegacySession,
   startVideoCall,
+  buildRuntimePlan,
   closeRuntimeSession,
   createRuntimeSession,
 } = vi.hoisted(() => ({
   closeLegacySession: vi.fn(),
   createLegacySession: vi.fn(),
   startVideoCall: vi.fn(),
+  buildRuntimePlan: vi.fn(),
   closeRuntimeSession: vi.fn(),
   createRuntimeSession: vi.fn(),
 }));
@@ -22,6 +24,7 @@ vi.mock("@/lib/aiService", () => ({
 
 vi.mock("../interviewRuntime.service", () => ({
   interviewRuntimeApi: {
+    buildPlan: buildRuntimePlan,
     close: closeRuntimeSession,
     create: createRuntimeSession,
   },
@@ -36,6 +39,11 @@ describe("startInterviewSession", () => {
 
   it("uses the structured runtime when both CV and job ids are present", async () => {
     createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-1" });
+    buildRuntimePlan.mockResolvedValueOnce({
+      planId: "plan-1",
+      sessionId: "runtime-1",
+      status: "READY",
+    });
 
     const url = await startInterviewSession({
       mode: "chat",
@@ -52,6 +60,7 @@ describe("startInterviewSession", () => {
       locale: "vi-VN",
       durationMinutes: 30,
     });
+    expect(buildRuntimePlan).toHaveBeenCalledWith("runtime-1");
     expect(createLegacySession).not.toHaveBeenCalled();
     expect(url).toContain("/interview/room/runtime-1");
   });
@@ -69,8 +78,54 @@ describe("startInterviewSession", () => {
   });
 
 
+
+  it("closes a grounded session when planner creation fails", async () => {
+    createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-plan-fail" });
+    buildRuntimePlan.mockRejectedValueOnce(new Error("planner failed"));
+    closeRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-plan-fail" });
+
+    await expect(
+      startInterviewSession({
+        mode: "chat",
+        lang: "en",
+        candidateId: "cv-1",
+        jobId: "job-1",
+      }),
+    ).rejects.toThrow("planner failed");
+
+    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-plan-fail");
+    expect(startVideoCall).not.toHaveBeenCalled();
+  });
+
+  it("closes a grounded session when planner resolves non-READY", async () => {
+    createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-plan-draft" });
+    buildRuntimePlan.mockResolvedValueOnce({
+      planId: "plan-draft",
+      sessionId: "runtime-plan-draft",
+      status: "DRAFT",
+    });
+    closeRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-plan-draft" });
+
+    await expect(
+      startInterviewSession({
+        mode: "video",
+        lang: "en",
+        candidateId: "cv-1",
+        jobId: "job-1",
+      }),
+    ).rejects.toThrow("Interview plan is not READY: DRAFT");
+
+    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-plan-draft");
+    expect(startVideoCall).not.toHaveBeenCalled();
+  });
+
   it("closes a grounded session when video setup fails", async () => {
     createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-video-1" });
+    buildRuntimePlan.mockResolvedValueOnce({
+      planId: "plan-video-1",
+      sessionId: "runtime-video-1",
+      status: "READY",
+    });
     startVideoCall.mockRejectedValueOnce(new Error("video setup failed"));
     closeRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-video-1" });
 
