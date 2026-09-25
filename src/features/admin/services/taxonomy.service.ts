@@ -7,6 +7,7 @@ export type TaxonomyConcept = {
   description?: string | null;
   metadata?: Record<string, unknown>;
   is_active: boolean;
+  aliases?: string[];
 };
 
 export type ActiveTaxonomy = {
@@ -23,10 +24,14 @@ export const taxonomyApi = {
   versions: () => api.get<{ items: TaxonomyVersion[] }>("/admin/taxonomy/versions"),
   upsertVersion: (payload: { version: string; priority: number; activate: boolean }) =>
     api.put("/admin/taxonomy/versions", payload),
+  deleteVersion: (version: string) =>
+    api.delete(`/admin/taxonomy/versions/${encodeURIComponent(version)}`),
   cloneVersion: (version: string, sourceVersion: string) => api.post(`/admin/taxonomy/versions/${encodeURIComponent(version)}/clone`, { sourceVersion }),
   upsertConcept: (version: string, conceptId: string, payload: {
     label: string; kind: string; description?: string; aliases: string[]; metadata: Record<string, unknown>; isActive: boolean;
   }) => api.put(`/admin/taxonomy/versions/${encodeURIComponent(version)}/concepts/${encodeURIComponent(conceptId)}`, payload),
+  deleteConcept: (version: string, conceptId: string) =>
+    api.delete(`/admin/taxonomy/versions/${encodeURIComponent(version)}/concepts/${encodeURIComponent(conceptId)}`),
   activate: (version: string) => api.post(`/admin/taxonomy/versions/${encodeURIComponent(version)}/activate`),
   exportVersion: (version: string) => api.get(`/admin/taxonomy/versions/${encodeURIComponent(version)}/export`, { responseType: "blob" }),
   importVersion: (version: string, file: File) => { const body = new FormData(); body.append("file", file); return api.post(`/admin/taxonomy/versions/${encodeURIComponent(version)}/import`, body); },

@@ -2,7 +2,7 @@
 
 import axios from "axios";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import MDEditor from "@uiw/react-md-editor";
@@ -12,12 +12,27 @@ import {
   jobProfileApi,
   keywordsStringToArray,
   type JobProfileFormState,
+  type CanonicalFinalizeFormState,
+  type JobDescriptionVersion,
+  initialFinalizeForm,
+  serializeFinalizePayload,
 } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useJpUploadStatus } from "@features/resume/hooks/useJpUploadStatus";
-import { ArrowLeft, UploadCloud, FileText, Sparkles } from "lucide-react";
+import { ArrowLeft, UploadCloud, FileText, Sparkles, Building2, MapPin, Briefcase, Clock, Coins, Globe, Upload, Trash2, CheckCircle2, Eye, History, LoaderCircle } from "lucide-react";
+import { getCompanyInitials } from "@/components/jobs/job-card.utils";
 import { humanizeKey } from "@/utils";
 import CanonicalJdReview from "./job-description/CanonicalJdReview";
+
+export { type CanonicalFinalizeFormState, initialFinalizeForm };
+
+function findEvidenceForField(structuredData: any, prefix: string): string | null {
+  if (!structuredData || typeof structuredData !== "object") return null;
+  const evidenceList = Array.isArray(structuredData.evidence) ? structuredData.evidence : [];
+  const match = evidenceList.find((ev: any) => typeof ev?.evidenceId === "string" && ev.evidenceId.startsWith(prefix));
+  if (match?.text) return String(match.text).trim();
+  return null;
+}
 
 type LabeledNode = { label?: string; value?: unknown } & Record<string, unknown>;
 
@@ -586,21 +601,53 @@ export default function AdminJobProfileCreateView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = String(searchParams.get("id") || "").trim();
+  const draftUploadId = String(searchParams.get("upload") || "").trim();
   const isEditMode = Boolean(editId);
 
   const [form, setForm] = useState<JobProfileFormState>(emptyJobProfileForm);
+  const [finalizeForm, setFinalizeForm] = useState<CanonicalFinalizeFormState>(initialFinalizeForm);
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Kích thước file ảnh logo không được vượt quá 2MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setFinalizeForm((f) => ({ ...f, companyLogoUrl: dataUrl }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const [parserEvidence, setParserEvidence] = useState<{
+    company?: string | null;
+    location?: string | null;
+    experience?: string | null;
+    salary?: string | null;
+  }>({});
+
   const [taxonomyConcepts, setTaxonomyConcepts] = useState<TaxonomyConcept[]>([]);
   const [loadingTaxonomy, setLoadingTaxonomy] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [jdFile, setJdFile] = useState<File | null>(null);
-  const [uploadId, setUploadId] = useState<string | null>(null);
+  const [uploadId, setUploadId] = useState<string | null>(draftUploadId || null);
   const [uploading, setUploading] = useState(false);
   const { status: jpStatus, latestUpload } = useJpUploadStatus(uploadId);
   const [finalizeBusy, setFinalizeBusy] = useState(false);
   const [reparseBusy, setReparseBusy] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
   const [descriptionHtml, setDescriptionHtml] = useState<string>("");
+  const [versions, setVersions] = useState<JobDescriptionVersion[]>([]);
+  const [selectedVersion, setSelectedVersion] = useState<JobDescriptionVersion | null>(null);
+  const [versionFile, setVersionFile] = useState<File | null>(null);
+  const [versionBusy, setVersionBusy] = useState(false);
 
   const [editableCanonicalUi, setEditableCanonicalUi] = useState<any | null>(null);
   const [editableExtras, setEditableExtras] = useState<any | null>(null);
@@ -658,17 +705,53 @@ export default function AdminJobProfileCreateView() {
 
   useEffect(() => {
     if (!editableCanonicalUi || typeof editableCanonicalUi !== "object") return;
-    const title = String((editableCanonicalUi as any)?.jobTitle ?? "").trim();
+    const sd = editableCanonicalUi;
+
+    // Detect parser evidence spans for UI badges
+    const compEv = findEvidenceForField(sd, "ev-jd-company");
+    const locEv = findEvidenceForField(sd, "ev-jd-location") || (typeof sd.location === "string" && sd.location ? sd.location : null);
+    const expEv = findEvidenceForField(sd, "ev-jd-experience") || (typeof sd.experienceRaw === "string" && sd.experienceRaw ? sd.experienceRaw : null);
+    const salEv = findEvidenceForField(sd, "ev-jd-salary") || (typeof sd.salaryRaw === "string" && sd.salaryRaw ? sd.salaryRaw : null);
+
+    setParserEvidence({
+      company: compEv,
+      location: locEv,
+      experience: expEv,
+      salary: salEv,
+    });
+
+    // Prefill form from parser proposal, but allow admin to freely edit
+    setFinalizeForm((prev) => ({
+      ...prev,
+      title: prev.title || String(sd.jobTitle || sd.title || "").trim(),
+      companyName: prev.companyName || String(sd.companyName || "").trim(),
+      location: prev.location || String(sd.location || "").trim(),
+      workMode: prev.workMode || (["remote", "hybrid", "on_site"].includes(sd.workMode) ? sd.workMode : ""),
+      employmentType: prev.employmentType || (["full_time", "part_time", "internship", "contract", "temporary"].includes(sd.employmentType) ? sd.employmentType : ""),
+      seniority: prev.seniority || (["intern", "junior", "mid", "senior", "lead", "manager", "director"].includes(sd.seniority) ? sd.seniority : ""),
+      experienceMinYears: prev.experienceMinYears || (sd.experienceMinYears != null ? String(sd.experienceMinYears) : ""),
+      experienceMaxYears: prev.experienceMaxYears || (sd.experienceMaxYears != null ? String(sd.experienceMaxYears) : ""),
+      salaryMin: prev.salaryMin || (sd.salaryMin != null ? String(sd.salaryMin) : ""),
+      salaryMax: prev.salaryMax || (sd.salaryMax != null ? String(sd.salaryMax) : ""),
+      salaryCurrency: prev.salaryCurrency || String(sd.salaryCurrency || "VND"),
+      salaryPeriod: prev.salaryPeriod || (["hour", "month", "year"].includes(sd.salaryPeriod) ? sd.salaryPeriod : ""),
+      salaryNegotiable: prev.salaryNegotiable !== "unknown" ? prev.salaryNegotiable : (sd.salaryNegotiable === true ? "yes" : sd.salaryNegotiable === false ? "no" : "unknown"),
+    }));
+
+    const title = String(sd.jobTitle ?? "").trim();
     if (title && !form.title.trim()) {
       setForm((f) => ({ ...f, title }));
     }
     const classifications =
-      (editableCanonicalUi as any)?.career_classifications ??
-      (editableCanonicalUi as any)?.careerClassifications;
+      sd.career_classifications ??
+      sd.careerClassifications;
     if (Array.isArray(classifications) && classifications.length > 0) {
       const primary = classifications.find((c: any) => c?.is_primary || c?.isPrimary) ?? classifications[0];
-      if (primary?.code && !form.primaryTaxonomyConceptId) {
-        setForm((f) => ({ ...f, primaryTaxonomyConceptId: primary.code }));
+      if (primary?.code) {
+        if (!form.primaryTaxonomyConceptId) {
+          setForm((f) => ({ ...f, primaryTaxonomyConceptId: primary.code }));
+        }
+        setFinalizeForm((f) => ({ ...f, primaryTaxonomyConceptId: f.primaryTaxonomyConceptId || primary.code }));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -687,6 +770,9 @@ export default function AdminJobProfileCreateView() {
         const items = filtered.length > 0 ? filtered : allConcepts;
         setTaxonomyConcepts(items);
         setForm((f) => {
+          // A parsed upload will supply its own primary classification.  Do
+          // not race it by selecting the first taxonomy item while parsing.
+          if (uploadId) return f;
           return f.primaryTaxonomyConceptId ? f : { ...f, primaryTaxonomyConceptId: items[0]?.concept_id ?? "" };
         });
       } catch {
@@ -698,7 +784,7 @@ export default function AdminJobProfileCreateView() {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [t, uploadId]);
 
   const handleCancel = useCallback(() => {
     router.push("/admin/job-descriptions");
@@ -712,10 +798,15 @@ export default function AdminJobProfileCreateView() {
       setEditBusy(true);
       setError(null);
       try {
-        const { data } = await jobProfileApi.get(editId);
+        const [{ data }, { data: versionData }] = await Promise.all([
+          jobProfileApi.get(editId),
+          jobProfileApi.listVersions(editId),
+        ]);
         if (cancelled) return;
         const desc = stripMarkdownHeadings(String((data as any)?.description || ""));
         setDescriptionHtml(desc);
+        setVersions(versionData.items ?? []);
+        setFinalizeForm((f) => ({ ...f, title: data.title || "", companyName: data.company?.name || "", location: data.location || "", workMode: data.workMode || "", employmentType: data.employmentType || "", seniority: data.seniority || "", primaryTaxonomyConceptId: data.primaryTaxonomy?.conceptId || "", keywords: (data.keywords || []).join(", "), listingStatus: data.listingStatus === "ACTIVE" ? "ACTIVE" : "DRAFT" }));
       } catch (err: unknown) {
         const msg = axios.isAxiosError(err)
           ? String((err.response?.data as { message?: string })?.message ?? err.message)
@@ -733,12 +824,77 @@ export default function AdminJobProfileCreateView() {
 
   const canSaveEdit = isEditMode && !editBusy;
 
+  const refreshVersions = useCallback(async () => {
+    if (!editId) return;
+    const { data } = await jobProfileApi.listVersions(editId);
+    setVersions(data.items ?? []);
+  }, [editId]);
+
+  const handleViewVersion = useCallback(async (versionId: string) => {
+    if (!editId) return;
+    setError(null);
+    try {
+      const { data } = await jobProfileApi.getVersion(editId, versionId);
+      setSelectedVersion(data);
+    } catch (err: unknown) {
+      setError(axios.isAxiosError(err) ? String((err.response?.data as any)?.detail ?? err.message) : "Không thể tải nội dung version.");
+    }
+  }, [editId]);
+
+  useEffect(() => {
+    if (!isEditMode || !versions.some((v) => ["PENDING", "PROCESSING"].includes(v.processingStatus))) return;
+    const timer = window.setInterval(() => void refreshVersions(), 2000);
+    return () => window.clearInterval(timer);
+  }, [isEditMode, versions, refreshVersions]);
+
+  useEffect(() => {
+    if (!isEditMode || versions.length === 0) return;
+    const summary = selectedVersion
+      ? versions.find((version) => version.id === selectedVersion.id)
+      : versions.find((version) => version.status === "ACTIVE") ?? versions[0];
+    if (!summary) return;
+    if (!selectedVersion || summary.processingStatus !== selectedVersion.processingStatus || summary.status !== selectedVersion.status) {
+      void handleViewVersion(summary.id);
+    }
+  }, [isEditMode, versions, selectedVersion, handleViewVersion]);
+
+  const handleCreateVersion = async () => {
+    if (!editId || !versionFile || versionBusy) return;
+    setVersionBusy(true);
+    setError(null);
+    try {
+      const { data } = await jobProfileApi.createVersion(editId, versionFile);
+      setVersionFile(null);
+      setSelectedVersion(data);
+      await refreshVersions();
+    } catch (err: unknown) {
+      setError(axios.isAxiosError(err) ? String((err.response?.data as any)?.detail ?? err.message) : "Khong the tao version moi.");
+    } finally {
+      setVersionBusy(false);
+    }
+  };
+
+  const handlePublishVersion = async (versionId: string) => {
+    if (!editId || versionBusy || !window.confirm("Publish version nay cho ung vien?")) return;
+    setVersionBusy(true);
+    setError(null);
+    try {
+      await jobProfileApi.publishVersion(editId, versionId);
+      await refreshVersions();
+      await handleViewVersion(versionId);
+    } catch (err: unknown) {
+      setError(axios.isAxiosError(err) ? String((err.response?.data as any)?.detail ?? err.message) : "Khong the publish version.");
+    } finally {
+      setVersionBusy(false);
+    }
+  };
+
   const handleSaveEdit = useCallback(async () => {
     if (!isEditMode || editBusy) return;
     setEditBusy(true);
     setError(null);
     try {
-      await jobProfileApi.update(editId, { description: descriptionHtml.trim() ? descriptionHtml : "" });
+      await jobProfileApi.update(editId, serializeFinalizePayload(finalizeForm, finalizeForm.title, descriptionHtml));
       router.push(`/admin/job-descriptions/${editId}`);
     } catch (err: unknown) {
       const msg = axios.isAxiosError(err)
@@ -748,7 +904,7 @@ export default function AdminJobProfileCreateView() {
     } finally {
       setEditBusy(false);
     }
-  }, [isEditMode, editBusy, editId, descriptionHtml, router, t]);
+  }, [isEditMode, editBusy, editId, finalizeForm, descriptionHtml, router, t]);
 
   const pageBusy = loadingTaxonomy;
 
@@ -767,6 +923,7 @@ export default function AdminJobProfileCreateView() {
     try {
       const { data } = await jobProfileApi.uploadJd(jdFile);
       setUploadId(data.id);
+      router.replace(`/admin/job-descriptions/create?upload=${encodeURIComponent(data.id)}`);
 
     } catch (err: unknown) {
       const msg = axios.isAxiosError(err)
@@ -778,30 +935,72 @@ export default function AdminJobProfileCreateView() {
     }
   };
 
-  const handleFinalize = async () => {
+  const handleFinalize = async (listingStatus: "DRAFT" | "ACTIVE") => {
     if (!uploadId || finalizeBusy) return;
-    if (!form.title.trim()) {
-      setError("Missing title");
+    const title = finalizeForm.title.trim();
+    if (!title) {
+      setError("Tiêu đề công việc là bắt buộc.");
       return;
     }
+
+    // Salary metadata is optional; only reject an internally inconsistent range.
+    const hasNumericSalary = Boolean(finalizeForm.salaryMin.trim() || finalizeForm.salaryMax.trim());
+    if (hasNumericSalary) {
+      const minNum = Number(finalizeForm.salaryMin.trim() || 0);
+      const maxNum = Number(finalizeForm.salaryMax.trim() || 0);
+      if (finalizeForm.salaryMin.trim() && finalizeForm.salaryMax.trim() && minNum > maxNum) {
+        setError("Lương tối thiểu không được lớn hơn lương tối đa.");
+        return;
+      }
+    }
+
+    // Validate experience range if both provided
+    if (finalizeForm.experienceMinYears.trim() && finalizeForm.experienceMaxYears.trim()) {
+      const minExp = Number(finalizeForm.experienceMinYears.trim());
+      const maxExp = Number(finalizeForm.experienceMaxYears.trim());
+      if (minExp > maxExp) {
+        setError("Số năm kinh nghiệm tối thiểu không được lớn hơn số năm tối đa.");
+        return;
+      }
+    }
+
     setFinalizeBusy(true);
     setError(null);
     try {
-      const { data } = await jobProfileApi.finalizeUpload(uploadId, {
-        title: form.title.trim(),
-        primaryTaxonomyConceptId: form.primaryTaxonomyConceptId || undefined,
-        keywords: keywordsStringToArray(form.keywords),
-        status: form.status,
-        description: descriptionHtml.trim() ? descriptionHtml : undefined,
-      });
+      const payload = serializeFinalizePayload(
+        { ...finalizeForm, listingStatus },
+        title,
+        descriptionHtml
+      );
+
+      const { data } = await jobProfileApi.finalizeUpload(uploadId, payload);
       router.push(`/admin/job-descriptions/${data.id}`);
+    } catch (err: unknown) {
+      const msg = axios.isAxiosError(err)
+        ? String((err.response?.data as { message?: string; detail?: any })?.detail || ((err.response?.data as any)?.message ?? err.message))
+        : t("admin.jobProfile.error.save");
+      setError(msg);
+    } finally {
+      setFinalizeBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    const targetId = isEditMode ? editId : uploadId;
+    if (!targetId || !window.confirm("Xóa JD này? Thao tác không thể hoàn tác.")) return;
+    setError(null);
+    try {
+      if (isEditMode) {
+        await jobProfileApi.delete(targetId);
+      } else {
+        await jobProfileApi.deleteUpload(targetId);
+      }
+      router.push("/admin/job-descriptions");
     } catch (err: unknown) {
       const msg = axios.isAxiosError(err)
         ? String((err.response?.data as { message?: string })?.message ?? err.message)
         : t("admin.jobProfile.error.save");
       setError(msg);
-    } finally {
-      setFinalizeBusy(false);
     }
   };
 
@@ -853,14 +1052,14 @@ export default function AdminJobProfileCreateView() {
     return (
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-xs font-semibold text-on-surface-variant">
+          <div className="text-xs font-semibold text-[#607096]">
             Dữ liệu JD đã trích xuất{draftSavedAt ? ` • Đã lưu` : ""}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setAiViewMode((m) => (m === "review" ? "advanced" : "review"))}
-              className="rounded-xl border border-outline-variant/40 bg-surface px-4 py-2 text-sm font-bold text-on-surface"
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14244B] shadow-2xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all"
             >
               {aiViewMode === "review" ? "Chỉnh sửa nâng cao" : "Xem minh chứng"}
             </button>
@@ -868,7 +1067,7 @@ export default function AdminJobProfileCreateView() {
               type="button"
               onClick={handleSaveDraftAiJson}
               disabled={!canSaveDraft}
-              className="rounded-xl border border-outline-variant/40 bg-surface px-4 py-2 text-sm font-bold text-on-surface disabled:opacity-50"
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl bg-[#204195] hover:bg-[#183275] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-50"
             >
               {draftSaving ? "Đang lưu…" : "Lưu thay đổi"}
             </button>
@@ -887,8 +1086,8 @@ export default function AdminJobProfileCreateView() {
               />
             )}
             {hasExtras && (
-              <details className="rounded-2xl border border-outline-variant/20 bg-surface p-4">
-                <summary className="cursor-pointer text-sm font-bold text-on-surface">Thông tin kỹ thuật trích xuất</summary>
+              <details className="rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-2xs">
+                <summary className="cursor-pointer text-sm font-bold text-[#14244B]">Thông tin kỹ thuật trích xuất</summary>
                 <div className="mt-4">
                   <LabeledJsonForm
                     title="Thông tin kỹ thuật trích xuất"
@@ -905,47 +1104,144 @@ export default function AdminJobProfileCreateView() {
   };
 
   return (
-    <div className="flex min-w-0 flex-col">
-      <header className="mb-8 flex min-w-0 flex-col gap-3 border-b border-outline-variant/20 pb-6 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mx-auto min-w-0 max-w-[1400px] space-y-6">
+      <header className="flex min-w-0 flex-col gap-3 border-b border-[#EAEFF8] pb-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <Link
             href="/admin/job-descriptions"
-            className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-primary hover:underline"
+            className="mb-2.5 inline-flex items-center gap-1.5 rounded-full bg-[#204195]/8 border border-[#204195]/15 px-3 py-1 text-xs font-semibold text-[#204195] transition-colors hover:bg-[#204195]/15"
           >
-            <ArrowLeft className="size-4" />
-            {isEditMode ? "Quay lại" : t("admin.jobProfile.createPage.back")}
+            <ArrowLeft className="size-3.5" />
+            {isEditMode ? "Quay lại danh sách" : t("admin.jobProfile.createPage.back")}
           </Link>
-          <h1 className="font-headline text-3xl font-extrabold tracking-tight text-on-surface md:text-4xl">
+          <h1 className="font-headline text-2xl font-bold tracking-tight text-[#14244B] md:text-3xl">
             {isEditMode ? "Chỉnh sửa Job Description" : t("admin.jobProfile.createPage.title")}
           </h1>
-          <p className="mt-1 max-w-2xl text-on-surface-variant">
+          <p className="mt-1 max-w-2xl text-xs sm:text-sm text-[#607096]">
             {isEditMode
-              ? "Cập nhật mô tả công việc (description) để ứng viên xem. Nhấn “Save changes” để lưu."
+              ? "Cập nhật mô tả công việc (description) để ứng viên xem. Nhấn “Lưu thay đổi” để lưu."
               : t("admin.jobProfile.createPage.subtitle")}
           </p>
         </div>
       </header>
 
       {error && (
-        <div className="mb-4 rounded-xl border border-error/30 bg-error-container/20 px-4 py-3 text-sm text-error" role="alert">
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-xs" role="alert">
           {error}
         </div>
       )}
 
       <div className="min-w-0">
-        <div className="mx-auto max-w-4xl">
-          <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm md:p-8">
+        <div className="w-full">
+          <div className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs md:p-8">
             {pageBusy ? (
-              <p className="py-10 text-center text-sm text-on-surface-variant">{t("admin.jobProfile.loading")}</p>
+              <p className="py-10 text-center text-sm text-[#607096]">{t("admin.jobProfile.loading")}</p>
             ) : (
               <div className="space-y-6">
-                {!isEditMode && uploadId && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-outline-variant/15 bg-surface px-4 py-3">
-                    <div className="text-sm font-semibold text-on-surface">
-                      Upload ID: <span className="font-mono text-on-surface-variant">{uploadId}</span>
+                {isEditMode && (
+                  <section className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
+                    <div className="border-b border-[#DCE4F3] bg-gradient-to-r from-[#EEF2FD] to-white p-5 md:p-6">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="flex gap-3">
+                          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#204195] text-white"><History className="size-5" /></div>
+                          <div>
+                            <h2 className="font-headline text-lg font-bold text-[#14244B]">Lịch sử file JD</h2>
+                            <p className="mt-1 max-w-xl text-sm text-[#607096]">File mới luôn được phân tích thành bản nháp. Ứng viên vẫn sử dụng bản đang hoạt động cho đến khi bạn chủ động xuất bản.</p>
+                          </div>
+                        </div>
+                        <label className="group cursor-pointer rounded-xl border-2 border-dashed border-[#AFC0E5] bg-white px-4 py-3 transition hover:border-[#204195] hover:bg-[#F8FAFF]">
+                          <div className="flex items-center gap-3">
+                            <UploadCloud className="size-5 text-[#204195]" />
+                            <div>
+                              <div className="text-xs font-bold text-[#14244B]">{versionFile?.name || "Chọn file JD mới"}</div>
+                              <div className="text-[11px] text-[#607096]">PDF, DOCX hoặc hình ảnh</div>
+                            </div>
+                          </div>
+                          <input type="file" accept=".pdf,.docx,.png,.jpg,.jpeg,.webp" onChange={(e) => setVersionFile(e.target.files?.[0] ?? null)} className="hidden" />
+                        </label>
+                      </div>
+                      {versionFile && (
+                        <div className="mt-4 flex justify-end">
+                          <button type="button" onClick={handleCreateVersion} disabled={versionBusy}
+                            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#204195] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#183275] disabled:opacity-50">
+                            {versionBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                            {versionBusy ? "Đang tạo và gửi parser…" : "Tạo bản nháp mới"}
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                      Status: <span className="text-primary">{jpStatus ?? "—"}</span>
+
+                    <div className="grid min-w-0 lg:grid-cols-[340px_1fr]">
+                      <div className="space-y-2 border-b border-[#DCE4F3] bg-[#F8FAFC] p-4 lg:border-b-0 lg:border-r">
+                        {versions.map((version) => {
+                          const active = selectedVersion?.id === version.id;
+                          const parsing = ["PENDING", "PROCESSING"].includes(version.processingStatus);
+                          return (
+                            <button key={version.id} type="button" onClick={() => void handleViewVersion(version.id)}
+                              className={`w-full rounded-xl border p-3 text-left transition ${active ? "border-[#204195] bg-white shadow-sm ring-2 ring-[#204195]/10" : "border-[#DCE4F3] bg-white/70 hover:border-[#AFC0E5] hover:bg-white"}`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="rounded-md bg-[#14244B] px-2 py-1 text-[11px] font-bold text-white">v{version.versionNumber}</span>
+                                    <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${version.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : version.status === "DRAFT" ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-600"}`}>{version.status}</span>
+                                  </div>
+                                  <div className="mt-2 truncate text-xs font-semibold text-[#14244B]">{version.filename || "Không có tên file"}</div>
+                                  <div className="mt-1 flex items-center gap-1.5 text-[11px] text-[#607096]">
+                                    {parsing ? <LoaderCircle className="size-3 animate-spin text-[#204195]" /> : <CheckCircle2 className="size-3 text-emerald-600" />}
+                                    Parser: {version.processingStatus}
+                                  </div>
+                                </div>
+                                <Eye className="mt-1 size-4 shrink-0 text-[#607096]" />
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="min-w-0 p-5 md:p-6">
+                        {!selectedVersion ? (
+                          <div className="flex min-h-48 items-center justify-center text-sm text-[#607096]">Chọn một version để xem kết quả phân tích.</div>
+                        ) : selectedVersion.processingStatus !== "DONE" ? (
+                          <div className="flex min-h-56 flex-col items-center justify-center text-center">
+                            <LoaderCircle className="size-8 animate-spin text-[#204195]" />
+                            <div className="mt-3 font-bold text-[#14244B]">Đang phân tích v{selectedVersion.versionNumber}</div>
+                            <p className="mt-1 text-sm text-[#607096]">Kết quả sẽ tự động hiển thị tại đây khi parser hoàn tất.</p>
+                            {selectedVersion.error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{selectedVersion.error}</p>}
+                          </div>
+                        ) : (
+                          <div className="space-y-5">
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EAEFF8] pb-4">
+                              <div>
+                                <div className="text-xs font-bold uppercase tracking-wider text-[#204195]">Nội dung đã phân tích · v{selectedVersion.versionNumber}</div>
+                                <div className="mt-1 text-xs text-[#607096]">Kiểm tra dữ liệu trước khi xuất bản cho ứng viên.</div>
+                              </div>
+                              {selectedVersion.status !== "ACTIVE" && (
+                                <button type="button" onClick={() => handlePublishVersion(selectedVersion.id)} disabled={versionBusy}
+                                  className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50">
+                                  <CheckCircle2 className="size-4" /> Xuất bản version này
+                                </button>
+                              )}
+                            </div>
+                            {selectedVersion.structuredData ? (
+                              <CanonicalJdReview data={selectedVersion.structuredData} />
+                            ) : selectedVersion.rawText ? (
+                              renderDescriptionPreview(selectedVersion.rawText)
+                            ) : (
+                              <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">Parser đã hoàn tất nhưng chưa có dữ liệu để xem.</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </section>
+                )}
+                {!isEditMode && uploadId && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-4 py-3 shadow-2xs">
+                    <div className="text-sm font-semibold text-[#14244B]">
+                      Upload ID: <span className="font-mono text-[#607096]">{uploadId}</span>
+                    </div>
+                    <div className="text-xs font-bold uppercase tracking-widest text-[#607096]">
+                      Status: <span className="text-[#204195]">{jpStatus ?? "—"}</span>
                     </div>
                   </div>
                 )}
@@ -956,7 +1252,7 @@ export default function AdminJobProfileCreateView() {
                       type="button"
                       onClick={handleReparse}
                       disabled={reparseBusy || jpStatus === "PARSING" || jpStatus === "PENDING"}
-                      className="rounded-lg border border-outline-variant/40 px-3 py-1.5 text-xs font-semibold hover:bg-surface-container disabled:opacity-50"
+                      className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14244B] shadow-2xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all disabled:opacity-50"
                     >
                       {reparseBusy ? "Đang chạy lại..." : "Trích xuất lại"}
                     </button>
@@ -965,14 +1261,14 @@ export default function AdminJobProfileCreateView() {
 
                 {/* Upload */}
                 {!isEditMode && (
-                  <section className="rounded-2xl border border-outline-variant/20 bg-surface p-6 shadow-sm">
+                  <section className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/50 p-6 shadow-2xs">
                   {/* Header */}
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-xs font-bold uppercase tracking-widest text-primary">
+                      <div className="text-xs font-bold uppercase tracking-widest text-[#204195]">
                         Upload Job Description
                       </div>
-                      <div className="mt-1 text-sm text-on-surface-variant">
+                      <div className="mt-1 text-xs sm:text-sm text-[#607096]">
                         Upload JD (PDF, DOCX, Image). Hệ thống sẽ trích xuất nội dung và tạo dữ liệu cấu trúc để bạn kiểm tra.
                       </div>
                     </div>
@@ -980,17 +1276,16 @@ export default function AdminJobProfileCreateView() {
                 
                   {/* Drop zone */}
                   <label className="group block cursor-pointer">
-                    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-outline-variant/40 bg-surface-container/30 px-6 py-8 text-center transition hover:border-primary hover:bg-primary/5">
-
-                      <div className="rounded-xl bg-primary/10 p-2">
-                        <UploadCloud className="size-6 text-primary" />
+                    <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#DCE4F3] bg-white px-6 py-10 text-center transition-all hover:border-[#204195] hover:bg-[#F0F4FC]/40">
+                      <div className="rounded-2xl bg-[#EEF2FD] border border-[#204195]/15 p-3 text-[#204195] mb-2">
+                        <UploadCloud className="size-6 text-[#204195]" />
                       </div>
                 
-                      <div className="text-sm font-semibold text-on-surface">
+                      <div className="text-sm font-bold text-[#14244B]">
                         Drag & drop file hoặc click để upload
                       </div>
                 
-                      <div className="mt-1 text-xs text-on-surface-variant">
+                      <div className="mt-1 text-xs text-[#607096]">
                         PDF, DOCX, PNG, JPG, WEBP (max 10MB)
                       </div>
                 
@@ -1006,15 +1301,15 @@ export default function AdminJobProfileCreateView() {
                 
                   {/* Selected file */}
                   {jdFile && (
-                    <div className="mt-3 flex items-center justify-between rounded-xl bg-primary/5 px-3 py-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <FileText className="size-5 text-primary" />
-                        <span className="font-medium">{jdFile.name}</span>
+                    <div className="mt-3 flex items-center justify-between rounded-xl border border-[#DCE4F3] bg-white px-4 py-2.5 shadow-2xs">
+                      <div className="flex items-center gap-2.5 text-sm">
+                        <FileText className="size-5 text-[#204195]" />
+                        <span className="font-semibold text-[#14244B]">{jdFile.name}</span>
                       </div>
                 
                       <button
                         onClick={() => setJdFile(null)}
-                        className="text-xs text-on-surface-variant hover:text-red-500"
+                        className="text-xs font-semibold text-[#607096] transition-colors hover:text-red-500"
                       >
                         Remove
                       </button>
@@ -1022,14 +1317,14 @@ export default function AdminJobProfileCreateView() {
                   )}
                 
                   {/* Actions */}
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-4 flex flex-wrap gap-2.5">
                     <button
                       type="button"
                       onClick={handleUploadJd}
                       disabled={!canUpload}
-                      className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary shadow-sm transition hover:opacity-90 disabled:opacity-50"
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] hover:bg-[#183275] active:bg-[#122557] px-5 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Sparkles className="size-4.5" />
+                      <Sparkles className="size-4" />
                       {uploading ? "Extracting document..." : "Upload & parse JD"}
                     </button>
                 
@@ -1040,7 +1335,7 @@ export default function AdminJobProfileCreateView() {
                         setJdFile(null);
                       }}
                       disabled={uploading}
-                      className="rounded-xl border border-outline-variant/40 px-4 py-2.5 text-sm font-medium text-on-surface hover:bg-surface-container disabled:opacity-50"
+                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#14244B] shadow-xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Reset
                     </button>
@@ -1048,15 +1343,15 @@ export default function AdminJobProfileCreateView() {
                 </section>
                 )}
 
-<section className="rounded-2xl border border-outline-variant/20 bg-surface p-6">
+<section className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs md:p-8">
   {/* Header */}
-  <div className="mb-5 flex items-start justify-between">
+  <div className="mb-6 flex items-start justify-between">
     <div>
-      <div className="text-xs font-bold uppercase tracking-widest text-primary">
+      <div className="text-xs font-bold uppercase tracking-widest text-[#204195]">
         {isEditMode ? "Chỉnh sửa JD" : "Nội dung JD"}
       </div>
 
-      <p className="mt-1 text-sm text-on-surface-variant">
+      <p className="mt-1 text-xs sm:text-sm text-[#607096]">
         {isEditMode
           ? "Chỉnh sửa nội dung hiển thị cho ứng viên"
           : "Nội dung được lấy từ tài liệu đã tải lên. Bạn có thể chỉnh sửa trước khi hoàn tất."}
@@ -1067,115 +1362,567 @@ export default function AdminJobProfileCreateView() {
   {renderAiReviewForm() ?? null}
         
 
-  {/* Meta fields */}
-  {!isEditMode && (
-    <div className="mb-5 rounded-xl border border-outline-variant/20 bg-surface-container/30 p-4">
-      <div className="mb-3 text-xs font-semibold uppercase text-on-surface-variant">
-        Job Information
+  {/* Canonical Review & Finalize Form */}
+  {(
+    <div className="mb-8 space-y-5">
+      {/* 1. Basic Information */}
+      <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
+        <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
+          <FileText className="size-4" />
+          <span>1. Basic Information</span>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <label className="mb-1.5 block text-xs font-semibold text-[#14244B]">
+              Job Title <span className="text-red-500">*</span>
+            </label>
+            <input
+              value={finalizeForm.title}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, title: e.target.value }))}
+              placeholder="e.g. Senior Frontend Engineer"
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Primary Taxonomy
+            </label>
+            <select
+              value={finalizeForm.primaryTaxonomyConceptId}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, primaryTaxonomyConceptId: e.target.value }))}
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            >
+              <option value="">No taxonomy classification</option>
+              {taxonomyConcepts.map((concept) => (
+                <option key={concept.concept_id} value={concept.concept_id}>
+                  {concept.label} {concept.kind ? `(${concept.kind})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Keywords (comma-separated)
+            </label>
+            <input
+              value={finalizeForm.keywords}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, keywords: e.target.value }))}
+              placeholder="e.g. react, typescript, nextjs"
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            />
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-on-surface-variant">
-            Title
-          </label>
-          <input
-            value={form.title}
-            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-            className="w-full rounded-lg border border-outline-variant/30 px-3 py-2.5 text-sm"
-          />
+      {/* 2. Company */}
+      <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
+        <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
+          <Building2 className="size-4" />
+          <span>2. Company Information</span>
         </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-[#14244B]">
+              Company Name <span className="text-[#607096] font-normal">(Tên công ty)</span>
+            </label>
+            <input
+              value={finalizeForm.companyName}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, companyName: e.target.value }))}
+              placeholder="e.g. NSTAGE"
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            />
+            {parserEvidence.company && (
+              <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-[#EEF2FD] border border-[#204195]/15 px-2.5 py-1 text-[11px] font-semibold text-[#204195]">
+                <Sparkles className="size-3 shrink-0" />
+                <span className="truncate">Gợi ý từ JD: &ldquo;{parserEvidence.company}&rdquo;</span>
+              </div>
+            )}
+          </div>
 
-        <div>
-          <label className="mb-1 block text-xs font-medium text-on-surface-variant">
-            Primary taxonomy
-          </label>
-          <select
-            value={form.primaryTaxonomyConceptId}
-            onChange={(e) => setForm((f) => ({ ...f, primaryTaxonomyConceptId: e.target.value }))}
-            className="w-full rounded-lg border border-outline-variant/30 px-3 py-2.5 text-sm"
-          >
-            <option value="">No taxonomy classification</option>
-            {taxonomyConcepts.map((concept) => (
-              <option key={concept.concept_id} value={concept.concept_id}>
-                {concept.label} {concept.kind ? `(${concept.kind})` : ""}
-              </option>
-            ))}
-          </select>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-[#14244B]">
+              Company Logo <span className="text-[#607096] font-normal">(Ảnh logo công ty)</span>
+            </label>
+
+            <div className="flex items-start gap-4">
+              {/* Logo Preview Avatar */}
+              <div className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-2xs">
+                {finalizeForm.companyLogoUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={finalizeForm.companyLogoUrl}
+                    alt="Company logo preview"
+                    className="h-full w-full object-cover"
+                  />
+                ) : finalizeForm.companyName ? (
+                  <div className="flex h-full w-full items-center justify-center bg-[#EEF2FD] font-bold text-base text-[#204195] select-none">
+                    {getCompanyInitials(finalizeForm.companyName)}
+                  </div>
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-[#F1F5F9] text-[#94A3B8]">
+                    <Building2 className="size-6" />
+                  </div>
+                )}
+              </div>
+
+              {/* Upload button & URL input */}
+              <div className="flex-1 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="file"
+                    ref={logoFileInputRef}
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={handleLogoFileChange}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => logoFileInputRef.current?.click()}
+                    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14244B] shadow-2xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all active:scale-95"
+                  >
+                    <Upload className="size-3.5 text-[#204195]" />
+                    <span>Chọn ảnh từ máy tính</span>
+                  </button>
+
+                  {finalizeForm.companyLogoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFinalizeForm((f) => ({ ...f, companyLogoUrl: "" }));
+                        if (logoFileInputRef.current) logoFileInputRef.current.value = "";
+                      }}
+                      className="inline-flex min-h-9 items-center justify-center gap-1 rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-2xs hover:bg-red-50 transition-all"
+                    >
+                      <Trash2 className="size-3.5" />
+                      <span>Xóa ảnh</span>
+                    </button>
+                  )}
+                </div>
+
+                <input
+                  value={finalizeForm.companyLogoUrl.startsWith("data:") ? "" : finalizeForm.companyLogoUrl}
+                  onChange={(e) => setFinalizeForm((f) => ({ ...f, companyLogoUrl: e.target.value }))}
+                  placeholder={
+                    finalizeForm.companyLogoUrl.startsWith("data:")
+                      ? "(Đã tải ảnh lên từ máy tính)"
+                      : "Hoặc dán URL: https://example.com/logo.png"
+                  }
+                  className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+                />
+                <p className="text-[11px] text-[#607096]">
+                  Hỗ trợ PNG, JPG, WebP, SVG (tối đa 2MB). Ảnh hiển thị trên thẻ công việc.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <div>
-          <label className="mb-1 block text-xs font-medium text-on-surface-variant">
-            Status
-          </label>
-          <select
-            value={form.status}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, status: e.target.value as any }))
-            }
-            className="w-full rounded-lg border border-outline-variant/30 px-3 py-2.5 text-sm"
-          >
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="DRAFT">DRAFT</option>
-            <option value="ARCHIVED">ARCHIVED</option>
-          </select>
+      {/* 3. Work Arrangement */}
+      <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
+        <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
+          <MapPin className="size-4" />
+          <span>3. Work Arrangement</span>
         </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-[#14244B]">
+              Location
+            </label>
+            <input
+              value={finalizeForm.location}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, location: e.target.value }))}
+              placeholder="e.g. Hà Nội, Việt Nam"
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            />
+            {parserEvidence.location && (
+              <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-[#EEF2FD] border border-[#204195]/15 px-2.5 py-1 text-[11px] font-semibold text-[#204195]">
+                <Sparkles className="size-3 shrink-0" />
+                <span className="truncate">Gợi ý từ JD: &ldquo;{parserEvidence.location}&rdquo;</span>
+              </div>
+            )}
+          </div>
 
-        <div>
-          <label className="mb-1 block text-xs font-medium text-on-surface-variant">
-            Keywords
-          </label>
-          <input
-            value={form.keywords}
-            onChange={(e) => setForm((f) => ({ ...f, keywords: e.target.value }))}
-            placeholder="nestjs, aws, docker"
-            className="w-full rounded-lg border border-outline-variant/30 px-3 py-2.5 text-sm"
-          />
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Work Mode
+            </label>
+            <select
+              value={finalizeForm.workMode}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, workMode: e.target.value as any }))}
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            >
+              <option value="">Chưa xác định (null)</option>
+              <option value="remote">Remote (Từ xa)</option>
+              <option value="hybrid">Hybrid (Linh hoạt)</option>
+              <option value="on_site">On-site (Tại văn phòng)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Employment Type
+            </label>
+            <select
+              value={finalizeForm.employmentType}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, employmentType: e.target.value as any }))}
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            >
+              <option value="">Chưa xác định (null)</option>
+              <option value="full_time">Full-time (Toàn thời gian)</option>
+              <option value="part_time">Part-time (Bán thời gian)</option>
+              <option value="internship">Internship (Thực tập)</option>
+              <option value="contract">Contract (Hợp đồng)</option>
+              <option value="temporary">Temporary (Tạm thời)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Experience */}
+      <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
+        <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
+          <Briefcase className="size-4" />
+          <span>4. Experience Requirements</span>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Seniority
+            </label>
+            <select
+              value={finalizeForm.seniority}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, seniority: e.target.value as any }))}
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            >
+              <option value="">Chưa xác định (null)</option>
+              <option value="intern">Intern</option>
+              <option value="fresher">Fresher</option>
+              <option value="junior">Junior</option>
+              <option value="mid">Mid-level</option>
+              <option value="senior">Senior</option>
+              <option value="lead">Lead</option>
+              <option value="manager">Manager</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Min Experience (years)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={finalizeForm.experienceMinYears}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, experienceMinYears: e.target.value }))}
+              placeholder="e.g. 2"
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            />
+            {parserEvidence.experience && (
+              <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-[#EEF2FD] border border-[#204195]/15 px-2.5 py-1 text-[11px] font-semibold text-[#204195]">
+                <Sparkles className="size-3 shrink-0" />
+                <span className="truncate">Gợi ý từ JD: &ldquo;{parserEvidence.experience}&rdquo;</span>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Max Experience (years)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={finalizeForm.experienceMaxYears}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, experienceMaxYears: e.target.value }))}
+              placeholder="e.g. 5"
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Compensation */}
+      <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
+        <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
+          <Coins className="size-4" />
+          <span>5. Compensation</span>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-5">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Salary Min
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={finalizeForm.salaryMin}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, salaryMin: e.target.value }))}
+              placeholder="20000000"
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            />
+            {parserEvidence.salary && (
+              <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-[#EEF2FD] border border-[#204195]/15 px-2.5 py-1 text-[11px] font-semibold text-[#204195]">
+                <Sparkles className="size-3 shrink-0" />
+                <span className="truncate">Gợi ý từ JD: &ldquo;{parserEvidence.salary}&rdquo;</span>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Salary Max
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={finalizeForm.salaryMax}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, salaryMax: e.target.value }))}
+              placeholder="30000000"
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Currency
+            </label>
+            <select
+              value={finalizeForm.salaryCurrency}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, salaryCurrency: e.target.value }))}
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            >
+              <option value="VND">VND (₫)</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="JPY">JPY (¥)</option>
+              <option value="SGD">SGD (S$)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Period
+            </label>
+            <select
+              value={finalizeForm.salaryPeriod}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, salaryPeriod: e.target.value as any }))}
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            >
+              <option value="">Chưa chọn</option>
+              <option value="month">Tháng (month)</option>
+              <option value="year">Năm (year)</option>
+              <option value="hour">Giờ (hour)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Negotiable
+            </label>
+            <select
+              value={finalizeForm.salaryNegotiable}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, salaryNegotiable: e.target.value as any }))}
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            >
+              <option value="unknown">Chưa rõ (null)</option>
+              <option value="yes">Thỏa thuận (true)</option>
+              <option value="no">Cố định (false)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 6. Source Metadata */}
+      <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
+        <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
+          <Globe className="size-4" />
+          <span>6. Source Metadata</span>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Source Type
+            </label>
+            <select
+              value={finalizeForm.sourceType}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, sourceType: e.target.value }))}
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            >
+              <option value="internal_upload">Internal Upload</option>
+              <option value="manual">Manual Entry</option>
+              <option value="greenhouse">Greenhouse</option>
+              <option value="lever">Lever</option>
+              <option value="company_career">Company Career Page</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Source Key
+            </label>
+            <input
+              value={finalizeForm.sourceKey}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, sourceKey: e.target.value }))}
+              placeholder="default"
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Source Name
+            </label>
+            <input
+              value={finalizeForm.sourceName}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, sourceName: e.target.value }))}
+              placeholder="e.g. Careers portal"
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Source URL
+            </label>
+            <input
+              value={finalizeForm.sourceUrl}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, sourceUrl: e.target.value }))}
+              placeholder="https://..."
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Apply URL
+            </label>
+            <input
+              value={finalizeForm.applyUrl}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, applyUrl: e.target.value }))}
+              placeholder="https://..."
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              External Job ID
+            </label>
+            <input
+              value={finalizeForm.externalJobId}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, externalJobId: e.target.value }))}
+              placeholder="Optional external ID"
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 7. Publishing */}
+      <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
+        <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
+          <Clock className="size-4" />
+          <span>7. Publishing & Lifecycle</span>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-[#14244B]">
+              Listing Status <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={finalizeForm.listingStatus}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, listingStatus: e.target.value as any }))}
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            >
+              <option value="ACTIVE">ACTIVE (Hiển thị ngay cho ứng viên)</option>
+              <option value="DRAFT">DRAFT (Lưu bản nháp - chưa hiển thị)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[#607096]">
+              Posted At (Optional original date)
+            </label>
+            <input
+              type="datetime-local"
+              value={finalizeForm.postedAt}
+              onChange={(e) => setFinalizeForm((f) => ({ ...f, postedAt: e.target.value }))}
+              className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
+            />
+          </div>
         </div>
       </div>
     </div>
   )}
 
-  <div className="rounded-xl border border-outline-variant/20">
-    <div className="flex items-center justify-between border-b border-outline-variant/20 px-4 py-2">
-      <span className="text-sm font-semibold">Nội dung hiển thị cho ứng viên</span>
+  {/* Description Markdown Editor */}
+  <div className="rounded-2xl border border-[#DCE4F3] overflow-hidden shadow-2xs bg-white">
+    <div className="flex items-center justify-between border-b border-[#EAEFF8] bg-[#F8FAFC] px-4 py-3">
+      <span className="text-xs sm:text-sm font-bold text-[#14244B]">Nội dung hiển thị cho ứng viên</span>
     </div>
-    <div data-color-mode="light" className="rounded-b-xl">
+    <div data-color-mode="light" className="p-1">
       <MDEditor
         value={descriptionHtml}
         onChange={(v) => setDescriptionHtml(String(v || ""))}
         preview="edit"
-        height={220}
+        height={260}
         textareaProps={{ placeholder: "Nội dung JD từ tài liệu đã tải lên" }}
       />
     </div>
   </div>
 
   {/* Actions */}
-  <div className="mt-6 flex justify-end gap-2">
+  <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-[#EAEFF8] pt-6">
     <button
       onClick={handleCancel}
-      className="rounded-xl border border-outline-variant/40 px-4 py-2.5 text-sm font-medium"
+      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-5 py-2.5 text-xs sm:text-sm font-semibold text-[#14244B] shadow-xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all"
     >
       Hủy
     </button>
 
     {isEditMode ? (
+      <>
+      <button
+        onClick={handleDelete}
+        className="inline-flex min-h-10 items-center justify-center rounded-xl border border-red-200 bg-white px-5 py-2.5 text-xs sm:text-sm font-semibold text-red-700 hover:bg-red-50"
+      >
+        Xóa JD
+      </button>
       <button
         onClick={handleSaveEdit}
         disabled={!canSaveEdit}
-        className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white"
+        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] hover:bg-[#183275] active:bg-[#122557] px-6 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {editBusy ? "Đang lưu..." : "Lưu thay đổi"}
       </button>
+      </>
     ) : (
-      <button
-        onClick={handleFinalize}
-        disabled={!canFinalize}
-        className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white"
-      >
-        {finalizeBusy ? "Đang lưu..." : "Hoàn tất JD"}
-      </button>
+      <>
+        <button
+          onClick={handleDelete}
+          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-red-200 bg-white px-5 py-2.5 text-xs sm:text-sm font-semibold text-red-700 hover:bg-red-50"
+        >
+          Xóa JD
+        </button>
+        <button
+          onClick={() => handleFinalize("DRAFT")}
+          disabled={!canFinalize}
+          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#204195] bg-white px-5 py-2.5 text-xs sm:text-sm font-bold text-[#204195] disabled:opacity-50"
+        >
+          {finalizeBusy ? "Đang lưu..." : "Lưu nháp"}
+        </button>
+        <button
+          onClick={() => handleFinalize("ACTIVE")}
+          disabled={!canFinalize}
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] hover:bg-[#183275] active:bg-[#122557] px-6 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {finalizeBusy ? "Đang đăng..." : "Đăng job"}
+        </button>
+      </>
     )}
   </div>
 </section>

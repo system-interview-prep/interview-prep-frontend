@@ -34,7 +34,6 @@ describe("apiClient Services", () => {
       email: "reg@example.com",
       password: "pass123",
       phone: "0123456789",
-      role: "CANDIDATE",
     });
   });
 

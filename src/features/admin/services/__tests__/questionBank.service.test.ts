@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-const get = vi.fn();
-const post = vi.fn();
+const { get, post } = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+}));
 vi.mock("@/lib/apiClient", () => ({ default: { get, post } }));
 
 import { questionBankApi } from "../questionBank.service";

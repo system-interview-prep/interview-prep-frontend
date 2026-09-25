@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AxiosError } from "axios";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { formatUserRole } from "@/i18n/roles";
 import { userApi, type UserProfile } from "@lib/apiClient";
 import { readAuthProfile, writeAuthProfile } from "@features/auth/services/auth.service";
 import { API_BASE_URL } from "@/constants";
@@ -75,6 +76,12 @@ export default function UserProfilePage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const roleLabel = t("userDash.roleFallback");
+  const formattedRoles = useMemo(() => {
+    if (!profile?.roles || profile.roles.length === 0) {
+      return roleLabel;
+    }
+    return profile.roles.map((r) => formatUserRole(r, t)).join(", ");
+  }, [profile?.roles, roleLabel, t]);
 
   const currentDisplayName = useMemo(() => {
     const name = profile?.name?.trim();
@@ -477,7 +484,7 @@ export default function UserProfilePage() {
                   </h2>
                   <div className="mt-1 flex items-center justify-center gap-2">
                     <span className="rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-2.5 py-0.5 text-[10px] font-semibold text-[#204195]">
-                      {profile.roles?.join(", ") || roleLabel}
+                      {formattedRoles}
                     </span>
                   </div>
                   <p className="mt-2 text-xs text-[#607096]">
@@ -507,7 +514,7 @@ export default function UserProfilePage() {
                         {t("profile.field.role")}
                       </span>
                       <span className="text-right font-semibold text-[#14244B]">
-                        {profile.roles?.join(", ") || roleLabel}
+                        {formattedRoles}
                       </span>
                     </div>
 
