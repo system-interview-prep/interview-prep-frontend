@@ -9,6 +9,7 @@ on:
       - develop
     paths:
       - "src/features/interview/**"
+      - "src/features/matching/**"
       - "src/lib/aiService.ts"
       - "src/lib/apiClient.ts"
       - "package.json"
