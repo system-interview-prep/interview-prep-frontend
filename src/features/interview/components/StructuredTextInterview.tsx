@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2, MessageSquareText, ShieldCheck } from 'lucide-react';
 import ChatBox, { type ChatMessage } from './ChatBox';
 import {
   interviewRuntimeApi,
@@ -128,25 +128,34 @@ export default function StructuredTextInterview({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-outline-variant/20 bg-surface-container-low px-4 py-3">
+      <div className="shrink-0 border-b border-[#E6EBF4] bg-white px-5 py-4 sm:px-6">
         <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-              Structured interview
-            </p>
-            <p className="text-sm font-bold text-on-surface">
-              {runtime.completed
-                ? 'Interview completed'
-                : `Question ${Math.min(runtime.progress.answered + 1, runtime.progress.total)} of ${runtime.progress.total}`}
-            </p>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF3FF] text-[#204195]">
+              <MessageSquareText className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#607096]">Chat interview</p>
+              <p className="truncate text-sm font-bold text-[#14244B]">
+                {runtime.completed
+                  ? 'Interview completed'
+                  : `Question ${Math.min(runtime.progress.answered + 1, runtime.progress.total)} of ${runtime.progress.total}`}
+              </p>
+            </div>
           </div>
-          <span className="text-xs font-semibold tabular-nums text-on-surface-variant">
-            {runtime.progress.answered}/{runtime.progress.total}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="hidden items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700 sm:inline-flex">
+              <ShieldCheck className="size-3.5" />
+              Answers saved
+            </span>
+            <span className="rounded-full bg-[#F4F6FA] px-2.5 py-1 text-xs font-bold tabular-nums text-[#425477]">
+              {runtime.progress.answered}/{runtime.progress.total}
+            </span>
+          </div>
         </div>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-container-high">
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#EDF1F7]">
           <div
-            className="h-full rounded-full bg-primary transition-[width]"
+            className="h-full rounded-full bg-[#204195] transition-[width]"
             style={{
               width: `${runtime.progress.total ? (runtime.progress.answered / runtime.progress.total) * 100 : 0}%`,
             }}
