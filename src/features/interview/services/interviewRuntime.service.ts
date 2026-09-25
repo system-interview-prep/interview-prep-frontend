@@ -40,6 +40,8 @@ export type InterviewEvaluationTarget = {
   requirementId: string;
   priority: string;
   kind: string;
+  label: string;
+  groupOperator: "atomic" | "all_of" | "any_of";
   status: "met" | "not_met" | "unknown" | "not_applicable";
   reasonCode: string;
   conceptIds: string[];
@@ -55,6 +57,7 @@ export type InterviewRuntimePlan = {
   schemaVersion: string;
   status: "DRAFT" | "READY" | "LOCKED" | "FAILED";
   policyVersion: string | null;
+  fingerprint: string | null;
   questionBudget: number | null;
   targetQuestionCount: number;
   difficulty: InterviewPlanDifficulty | null;
