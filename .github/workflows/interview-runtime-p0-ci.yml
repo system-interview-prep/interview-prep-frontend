@@ -1,9 +1,9 @@
-name: Interview Question Selector P2 UI CI
+name: Interview Text Runtime P3 UI CI
 
 on:
   push:
     branches:
-      - feat/interview-question-selector
+      - feat/interview-text-runtime
   pull_request:
     branches:
       - develop
