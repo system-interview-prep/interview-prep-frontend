@@ -92,4 +92,34 @@ describe("interview runtime API contract", () => {
     expect(loaded.planId).toBe("plan-1");
   });
 
+  it("selects and reads frozen P2 turns", async () => {
+    post.mockResolvedValueOnce({
+      data: {
+        sessionId: "session-1",
+        planId: "plan-1",
+        status: "LOCKED",
+        selectorPolicyVersion: "interview-question-selector-v1",
+        turns: [{ turnId: "turn-1", turnIndex: 0, status: "PLANNED", question: {} }],
+      },
+    });
+    get.mockResolvedValueOnce({
+      data: {
+        sessionId: "session-1",
+        turns: [{ turnId: "turn-1", turnIndex: 0, status: "PLANNED", question: {} }],
+      },
+    });
+
+    const selected = await interviewRuntimeApi.selectQuestions("session 1");
+    const turns = await interviewRuntimeApi.getTurns("session 1");
+
+    expect(post).toHaveBeenCalledWith(
+      "/api/v1/interviews/sessions/session%201/questions/select",
+    );
+    expect(get).toHaveBeenCalledWith(
+      "/api/v1/interviews/sessions/session%201/turns",
+    );
+    expect(selected.status).toBe("LOCKED");
+    expect(turns[0]?.turnId).toBe("turn-1");
+  });
+
 });
