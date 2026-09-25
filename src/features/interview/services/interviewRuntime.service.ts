@@ -9,6 +9,7 @@ export type InterviewRuntimePlanSummary = {
 };
 
 export type InterviewCompetencyTarget = {
+  selectionRank: number | null;
   taxonomyVersion: string;
   conceptId: string;
   label: string;
