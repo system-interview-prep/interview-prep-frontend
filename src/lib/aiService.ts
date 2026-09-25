@@ -126,6 +126,7 @@ export type MatchResult = {
   policyVersion: string;
   eligibility: EligibilityStatus;
   compatibilityStatus: CompatibilityStatus;
+  diagnosticScore?: number | null;
   suitabilityScore: number | null;
   fitBand: FitBand;
   decision: MatchingDecision;
@@ -134,6 +135,7 @@ export type MatchResult = {
   factorResults: FactorResult[];
   scoreProvenance?: ScoreProvenance;
   warnings: string[];
+  failedMustHaveRequirements?: string[];
 };
 
 export type CvScoringCriterion = {
@@ -187,6 +189,8 @@ export type CvScoringResponse = {
   eligibility?: EligibilityStatus;
   compatibilityStatus?: CompatibilityStatus;
   suitabilityScore?: number | null;
+  diagnosticScore?: number | null;
+  failedMustHaveRequirements?: string[];
   fitBand?: FitBand;
   factorResults?: FactorResult[];
   scoreProvenance?: ScoreProvenance;
@@ -331,6 +335,11 @@ export function normalizeMatchResult(raw: any, candidateId: string, jobId: strin
     : typeof raw.score?.normalized === "number"
     ? raw.score.normalized
     : null;
+  const rawDiagnosticScore: number | null = typeof raw.diagnosticScore === "number"
+    ? raw.diagnosticScore
+    : typeof raw.diagnostic_score === "number"
+    ? raw.diagnostic_score
+    : null;
 
   const rawEligibility = raw.eligibility;
   const eligibility: EligibilityStatus =
@@ -360,9 +369,10 @@ export function normalizeMatchResult(raw: any, candidateId: string, jobId: strin
     (fitBand === "strong_fit" || fitBand === "partial_fit")
       ? rawSuitability
       : null;
-  const percentage: number | null = typeof raw.score?.percentage === "number"
-    ? (suitability === null ? null : raw.score.percentage)
-    : (typeof suitability === "number" ? Math.round(suitability * 100) : null);
+  const diagnosticScore = rawDiagnosticScore;
+  const percentage: number | null = typeof suitability === "number"
+    ? (typeof raw.score?.percentage === "number" ? raw.score.percentage : Math.round(suitability * 100))
+    : (typeof diagnosticScore === "number" ? Math.round(diagnosticScore * 100) : null);
 
   const legacyDecision: CvScoringDecision =
     raw.decision === "PASS" || raw.decision === "FAIL"
@@ -505,6 +515,10 @@ export function normalizeMatchResult(raw: any, candidateId: string, jobId: strin
     eligibility,
     compatibilityStatus: raw.compatibilityStatus || raw.compatibility_status || "not_applicable",
     suitabilityScore: suitability,
+    diagnosticScore,
+    failedMustHaveRequirements: Array.isArray(raw.failedMustHaveRequirements || raw.failed_must_have_requirements)
+      ? (raw.failedMustHaveRequirements || raw.failed_must_have_requirements)
+      : [],
     fitBand,
     factorResults,
     scoreProvenance,

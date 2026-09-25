@@ -348,10 +348,14 @@ export function CompactMatchSummary({
   eligibility,
   percentage,
   requirementResults,
+  failedMustHaveCount = 0,
+  scoreIsDiagnostic = false,
 }: {
   eligibility?: string;
   percentage: number | null;
   requirementResults?: Array<{ status: string }>;
+  failedMustHaveCount?: number;
+  scoreIsDiagnostic?: boolean;
 }) {
   const eligible = eligibility === "eligible";
   const ineligible = eligibility === "ineligible";
@@ -366,8 +370,10 @@ export function CompactMatchSummary({
       total: applicable.length,
     };
   }, [requirementResults]);
-  const hasEvaluatedRequirements = counts.met + counts.notMet > 0;
-  const displayPercentage = percentage != null && hasEvaluatedRequirements;
+  // Only an explicit diagnostic score from the v2.1 contract may be shown for
+  // a non-eligible result. This preserves legacy suppression for payloads that
+  // contain an ambiguous score field without provenance.
+  const displayPercentage = percentage != null && (eligible || scoreIsDiagnostic);
 
   const stateDot = eligible
     ? "bg-emerald-500"
@@ -387,8 +393,16 @@ export function CompactMatchSummary({
       : eligible
       ? "Thông tin hiện có cho thấy hồ sơ đáp ứng các điều kiện chính."
       : ineligible
-      ? "Có tiêu chí chính chưa được hồ sơ đáp ứng."
+      ? failedMustHaveCount > 0
+        ? `Có ${failedMustHaveCount} tiêu chí bắt buộc chưa được hồ sơ đáp ứng.`
+        : "Có tiêu chí chính chưa được hồ sơ đáp ứng."
       : "Chưa đủ bằng chứng để đưa ra kết luận chắc chắn.";
+  // Keep the legacy label when no score is exposed.  The reference label is
+  // reserved for an explicit diagnostic score from the v2.1 contract.
+  const scoreLabel =
+    eligible || !scoreIsDiagnostic
+      ? "Điểm phù hợp tổng hợp"
+      : "Điểm phù hợp tham khảo";
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white px-5 py-5 shadow-2xs sm:px-6 md:min-h-[156px]">
@@ -400,16 +414,20 @@ export function CompactMatchSummary({
                 <span className="text-[40px] sm:text-[44px] md:text-[54px]">{percentage}</span>
                 <span className="mt-1 text-xl sm:text-2xl md:mt-1.5 md:text-[28px]">%</span>
               </div>
-              <p className="mt-1.5 text-sm font-medium text-slate-700">Điểm phù hợp tổng hợp</p>
+              <p className="mt-1.5 text-sm font-medium text-slate-700">{scoreLabel}</p>
               <div className="mt-3 h-1.5 max-w-56 overflow-hidden rounded-full bg-slate-200">
                 <div className="h-full rounded-full bg-slate-700" style={{ width: `${percentage}%` }} />
               </div>
-              <p className="mt-2 text-xs text-slate-500">Điểm tham khảo dựa trên thông tin hiện có.</p>
+              <p className="mt-2 text-xs text-slate-500">
+                {eligible
+                  ? "Điểm phù hợp cuối cùng dựa trên thông tin hiện có."
+                  : "Điểm tham khảo không thay đổi kết luận về điều kiện bắt buộc."}
+              </p>
             </>
           ) : (
             <div>
               <span className="text-4xl font-semibold leading-none text-slate-400">—</span>
-              <p className="mt-2 text-sm font-medium text-slate-700">Điểm phù hợp tổng hợp</p>
+              <p className="mt-2 text-sm font-medium text-slate-700">{scoreLabel}</p>
               <p className="mt-2 text-xs text-slate-500">Chưa đủ dữ liệu để tính điểm phù hợp.</p>
             </div>
           )}
@@ -842,6 +860,8 @@ export function ReportContent({
             ? Math.max(0, Math.min(100, Math.round(result.score.percentage)))
             : null}
           requirementResults={result.requirementResults}
+          failedMustHaveCount={result.failedMustHaveRequirements?.length ?? 0}
+          scoreIsDiagnostic={result.diagnosticScore != null}
         />
         <MatchBreakdown requirementResults={result.requirementResults} />
       </div>
