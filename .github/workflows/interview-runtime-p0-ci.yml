@@ -1,0 +1,53 @@
+name: Interview Runtime P0 UI CI
+
+on:
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - "src/features/interview/**"
+      - "src/lib/aiService.ts"
+      - "src/lib/apiClient.ts"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/interview-runtime-p0-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "11.10.0"
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Type-check
+        run: pnpm exec tsc --noEmit
+
+      - name: Build frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:5000
+        run: pnpm build
