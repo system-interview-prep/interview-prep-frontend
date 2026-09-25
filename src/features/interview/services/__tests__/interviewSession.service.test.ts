@@ -61,7 +61,7 @@ describe("startInterviewSession", () => {
   it.each([
     [{ candidateId: "cv-1" }, "missing job id"],
     [{ jobId: "job-1" }, "missing candidate id"],
-  ])("rejects partial CV-JD context: %s", async (context) => {
+  ])("rejects partial CV-JD context: %s", async (context, _caseName) => {
     await expect(
       startInterviewSession({
         mode: "chat",
