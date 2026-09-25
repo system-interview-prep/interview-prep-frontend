@@ -1,9 +1,9 @@
-name: Interview Planner P1 UI CI
+name: Interview Question Selector P2 UI CI
 
 on:
   push:
     branches:
-      - feat/interview-planner
+      - feat/interview-question-selector
   pull_request:
     branches:
       - develop
