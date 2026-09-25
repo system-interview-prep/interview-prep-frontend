@@ -8,6 +8,15 @@ export type ChatHistoryItem = {
   metadata?: any;
 };
 
+export type LegacyInterviewSession = {
+  id: string;
+  type: "Chat" | "Voice" | "Call";
+  language: string;
+  status: string;
+  startedAt: string;
+  endedAt: string | null;
+};
+
 export type ChatHistoryResponse = {
   history: ChatHistoryItem[];
 };
@@ -259,10 +268,20 @@ export async function getChatHistory(sessionId: string = "default-session"): Pro
     }
   });
   if (!res.ok) throw new Error("Network response was not ok");
-  return res.json();
+  const payload = await res.json() as { history?: Array<Record<string, unknown>> };
+  return {
+    history: Array.isArray(payload.history)
+      ? payload.history.map((item) => ({
+          role: String(item.role ?? ""),
+          content: String(item.content ?? ""),
+          timestamp: String(item.timestamp ?? item.created_at ?? ""),
+          metadata: item.metadata,
+        }))
+      : [],
+  };
 }
 
-export async function getAllSessions(): Promise<{ sessions: string[] }> {
+export async function getAllSessions(): Promise<{ sessions: LegacyInterviewSession[] }> {
   const res = await fetch(`${API_BASE_URL}/ai/sessions`, {
     headers: {
       "Content-Type": "application/json",
@@ -270,7 +289,8 @@ export async function getAllSessions(): Promise<{ sessions: string[] }> {
     }
   });
   if (!res.ok) throw new Error("Network response was not ok");
-  return res.json();
+  const payload = await res.json() as { sessions?: LegacyInterviewSession[] };
+  return { sessions: Array.isArray(payload.sessions) ? payload.sessions : [] };
 }
 
 export async function closeSession(sessionId: string): Promise<{ sessionId: string; status: string; endedAt: string }> {
