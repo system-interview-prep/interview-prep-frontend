@@ -44,6 +44,8 @@ export default function AdminTaxonomyClient() {
   const [form, setForm] = useState(initialForm);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [message, setMessage] = useState("");
+  const [deletingVersion, setDeletingVersion] = useState(false);
+  const [deletingConcept, setDeletingConcept] = useState<string | null>(null);
 
   const isNewVersion =
     !editingConcept &&
@@ -127,6 +129,66 @@ export default function AdminTaxonomyClient() {
         (error as { response?: { data?: { detail?: string } } }).response?.data
           ?.detail || "Không thể activate taxonomy.",
       );
+    }
+  };
+
+  const deleteVersion = async () => {
+    const version = form.version.trim();
+    const selectedVersion = versions.find((item) => item.version === version);
+    if (!version || !selectedVersion || selectedVersion.isActive) return;
+    if (
+      !window.confirm(
+        `Xóa taxonomy version \"${version}\"? Toàn bộ concepts và aliases của version này cũng sẽ bị xóa.`,
+      )
+    ) {
+      return;
+    }
+    setDeletingVersion(true);
+    setMessage("");
+    try {
+      await taxonomyApi.deleteVersion(version);
+      setMessage(`Đã xóa taxonomy version ${version}.`);
+      setEditingConcept(null);
+      setCloneFrom("");
+      setForm({ ...initialForm, version: taxonomy?.version || "" });
+      await load();
+    } catch (error) {
+      setMessage(
+        (error as { response?: { data?: { detail?: string } } }).response?.data
+          ?.detail || "Không thể xóa taxonomy version.",
+      );
+    } finally {
+      setDeletingVersion(false);
+    }
+  };
+
+  const deleteConcept = async (conceptId: string, label: string) => {
+    const version = taxonomy?.version;
+    if (!version || deletingConcept) return;
+    if (
+      !window.confirm(
+        `Xóa concept \"${label}\" (${conceptId}) khỏi version ${version}?`,
+      )
+    ) {
+      return;
+    }
+    setDeletingConcept(conceptId);
+    setMessage("");
+    try {
+      await taxonomyApi.deleteConcept(version, conceptId);
+      if (editingConcept === conceptId) {
+        setEditingConcept(null);
+        setForm({ ...initialForm, version });
+      }
+      setMessage(`Đã xóa concept ${conceptId}.`);
+      await load();
+    } catch (error) {
+      setMessage(
+        (error as { response?: { data?: { detail?: string } } }).response?.data
+          ?.detail || "Không thể xóa concept.",
+      );
+    } finally {
+      setDeletingConcept(null);
     }
   };
 
@@ -326,6 +388,20 @@ export default function AdminTaxonomyClient() {
                   className="rounded-xl bg-[#204195] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
                   Activate version
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    !versions.some(
+                      (item) =>
+                        item.version === form.version.trim() && !item.isActive,
+                    ) || deletingVersion
+                  }
+                  onClick={() => void deleteVersion()}
+                  className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Không thể xóa version đang active"
+                >
+                  {deletingVersion ? "Đang xóa..." : "Xóa version"}
                 </button>
               </div>
             </div>
@@ -562,13 +638,28 @@ export default function AdminTaxonomyClient() {
                                     label: concept.label,
                                     kind: concept.kind,
                                     description: concept.description || "",
-                                    aliases: "",
+                                    aliases: (concept.aliases || []).join(", "),
                                     isActive: concept.is_active,
                                   });
                                 }}
                                 className="text-sm font-semibold text-[#204195]"
                               >
                                 Sửa
+                              </button>
+                              <button
+                                type="button"
+                                disabled={deletingConcept === concept.concept_id}
+                                onClick={() =>
+                                  void deleteConcept(
+                                    concept.concept_id,
+                                    concept.label,
+                                  )
+                                }
+                                className="ml-3 text-sm font-semibold text-red-700 disabled:opacity-50"
+                              >
+                                {deletingConcept === concept.concept_id
+                                  ? "Đang xóa..."
+                                  : "Xóa"}
                               </button>
                             </td>
                           </tr>
