@@ -259,8 +259,9 @@ function RoomContent() {
   const searchParams = useSearchParams();
   const roomId = params?.id as string;
   const mode = searchParams.get('mode');
+  const runtime = searchParams.get('runtime');
 
-  if (mode === 'chat') {
+  if (mode === 'chat' && runtime === 'structured') {
     return (
       <div className="flex h-screen flex-col overflow-hidden bg-surface font-body text-on-surface">
         <InterviewRoomHeader />
