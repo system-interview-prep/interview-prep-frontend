@@ -36,6 +36,8 @@ export type HumanizedRequirement = {
   status: RequirementStatus;
   statusLabel: string;
   reasonText?: string;
+  reasonCode?: string;
+  evidenceExplanation?: string;
   jdEvidenceText?: string;
   cvEvidence?: CvEvidenceItem[];
   conceptResults?: ConceptEvidenceResult[];

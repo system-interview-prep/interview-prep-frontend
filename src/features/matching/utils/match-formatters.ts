@@ -174,6 +174,7 @@ export function buildHumanizedRequirementsAndGroups(params: {
     confidence?: number;
     evidenceRefs?: string[];
     reasonCode?: string;
+    evidenceExplanation?: string;
     groupOperator?: string;
     conceptResults?: Array<{
       conceptId: string;
@@ -390,6 +391,8 @@ export function buildHumanizedRequirementsAndGroups(params: {
       status,
       statusLabel: formatStatusLabel(status),
       reasonText: reasonText || undefined,
+      reasonCode: res.reasonCode,
+      evidenceExplanation: res.evidenceExplanation,
       jdEvidenceText,
       cvEvidence: cvEvidenceItems,
       conceptResults: conceptResults.length > 0 ? conceptResults : undefined,

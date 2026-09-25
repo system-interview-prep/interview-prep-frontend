@@ -63,6 +63,7 @@ export type RequirementResult = {
   confidence?: number | null;
   evidenceRefs: string[];
   reasonCode: string;
+  evidenceExplanation?: string;
   conceptResults?: ConceptResult[];
   groupOperator?: "atomic" | "all_of" | "any_of";
 };
@@ -75,7 +76,7 @@ export type CompatibilityResult = {
 };
 
 export type FactorResult = {
-  factor: "skill" | "experience" | "language" | "semantic";
+  factor: "requirement_coverage" | "skill" | "experience" | "language" | "semantic";
   status: "scored" | "not_applicable" | "unknown";
   rawScore?: number | null;
   reliability?: number | null;
@@ -88,12 +89,27 @@ export type FactorResult = {
 };
 
 export type MatchingPolicy = {
-  policyVersion?: "balanced-v1" | "skill-focus-v1" | "experience-focus-v1";
+  policyVersion?: "balanced-v1" | "balanced-v2" | "skill-focus-v1" | "experience-focus-v1";
   mustHaveMode?: "strict" | "advisory";
   unknownHandling?: "manual_review" | "penalize";
   semanticMode?: "hybrid" | "dense_only" | "sparse_only";
   bm25Weight?: number;
   bm25ProviderMode?: "auto" | "in_memory" | "paradedb";
+};
+
+export type ScoreProvenance = {
+  mode: "requirement_aware" | "semantic_only_estimated" | "unavailable";
+  scoredFactors: string[];
+  supportedRequirementCount: number;
+  scoredRequirementCount: number;
+  unknownRequirementCount: number;
+  metRequirementCount?: number;
+  notMetRequirementCount?: number;
+  unsupportedRequirementCount?: number;
+  totalRequirementCount: number;
+  evidenceCoverage?: "complete" | "partial" | "unavailable";
+  requirementCoverage?: number | null;
+  factorContributions?: Record<string, number>;
 };
 
 export type CandidatePreferences = {
@@ -116,6 +132,7 @@ export type MatchResult = {
   requirementResults: RequirementResult[];
   compatibilityResults: CompatibilityResult[];
   factorResults: FactorResult[];
+  scoreProvenance?: ScoreProvenance;
   warnings: string[];
 };
 
@@ -172,6 +189,7 @@ export type CvScoringResponse = {
   suitabilityScore?: number | null;
   fitBand?: FitBand;
   factorResults?: FactorResult[];
+  scoreProvenance?: ScoreProvenance;
   requirementResults?: RequirementResult[];
   compatibilityResults?: CompatibilityResult[];
   warnings?: string[];
@@ -306,17 +324,13 @@ export async function sendVideoCallVoiceChatMessage(params: { callId: string; pr
 }
 
 export function normalizeMatchResult(raw: any, candidateId: string, jobId: string): CvScoringResponse {
-  const suitability: number | null = typeof raw.suitabilityScore === "number"
+  const rawSuitability: number | null = typeof raw.suitabilityScore === "number"
     ? raw.suitabilityScore
     : typeof raw.suitability_score === "number"
     ? raw.suitability_score
     : typeof raw.score?.normalized === "number"
     ? raw.score.normalized
     : null;
-
-  const percentage: number | null = typeof raw.score?.percentage === "number"
-    ? raw.score.percentage
-    : (typeof suitability === "number" ? Math.round(suitability * 100) : null);
 
   const rawEligibility = raw.eligibility;
   const eligibility: EligibilityStatus =
@@ -337,7 +351,18 @@ export function normalizeMatchResult(raw: any, candidateId: string, jobId: strin
   const matchingDecision: MatchingDecision =
     raw.decision === "assessed" || raw.decision === "abstained"
       ? raw.decision
-      : (suitability === null || eligibility === "review_required" ? "abstained" : "assessed");
+      : (rawSuitability === null || eligibility === "review_required" ? "abstained" : "assessed");
+
+  // A score calculated while a must-have is unresolved is only an auxiliary
+  // signal. Never expose it as the candidate's final suitability score.
+  const suitability: number | null =
+    matchingDecision === "assessed" && eligibility === "eligible" &&
+    (fitBand === "strong_fit" || fitBand === "partial_fit")
+      ? rawSuitability
+      : null;
+  const percentage: number | null = typeof raw.score?.percentage === "number"
+    ? (suitability === null ? null : raw.score.percentage)
+    : (typeof suitability === "number" ? Math.round(suitability * 100) : null);
 
   const legacyDecision: CvScoringDecision =
     raw.decision === "PASS" || raw.decision === "FAIL"
@@ -371,6 +396,7 @@ export function normalizeMatchResult(raw: any, candidateId: string, jobId: strin
         confidence: typeof r.confidence === "number" ? r.confidence : null,
         evidenceRefs: Array.isArray(r.evidenceRefs || r.evidence_refs) ? (r.evidenceRefs || r.evidence_refs) : [],
         reasonCode: r.reasonCode || r.reason_code || "",
+        evidenceExplanation: r.evidenceExplanation || r.evidence_explanation || undefined,
         conceptResults: Array.isArray(r.conceptResults || r.concept_results)
           ? (r.conceptResults || r.concept_results).map((c: any) => ({
               conceptId: c.conceptId || c.concept_id || "",
@@ -399,6 +425,26 @@ export function normalizeMatchResult(raw: any, candidateId: string, jobId: strin
         reasonCode: c.reasonCode || c.reason_code || "",
       }))
     : [];
+
+  const rawProvenance = raw.scoreProvenance || raw.score_provenance;
+  const scoreProvenance: ScoreProvenance | undefined = rawProvenance && typeof rawProvenance === "object"
+    ? {
+        mode: rawProvenance.mode === "requirement_aware" || rawProvenance.mode === "semantic_only_estimated"
+          ? rawProvenance.mode
+          : "unavailable",
+        scoredFactors: rawProvenance.scoredFactors || rawProvenance.scored_factors || [],
+        supportedRequirementCount: rawProvenance.supportedRequirementCount ?? rawProvenance.supported_requirement_count ?? 0,
+        scoredRequirementCount: rawProvenance.scoredRequirementCount ?? rawProvenance.scored_requirement_count ?? 0,
+        unknownRequirementCount: rawProvenance.unknownRequirementCount ?? rawProvenance.unknown_requirement_count ?? 0,
+        metRequirementCount: rawProvenance.metRequirementCount ?? rawProvenance.met_requirement_count,
+        notMetRequirementCount: rawProvenance.notMetRequirementCount ?? rawProvenance.not_met_requirement_count,
+        unsupportedRequirementCount: rawProvenance.unsupportedRequirementCount ?? rawProvenance.unsupported_requirement_count,
+        totalRequirementCount: rawProvenance.totalRequirementCount ?? rawProvenance.total_requirement_count ?? 0,
+        evidenceCoverage: rawProvenance.evidenceCoverage || rawProvenance.evidence_coverage,
+        requirementCoverage: rawProvenance.requirementCoverage ?? rawProvenance.requirement_coverage ?? null,
+        factorContributions: rawProvenance.factorContributions || rawProvenance.factor_contributions || {},
+      }
+    : undefined;
 
   const criteriaBreakdown: CvScoringCriterion[] = Array.isArray(raw.criteriaBreakdown)
     ? raw.criteriaBreakdown
@@ -461,6 +507,7 @@ export function normalizeMatchResult(raw: any, candidateId: string, jobId: strin
     suitabilityScore: suitability,
     fitBand,
     factorResults,
+    scoreProvenance,
     requirementResults,
     compatibilityResults,
     warnings: Array.isArray(raw.warnings) ? raw.warnings : [],

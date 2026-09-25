@@ -134,7 +134,9 @@ export function EvidenceInspector({ requirement, compact = false }: EvidenceInsp
                   </div>
                 ) : (
                   <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                    Chưa đủ bằng chứng để xác nhận nội dung này.
+                    {concept.status === "not_met"
+                      ? "Không tìm thấy bằng chứng về nội dung này trong CV hiện tại."
+                      : "Chưa tìm thấy bằng chứng đủ rõ để kết luận nội dung này."}
                   </p>
                 )}
               </div>
@@ -155,7 +157,9 @@ export function EvidenceInspector({ requirement, compact = false }: EvidenceInsp
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 p-3 text-xs leading-relaxed text-slate-500">
-            Chưa tìm thấy thông tin đủ rõ trong CV để xác nhận tiêu chí này.
+            {requirement.evidenceExplanation || (requirement.status === "not_met"
+              ? "Không tìm thấy bằng chứng về yêu cầu này trong CV hiện tại."
+              : "Chưa tìm thấy bằng chứng đủ rõ để kết luận tiêu chí này.")}
           </div>
         )}
       </section>

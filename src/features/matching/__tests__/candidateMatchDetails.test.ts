@@ -322,5 +322,46 @@ describe("Candidate Job Match Details UI — Professional ATS", () => {
       expect(html).not.toContain("Kết luận");
       expect(html).not.toContain("Chưa có diễn giải bổ sung");
     });
+
+    it("describes absent evidence as not met instead of needing verification", () => {
+      const html = renderToStaticMarkup(
+        React.createElement(EvidenceInspector, {
+          requirement: {
+            ...conceptRequirement,
+            status: "not_met",
+            statusLabel: "Chưa đáp ứng",
+            conceptResults: [
+              {
+                conceptId: "skill-dotnet",
+                label: "C# / .NET",
+                status: "not_met",
+                confidence: 0.9,
+                evidence: [],
+                reasonCode: "concept_evidence_missing",
+              },
+            ],
+          },
+        })
+      );
+
+      expect(html).toContain("Không tìm thấy bằng chứng về nội dung này trong CV hiện tại.");
+      expect(html).not.toContain("chưa đủ chi tiết để kết luận");
+    });
+
+    it("does not claim related CV information when the evaluator returned no evidence", () => {
+      const html = renderToStaticMarkup(
+        React.createElement(EvidenceInspector, {
+          requirement: {
+            ...conceptRequirement,
+            conceptResults: undefined,
+            reasonCode: "requirement_evaluator_unsupported",
+            cvEvidence: [],
+          },
+        })
+      );
+
+      expect(html).toContain("Hệ thống chưa hỗ trợ phân tích tự động tiêu chí này");
+      expect(html).not.toContain("CV có thể có thông tin liên quan");
+    });
   });
 });

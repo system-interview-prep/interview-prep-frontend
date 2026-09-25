@@ -158,7 +158,31 @@ export function resolveReasonCodeText(code?: string): string {
   if (!code) return "";
   switch (code) {
     case "skill_not_evidenced":
-      return "Chưa tìm thấy bằng chứng hoặc từ khóa kỹ năng này trong hồ sơ.";
+      return "Không tìm thấy bằng chứng về kỹ năng này trong CV hiện tại.";
+    case "language_not_evidenced":
+      return "Không tìm thấy bằng chứng về ngoại ngữ hoặc chứng chỉ này trong CV hiện tại.";
+    case "education_not_evidenced":
+      return "Không tìm thấy bằng chứng học vấn đáp ứng yêu cầu trong CV hiện tại.";
+    case "experience_not_evidenced":
+      return "Không tìm thấy bằng chứng kinh nghiệm đáp ứng yêu cầu trong CV hiện tại.";
+    case "resume_section_incomplete":
+      return "Dữ liệu CV chưa đầy đủ nên hệ thống chưa thể kết luận tiêu chí này.";
+    case "requirement_evaluator_unsupported":
+      return "Chưa đủ dữ liệu bằng chứng để kết luận tiêu chí này.";
+    case "raw_text_coverage_incomplete":
+      return "Raw text của CV chưa được thu thập đầy đủ; cần bổ sung hoặc parse lại CV để kết luận.";
+    case "generic_requirement_evidence_weak":
+      return "CV có đề cập nội dung liên quan nhưng chưa đủ ngữ cảnh thực hành để xác nhận.";
+    case "requirement_not_evidenced":
+      return "Không tìm thấy bằng chứng phù hợp trong toàn bộ raw text của CV.";
+    case "credential_level_not_evidenced":
+      return "CV có thông tin liên quan nhưng chưa nêu mức điểm hoặc cấp độ cần thiết.";
+    case "experience_duration_not_evidenced":
+      return "CV có kinh nghiệm liên quan nhưng chưa đủ mốc thời gian để xác định thời lượng.";
+    case "experience_duration_below_minimum":
+      return "Thời lượng kinh nghiệm được xác thực thấp hơn mức tối thiểu của JD.";
+    case "experience_duration_satisfied":
+      return "Thời lượng kinh nghiệm được xác thực đáp ứng mức tối thiểu của JD.";
     case "skill_level_not_evidenced":
       return "Chưa đủ thông tin minh chứng cho cấp độ kỹ năng yêu cầu.";
     case "skill_level_below_minimum":
@@ -342,6 +366,8 @@ export function CompactMatchSummary({
       total: applicable.length,
     };
   }, [requirementResults]);
+  const hasEvaluatedRequirements = counts.met + counts.notMet > 0;
+  const displayPercentage = percentage != null && hasEvaluatedRequirements;
 
   const stateDot = eligible
     ? "bg-emerald-500"
@@ -368,7 +394,7 @@ export function CompactMatchSummary({
     <section className="rounded-xl border border-slate-200 bg-white px-5 py-5 shadow-2xs sm:px-6 md:min-h-[156px]">
       <div className="grid gap-5 md:grid-cols-[minmax(180px,0.8fr)_minmax(0,1.5fr)] md:items-center md:gap-8">
         <div>
-          {percentage != null ? (
+          {displayPercentage ? (
             <>
               <div className="flex items-start font-semibold leading-none tracking-tight text-slate-950">
                 <span className="text-[40px] sm:text-[44px] md:text-[54px]">{percentage}</span>
@@ -384,7 +410,7 @@ export function CompactMatchSummary({
             <div>
               <span className="text-4xl font-semibold leading-none text-slate-400">—</span>
               <p className="mt-2 text-sm font-medium text-slate-700">Điểm phù hợp tổng hợp</p>
-              <p className="mt-2 text-xs text-slate-500">Chưa có đủ dữ liệu để hiển thị điểm.</p>
+              <p className="mt-2 text-xs text-slate-500">Chưa đủ dữ liệu để tính điểm phù hợp.</p>
             </div>
           )}
         </div>

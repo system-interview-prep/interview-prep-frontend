@@ -346,7 +346,7 @@ describe("Truthful Matching UI Remediation — Phase 1 & 1.1 Hardening", () => {
       expect(html).not.toContain(">0<");
     });
 
-    it("keeps a 41% score referential when all 14 criteria still need verification", () => {
+    it("suppresses a semantic-only percentage when all criteria still need verification", () => {
       const html = renderToStaticMarkup(
         React.createElement(
           React.Fragment,
@@ -362,12 +362,12 @@ describe("Truthful Matching UI Remediation — Phase 1 & 1.1 Hardening", () => {
         )
       );
 
-      expect(html).toContain(">41<");
+      expect(html).not.toContain(">41<");
       expect(html).toContain("Điểm phù hợp tổng hợp");
       expect(html).toContain("Cần xác minh thêm");
       expect(html).toContain("Phần lớn tiêu chí hiện chưa có đủ bằng chứng để xác nhận.");
       expect(html).toContain(">14<");
-      expect(html).toContain("Điểm tham khảo dựa trên thông tin hiện có.");
+      expect(html).toContain("Chưa đủ dữ liệu để tính điểm phù hợp.");
     });
 
     it("renders 'unknown' requirement truthfully as 'Chưa đủ bằng chứng', never 'Chưa đạt'", () => {
@@ -524,7 +524,7 @@ describe("Truthful Matching UI Remediation — Phase 1 & 1.1 Hardening", () => {
       expect(html).not.toContain("0% điểm tổng hợp tham khảo");
     });
 
-    it("renders an abstained score as reference information beside the review state", () => {
+    it("suppresses an abstained score when no requirement was evaluated", () => {
       const rawBackend: CvScoringResponse = {
         candidateId: "c1",
         jobId: "j1",
@@ -548,16 +548,16 @@ describe("Truthful Matching UI Remediation — Phase 1 & 1.1 Hardening", () => {
       );
 
       expect(html).toContain("Điểm phù hợp tổng hợp");
-      expect(html).toContain("Điểm tham khảo dựa trên thông tin hiện có.");
+      expect(html).toContain("Chưa đủ dữ liệu để tính điểm phù hợp.");
       expect(html).toContain("Cần xác minh thêm");
       expect(html).toContain("Chưa đủ bằng chứng để đưa ra kết luận chắc chắn.");
-      expect(html).toContain("72");
+      expect(html).not.toContain(">72<");
     });
   });
 
   describe("Reason code & warning mappings", () => {
     it("maps backend reason codes to friendly Vietnamese explanations without raw snake_case", () => {
-      expect(resolveReasonCodeText("skill_not_evidenced")).toContain("Chưa tìm thấy bằng chứng");
+      expect(resolveReasonCodeText("skill_not_evidenced")).toContain("Không tìm thấy bằng chứng");
       expect(resolveReasonCodeText("skill_level_below_minimum")).toContain("Cấp độ kỹ năng");
       expect(resolveReasonCodeText("education_requirement_needs_specialized_evaluator")).toContain("học vấn");
       expect(resolveReasonCodeText("certificate_requirement_needs_specialized_evaluator")).toContain("chuyên viên nhân sự xác minh");
