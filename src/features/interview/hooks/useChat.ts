@@ -74,7 +74,9 @@ export function useChat(options: UseChatOptions = {}) {
             const all = await getAllSessions();
             const list = Array.isArray(all.sessions) ? all.sessions : [];
             setSessions(
-                list.map(normalizeSessionId).filter((id) => id.length > 0),
+                list
+                    .map((session) => normalizeSessionId(session.id))
+                    .filter((id) => id.length > 0),
             );
             setSessionMeta(readAllSessionMeta());
         } catch (err) {
