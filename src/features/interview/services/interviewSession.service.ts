@@ -2,9 +2,11 @@ import { closeSession, createSession, startVideoCall } from "@/lib/aiService";
 import { interviewRuntimeApi } from "./interviewRuntime.service";
 
 export type InterviewMode = "chat" | "voice" | "video";
+export type InterviewExperience = "question_practice" | "interview_chat";
 
 export type StartInterviewParams = {
   mode: InterviewMode;
+  experience?: InterviewExperience;
   lang: "en" | "vi";
   jobTitle?: string;
   /** CV/resume id used by the structured interview runtime. */
@@ -26,6 +28,7 @@ export type StartInterviewParams = {
  */
 export async function startInterviewSession({
   mode,
+  experience,
   lang,
   jobTitle,
   candidateId,
@@ -52,6 +55,7 @@ export async function startInterviewSession({
       resumeId: normalizedCandidateId,
       jobId: normalizedJobId,
       mode: runtimeMode,
+      experienceType: experience ?? "question_practice",
       locale,
       durationMinutes,
     });
@@ -71,6 +75,25 @@ export async function startInterviewSession({
         await interviewRuntimeApi.close(sessionId);
       } catch {
         /* best-effort compensation; preserve the planner error */
+      }
+      const res = (error as { response?: { data?: { detail?: string } } })?.response;
+      const rawMsg =
+        typeof res?.data?.detail === "string"
+          ? res.data.detail
+          : error instanceof Error
+          ? error.message
+          : "";
+      if (rawMsg.includes("question_unavailable")) {
+        const enrichedError = Object.assign(
+          new Error(
+            "question_unavailable: Ngân hàng câu hỏi chưa có đủ câu hỏi đã duyệt phù hợp với vị trí này để bắt đầu phỏng vấn."
+          ),
+          {
+            code: "QUESTION_UNAVAILABLE",
+            response: (error as { response?: unknown })?.response,
+          }
+        );
+        throw enrichedError;
       }
       throw error;
     }
@@ -116,6 +139,13 @@ export async function startInterviewSession({
   }
   if (hasCandidateId && hasJobId) {
     search.set("runtime", "structured");
+    search.set("experience", experience ?? "question_practice");
+  } else if (experience) {
+    search.set("experience", experience);
+  }
+
+  if (hasCandidateId && hasJobId && (experience === "question_practice" || !experience)) {
+    return `/practice/room/${encodeURIComponent(sessionId)}?${search.toString()}`;
   }
 
   return `/interview/room/${encodeURIComponent(sessionId)}?${search.toString()}`;
