@@ -24,6 +24,7 @@ import {
   Sparkles,
   Video,
   XCircle,
+  Mic,
 } from "lucide-react";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import {
@@ -577,7 +578,10 @@ function ScorePageContent() {
     return map;
   }, [jobProfile]);
 
-  const handleStartInterview = async (mode: "chat" | "voice" | "video") => {
+  const handleStartInterview = async (
+    mode: "chat" | "voice" | "video",
+    experience?: "question_practice" | "interview_chat"
+  ) => {
     if (startingInterview) return;
     if (!candidateId || !jobId) {
       setInterviewStartError("Thiếu CV hoặc Job Profile để tạo phiên phỏng vấn.");
@@ -589,6 +593,7 @@ function ScorePageContent() {
       const activeJobTitle = jobProfile?.title || queryJobTitle || "AI Engineer";
       const targetUrl = await startInterviewSession({
         mode,
+        experience,
         lang: lang === "vi" ? "vi" : "en",
         jobTitle: activeJobTitle,
         candidateId,
@@ -747,28 +752,101 @@ function ScorePageContent() {
                 </div>
                 <div className="grid gap-4 p-6 sm:grid-cols-3 sm:p-7">
                   {[
-                    { mode: "chat" as const, title: "Chat", desc: "Trả lời bằng văn bản, tập trung vào cấu trúc và nội dung.", meta: "Không cần mic/camera", Icon: MessageSquare },
-                    { mode: "voice" as const, title: "Voice", desc: "Trả lời bằng giọng nói để luyện nhịp phỏng vấn tự nhiên.", meta: "Cần microphone", Icon: Brain },
-                    { mode: "video" as const, title: "Voice + Face to face", desc: "Mô phỏng phỏng vấn trực diện với voice, camera và interviewer.", meta: "Cần mic + camera", Icon: Video },
-                  ].map(({ mode, title, desc, meta, Icon }) => (
+                    {
+                      key: "interview_chat",
+                      title: "Interview Chat",
+                      desc: "Hội thoại phỏng vấn hai chiều với AI Interviewer theo thời gian thực.",
+                      meta: "Nhắn tin tương tác",
+                      badge: "Khuyên dùng",
+                      Icon: MessageSquare,
+                      action: () => void handleStartInterview("chat", "interview_chat"),
+                      disabled: false,
+                      cta: "Bắt đầu",
+                    },
+                    {
+                      key: "voice",
+                      title: "Voice",
+                      desc: "Trả lời bằng giọng nói để luyện nhịp phỏng vấn tự nhiên mà không cần bật camera.",
+                      meta: "Cần microphone",
+                      badge: null,
+                      Icon: Mic,
+                      action: () => void handleStartInterview("voice"),
+                      disabled: false,
+                      cta: "Bắt đầu",
+                    },
+                    {
+                      key: "video",
+                      title: "Voice + Face to face",
+                      desc: "Mô phỏng phỏng vấn trực diện với voice, camera và interviewer trên màn hình.",
+                      meta: "Cần mic + camera",
+                      badge: null,
+                      Icon: Video,
+                      action: () => void handleStartInterview("video"),
+                      disabled: false,
+                      cta: "Bắt đầu",
+                    },
+                  ].map(({ key, title, desc, meta, badge, Icon, action, disabled, cta }) => (
                     <button
-                      key={mode}
+                      key={key}
                       type="button"
-                      disabled={startingInterview}
-                      onClick={() => void handleStartInterview(mode)}
-                      className="group flex min-h-[230px] flex-col rounded-2xl border border-[#DCE4F3] bg-white p-5 text-left shadow-xs transition-all hover:-translate-y-0.5 hover:border-[#204195]/60 hover:shadow-md disabled:cursor-wait disabled:opacity-60"
+                      disabled={disabled || startingInterview}
+                      onClick={action}
+                      className={`group flex min-h-[250px] flex-col rounded-2xl border p-5 text-left shadow-xs transition-all ${
+                        disabled
+                          ? "border-[#DCE4F3] bg-slate-50/70 opacity-70 cursor-not-allowed"
+                          : "border-[#DCE4F3] bg-white hover:-translate-y-0.5 hover:border-[#204195]/60 hover:shadow-md disabled:cursor-wait disabled:opacity-60"
+                      }`}
                     >
-                      <span className="flex size-11 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195]"><Icon className="size-5" /></span>
-                      <span className="mt-5 text-base font-bold text-[#14244B]">{title}</span>
-                      <span className="mt-2 flex-1 text-xs leading-5 text-[#607096]">{desc}</span>
-                      <span className="mt-4 w-fit rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-semibold text-[#607096]">{meta}</span>
-                      <span className="mt-4 flex w-full items-center justify-between border-t border-[#EAEFF8] pt-4 text-sm font-bold text-[#204195]">
-                        {startingInterview ? "Đang chuẩn bị..." : "Bắt đầu"}
-                        {!startingInterview && <ArrowLeft className="size-4 rotate-180 transition-transform group-hover:translate-x-0.5" />}
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`flex size-11 items-center justify-center rounded-xl ${
+                            disabled ? "bg-slate-100 text-slate-500" : "bg-[#F0F4FC] text-[#204195]"
+                          }`}
+                        >
+                          <Icon className="size-5" />
+                        </span>
+                        {badge && (
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              disabled
+                                ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            }`}
+                          >
+                            {badge}
+                          </span>
+                        )}
+                      </div>
+                      <span className="mt-4 text-base font-bold text-[#14244B]">{title}</span>
+                      <span className="mt-1.5 flex-1 text-xs leading-5 text-[#607096]">{desc}</span>
+                      <span className="mt-3 w-fit rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-semibold text-[#607096]">
+                        {meta}
+                      </span>
+                      <span
+                        className={`mt-4 flex w-full items-center justify-between border-t border-[#EAEFF8] pt-4 text-sm font-bold ${
+                          disabled ? "text-[#7A89A8]" : "text-[#204195]"
+                        }`}
+                      >
+                        <span>{startingInterview && !disabled ? "Đang chuẩn bị..." : cta}</span>
+                        {!startingInterview && !disabled && (
+                          <ArrowLeft className="size-4 rotate-180 transition-transform group-hover:translate-x-0.5" />
+                        )}
                       </span>
                     </button>
                   ))}
                 </div>
+
+                <div className="flex items-center justify-between border-t border-[#EAEFF8] bg-[#F8FAFC] px-6 py-3.5 text-xs text-[#607096] sm:px-7">
+                  <span>Bạn muốn tự ôn luyện câu hỏi trắc nghiệm & tình huống?</span>
+                  <Link
+                    href="/practice"
+                    onClick={() => setShowModeChooser(false)}
+                    className="font-bold text-[#204195] hover:underline"
+                  >
+                    Đến trang Luyện tập &rarr;
+                  </Link>
+                </div>
+
                 {interviewStartError && (
                   <div className="border-t border-red-100 bg-red-50 px-6 py-3 text-sm font-medium text-red-700 sm:px-7" role="alert">
                     {interviewStartError}
