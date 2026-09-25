@@ -1,4 +1,4 @@
-import { createSession, startVideoCall } from "@/lib/aiService";
+import { closeSession, createSession, startVideoCall } from "@/lib/aiService";
 import { interviewRuntimeApi } from "./interviewRuntime.service";
 
 export type InterviewMode = "chat" | "voice" | "video";
@@ -66,13 +66,26 @@ export async function startInterviewSession({
   }
 
   if (mode === "video") {
-    const call = await startVideoCall({ roomId: sessionId, sessionId });
-    if (typeof sessionStorage !== "undefined") {
-      try {
-        sessionStorage.setItem("video.callId", call.callId);
-      } catch {
-        /* ignore storage errors */
+    try {
+      const call = await startVideoCall({ roomId: sessionId, sessionId });
+      if (typeof sessionStorage !== "undefined") {
+        try {
+          sessionStorage.setItem("video.callId", call.callId);
+        } catch {
+          /* ignore storage errors */
+        }
       }
+    } catch (error) {
+      try {
+        if (hasCandidateId && hasJobId) {
+          await interviewRuntimeApi.close(sessionId);
+        } else {
+          await closeSession(sessionId);
+        }
+      } catch {
+        /* best-effort compensation; preserve the original video-start error */
+      }
+      throw error;
     }
   }
 
