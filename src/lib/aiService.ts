@@ -207,21 +207,28 @@ export type CvScoringResponse = {
 
 // Keep legacy fetch calls on the same effective caller identity as apiClient:
 // prefer the canonical localStorage accessToken, then fall back to the cookie.
+export function resolveInterviewAccessToken(
+  storedToken: string | null,
+  cookie: string,
+): string | null {
+  if (storedToken) return storedToken;
+
+  const value = `; ${cookie}`;
+  const parts = value.split("; access_token=");
+  if (parts.length !== 2) return null;
+
+  const token = parts.pop()?.split(";").shift();
+  return token ? decodeURIComponent(token) : null;
+}
+
 function getAuthHeaders(): Record<string, string> {
   if (typeof window === "undefined") return {};
 
-  const storedToken = localStorage.getItem("accessToken");
-  if (storedToken) {
-    return { Authorization: `Bearer ${storedToken}` };
-  }
-
-  const value = `; ${document.cookie}`;
-  const parts = value.split("; access_token=");
-  if (parts.length === 2) {
-    const token = parts.pop()?.split(";").shift();
-    if (token) return { Authorization: `Bearer ${decodeURIComponent(token)}` };
-  }
-  return {};
+  const token = resolveInterviewAccessToken(
+    localStorage.getItem("accessToken"),
+    document.cookie,
+  );
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
