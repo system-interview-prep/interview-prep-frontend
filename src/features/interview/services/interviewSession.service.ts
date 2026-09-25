@@ -114,6 +114,9 @@ export async function startInterviewSession({
   if (jobTitle?.trim()) {
     search.set("topic", jobTitle.trim());
   }
+  if (hasCandidateId && hasJobId) {
+    search.set("runtime", "structured");
+  }
 
   return `/interview/room/${encodeURIComponent(sessionId)}?${search.toString()}`;
 }
