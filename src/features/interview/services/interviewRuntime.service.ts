@@ -131,6 +131,7 @@ export type InterviewRuntimeSession = {
   resumeId: string | null;
   jobId: string | null;
   mode: InterviewRuntimeMode;
+  experienceType?: "question_practice" | "interview_chat";
   locale: string;
   durationMinutes: number;
   status: string;
@@ -143,6 +144,7 @@ export type CreateInterviewRuntimeSessionRequest = {
   resumeId: string;
   jobId: string;
   mode: InterviewRuntimeMode;
+  experienceType?: "question_practice" | "interview_chat";
   locale: string;
   durationMinutes?: number;
 };
@@ -155,6 +157,7 @@ export const interviewRuntimeApi = {
       "/api/v1/interviews/sessions",
       {
         ...payload,
+        experienceType: payload.experienceType ?? "question_practice",
         durationMinutes: payload.durationMinutes ?? 25,
       },
     );
