@@ -97,6 +97,28 @@ describe("startInterviewSession", () => {
     expect(startVideoCall).not.toHaveBeenCalled();
   });
 
+  it("closes a grounded session when planner resolves non-READY", async () => {
+    createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-plan-draft" });
+    buildRuntimePlan.mockResolvedValueOnce({
+      planId: "plan-draft",
+      sessionId: "runtime-plan-draft",
+      status: "DRAFT",
+    });
+    closeRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-plan-draft" });
+
+    await expect(
+      startInterviewSession({
+        mode: "video",
+        lang: "en",
+        candidateId: "cv-1",
+        jobId: "job-1",
+      }),
+    ).rejects.toThrow("Interview plan is not READY: DRAFT");
+
+    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-plan-draft");
+    expect(startVideoCall).not.toHaveBeenCalled();
+  });
+
   it("closes a grounded session when video setup fails", async () => {
     createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-video-1" });
     buildRuntimePlan.mockResolvedValueOnce({
