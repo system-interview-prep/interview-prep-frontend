@@ -8,6 +8,35 @@ export type InterviewRuntimePlanSummary = {
   status: "DRAFT" | "READY" | "LOCKED" | "FAILED";
 };
 
+export type InterviewCompetencyTarget = {
+  taxonomyVersion: string;
+  conceptId: string;
+  label: string;
+  importance: number;
+  targetQuestionCount: number;
+  rationale: {
+    source: string;
+    requirementIds: string[];
+    priorities: string[];
+    matchStatuses: string[];
+    jobEvidenceRefs: string[];
+  };
+};
+
+export type InterviewRuntimePlan = {
+  planId: string;
+  sessionId: string;
+  schemaVersion: string;
+  status: "DRAFT" | "READY" | "LOCKED" | "FAILED";
+  policyVersion: string | null;
+  questionBudget: number | null;
+  targetQuestionCount: number;
+  sourceContext: Record<string, unknown>;
+  targets: InterviewCompetencyTarget[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type InterviewRuntimeSession = {
   sessionId: string;
   resumeId: string | null;
@@ -55,6 +84,20 @@ export const interviewRuntimeApi = {
       "/api/v1/interviews/sessions",
     );
     return response.data.sessions;
+  },
+
+  buildPlan: async (sessionId: string): Promise<InterviewRuntimePlan> => {
+    const response = await apiClient.post<InterviewRuntimePlan>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/plan`,
+    );
+    return response.data;
+  },
+
+  getPlan: async (sessionId: string): Promise<InterviewRuntimePlan> => {
+    const response = await apiClient.get<InterviewRuntimePlan>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/plan`,
+    );
+    return response.data;
   },
 
   close: async (sessionId: string): Promise<InterviewRuntimeSession> => {
