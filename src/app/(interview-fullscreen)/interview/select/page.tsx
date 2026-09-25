@@ -13,11 +13,15 @@ export default function InterviewSelectPage() {
   const router = useRouter();
   const { showNavigationLoading, hideNavigationLoading } = useNavigationLoading();
 
-  const startMode = async (mode: "chat" | "voice" | "video") => {
+  const startMode = async (
+    mode: "chat" | "voice" | "video",
+    experience?: "question_practice" | "interview_chat"
+  ) => {
     showNavigationLoading();
     try {
       const url = await startInterviewSession({
         mode,
+        experience,
         lang: lang === "vi" ? "vi" : "en",
       });
       router.push(url);
@@ -26,7 +30,7 @@ export default function InterviewSelectPage() {
     }
   };
 
-  const goToChat = () => void startMode("chat");
+  const goToInterviewChat = () => void startMode("chat", "interview_chat");
   const goToVoice = () => void startMode("voice");
   const goToRoom = () => void startMode("video");
 
@@ -66,41 +70,41 @@ export default function InterviewSelectPage() {
           </section>
 
           {/* Consistent Action Cards */}
-          <section className="mb-12" aria-label={t("interview.select.eyebrow")}>
-            <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-3 lg:gap-8">
-              {/* Card 1: Chat Interview */}
+          <section className="mb-8" aria-label={t("interview.select.eyebrow")}>
+            <div className="grid grid-cols-1 items-stretch gap-6 sm:grid-cols-3 lg:gap-6">
+              {/* Card 1: Interview Chat */}
               <button
                 type="button"
-                onClick={goToChat}
+                onClick={goToInterviewChat}
                 className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-7 text-left shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-[#204195]/40 hover:shadow-md md:p-8 cursor-pointer"
               >
                 <div>
                   {/* Top Tag */}
                   <div className="mb-4">
-                    <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                      Chat
+                    <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
+                      Khuyên dùng
                     </span>
                   </div>
 
                   {/* Icon + Title */}
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600 transition-colors group-hover:bg-[#204195] group-hover:text-white">
                       <MessageSquare className="size-5" />
                     </div>
-                    <h2 className="text-xl font-bold text-[#14244B] transition-colors group-hover:text-[#204195]">
-                      {t("userDash.mode.chat.title")}
+                    <h2 className="text-xl font-bold text-[#14244B]">
+                      Interview Chat
                     </h2>
                   </div>
 
                   <p className="mt-3.5 text-sm leading-relaxed text-[#607096]">
-                    {t("userDash.mode.chat.desc")}
+                    Hội thoại phỏng vấn hai chiều với AI Interviewer theo thời gian thực.
                   </p>
                 </div>
 
                 <div className="mt-8 border-t border-[#EAEFF8] pt-4">
-                  <span className="flex min-h-10 items-center justify-between text-sm font-semibold text-[#204195]">
-                    <span>{t("userDash.mode.chat.cta")}</span>
-                    <ArrowRight className="size-4.5 transition-transform duration-200 group-hover:translate-x-1" />
+                  <span className="flex min-h-10 items-center justify-between text-sm font-semibold text-[#204195] transition-colors group-hover:text-[#183273]">
+                    <span>Bắt đầu</span>
+                    <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
                   </span>
                 </div>
               </button>
@@ -181,6 +185,18 @@ export default function InterviewSelectPage() {
               </button>
             </div>
           </section>
+
+          {/* Question Practice Banner */}
+          <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-[#DCE4F3] bg-white px-6 py-4 shadow-xs text-sm text-[#607096]">
+            <span>Bạn muốn tự ôn luyện câu hỏi trắc nghiệm & tình huống theo tốc độ của mình?</span>
+            <Link
+              href="/practice"
+              className="inline-flex items-center gap-1 font-bold text-[#204195] hover:text-[#183275] hover:underline shrink-0"
+            >
+              <span>Đến trang Luyện tập</span>
+              <ArrowRight className="size-4" />
+            </Link>
+          </div>
 
           {/* Session Logs Section */}
           <section
