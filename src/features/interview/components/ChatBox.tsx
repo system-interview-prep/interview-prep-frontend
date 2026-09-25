@@ -13,10 +13,11 @@ export interface ChatMessage {
 
 interface Props {
   messages: ChatMessage[];
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string) => void | Promise<void>;
+  disabled?: boolean;
 }
 
-export default function ChatBox({ messages, onSendMessage }: Props) {
+export default function ChatBox({ messages, onSendMessage, disabled = false }: Props) {
   const { t } = useLanguage();
   const bottomRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState('');
@@ -27,8 +28,8 @@ export default function ChatBox({ messages, onSendMessage }: Props) {
 
   const commitSend = () => {
     const trimmed = draft.trim();
-    if (!trimmed) return;
-    onSendMessage(trimmed);
+    if (!trimmed || disabled) return;
+    void onSendMessage(trimmed);
     setDraft('');
   };
 
@@ -104,6 +105,7 @@ export default function ChatBox({ messages, onSendMessage }: Props) {
         <div className="flex items-end gap-2 rounded-2xl border border-outline-variant/25 bg-surface-container-lowest p-1.5 shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/25 transition-all">
           <textarea
             value={draft}
+            disabled={disabled}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={t('room.inputPlaceholder')}
             rows={2}
@@ -118,7 +120,7 @@ export default function ChatBox({ messages, onSendMessage }: Props) {
           />
           <button
             type="submit"
-            disabled={!draft.trim()}
+            disabled={disabled || !draft.trim()}
             className="mb-1 mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary shadow-md transition-all hover:bg-primary-container active:scale-95 disabled:pointer-events-none disabled:opacity-40"
             aria-label={t('voice.sendPrompt')}
           >
