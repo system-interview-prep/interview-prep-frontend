@@ -23,6 +23,32 @@ export type InterviewCompetencyTarget = {
   };
 };
 
+export type InterviewPlanDifficulty = {
+  level: "foundational" | "intermediate" | "advanced" | "unspecified";
+  source: "job_seniority" | "job_seniority_missing";
+  seniority: string | null;
+};
+
+export type InterviewPlanSection = {
+  sectionId: "warmup" | "core" | "gap_validation" | "closing";
+  label: string;
+  durationMinutes: number;
+  purpose: string;
+};
+
+export type InterviewEvaluationTarget = {
+  requirementId: string;
+  priority: string;
+  kind: string;
+  status: "met" | "not_met" | "unknown" | "not_applicable";
+  reasonCode: string;
+  conceptIds: string[];
+  jobEvidenceRefs: string[];
+  candidateEvidenceRefs: string[];
+  evaluationMode: "competency" | "requirement_validation";
+  attention: "validate_gap" | "verify_claim" | "not_applicable";
+};
+
 export type InterviewRuntimePlan = {
   planId: string;
   sessionId: string;
@@ -31,6 +57,9 @@ export type InterviewRuntimePlan = {
   policyVersion: string | null;
   questionBudget: number | null;
   targetQuestionCount: number;
+  difficulty: InterviewPlanDifficulty | null;
+  sections: InterviewPlanSection[];
+  evaluationTargets: InterviewEvaluationTarget[];
   sourceContext: Record<string, unknown>;
   targets: InterviewCompetencyTarget[];
   createdAt: string;
