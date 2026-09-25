@@ -6,6 +6,7 @@ import VideoPlayer from '@features/interview/components/VideoPlayer';
 import SimliAvatar from '@features/interview/components/SimliAvatar';
 import { VideoRoomFloatingBar } from '@features/interview/components/VideoRoomFloatingBar';
 import ChatBox from '@features/interview/components/ChatBox';
+import StructuredTextInterview from '@features/interview/components/StructuredTextInterview';
 import { InterviewRoomHeader } from '@features/interview/components/InterviewRoomHeader';
 import { useWebRTC } from '@features/interview/hooks/useWebRTC';
 import { useVideoCallChat } from '@features/interview/hooks/useVideoCallChat';
@@ -27,7 +28,7 @@ function getMaxChatWidth(): number {
   return Math.max(MIN_CHAT_W, Math.min(MAX_CHAT_ABS, vw - reserveForVideo));
 }
 
-function RoomContent() {
+function MediaRoomContent() {
   const { t } = useLanguage();
   const params = useParams();
   const router = useRouter();
@@ -251,6 +252,28 @@ function RoomContent() {
       </div>
     </div>
   );
+}
+
+function RoomContent() {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const roomId = params?.id as string;
+  const mode = searchParams.get('mode');
+
+  if (mode === 'chat') {
+    return (
+      <div className="flex h-screen flex-col overflow-hidden bg-surface font-body text-on-surface">
+        <InterviewRoomHeader />
+        <main className="min-h-0 flex-1 bg-surface-container-low p-3 sm:p-5">
+          <div className="mx-auto h-full max-w-4xl overflow-hidden rounded-3xl border border-outline-variant/25 bg-surface-container-lowest shadow-sm">
+            <StructuredTextInterview sessionId={roomId} />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  return <MediaRoomContent />;
 }
 
 export default function RoomPage() {
