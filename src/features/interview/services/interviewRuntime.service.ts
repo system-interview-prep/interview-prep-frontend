@@ -78,6 +78,39 @@ export type InterviewRuntimePlan = {
   updatedAt: string;
 };
 
+export type InterviewFrozenTurn = {
+  turnId: string;
+  turnIndex: number;
+  status: string;
+  questionVersionId: string | null;
+  rubricVersionId: string | null;
+  question: {
+    schemaVersion?: string;
+    selectorPolicyVersion?: string;
+    questionVersionId?: string;
+    stableKey?: string;
+    version?: string;
+    questionType?: string;
+    difficulty?: string;
+    locale?: string;
+    canonicalLocale?: string;
+    questionText?: string;
+    objective?: string;
+    expectedPoints?: Array<Record<string, unknown>>;
+    rubric?: Record<string, unknown>;
+    taxonomyTarget?: Record<string, unknown>;
+  };
+};
+
+export type InterviewQuestionSelection = {
+  sessionId: string;
+  planId: string;
+  status: "LOCKED";
+  selectorPolicyVersion: string;
+  fingerprint?: string;
+  turns: InterviewFrozenTurn[];
+};
+
 export type InterviewRuntimeSession = {
   sessionId: string;
   resumeId: string | null;
@@ -139,6 +172,25 @@ export const interviewRuntimeApi = {
       `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/plan`,
     );
     return response.data;
+  },
+
+  selectQuestions: async (
+    sessionId: string,
+  ): Promise<InterviewQuestionSelection> => {
+    const response = await apiClient.post<InterviewQuestionSelection>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/questions/select`,
+    );
+    return response.data;
+  },
+
+  getTurns: async (sessionId: string): Promise<InterviewFrozenTurn[]> => {
+    const response = await apiClient.get<{
+      sessionId: string;
+      turns: InterviewFrozenTurn[];
+    }>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/turns`,
+    );
+    return response.data.turns;
   },
 
   close: async (sessionId: string): Promise<InterviewRuntimeSession> => {

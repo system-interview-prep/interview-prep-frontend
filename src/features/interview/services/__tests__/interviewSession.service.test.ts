@@ -7,6 +7,7 @@ const {
   buildRuntimePlan,
   closeRuntimeSession,
   createRuntimeSession,
+  selectRuntimeQuestions,
 } = vi.hoisted(() => ({
   closeLegacySession: vi.fn(),
   createLegacySession: vi.fn(),
@@ -14,6 +15,7 @@ const {
   buildRuntimePlan: vi.fn(),
   closeRuntimeSession: vi.fn(),
   createRuntimeSession: vi.fn(),
+  selectRuntimeQuestions: vi.fn(),
 }));
 
 vi.mock("@/lib/aiService", () => ({
@@ -27,6 +29,7 @@ vi.mock("../interviewRuntime.service", () => ({
     buildPlan: buildRuntimePlan,
     close: closeRuntimeSession,
     create: createRuntimeSession,
+    selectQuestions: selectRuntimeQuestions,
   },
 }));
 
@@ -35,6 +38,12 @@ import { startInterviewSession } from "../interviewSession.service";
 describe("startInterviewSession", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    selectRuntimeQuestions.mockResolvedValue({
+      sessionId: "runtime-default",
+      planId: "plan-default",
+      status: "LOCKED",
+      turns: [{ turnId: "turn-1" }],
+    });
   });
 
   it("uses the structured runtime when both CV and job ids are present", async () => {
@@ -61,6 +70,7 @@ describe("startInterviewSession", () => {
       durationMinutes: 30,
     });
     expect(buildRuntimePlan).toHaveBeenCalledWith("runtime-1");
+    expect(selectRuntimeQuestions).toHaveBeenCalledWith("runtime-1");
     expect(createLegacySession).not.toHaveBeenCalled();
     expect(url).toContain("/interview/room/runtime-1");
   });
@@ -78,6 +88,56 @@ describe("startInterviewSession", () => {
   });
 
 
+
+  it("closes a grounded session when question selection is unavailable", async () => {
+    createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-selector-fail" });
+    buildRuntimePlan.mockResolvedValueOnce({
+      planId: "plan-selector-fail",
+      sessionId: "runtime-selector-fail",
+      status: "READY",
+    });
+    selectRuntimeQuestions.mockRejectedValueOnce(new Error("question_unavailable"));
+    closeRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-selector-fail" });
+
+    await expect(
+      startInterviewSession({
+        mode: "chat",
+        lang: "en",
+        candidateId: "cv-1",
+        jobId: "job-1",
+      }),
+    ).rejects.toThrow("question_unavailable");
+
+    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-selector-fail");
+    expect(startVideoCall).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unlocked or empty selector response before room entry", async () => {
+    createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-selector-empty" });
+    buildRuntimePlan.mockResolvedValueOnce({
+      planId: "plan-selector-empty",
+      sessionId: "runtime-selector-empty",
+      status: "READY",
+    });
+    selectRuntimeQuestions.mockResolvedValueOnce({
+      sessionId: "runtime-selector-empty",
+      planId: "plan-selector-empty",
+      status: "LOCKED",
+      turns: [],
+    });
+    closeRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-selector-empty" });
+
+    await expect(
+      startInterviewSession({
+        mode: "chat",
+        lang: "en",
+        candidateId: "cv-1",
+        jobId: "job-1",
+      }),
+    ).rejects.toThrow("Interview question selection did not produce locked turns");
+
+    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-selector-empty");
+  });
 
   it("closes a grounded session when planner creation fails", async () => {
     createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-plan-fail" });
