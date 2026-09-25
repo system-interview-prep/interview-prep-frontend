@@ -635,67 +635,60 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
         ) : (
           <div className="flex flex-1 flex-col overflow-hidden bg-white">
             <div className="flex-1 overflow-y-auto p-6">
+              <div className="mb-5 rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
+                <p className="text-sm font-bold text-[#14244B]">Chọn trải nghiệm phỏng vấn</p>
+                <p className="mt-1 text-xs leading-relaxed text-[#607096]">
+                  Cùng một bộ câu hỏi theo CV và JD; bạn chỉ thay đổi cách tương tác với interviewer.
+                </p>
+              </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <button
-                  type="button"
-                  onClick={goToChat}
-                  className="group flex flex-col rounded-2xl border border-[#DCE4F3] bg-white p-5 text-left shadow-xs transition-all hover:border-[#204195] hover:shadow-md"
-                  aria-label={t("userDash.jobCvModal.modeChatAria")}
-                >
-                  <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195] transition-transform group-hover:scale-105">
-                    <MessageSquare className="size-6" />
-                  </span>
-                  <span className="text-base font-bold text-[#14244B]">{t("userDash.mode.chat.title")}</span>
-                  <span className="mt-2 line-clamp-3 text-xs leading-relaxed text-[#607096]">
-                    {t("userDash.mode.chat.desc")}
-                  </span>
-                  <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-[#204195]">
-                    <span>{t("userDash.mode.chat.cta")}</span>
-                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={goToVoice}
-                  className="group flex flex-col rounded-2xl border border-[#DCE4F3] bg-white p-5 text-left shadow-xs transition-all hover:border-[#204195] hover:shadow-md"
-                  aria-label={t("userDash.jobCvModal.modeVoiceAria")}
-                >
-                  <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195] transition-transform group-hover:scale-105">
-                    <Mic className="size-6" />
-                  </span>
-                  <span className="text-base font-bold text-[#14244B]">{t("userDash.mode.voice.title")}</span>
-                  <span className="mt-2 line-clamp-3 text-xs leading-relaxed text-[#607096]">
-                    {t("userDash.mode.voice.desc")}
-                  </span>
-                  <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-[#204195]">
-                    <span>{t("userDash.mode.voice.cta")}</span>
-                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={goToRoom}
-                  disabled={roomStarting}
-                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-transparent bg-gradient-to-br from-[#204195] to-[#14244B] p-5 text-left text-white shadow-md transition-all hover:shadow-lg disabled:opacity-60"
-                  aria-label={t("userDash.jobCvModal.modeRoomAria")}
-                >
-                  <span className="mb-2 inline-flex w-fit items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                    {t("userDash.mode.video.badge")}
-                  </span>
-                  <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-xs transition-transform group-hover:scale-105">
-                    <Video className="size-6" />
-                  </span>
-                  <span className="text-base font-bold text-white">{t("userDash.mode.video.title")}</span>
-                  <span className="mt-2 line-clamp-3 text-xs leading-relaxed text-white/85">
-                    {t("userDash.mode.video.desc")}
-                  </span>
-                  <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-white">
-                    <span>{roomStarting ? t("admin.jobProfile.loading") : t("userDash.mode.video.cta")}</span>
-                    {!roomStarting && <ArrowRight className="size-4" />}
-                  </span>
-                </button>
+                {[
+                  {
+                    key: "chat",
+                    title: "Chat",
+                    desc: "Đọc câu hỏi và trả lời bằng văn bản. Phù hợp để tập trung vào nội dung câu trả lời.",
+                    meta: "Không cần mic/camera",
+                    Icon: MessageSquare,
+                    action: goToChat,
+                  },
+                  {
+                    key: "voice",
+                    title: "Voice",
+                    desc: "Trả lời bằng giọng nói và luyện nhịp phỏng vấn tự nhiên mà không cần bật camera.",
+                    meta: "Cần microphone",
+                    Icon: Mic,
+                    action: goToVoice,
+                  },
+                  {
+                    key: "video",
+                    title: "Voice + Face to face",
+                    desc: "Mô phỏng buổi phỏng vấn trực diện với giọng nói, camera và interviewer trên màn hình.",
+                    meta: "Cần mic + camera",
+                    Icon: Video,
+                    action: goToRoom,
+                  },
+                ].map(({ key, title, desc, meta, Icon, action }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={action}
+                    disabled={roomStarting}
+                    className="group flex min-h-[250px] flex-col rounded-2xl border border-[#DCE4F3] bg-white p-5 text-left shadow-xs transition-all hover:-translate-y-0.5 hover:border-[#204195]/60 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#204195] disabled:cursor-wait disabled:opacity-60"
+                  >
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195] transition-transform group-hover:scale-105">
+                      <Icon className="size-5" />
+                    </span>
+                    <span className="mt-5 text-base font-bold text-[#14244B]">{title}</span>
+                    <span className="mt-2 flex-1 text-xs leading-5 text-[#607096]">{desc}</span>
+                    <span className="mt-4 inline-flex w-fit rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-semibold text-[#607096]">
+                      {meta}
+                    </span>
+                    <span className="mt-4 flex w-full items-center justify-between border-t border-[#EAEFF8] pt-4 text-sm font-bold text-[#204195]">
+                      <span>{roomStarting ? "Đang chuẩn bị..." : "Bắt đầu"}</span>
+                      {!roomStarting && <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />}
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
