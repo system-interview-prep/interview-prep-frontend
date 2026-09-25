@@ -38,10 +38,19 @@ export async function startInterviewSession({
 
   let sessionId: string;
 
-  if (candidateId?.trim() && jobId?.trim()) {
+  const normalizedCandidateId = candidateId?.trim() || "";
+  const normalizedJobId = jobId?.trim() || "";
+  const hasCandidateId = Boolean(normalizedCandidateId);
+  const hasJobId = Boolean(normalizedJobId);
+
+  if (hasCandidateId !== hasJobId) {
+    throw new Error("candidateId and jobId must be provided together");
+  }
+
+  if (hasCandidateId && hasJobId) {
     const session = await interviewRuntimeApi.create({
-      resumeId: candidateId.trim(),
-      jobId: jobId.trim(),
+      resumeId: normalizedCandidateId,
+      jobId: normalizedJobId,
       mode: runtimeMode,
       locale,
       durationMinutes,
