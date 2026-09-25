@@ -157,9 +157,12 @@ export function EvidenceInspector({ requirement, compact = false }: EvidenceInsp
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 p-3 text-xs leading-relaxed text-slate-500">
-            {requirement.evidenceExplanation || (requirement.status === "not_met"
-              ? "Không tìm thấy bằng chứng về yêu cầu này trong CV hiện tại."
-              : "Chưa tìm thấy bằng chứng đủ rõ để kết luận tiêu chí này.")}
+            {requirement.evidenceExplanation ||
+              (requirement.reasonCode === "requirement_evaluator_unsupported"
+                ? "Hệ thống chưa hỗ trợ phân tích tự động tiêu chí này."
+                : requirement.status === "not_met"
+                  ? "Không tìm thấy bằng chứng về yêu cầu này trong CV hiện tại."
+                  : "Chưa tìm thấy bằng chứng đủ rõ để kết luận tiêu chí này.")}
           </div>
         )}
       </section>
