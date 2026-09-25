@@ -45,6 +45,14 @@ export type InterviewEvaluationTarget = {
   status: "met" | "not_met" | "unknown" | "not_applicable";
   reasonCode: string;
   conceptIds: string[];
+  conceptResults: Array<{
+    conceptId: string;
+    label: string;
+    status: "met" | "not_met" | "unknown" | "not_applicable";
+    confidence: number;
+    reasonCode: string;
+    candidateEvidenceRefs: string[];
+  }>;
   jobEvidenceRefs: string[];
   candidateEvidenceRefs: string[];
   evaluationMode: "competency" | "requirement_validation";
