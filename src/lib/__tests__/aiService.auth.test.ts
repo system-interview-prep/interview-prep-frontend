@@ -21,6 +21,12 @@ describe("resolveInterviewAccessToken", () => {
     ).toBe("cookie token");
   });
 
+  it("returns null for a malformed encoded cookie token", () => {
+    expect(
+      resolveInterviewAccessToken(null, "access_token=%E0%A4%A"),
+    ).toBeNull();
+  });
+
   it("returns null when neither token source is available", () => {
     expect(resolveInterviewAccessToken(null, "role=CANDIDATE")).toBeNull();
   });
