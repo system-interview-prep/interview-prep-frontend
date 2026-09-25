@@ -1,18 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createLegacySession, startVideoCall, createRuntimeSession } = vi.hoisted(() => ({
+const {
+  closeLegacySession,
+  createLegacySession,
+  startVideoCall,
+  closeRuntimeSession,
+  createRuntimeSession,
+} = vi.hoisted(() => ({
+  closeLegacySession: vi.fn(),
   createLegacySession: vi.fn(),
   startVideoCall: vi.fn(),
+  closeRuntimeSession: vi.fn(),
   createRuntimeSession: vi.fn(),
 }));
 
 vi.mock("@/lib/aiService", () => ({
+  closeSession: closeLegacySession,
   createSession: createLegacySession,
   startVideoCall,
 }));
 
 vi.mock("../interviewRuntime.service", () => ({
   interviewRuntimeApi: {
+    close: closeRuntimeSession,
     create: createRuntimeSession,
   },
 }));
@@ -56,6 +66,42 @@ describe("startInterviewSession", () => {
       language: "English",
     });
     expect(createRuntimeSession).not.toHaveBeenCalled();
+  });
+
+
+  it("closes a grounded session when video setup fails", async () => {
+    createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-video-1" });
+    startVideoCall.mockRejectedValueOnce(new Error("video setup failed"));
+    closeRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-video-1" });
+
+    await expect(
+      startInterviewSession({
+        mode: "video",
+        lang: "en",
+        candidateId: "cv-1",
+        jobId: "job-1",
+      }),
+    ).rejects.toThrow("video setup failed");
+
+    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-video-1");
+    expect(closeLegacySession).not.toHaveBeenCalled();
+  });
+
+  it("closes a legacy session when standalone video setup fails", async () => {
+    createLegacySession.mockResolvedValueOnce({ sessionId: "legacy-video-1" });
+    startVideoCall.mockRejectedValueOnce(new Error("video setup failed"));
+    closeLegacySession.mockResolvedValueOnce({
+      sessionId: "legacy-video-1",
+      status: "CLOSED",
+      endedAt: "2026-09-25T00:00:00Z",
+    });
+
+    await expect(
+      startInterviewSession({ mode: "video", lang: "en" }),
+    ).rejects.toThrow("video setup failed");
+
+    expect(closeLegacySession).toHaveBeenCalledWith("legacy-video-1");
+    expect(closeRuntimeSession).not.toHaveBeenCalled();
   });
 
   it.each([
