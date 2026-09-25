@@ -49,6 +49,22 @@ export default function InterviewSelectPage() {
             </div>
           </header>
 
+          <section className="mb-6 rounded-2xl border border-[#DCE4F3] bg-white px-5 py-4 shadow-xs sm:px-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-bold text-[#14244B]">Choose how you want to practise</p>
+                <p className="mt-1 text-xs leading-relaxed text-[#607096]">
+                  The interview plan and question set stay consistent. Only the interaction changes.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-[#425477]">
+                <span className="rounded-full bg-[#F0F4FC] px-2.5 py-1">Text</span>
+                <span className="rounded-full bg-[#F0F4FC] px-2.5 py-1">Voice</span>
+                <span className="rounded-full bg-[#F0F4FC] px-2.5 py-1">Face to face</span>
+              </div>
+            </div>
+          </section>
+
           {/* Consistent Action Cards */}
           <section className="mb-12" aria-label={t("interview.select.eyebrow")}>
             <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-3 lg:gap-8">
@@ -62,7 +78,7 @@ export default function InterviewSelectPage() {
                   {/* Top Tag */}
                   <div className="mb-4">
                     <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                      Quick Text
+                      Chat
                     </span>
                   </div>
 
@@ -99,7 +115,7 @@ export default function InterviewSelectPage() {
                   {/* Top Tag */}
                   <div className="mb-4">
                     <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-[#204195]">
-                      Audio AI
+                      Voice
                     </span>
                   </div>
 
@@ -130,20 +146,20 @@ export default function InterviewSelectPage() {
               <button
                 type="button"
                 onClick={goToRoom}
-                className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border-2 border-[#204195] bg-gradient-to-b from-[#F0F4FC]/80 via-white to-white p-7 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg md:p-8 cursor-pointer"
+                className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-7 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg md:p-8 cursor-pointer"
               >
                 <div>
                   {/* Top Tag */}
                   <div className="mb-4">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FCB625] px-3 py-1 text-xs font-bold text-[#14244B] shadow-xs">
                       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#14244B]" aria-hidden="true" />
-                      Live Simulation
+                      Voice + Face to face
                     </span>
                   </div>
 
                   {/* Icon + Title */}
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#204195] text-white shadow-xs">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-violet-200 bg-violet-50 text-violet-700">
                       <Video className="size-5" />
                     </div>
                     <h2 className="text-xl font-bold text-[#14244B] transition-colors group-hover:text-[#204195]">
