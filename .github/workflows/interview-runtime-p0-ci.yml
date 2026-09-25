@@ -1,6 +1,9 @@
-name: Interview Runtime P0 UI CI
+name: Interview Planner P1 UI CI
 
 on:
+  push:
+    branches:
+      - feat/interview-planner
   pull_request:
     branches:
       - develop
