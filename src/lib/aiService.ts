@@ -205,15 +205,21 @@ export type CvScoringResponse = {
   matchResult?: MatchResult;
 };
 
-// Hàm tiện ích trích xuất Cookie trong client-side
+// Keep legacy fetch calls on the same effective caller identity as apiClient:
+// prefer the canonical localStorage accessToken, then fall back to the cookie.
 function getAuthHeaders(): Record<string, string> {
-  if (typeof document !== 'undefined') {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; access_token=`);
-    if (parts.length === 2) {
-      const token = parts.pop()?.split(';').shift();
-      return { "Authorization": `Bearer ${token}` };
-    }
+  if (typeof window === "undefined") return {};
+
+  const storedToken = localStorage.getItem("accessToken");
+  if (storedToken) {
+    return { Authorization: `Bearer ${storedToken}` };
+  }
+
+  const value = `; ${document.cookie}`;
+  const parts = value.split("; access_token=");
+  if (parts.length === 2) {
+    const token = parts.pop()?.split(";").shift();
+    if (token) return { Authorization: `Bearer ${decodeURIComponent(token)}` };
   }
   return {};
 }
