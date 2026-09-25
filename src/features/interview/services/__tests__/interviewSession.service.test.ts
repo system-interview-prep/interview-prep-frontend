@@ -73,18 +73,20 @@ describe("startInterviewSession", () => {
     expect(selectRuntimeQuestions).toHaveBeenCalledWith("runtime-1");
     expect(createLegacySession).not.toHaveBeenCalled();
     expect(url).toContain("/interview/room/runtime-1");
+    expect(url).toContain("runtime=structured");
   });
 
   it("keeps legacy standalone practice when neither id is present", async () => {
     createLegacySession.mockResolvedValueOnce({ sessionId: "legacy-1" });
 
-    await startInterviewSession({ mode: "voice", lang: "en" });
+    const url = await startInterviewSession({ mode: "voice", lang: "en" });
 
     expect(createLegacySession).toHaveBeenCalledWith({
       type: "Voice",
       language: "English",
     });
     expect(createRuntimeSession).not.toHaveBeenCalled();
+    expect(url).not.toContain("runtime=structured");
   });
 
 

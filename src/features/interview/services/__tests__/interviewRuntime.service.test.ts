@@ -122,4 +122,67 @@ describe("interview runtime API contract", () => {
     expect(turns[0]?.turnId).toBe("turn-1");
   });
 
+  it("drives the P3 text turn lifecycle", async () => {
+    get.mockResolvedValueOnce({
+      data: {
+        sessionId: "session-1",
+        sessionStatus: "OPEN",
+        completed: false,
+        progress: { answered: 0, total: 2 },
+        currentTurn: { turnId: "turn-1", status: "PLANNED", question: {} },
+        turns: [],
+      },
+    });
+    post
+      .mockResolvedValueOnce({ data: { turnId: "turn-1", status: "ASKED", question: {} } })
+      .mockResolvedValueOnce({
+        data: {
+          turnId: "turn-1",
+          status: "ANSWERED",
+          answerText: "My grounded answer",
+          question: {},
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          sessionId: "session-1",
+          sessionStatus: "CLOSED",
+          completed: true,
+          progress: { answered: 2, total: 2 },
+          currentTurn: null,
+          turns: [],
+        },
+      });
+
+    const runtime = await interviewRuntimeApi.getTextRuntime("session 1");
+    const asked = await interviewRuntimeApi.askTurn("session 1", "turn 1");
+    const answered = await interviewRuntimeApi.answerTurn(
+      "session 1",
+      "turn 1",
+      "My grounded answer",
+    );
+    const completed = await interviewRuntimeApi.completeTextRuntime("session 1");
+
+    expect(get).toHaveBeenCalledWith(
+      "/api/v1/interviews/sessions/session%201/runtime",
+    );
+    expect(post).toHaveBeenNthCalledWith(
+      1,
+      "/api/v1/interviews/sessions/session%201/turns/turn%201/ask",
+    );
+    expect(post).toHaveBeenNthCalledWith(
+      2,
+      "/api/v1/interviews/sessions/session%201/turns/turn%201/answer",
+      { answerText: "My grounded answer" },
+    );
+    expect(post).toHaveBeenNthCalledWith(
+      3,
+      "/api/v1/interviews/sessions/session%201/complete",
+    );
+    expect(runtime.currentTurn?.status).toBe("PLANNED");
+    expect(asked.status).toBe("ASKED");
+    expect(answered.answerText).toBe("My grounded answer");
+    expect(completed.completed).toBe(true);
+  });
+
 });

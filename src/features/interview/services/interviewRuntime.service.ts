@@ -84,6 +84,9 @@ export type InterviewFrozenTurn = {
   status: string;
   questionVersionId: string | null;
   rubricVersionId: string | null;
+  answerText?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
   question: {
     schemaVersion?: string;
     selectorPolicyVersion?: string;
@@ -108,6 +111,18 @@ export type InterviewQuestionSelection = {
   status: "LOCKED";
   selectorPolicyVersion: string;
   fingerprint?: string;
+  turns: InterviewFrozenTurn[];
+};
+
+export type InterviewTextRuntime = {
+  sessionId: string;
+  sessionStatus: string;
+  completed: boolean;
+  progress: {
+    answered: number;
+    total: number;
+  };
+  currentTurn: InterviewFrozenTurn | null;
   turns: InterviewFrozenTurn[];
 };
 
@@ -191,6 +206,44 @@ export const interviewRuntimeApi = {
       `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/turns`,
     );
     return response.data.turns;
+  },
+
+  getTextRuntime: async (sessionId: string): Promise<InterviewTextRuntime> => {
+    const response = await apiClient.get<InterviewTextRuntime>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/runtime`,
+    );
+    return response.data;
+  },
+
+  askTurn: async (
+    sessionId: string,
+    turnId: string,
+  ): Promise<InterviewFrozenTurn> => {
+    const response = await apiClient.post<InterviewFrozenTurn>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/turns/${encodeURIComponent(turnId)}/ask`,
+    );
+    return response.data;
+  },
+
+  answerTurn: async (
+    sessionId: string,
+    turnId: string,
+    answerText: string,
+  ): Promise<InterviewFrozenTurn> => {
+    const response = await apiClient.post<InterviewFrozenTurn>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/turns/${encodeURIComponent(turnId)}/answer`,
+      { answerText },
+    );
+    return response.data;
+  },
+
+  completeTextRuntime: async (
+    sessionId: string,
+  ): Promise<InterviewTextRuntime> => {
+    const response = await apiClient.post<InterviewTextRuntime>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/complete`,
+    );
+    return response.data;
   },
 
   close: async (sessionId: string): Promise<InterviewRuntimeSession> => {
