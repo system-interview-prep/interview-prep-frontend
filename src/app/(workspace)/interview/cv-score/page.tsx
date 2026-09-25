@@ -513,6 +513,8 @@ function ScorePageContent() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [startingInterview, setStartingInterview] = useState(false);
+  const [interviewStartError, setInterviewStartError] = useState<string | null>(null);
+  const [showModeChooser, setShowModeChooser] = useState(false);
   const [logoError, setLogoError] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -577,6 +579,11 @@ function ScorePageContent() {
 
   const handleStartInterview = async (mode: "chat" | "voice" | "video") => {
     if (startingInterview) return;
+    if (!candidateId || !jobId) {
+      setInterviewStartError("Thiếu CV hoặc Job Profile để tạo phiên phỏng vấn.");
+      return;
+    }
+    setInterviewStartError(null);
     setStartingInterview(true);
     try {
       const activeJobTitle = jobProfile?.title || queryJobTitle || "AI Engineer";
@@ -588,8 +595,13 @@ function ScorePageContent() {
         jobId,
       });
       router.push(targetUrl);
-    } catch {
+    } catch (cause) {
       setStartingInterview(false);
+      setInterviewStartError(
+        cause instanceof Error
+          ? cause.message
+          : "Không thể tạo phiên phỏng vấn lúc này. Vui lòng thử lại."
+      );
     }
   };
 
@@ -701,7 +713,10 @@ function ScorePageContent() {
 
                 <button
                   type="button"
-                  onClick={() => void handleStartInterview("chat")}
+                  onClick={() => {
+                    setInterviewStartError(null);
+                    setShowModeChooser(true);
+                  }}
                   disabled={startingInterview}
                   className="inline-flex items-center gap-2 rounded-xl bg-[#204195] px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-[#183275] active:scale-[0.99] disabled:opacity-50"
                 >
@@ -712,7 +727,58 @@ function ScorePageContent() {
             </div>
           </header>
 
-          {/* Loading State */}
+          {showModeChooser && (
+            <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="interview-mode-title">
+              <button
+                type="button"
+                className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
+                aria-label="Đóng"
+                onClick={() => !startingInterview && setShowModeChooser(false)}
+              />
+              <div className="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-[#DCE4F3] bg-white shadow-2xl">
+                <div className="border-b border-[#EAEFF8] px-6 py-5 sm:px-7">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#204195]">Interview mode</p>
+                  <h2 id="interview-mode-title" className="mt-1 text-xl font-extrabold tracking-tight text-[#14244B]">
+                    Bạn muốn phỏng vấn theo cách nào?
+                  </h2>
+                  <p className="mt-1 text-sm text-[#607096]">
+                    Cùng một kế hoạch theo CV và JD; chỉ thay đổi cách bạn tương tác với interviewer.
+                  </p>
+                </div>
+                <div className="grid gap-4 p-6 sm:grid-cols-3 sm:p-7">
+                  {[
+                    { mode: "chat" as const, title: "Chat", desc: "Trả lời bằng văn bản, tập trung vào cấu trúc và nội dung.", meta: "Không cần mic/camera", Icon: MessageSquare },
+                    { mode: "voice" as const, title: "Voice", desc: "Trả lời bằng giọng nói để luyện nhịp phỏng vấn tự nhiên.", meta: "Cần microphone", Icon: Brain },
+                    { mode: "video" as const, title: "Voice + Face to face", desc: "Mô phỏng phỏng vấn trực diện với voice, camera và interviewer.", meta: "Cần mic + camera", Icon: Video },
+                  ].map(({ mode, title, desc, meta, Icon }) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      disabled={startingInterview}
+                      onClick={() => void handleStartInterview(mode)}
+                      className="group flex min-h-[230px] flex-col rounded-2xl border border-[#DCE4F3] bg-white p-5 text-left shadow-xs transition-all hover:-translate-y-0.5 hover:border-[#204195]/60 hover:shadow-md disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <span className="flex size-11 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195]"><Icon className="size-5" /></span>
+                      <span className="mt-5 text-base font-bold text-[#14244B]">{title}</span>
+                      <span className="mt-2 flex-1 text-xs leading-5 text-[#607096]">{desc}</span>
+                      <span className="mt-4 w-fit rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-semibold text-[#607096]">{meta}</span>
+                      <span className="mt-4 flex w-full items-center justify-between border-t border-[#EAEFF8] pt-4 text-sm font-bold text-[#204195]">
+                        {startingInterview ? "Đang chuẩn bị..." : "Bắt đầu"}
+                        {!startingInterview && <ArrowLeft className="size-4 rotate-180 transition-transform group-hover:translate-x-0.5" />}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {interviewStartError && (
+                  <div className="border-t border-red-100 bg-red-50 px-6 py-3 text-sm font-medium text-red-700 sm:px-7" role="alert">
+                    {interviewStartError}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+                    {/* Loading State */}
           {loading && (
             <div className="rounded-2xl border border-[#DCE4F3] bg-white p-14 text-center shadow-xs">
               <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-[#F0F4FC] text-[#204195]">
