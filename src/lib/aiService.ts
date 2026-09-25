@@ -218,7 +218,12 @@ export function resolveInterviewAccessToken(
   if (parts.length !== 2) return null;
 
   const token = parts.pop()?.split(";").shift();
-  return token ? decodeURIComponent(token) : null;
+  if (!token) return null;
+  try {
+    return decodeURIComponent(token);
+  } catch {
+    return null;
+  }
 }
 
 function getAuthHeaders(): Record<string, string> {
