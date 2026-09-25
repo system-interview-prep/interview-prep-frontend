@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useQuestionTimer } from "@features/interview/hooks/useQuestionTimer";
 import { QuestionTimerBadge } from "@features/interview/components/QuestionTimerBadge";
-import { Check, Loader2, GraduationCap, Info, ArrowLeft, ArrowRight, Hourglass, Lightbulb, RotateCcw, LayoutDashboard } from "lucide-react";
+import { Check, Loader2, GraduationCap, Info, ArrowLeft, ArrowRight, Hourglass, Lightbulb, RotateCcw, LayoutDashboard, HelpCircle, FileText } from "lucide-react";
+import { PracticeCvJdSection } from "@features/practice/components/PracticeCvJdSection";
 
 const QUESTION_IDS = ["q1", "q2", "q3"] as const;
 type QuestionId = (typeof QUESTION_IDS)[number];
@@ -19,9 +21,12 @@ const CORRECT: Record<QuestionId, number> = {
 
 const LETTERS = ["A", "B", "C"] as const;
 
-export default function PracticePage() {
+function PracticeContent() {
   const { t } = useLanguage();
   const fieldsetId = useId();
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") === "cv-jd" ? "cv-jd" : "quiz";
+  const [activeTab, setActiveTab] = useState<"quiz" | "cv-jd">(initialTab);
 
   const [step, setStep] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
@@ -264,20 +269,63 @@ export default function PracticePage() {
         <div className="mx-auto max-w-6xl">
           {/* Header */}
           <header className="mb-8 border-b border-[#EAEFF8] pb-6">
-            <div className="max-w-2xl">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#204195]">
-                {t("practice.eyebrow")}
-              </span>
-              <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-[#14244B] sm:text-4xl">
-                {t("practice.title")}
-              </h1>
-              <p className="mt-2 text-sm leading-relaxed text-[#607096] sm:text-base">
-                {t("practice.subtitle")}
-              </p>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="max-w-2xl">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#204195]">
+                  {t("practice.eyebrow")}
+                </span>
+                <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-[#14244B] sm:text-4xl">
+                  {t("practice.title")}
+                </h1>
+                <p className="mt-2 text-sm leading-relaxed text-[#607096] sm:text-base">
+                  {activeTab === "cv-jd"
+                    ? "Luyện tập các câu hỏi tự luận bám sát hồ sơ CV và bản mô tả công việc (JD) đã chọn."
+                    : t("practice.subtitle")}
+                </p>
+              </div>
+
+              {/* Tab Selector */}
+              <div className="inline-flex p-1.5 rounded-2xl border border-[#DCE4F3] bg-white shadow-2xs self-start sm:self-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("quiz")}
+                  className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                    activeTab === "quiz"
+                      ? "bg-[#204195] text-white shadow-xs"
+                      : "text-[#607096] hover:text-[#14244B] hover:bg-slate-50"
+                  }`}
+                >
+                  <HelpCircle className="size-4" />
+                  <span>Trắc nghiệm chuẩn hóa</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("cv-jd")}
+                  className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                    activeTab === "cv-jd"
+                      ? "bg-[#204195] text-white shadow-xs"
+                      : "text-[#607096] hover:text-[#14244B] hover:bg-slate-50"
+                  }`}
+                >
+                  <FileText className="size-4" />
+                  <span>Theo CV–JD</span>
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[9px] font-extrabold ${
+                      activeTab === "cv-jd"
+                        ? "bg-white/20 text-white"
+                        : "bg-emerald-100 text-emerald-800"
+                    }`}
+                  >
+                    Mới
+                  </span>
+                </button>
+              </div>
             </div>
           </header>
 
-          {!done ? (
+          {activeTab === "cv-jd" ? (
+            <PracticeCvJdSection />
+          ) : !done ? (
             /* Layout 2 cột: Cột chính 8 cols, Cột phụ tinh gọn 4 cols */
             <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
               {/* ================= CỘT CHÍNH (8 COLS) ================= */}
@@ -814,5 +862,21 @@ export default function PracticePage() {
         </div>
       </main>
     </UserDashboardShell>
+  );
+}
+
+export default function PracticePage() {
+  return (
+    <Suspense
+      fallback={
+        <UserDashboardShell>
+          <div className="flex min-h-screen items-center justify-center">
+            <Loader2 className="size-8 animate-spin text-[#204195]" />
+          </div>
+        </UserDashboardShell>
+      }
+    >
+      <PracticeContent />
+    </Suspense>
   );
 }
