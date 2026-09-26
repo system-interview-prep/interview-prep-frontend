@@ -9,7 +9,8 @@ export type ChatMessageType =
   | "PROBE"
   | "CANDIDATE_ANSWER"
   | "ACKNOWLEDGMENT"
-  | "WRAP_UP";
+  | "WRAP_UP"
+  | "CONFIRM_ABORT";
 
 export type ChatMessage = {
   messageId: string;
@@ -27,11 +28,27 @@ export type ChatMessage = {
 export type CurrentTurnInfo = {
   turnId: string;
   turnIndex: number;
+  stage?: string;
   competency?: string;
   questionVersionId?: string | null;
+  questionType?: string;
+  language?: string;
+  starterCode?: string;
+  testCasesCode?: string;
 };
 
 export type EndReason = "COMPLETED" | "USER_ENDED" | "TECHNICAL_FAILURE";
+
+export type ChatRuntimeTurn = {
+  turnId: string;
+  turnIndex: number;
+  stage?: string;
+  status: string;
+  questionType?: string;
+  language?: string;
+  starterCode?: string;
+  testCasesCode?: string;
+};
 
 export type ChatRuntimeResponse = {
   sessionId: string;
@@ -44,11 +61,15 @@ export type ChatRuntimeResponse = {
   currentTurn: CurrentTurnInfo | null;
   messages: ChatMessage[];
   isAwaitingCandidate: boolean;
+  durationMinutes?: number;
+  startedAt?: string | null;
+  turns?: ChatRuntimeTurn[];
 };
 
 export type SendChatMessageRequest = {
   clientMessageId?: string;
   content: string;
+  telemetry?: Record<string, unknown>;
 };
 
 export type SendChatMessageResponse = {
@@ -62,6 +83,7 @@ export type SendChatMessageResponse = {
   };
   sessionStatus: "OPEN" | "CLOSED";
   endReason?: EndReason | null;
+  action?: string;
 };
 
 export type CompleteChatResponse = {
