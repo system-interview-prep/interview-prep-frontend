@@ -69,6 +69,37 @@ describe("interviewChatApi", () => {
     expect(res.assistantResponse.content).toBe("Follow-up question");
   });
 
+  it("calls sendMessage endpoint with coding telemetry", async () => {
+    const mockReply = {
+      userMessage: { messageId: "msg-user-2", content: "Solved race condition" },
+      assistantResponse: { messageId: "msg-asst-2", content: "Great fix. Why Lock over Semaphore?" },
+      turnStatus: { isFollowUp: true, completed: false },
+      sessionStatus: "OPEN",
+    };
+    post.mockResolvedValueOnce({ data: mockReply });
+
+    const telemetry = {
+      isCodingTurn: true,
+      codeDiff: "+ async with self._lock:",
+      testPassed: true,
+    };
+
+    const res = await interviewChatApi.sendMessage("session-1", {
+      clientMessageId: "cli-456",
+      content: "Solved race condition",
+      telemetry,
+    });
+    expect(post).toHaveBeenCalledWith(
+      "/api/v1/interviews/sessions/session-1/chat/message",
+      {
+        clientMessageId: "cli-456",
+        content: "Solved race condition",
+        telemetry,
+      }
+    );
+    expect(res.assistantResponse.content).toContain("Why Lock over Semaphore?");
+  });
+
   it("calls complete endpoint", async () => {
     const mockComplete = {
       sessionId: "session-1",
