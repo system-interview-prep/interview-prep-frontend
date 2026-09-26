@@ -503,9 +503,23 @@ function ScorePageContent() {
   const router = useRouter();
   const { lang } = useLanguage();
 
-  const candidateId = params.get("candidateId")?.trim() ?? "";
-  const jobId = params.get("jobId")?.trim() ?? "";
-  const queryJobTitle = params.get("jobTitle")?.trim() || "";
+  const urlCandidateId = params.get("candidateId")?.trim() ?? "";
+  const urlJobId = params.get("jobId")?.trim() ?? "";
+  const urlJobTitle = params.get("jobTitle")?.trim() || "";
+
+  const [activeContext, setActiveContext] = useState<{
+    candidateId: string;
+    jobId: string;
+    jobTitle?: string;
+  } | null>(() => {
+    if (urlCandidateId && urlJobId) {
+      return { candidateId: urlCandidateId, jobId: urlJobId, jobTitle: urlJobTitle };
+    }
+    return null;
+  });
+
+  const [resolving, setResolving] = useState(!urlCandidateId || !urlJobId);
+  const [hasNoContext, setHasNoContext] = useState(false);
 
   const [result, setResult] = useState<CvScoringResponse | null>(null);
   const [jobProfile, setJobProfile] = useState<JobProfile | null>(null);
@@ -518,10 +532,117 @@ function ScorePageContent() {
   const [showModeChooser, setShowModeChooser] = useState(false);
   const [logoError, setLogoError] = useState(false);
 
+  // Sync / Auto-recover context if URL params are missing
+  useEffect(() => {
+    if (urlCandidateId && urlJobId) {
+      const current = { candidateId: urlCandidateId, jobId: urlJobId, jobTitle: urlJobTitle };
+      setActiveContext(current);
+      setResolving(false);
+      setHasNoContext(false);
+      try {
+        sessionStorage.setItem("interview.cvScoreContext", JSON.stringify(current));
+        localStorage.setItem("interview.cvScoreContext", JSON.stringify(current));
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+
+    // 1. Try reading from sessionStorage or localStorage
+    let storedContext: { candidateId: string; jobId: string; jobTitle?: string } | null = null;
+    try {
+      const raw =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("interview.cvScoreContext") ||
+            localStorage.getItem("interview.cvScoreContext")
+          : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.candidateId && parsed?.jobId) {
+          storedContext = parsed;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    if (storedContext?.candidateId && storedContext?.jobId) {
+      setActiveContext(storedContext);
+      setResolving(false);
+      setHasNoContext(false);
+      const q = new URLSearchParams({
+        candidateId: storedContext.candidateId,
+        jobId: storedContext.jobId,
+        ...(storedContext.jobTitle ? { jobTitle: storedContext.jobTitle } : {}),
+      });
+      router.replace(`/interview/cv-score?${q.toString()}`);
+      return;
+    }
+
+    // 2. Auto-discover from user's latest CV and first active job
+    let isCancelled = false;
+    async function autoDiscover() {
+      try {
+        const [cvRes, jobsRes] = await Promise.all([
+          userCvApi.list(10).catch(() => ({ data: { items: [] } })),
+          jobProfileApi.list({ limit: 10 }).catch(() => ({ data: { items: [] } })),
+        ]);
+
+        if (isCancelled) return;
+
+        const cvItems = (cvRes?.data?.items as Record<string, unknown>[]) || [];
+        const jobItems = (jobsRes?.data?.items as Record<string, unknown>[]) || [];
+
+        const validCv = cvItems.find((c) => c?.status === "DONE" || c?.id) || cvItems[0];
+        const validJob = jobItems.find((j) => j?.isActive !== false && j?.id) || jobItems[0];
+
+        if (validCv?.id && validJob?.id) {
+          const autoCtx = {
+            candidateId: String(validCv.id),
+            jobId: String(validJob.id),
+            jobTitle: String(validJob.title || "Vị trí tuyển dụng"),
+          };
+          try {
+            sessionStorage.setItem("interview.cvScoreContext", JSON.stringify(autoCtx));
+            localStorage.setItem("interview.cvScoreContext", JSON.stringify(autoCtx));
+          } catch {
+            /* ignore */
+          }
+          setActiveContext(autoCtx);
+          setResolving(false);
+          setHasNoContext(false);
+          const q = new URLSearchParams({
+            candidateId: autoCtx.candidateId,
+            jobId: autoCtx.jobId,
+            jobTitle: autoCtx.jobTitle,
+          });
+          router.replace(`/interview/cv-score?${q.toString()}`);
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
+
+      if (!isCancelled) {
+        setResolving(false);
+        setHasNoContext(true);
+        setLoading(false);
+      }
+    }
+
+    void autoDiscover();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [urlCandidateId, urlJobId, urlJobTitle, router]);
+
+  const candidateId = activeContext?.candidateId || "";
+  const jobId = activeContext?.jobId || "";
+  const queryJobTitle = activeContext?.jobTitle || urlJobTitle || "";
+
   const loadData = useCallback(async () => {
     if (!candidateId || !jobId) {
-      setError("Thiếu CV hoặc tin tuyển dụng. Vui lòng quay lại và chọn đầy đủ thông tin.");
-      setLoading(false);
       return;
     }
 
@@ -554,8 +675,10 @@ function ScorePageContent() {
   }, [candidateId, jobId]);
 
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    if (candidateId && jobId) {
+      void loadData();
+    }
+  }, [loadData, candidateId, jobId]);
 
   // Xây dựng map requirements từ structuredData của job profile nếu có
   const requirementsMap = useMemo(() => {
@@ -578,6 +701,8 @@ function ScorePageContent() {
     return map;
   }, [jobProfile]);
 
+  const [durationMinutes, setDurationMinutes] = useState<number>(25);
+
   const handleStartInterview = async (
     mode: "chat" | "voice" | "video",
     experience?: "question_practice" | "interview_chat"
@@ -598,6 +723,7 @@ function ScorePageContent() {
         jobTitle: activeJobTitle,
         candidateId,
         jobId,
+        durationMinutes,
       });
       router.push(targetUrl);
     } catch (cause) {
@@ -620,7 +746,13 @@ function ScorePageContent() {
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() => {
+                if (typeof window !== "undefined" && window.history.length > 1) {
+                  router.back();
+                } else {
+                  router.push("/dashboard/jobs");
+                }
+              }}
               className="group inline-flex items-center gap-2 text-sm font-semibold text-[#607096] transition-colors hover:text-[#204195]"
             >
               <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-0.5" />
@@ -636,13 +768,14 @@ function ScorePageContent() {
             </div>
           </div>
 
-          {/* Job Banner Header Card */}
-          <header className="mb-8 overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-7">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-start gap-4 sm:gap-5">
-                {/* Company Logo Avatar */}
-                <div className="relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] shadow-2xs sm:size-20">
-                  {jobProfile?.company?.logoUrl && !logoError ? (
+          {/* Job Banner Header Card - Only show when context is present and not empty */}
+          {!resolving && !hasNoContext && (
+            <header className="mb-8 overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-7">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-start gap-4 sm:gap-5">
+                  {/* Company Logo Avatar */}
+                  <div className="relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] shadow-2xs sm:size-20">
+                    {jobProfile?.company?.logoUrl && !logoError ? (
                     <img
                       src={jobProfile.company.logoUrl}
                       alt={jobProfile.company.name || "Company Logo"}
@@ -731,6 +864,7 @@ function ScorePageContent() {
               </div>
             </div>
           </header>
+          )}
 
           {showModeChooser && (
             <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="interview-mode-title">
@@ -746,9 +880,54 @@ function ScorePageContent() {
                   <h2 id="interview-mode-title" className="mt-1 text-xl font-extrabold tracking-tight text-[#14244B]">
                     Bạn muốn phỏng vấn theo cách nào?
                   </h2>
-                  <p className="mt-1 text-sm text-[#607096]">
-                    Cùng một kế hoạch theo CV và JD; chỉ thay đổi cách bạn tương tác với interviewer.
-                  </p>
+                </div>
+                <div className="border-b border-[#EAEFF8] bg-[#F8FAFC] px-6 py-4 sm:px-7">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#204195]">
+                      Thời lượng phỏng vấn
+                    </span>
+                    <span className="text-[11px] text-[#607096]">
+                      Số câu hỏi phân bổ theo chuẩn quốc tế
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {[
+                      { minutes: 15, label: "Flash Screen", time: "15 Phút", q: "4 câu hỏi", tag: "Luyện nhanh" },
+                      { minutes: 25, label: "Standard", time: "25 Phút", q: "6 câu hỏi", tag: "★ Khuyên dùng" },
+                      { minutes: 45, label: "Deep Dive", time: "45 Phút", q: "8 câu hỏi", tag: "Toàn diện" },
+                    ].map((pkg) => {
+                      const active = durationMinutes === pkg.minutes;
+                      return (
+                        <button
+                          key={pkg.minutes}
+                          type="button"
+                          onClick={() => setDurationMinutes(pkg.minutes)}
+                          className={`flex flex-col rounded-xl border p-2.5 text-left transition-all ${
+                            active
+                              ? "border-[#204195] bg-white ring-2 ring-[#204195] shadow-xs"
+                              : "border-[#DCE4F3] bg-white/70 hover:bg-white hover:border-[#204195]/40"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className={`text-xs font-bold ${active ? "text-[#204195]" : "text-[#14244B]"}`}>
+                              {pkg.label}
+                            </span>
+                            <span
+                              className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                                active ? "bg-[#204195] text-white" : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {pkg.time}
+                            </span>
+                          </div>
+                          <span className="mt-1 text-[11px] font-semibold text-[#204195]">
+                            • {pkg.q}
+                          </span>
+                          <span className="text-[10px] text-[#607096]">{pkg.tag}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
                 <div className="grid gap-4 p-6 sm:grid-cols-3 sm:p-7">
                   {[
@@ -856,8 +1035,8 @@ function ScorePageContent() {
             </div>
           )}
 
-                    {/* Loading State */}
-          {loading && (
+                    {/* Loading or Resolving State */}
+          {(loading || resolving) && (
             <div className="rounded-2xl border border-[#DCE4F3] bg-white p-14 text-center shadow-xs">
               <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-[#F0F4FC] text-[#204195]">
                 <RefreshCw className="size-7 animate-spin" />
@@ -867,8 +1046,37 @@ function ScorePageContent() {
             </div>
           )}
 
+          {/* Empty State when no context is selected */}
+          {!resolving && hasNoContext && (
+            <section className="rounded-2xl border border-dashed border-[#CBD5E1] bg-white p-10 text-center shadow-xs sm:p-14">
+              <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-[#EEF2FD] text-[#204195]">
+                <Briefcase className="size-8" />
+              </div>
+              <h2 className="mt-5 text-xl font-bold text-[#14244B]">Chưa có thông tin CV hoặc vị trí việc làm</h2>
+              <p className="mx-auto mt-2 max-w-lg text-sm text-[#607096] leading-relaxed">
+                Để xem báo cáo phân tích độ tương thích và bắt đầu phỏng vấn AI, vui lòng chọn một vị trí tuyển dụng và hồ sơ CV của bạn.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <Link
+                  href="/dashboard/jobs"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#204195] px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-[#183275]"
+                >
+                  <Briefcase className="size-4" />
+                  <span>Khám phá việc làm</span>
+                </Link>
+                <Link
+                  href="/dashboard/cvs"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#CBD5E1] bg-white px-5 py-2.5 text-sm font-semibold text-[#14244B] transition hover:bg-[#F8FAFC]"
+                >
+                  <FileText className="size-4" />
+                  <span>Quản lý CV của tôi</span>
+                </Link>
+              </div>
+            </section>
+          )}
+
           {/* Error State */}
-          {!loading && error && (
+          {!loading && !resolving && !hasNoContext && error && (
             <section className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-xs" role="alert">
               <div className="flex items-start gap-4">
                 <XCircle className="mt-0.5 size-6 shrink-0 text-red-600" />
@@ -888,7 +1096,7 @@ function ScorePageContent() {
           )}
 
           {/* Scoring Report Content */}
-          {!loading && !error && result && (
+          {!loading && !resolving && !hasNoContext && !error && result && (
             <ReportContent
               result={result}
               jobProfile={jobProfile}
