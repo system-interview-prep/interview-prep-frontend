@@ -39,6 +39,7 @@ describe("interview runtime API contract", () => {
       resumeId: "cv-1",
       jobId: "job-1",
       mode: "text",
+      experienceType: "question_practice",
       locale: "vi-VN",
       durationMinutes: 25,
     });

@@ -1,12 +1,13 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import VideoPlayer from '@features/interview/components/VideoPlayer';
 import SimliAvatar from '@features/interview/components/SimliAvatar';
 import { VideoRoomFloatingBar } from '@features/interview/components/VideoRoomFloatingBar';
 import ChatBox from '@features/interview/components/ChatBox';
 import StructuredTextInterview from '@features/interview/components/StructuredTextInterview';
+import InterviewChatRoom from '@features/interview/components/InterviewChatRoom';
 import { InterviewRoomHeader } from '@features/interview/components/InterviewRoomHeader';
 import { useWebRTC } from '@features/interview/hooks/useWebRTC';
 import { useVideoCallChat } from '@features/interview/hooks/useVideoCallChat';
@@ -260,18 +261,96 @@ function RoomContent() {
   const roomId = params?.id as string;
   const mode = searchParams.get('mode');
   const runtime = searchParams.get('runtime');
+  const experience = searchParams.get('experience');
+  const topic = searchParams.get('topic') || '';
 
-  if (mode === 'chat' && runtime === 'structured') {
+  const [experienceType, setExperienceType] = useState<string | null>(() => {
+    if (experience) return experience;
+    return null;
+  });
+
+  const [detectedStructured, setDetectedStructured] = useState<boolean | null>(() => {
+    if (
+      experience === 'interview_chat' ||
+      experience === 'question_practice' ||
+      mode === 'chat' ||
+      mode === 'text' ||
+      runtime === 'structured'
+    ) {
+      return true;
+    }
+    if (mode === 'video' || mode === 'voice') return false;
+    return null;
+  });
+
+  const [sessionContext, setSessionContext] = useState<{
+    resumeId?: string | null;
+    jobId?: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw =
+        sessionStorage.getItem('interview.cvScoreContext') ||
+        localStorage.getItem('interview.cvScoreContext');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.candidateId && parsed?.jobId) {
+          setSessionContext((prev) => prev ?? { resumeId: parsed.candidateId, jobId: parsed.jobId });
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (roomId) {
+      import('@features/interview/services/interviewRuntime.service')
+        .then(({ interviewRuntimeApi }) => interviewRuntimeApi.get(roomId))
+        .then((sess) => {
+          if (detectedStructured === null) {
+            setDetectedStructured(sess.mode === 'text');
+          }
+          if (experienceType === null) {
+            setExperienceType(sess.experienceType || 'interview_chat');
+          }
+          if (sess.resumeId && sess.jobId) {
+            setSessionContext({ resumeId: sess.resumeId, jobId: sess.jobId });
+          }
+        })
+        .catch(() => {
+          if (detectedStructured === null) setDetectedStructured(false);
+        });
+    }
+  }, [detectedStructured, experienceType, roomId]);
+
+  const chatBackUrl = useMemo(() => {
+    if (sessionContext?.resumeId && sessionContext?.jobId) {
+      const q = new URLSearchParams({
+        candidateId: sessionContext.resumeId,
+        jobId: sessionContext.jobId,
+        ...(topic ? { jobTitle: topic } : {}),
+      });
+      return `/interview/cv-score?${q.toString()}`;
+    }
+    return '/dashboard/jobs';
+  }, [sessionContext, topic]);
+
+  if (detectedStructured === null) {
     return (
-      <div className="flex h-screen flex-col overflow-hidden bg-surface font-body text-on-surface">
-        <InterviewRoomHeader />
-        <main className="min-h-0 flex-1 bg-surface-container-low p-3 sm:p-5">
-          <div className="mx-auto h-full max-w-4xl overflow-hidden rounded-3xl border border-outline-variant/25 bg-surface-container-lowest shadow-sm">
-            <StructuredTextInterview sessionId={roomId} />
-          </div>
-        </main>
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-[#F7F9FD] text-[#14244B]">
+        <Loader2 className="size-8 animate-spin text-[#204195]" />
+        <p className="text-sm font-semibold">Đang chuẩn bị phòng phỏng vấn...</p>
       </div>
     );
+  }
+
+  if (detectedStructured) {
+    if (experienceType === 'question_practice') {
+      return <StructuredTextInterview sessionId={roomId} jobTitle={topic} backUrl="/practice?tab=cv-jd" />;
+    }
+    return <InterviewChatRoom sessionId={roomId} jobTitle={topic} backUrl={chatBackUrl} />;
   }
 
   return <MediaRoomContent />;

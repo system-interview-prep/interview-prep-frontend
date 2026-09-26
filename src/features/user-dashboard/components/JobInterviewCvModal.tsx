@@ -15,6 +15,8 @@ import {
   MessageSquare,
   Mic,
   Video,
+  AlertCircle,
+  Clock,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { startInterviewSession } from "@features/interview/services/interviewSession.service";
@@ -148,6 +150,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
   const [step, setStep] = useState<Step>("cv");
   const [files, setFiles] = useState<CvFile[]>([]);
   const [selectedCvId, setSelectedCvId] = useState<string | null>(null);
+  const [durationMinutes, setDurationMinutes] = useState<number>(25);
   const [dragOver, setDragOver] = useState(false);
   const [roomStarting, setRoomStarting] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
@@ -358,13 +361,17 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
     );
   };
 
-  const handleStartInterview = async (mode: "chat" | "voice" | "video") => {
+  const handleStartInterview = async (
+    mode: "chat" | "voice" | "video",
+    experience?: "question_practice" | "interview_chat"
+  ) => {
     if (!selectedCvId || roomStarting) return;
     if (!jobProfileId?.trim()) {
       setAnalyzeError("Thiếu Job Profile để tạo bộ câu hỏi.");
       return;
     }
     setRoomStarting(true);
+    setAnalyzeError(null);
     showNavigationLoading();
     try {
       try {
@@ -372,22 +379,26 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
       } catch {
         /* ignore */
       }
-      onClose();
       const targetUrl = await startInterviewSession({
         mode,
+        experience,
         lang: lang === "vi" ? "vi" : "en",
         jobTitle: jobTitle.trim() || undefined,
         candidateId: selectedCvId,
         jobId: jobProfileId,
+        durationMinutes,
       });
+      onClose();
       router.push(targetUrl);
-    } catch {
+    } catch (err: unknown) {
       setRoomStarting(false);
       hideNavigationLoading();
+      const message = err instanceof Error ? err.message : String(err);
+      setAnalyzeError(message || "Không thể khởi tạo phiên phỏng vấn. Vui lòng thử lại.");
     }
   };
 
-  const goToChat = () => void handleStartInterview("chat");
+  const goToInterviewChat = () => void handleStartInterview("chat", "interview_chat");
   const goToVoice = () => void handleStartInterview("voice");
   const goToRoom = () => void handleStartInterview("video");
 
@@ -635,60 +646,218 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
         ) : (
           <div className="flex flex-1 flex-col overflow-hidden bg-white">
             <div className="flex-1 overflow-y-auto p-6">
-              <div className="mb-5 rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
-                <p className="text-sm font-bold text-[#14244B]">Chọn trải nghiệm phỏng vấn</p>
-                <p className="mt-1 text-xs leading-relaxed text-[#607096]">
-                  Cùng một bộ câu hỏi theo CV và JD; bạn chỉ thay đổi cách tương tác với interviewer.
-                </p>
+              {/* 1. Chọn thời lượng phỏng vấn */}
+              <div className="mb-6 rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] p-4 sm:p-5">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-bold text-[#14244B]">1. Chọn thời lượng phỏng vấn</p>
+                    <p className="mt-0.5 text-xs text-[#607096]">
+                      Lựa chọn gói phù hợp với quỹ thời gian và mục tiêu luyện tập của bạn
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700 border border-indigo-200/50">
+                    <Clock className="size-3" /> Chuẩn quốc tế
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    {
+                      minutes: 15,
+                      title: "Gói Nhanh",
+                      badge: "15 Phút",
+                      questions: "4 câu hỏi",
+                      focus: "Sơ loại & phản xạ nhanh",
+                      desc: "Phù hợp: Luyện nhanh giờ nghỉ trưa",
+                      recommend: false,
+                    },
+                    {
+                      minutes: 25,
+                      title: "Gói Chuẩn",
+                      badge: "25 Phút",
+                      questions: "6 câu hỏi",
+                      focus: "Đánh giá chuẩn năng lực",
+                      desc: "Khuyên dùng cho hầu hết ứng viên",
+                      recommend: true,
+                    },
+                    {
+                      minutes: 45,
+                      title: "Chuyên Sâu",
+                      badge: "45 Phút",
+                      questions: "8 câu hỏi",
+                      focus: "System Design & Tình huống",
+                      desc: "Phù hợp: Ứng viên Mid / Senior",
+                      recommend: false,
+                    },
+                  ].map((pkg) => {
+                    const isSelected = durationMinutes === pkg.minutes;
+                    return (
+                      <button
+                        key={pkg.minutes}
+                        type="button"
+                        onClick={() => setDurationMinutes(pkg.minutes)}
+                        className={`relative flex flex-col rounded-xl border p-3.5 text-left transition-all ${
+                          isSelected
+                            ? "border-[#204195] bg-white ring-2 ring-[#204195] shadow-sm"
+                            : "border-[#DCE4F3] bg-white hover:border-[#204195]/40 hover:bg-slate-50/70"
+                        }`}
+                      >
+                        {pkg.recommend && (
+                          <span className="absolute -top-2.5 right-3 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
+                            ★ Khuyên dùng
+                          </span>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <span className={`text-sm font-bold ${isSelected ? "text-[#204195]" : "text-[#14244B]"}`}>
+                            {pkg.title}
+                          </span>
+                          <span
+                            className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold ${
+                              isSelected
+                                ? "bg-[#204195] text-white"
+                                : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {pkg.badge}
+                          </span>
+                        </div>
+                        <p className="mt-1.5 text-xs font-bold text-[#204195]">• {pkg.questions}</p>
+                        <p className="mt-0.5 text-[11px] font-medium text-slate-700">{pkg.focus}</p>
+                        <p className="mt-0.5 text-[10px] text-[#607096]">{pkg.desc}</p>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+
+              {/* 2. Chọn hình thức tương tác */}
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-[#14244B]">2. Chọn hình thức tương tác</p>
+                  <p className="mt-0.5 text-xs text-[#607096]">
+                    Bộ câu hỏi ({durationMinutes === 15 ? "4" : durationMinutes === 25 ? "6" : "8"} câu) sẽ được tối ưu theo thời lượng bạn đã chọn.
+                  </p>
+                </div>
+              </div>
+
+              {analyzeError ? (
+                <div
+                  className="mb-5 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800"
+                  role="alert"
+                >
+                  <AlertCircle className="mt-0.5 size-5 shrink-0 text-red-600" />
+                  <div className="min-w-0 flex-1 text-sm">
+                    <p className="font-semibold text-red-900">Không thể bắt đầu phỏng vấn</p>
+                    <p className="mt-1 text-xs leading-relaxed text-red-700">{analyzeError}</p>
+                    <div className="mt-2.5 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setStep("cv")}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-[#204195] hover:underline"
+                      >
+                        <ArrowLeft className="size-3.5" />
+                        Chọn CV khác
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 {[
                   {
-                    key: "chat",
-                    title: "Chat",
-                    desc: "Đọc câu hỏi và trả lời bằng văn bản. Phù hợp để tập trung vào nội dung câu trả lời.",
-                    meta: "Không cần mic/camera",
+                    key: "interview_chat",
+                    title: "Interview Chat",
+                    desc: "Hội thoại phỏng vấn hai chiều với AI Interviewer theo thời gian thực.",
+                    meta: "Nhắn tin tương tác",
+                    badge: "Khuyên dùng",
                     Icon: MessageSquare,
-                    action: goToChat,
+                    action: goToInterviewChat,
+                    disabled: false,
+                    cta: "Bắt đầu",
                   },
                   {
                     key: "voice",
                     title: "Voice",
                     desc: "Trả lời bằng giọng nói và luyện nhịp phỏng vấn tự nhiên mà không cần bật camera.",
                     meta: "Cần microphone",
+                    badge: null,
                     Icon: Mic,
                     action: goToVoice,
+                    disabled: false,
+                    cta: "Bắt đầu",
                   },
                   {
                     key: "video",
                     title: "Voice + Face to face",
                     desc: "Mô phỏng buổi phỏng vấn trực diện với giọng nói, camera và interviewer trên màn hình.",
                     meta: "Cần mic + camera",
+                    badge: null,
                     Icon: Video,
                     action: goToRoom,
+                    disabled: false,
+                    cta: "Bắt đầu",
                   },
-                ].map(({ key, title, desc, meta, Icon, action }) => (
+                ].map(({ key, title, desc, meta, badge, Icon, action, disabled, cta }) => (
                   <button
                     key={key}
                     type="button"
                     onClick={action}
-                    disabled={roomStarting}
-                    className="group flex min-h-[250px] flex-col rounded-2xl border border-[#DCE4F3] bg-white p-5 text-left shadow-xs transition-all hover:-translate-y-0.5 hover:border-[#204195]/60 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#204195] disabled:cursor-wait disabled:opacity-60"
+                    disabled={disabled || roomStarting}
+                    className={`group flex min-h-[260px] flex-col rounded-2xl border p-5 text-left shadow-xs transition-all ${
+                      disabled
+                        ? "border-[#DCE4F3] bg-slate-50/70 opacity-70 cursor-not-allowed"
+                        : "border-[#DCE4F3] bg-white hover:-translate-y-0.5 hover:border-[#204195]/60 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#204195] disabled:cursor-wait disabled:opacity-60"
+                    }`}
                   >
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195] transition-transform group-hover:scale-105">
-                      <Icon className="size-5" />
-                    </span>
-                    <span className="mt-5 text-base font-bold text-[#14244B]">{title}</span>
-                    <span className="mt-2 flex-1 text-xs leading-5 text-[#607096]">{desc}</span>
-                    <span className="mt-4 inline-flex w-fit rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-semibold text-[#607096]">
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`flex h-11 w-11 items-center justify-center rounded-xl transition-transform ${
+                          disabled
+                            ? "bg-slate-100 text-slate-500"
+                            : "bg-[#F0F4FC] text-[#204195] group-hover:scale-105"
+                        }`}
+                      >
+                        <Icon className="size-5" />
+                      </span>
+                      {badge && (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            disabled
+                              ? "bg-amber-100 text-amber-800 border border-amber-200"
+                              : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                          }`}
+                        >
+                          {badge}
+                        </span>
+                      )}
+                    </div>
+                    <span className="mt-4 text-base font-bold text-[#14244B]">{title}</span>
+                    <span className="mt-1.5 flex-1 text-xs leading-5 text-[#607096]">{desc}</span>
+                    <span className="mt-3 inline-flex w-fit rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-semibold text-[#607096]">
                       {meta}
                     </span>
-                    <span className="mt-4 flex w-full items-center justify-between border-t border-[#EAEFF8] pt-4 text-sm font-bold text-[#204195]">
-                      <span>{roomStarting ? "Đang chuẩn bị..." : "Bắt đầu"}</span>
-                      {!roomStarting && <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />}
+                    <span
+                      className={`mt-4 flex w-full items-center justify-between border-t border-[#EAEFF8] pt-4 text-sm font-bold ${
+                        disabled ? "text-[#7A89A8]" : "text-[#204195]"
+                      }`}
+                    >
+                      <span>{roomStarting && !disabled ? "Đang chuẩn bị..." : cta}</span>
+                      {!roomStarting && !disabled && (
+                        <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                      )}
                     </span>
                   </button>
                 ))}
+              </div>
+
+              <div className="mt-5 flex items-center justify-between rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-4 py-3 text-xs text-[#607096]">
+                <span>Bạn muốn tự ôn luyện câu hỏi trắc nghiệm & tình huống?</span>
+                <Link
+                  href="/practice"
+                  onClick={onClose}
+                  className="font-bold text-[#204195] hover:underline"
+                >
+                  Đến trang Luyện tập &rarr;
+                </Link>
               </div>
             </div>
           </div>
