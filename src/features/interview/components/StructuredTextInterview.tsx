@@ -13,7 +13,7 @@ import {
   Lock,
   LogOut,
   Send,
-  ShieldCheck,
+  Sparkles,
   Target,
 } from 'lucide-react';
 import {
@@ -457,20 +457,27 @@ export default function StructuredTextInterview({
                     Tất cả {totalTurns} câu hỏi đã được ghi nhận câu trả lời đầy đủ và lưu trữ an toàn.
                   </p>
 
-                  {/* MANDATORY P4-P6 NOTICE */}
-                  <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-left">
+                  {/* Evaluation Report Action Banner */}
+                  <div className="mt-5 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-5 text-left flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="flex items-start gap-3">
-                      <ShieldCheck className="mt-0.5 size-5 shrink-0 text-amber-700" />
-                      <div className="text-xs leading-relaxed text-amber-900">
-                        <p className="font-bold">Lưu ý quan trọng về đánh giá kết quả:</p>
-                        <p className="mt-1 font-semibold text-amber-800">
-                          “Đánh giá chi tiết chưa khả dụng trong phiên bản hiện tại (Giai đoạn P4–P6 đang phát triển). Câu trả lời của bạn đã được ghi nhận an toàn.”
-                        </p>
-                        <p className="mt-1 text-[#607096]">
-                          Hệ thống hiện tuân thủ chặt chẽ nguyên tắc không hiển thị điểm số giả hay nhận xét tự động chưa qua kiểm chứng.
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+                        <Sparkles className="size-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-indigo-950">
+                          Báo cáo đánh giá năng lực AI đã sẵn sàng
+                        </h4>
+                        <p className="mt-1 text-xs text-indigo-800 leading-relaxed">
+                          Xem biểu đồ Radar đa giác năng lực, điểm số chi tiết từng câu hỏi bóc tách theo STAR và nhận xét chuyên môn.
                         </p>
                       </div>
                     </div>
+                    <button
+                      onClick={() => router.push(`/interview/results/${sessionId}`)}
+                      className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#183273] transition shadow-xs"
+                    >
+                      <Sparkles className="size-3.5" /> Xem báo cáo đánh giá
+                    </button>
                   </div>
                 </div>
 
