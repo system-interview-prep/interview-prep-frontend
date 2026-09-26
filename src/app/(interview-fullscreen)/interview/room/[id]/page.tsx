@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import VideoPlayer from '@features/interview/components/VideoPlayer';
 import SimliAvatar from '@features/interview/components/SimliAvatar';
@@ -283,19 +283,59 @@ function RoomContent() {
     return null;
   });
 
+  const [sessionContext, setSessionContext] = useState<{
+    resumeId?: string | null;
+    jobId?: string | null;
+  } | null>(null);
+
   useEffect(() => {
-    if ((detectedStructured === null || experienceType === null) && roomId) {
+    try {
+      const raw =
+        sessionStorage.getItem('interview.cvScoreContext') ||
+        localStorage.getItem('interview.cvScoreContext');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.candidateId && parsed?.jobId) {
+          setSessionContext((prev) => prev ?? { resumeId: parsed.candidateId, jobId: parsed.jobId });
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (roomId) {
       import('@features/interview/services/interviewRuntime.service')
         .then(({ interviewRuntimeApi }) => interviewRuntimeApi.get(roomId))
         .then((sess) => {
-          setDetectedStructured(sess.mode === 'text');
-          setExperienceType(sess.experienceType || 'interview_chat');
+          if (detectedStructured === null) {
+            setDetectedStructured(sess.mode === 'text');
+          }
+          if (experienceType === null) {
+            setExperienceType(sess.experienceType || 'interview_chat');
+          }
+          if (sess.resumeId && sess.jobId) {
+            setSessionContext({ resumeId: sess.resumeId, jobId: sess.jobId });
+          }
         })
         .catch(() => {
-          setDetectedStructured(false);
+          if (detectedStructured === null) setDetectedStructured(false);
         });
     }
   }, [detectedStructured, experienceType, roomId]);
+
+  const chatBackUrl = useMemo(() => {
+    if (sessionContext?.resumeId && sessionContext?.jobId) {
+      const q = new URLSearchParams({
+        candidateId: sessionContext.resumeId,
+        jobId: sessionContext.jobId,
+        ...(topic ? { jobTitle: topic } : {}),
+      });
+      return `/interview/cv-score?${q.toString()}`;
+    }
+    return '/dashboard/jobs';
+  }, [sessionContext, topic]);
 
   if (detectedStructured === null) {
     return (
@@ -310,7 +350,7 @@ function RoomContent() {
     if (experienceType === 'question_practice') {
       return <StructuredTextInterview sessionId={roomId} jobTitle={topic} backUrl="/practice?tab=cv-jd" />;
     }
-    return <InterviewChatRoom sessionId={roomId} jobTitle={topic} backUrl="/interview/cv-score" />;
+    return <InterviewChatRoom sessionId={roomId} jobTitle={topic} backUrl={chatBackUrl} />;
   }
 
   return <MediaRoomContent />;
