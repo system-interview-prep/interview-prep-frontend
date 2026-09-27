@@ -905,14 +905,14 @@ function ScorePageContent() {
                       Thời lượng phỏng vấn
                     </span>
                     <span className="text-[11px] text-[#607096]">
-                      Số câu hỏi phân bổ theo chuẩn quốc tế
+                      Số câu hỏi điều phối linh hoạt theo nhịp độ thực tế
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2.5">
                     {[
-                      { minutes: 15, label: "Flash Screen", time: "15 Phút", q: "4 câu hỏi", tag: "Luyện nhanh" },
-                      { minutes: 25, label: "Standard", time: "25 Phút", q: "6 câu hỏi", tag: "★ Khuyên dùng" },
-                      { minutes: 45, label: "Deep Dive", time: "45 Phút", q: "8 câu hỏi", tag: "Toàn diện" },
+                      { minutes: 15, label: "Flash Screen", time: "15 Phút", q: "Linh hoạt (4–6 câu)", tag: "Luyện nhanh" },
+                      { minutes: 25, label: "Standard", time: "25 Phút", q: "Linh hoạt (6–10 câu)", tag: "★ Khuyên dùng" },
+                      { minutes: 45, label: "Deep Dive", time: "45 Phút", q: "Linh hoạt (8–14 câu)", tag: "Toàn diện" },
                     ].map((pkg) => {
                       const active = durationMinutes === pkg.minutes;
                       return (
