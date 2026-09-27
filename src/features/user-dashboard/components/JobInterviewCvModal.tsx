@@ -656,7 +656,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                     </p>
                   </div>
                   <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700 border border-indigo-200/50">
-                    <Clock className="size-3" /> Chuẩn quốc tế
+                    <Clock className="size-3" /> Điều phối linh hoạt
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -665,7 +665,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                       minutes: 15,
                       title: "Gói Nhanh",
                       badge: "15 Phút",
-                      questions: "4 câu hỏi",
+                      questions: "Linh hoạt (4–6 câu)",
                       focus: "Sơ loại & phản xạ nhanh",
                       desc: "Phù hợp: Luyện nhanh giờ nghỉ trưa",
                       recommend: false,
@@ -674,7 +674,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                       minutes: 25,
                       title: "Gói Chuẩn",
                       badge: "25 Phút",
-                      questions: "6 câu hỏi",
+                      questions: "Linh hoạt (6–10 câu)",
                       focus: "Đánh giá chuẩn năng lực",
                       desc: "Khuyên dùng cho hầu hết ứng viên",
                       recommend: true,
@@ -683,7 +683,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                       minutes: 45,
                       title: "Chuyên Sâu",
                       badge: "45 Phút",
-                      questions: "8 câu hỏi",
+                      questions: "Linh hoạt (8–14 câu)",
                       focus: "System Design & Tình huống",
                       desc: "Phù hợp: Ứng viên Mid / Senior",
                       recommend: false,
