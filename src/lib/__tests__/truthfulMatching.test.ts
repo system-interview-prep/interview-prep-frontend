@@ -567,4 +567,42 @@ describe("Truthful Matching UI Remediation — Phase 1 & 1.1 Hardening", () => {
       expect(resolveWarningText("semantic_dense_provider_fallback_to_sparse")).toContain("đối sánh từ khóa");
     });
   });
+
+  it("keeps diagnostic score visible when strict eligibility fails", () => {
+    const normalized = normalizeMatchResult(
+      {
+        schemaVersion: "2.1",
+        suitabilityScore: null,
+        diagnosticScore: 0.5837,
+        eligibility: "ineligible",
+        fitBand: "not_eligible",
+        decision: "assessed",
+        failedMustHaveRequirements: ["req-csharp", "req-kafka"],
+        requirementResults: [
+          { requirementId: "req-csharp", status: "not_met", confidence: 0.9, evidenceRefs: [], reasonCode: "requirement_not_evidenced" },
+        ],
+      },
+      "candidate-1",
+      "job-1",
+    );
+
+    expect(normalized.suitabilityScore).toBeNull();
+    expect(normalized.diagnosticScore).toBeCloseTo(0.5837);
+    expect(normalized.score.percentage).toBe(58);
+    expect(normalized.failedMustHaveRequirements).toEqual(["req-csharp", "req-kafka"]);
+
+    const html = renderToStaticMarkup(
+      React.createElement(CompactMatchSummary, {
+        eligibility: normalized.eligibility,
+        percentage: normalized.score.percentage,
+        requirementResults: normalized.requirementResults,
+        failedMustHaveCount: normalized.failedMustHaveRequirements?.length,
+        scoreIsDiagnostic: true,
+      }),
+    );
+
+    expect(html).toContain("Điểm phù hợp tham khảo");
+    expect(html).toContain("58");
+    expect(html).toContain("Chưa đáp ứng điều kiện bắt buộc");
+  });
 });
