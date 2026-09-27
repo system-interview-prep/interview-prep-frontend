@@ -214,11 +214,12 @@ export default function InterviewChatRoom({
       });
 
       // TRIGGER 2 (Qua chat): AI nhận diện ý định dừng và trả về CONFIRM_ABORT
+      // Không tự động bật popup modal nữa mà để người dùng bấm trực tiếp vào nút trong khung chat
       if (
         res.action === 'CONFIRM_ABORT' ||
         res.assistantResponse?.messageType === 'CONFIRM_ABORT'
       ) {
-        setShowEndModal(true);
+        // Nút bấm xác nhận dừng đã được hiển thị trực tiếp ngay dưới tin nhắn của AI
       }
 
       if (res.sessionStatus === 'CLOSED') {
@@ -321,6 +322,7 @@ export default function InterviewChatRoom({
       { key: 'VALIDATE', label: 'Xác thực CV', shortLabel: 'Xác thực' },
       { key: 'DEEP_DIVE', label: 'Kỹ thuật', shortLabel: 'Kỹ thuật' },
       { key: 'CHALLENGE', label: 'Thử thách', shortLabel: 'Thử thách' },
+      { key: 'CLOSING', label: 'Hỏi đáp Q&A', shortLabel: 'Hỏi đáp' },
       { key: 'COMPLETED', label: 'Tổng kết', shortLabel: 'Hoàn thành' },
     ],
     []
@@ -331,6 +333,7 @@ export default function InterviewChatRoom({
     if (currentTurnIndex === 0 || currentStage === 'WARM_UP') return 'WARM_UP';
     if (currentTurnIndex === 1 || currentStage === 'VALIDATE') return 'VALIDATE';
     if (currentStage === 'CHALLENGE') return 'CHALLENGE';
+    if (currentStage === 'CLOSING') return 'CLOSING';
     return 'DEEP_DIVE';
   }, [isClosed, currentTurnIndex, currentStage]);
 
@@ -342,17 +345,20 @@ export default function InterviewChatRoom({
   const stageHeaderBadge = useMemo(() => {
     if (isClosed) return 'Đã hoàn tất';
     if (currentTurnIndex === 0 || currentStage === 'WARM_UP') {
-      return `Giai đoạn: Khởi động (Warm-up) • Câu 1/${totalTurns || 1}`;
+      return `Giai đoạn: Khởi động (Warm-up) • Lượt ${currentTurnDisplay}`;
     }
     if (currentTurnIndex === 1 || currentStage === 'VALIDATE') {
-      return `Giai đoạn: Xác thực CV (Validate) • Câu 2/${totalTurns || 2}`;
+      return `Giai đoạn: Xác thực CV (Validate) • Lượt ${currentTurnDisplay}`;
+    }
+    if (currentStage === 'CLOSING') {
+      return `Giai đoạn: Hỏi đáp ứng viên (Q&A) • Lượt ${currentTurnDisplay}`;
     }
     const compLabel =
       currentCompetency && currentCompetency !== 'Chuyên môn'
         ? currentCompetency
         : 'Kỹ thuật chuyên sâu';
-    return `Giai đoạn: ${compLabel} • Câu ${currentTurnDisplay}/${totalTurns}`;
-  }, [isClosed, currentTurnIndex, currentStage, currentCompetency, currentTurnDisplay, totalTurns]);
+    return `Giai đoạn: ${compLabel} • Lượt ${currentTurnDisplay}`;
+  }, [isClosed, currentTurnIndex, currentStage, currentCompetency, currentTurnDisplay]);
 
   const isCodingQuestion = useMemo(() => {
     return (
@@ -368,6 +374,7 @@ export default function InterviewChatRoom({
         const isMainQ = msg.messageType === 'MAIN_QUESTION';
         const isProbe = msg.messageType === 'PROBE' || msg.messageType === 'CLARIFY';
         const isWrapUp = msg.messageType === 'WRAP_UP';
+        const isConfirmAbort = msg.messageType === 'CONFIRM_ABORT';
 
         return (
           <div
@@ -407,6 +414,11 @@ export default function InterviewChatRoom({
                       <CheckCircle2 className="size-3" /> Tổng kết phiên
                     </span>
                   )}
+                  {isConfirmAbort && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 border border-rose-200">
+                      <AlertCircle className="size-3" /> Xác nhận dừng phỏng vấn
+                    </span>
+                  )}
                   <span className="text-[11px] text-slate-400">
                     {isAsst ? 'AI Interviewer' : 'Bạn'}
                   </span>
@@ -417,11 +429,55 @@ export default function InterviewChatRoom({
               <div
                 className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words ${
                   isAsst
-                    ? 'bg-white text-slate-800 border border-slate-200/90 shadow-sm rounded-tl-sm'
+                    ? isConfirmAbort
+                      ? 'bg-white text-slate-800 border border-rose-200 shadow-sm rounded-tl-sm ring-2 ring-rose-100'
+                      : 'bg-white text-slate-800 border border-slate-200/90 shadow-sm rounded-tl-sm'
                     : 'bg-[#204195] text-white shadow-sm rounded-tr-sm'
                 }`}
               >
                 {msg.content}
+
+                {/* Inline Confirmation Card for Abort */}
+                {isConfirmAbort && (
+                  <div className="mt-3.5 pt-3.5 border-t border-rose-100">
+                    {!isClosed ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-rose-800">
+                          <AlertCircle className="size-3.5 text-rose-600 shrink-0" />
+                          <span>Bạn có muốn dừng buổi phỏng vấn tại đây không?</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEndSession('USER_ENDED')}
+                            disabled={isEnding}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-rose-700 active:scale-98 transition disabled:opacity-60 shadow-xs cursor-pointer"
+                          >
+                            {isEnding ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <LogOut className="size-3.5" />
+                            )}
+                            <span>Xác nhận dừng & Lưu kết quả</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSendMessage('Tôi muốn tiếp tục buổi phỏng vấn')}
+                            disabled={isEnding || isSending}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 active:scale-98 transition disabled:opacity-60 cursor-pointer"
+                          >
+                            <span>Tôi muốn tiếp tục thi</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 italic">
+                        <CheckCircle2 className="size-3.5 text-emerald-600 shrink-0" />
+                        <span>Phiên phỏng vấn đã được xác nhận kết thúc.</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -603,7 +659,7 @@ export default function InterviewChatRoom({
                   <span className="sm:hidden">{st.shortLabel}</span>
                   {isCurrent && (
                     <span className="ml-1 rounded-full bg-white/25 px-1.5 py-0.2 text-[10px]">
-                      {currentTurnDisplay}/{totalTurns}
+                      Lượt {currentTurnDisplay}
                     </span>
                   )}
                 </div>
