@@ -2,7 +2,11 @@ import { closeSession, createSession, startVideoCall } from "@/lib/aiService";
 import { interviewRuntimeApi } from "./interviewRuntime.service";
 
 export type InterviewMode = "chat" | "voice" | "video";
-export type InterviewExperience = "question_practice" | "interview_chat";
+export type InterviewExperience =
+  | "question_practice"
+  | "interview_chat"
+  | "voice_interview"
+  | "video_interview";
 
 export type StartInterviewParams = {
   mode: InterviewMode;
@@ -51,11 +55,18 @@ export async function startInterviewSession({
   }
 
   if (hasCandidateId && hasJobId) {
+    const runtimeExperience =
+      experience ??
+      (mode === "voice"
+        ? "voice_interview"
+        : mode === "video"
+        ? "video_interview"
+        : "question_practice");
     const session = await interviewRuntimeApi.create({
       resumeId: normalizedCandidateId,
       jobId: normalizedJobId,
       mode: runtimeMode,
-      experienceType: experience ?? "question_practice",
+      experienceType: runtimeExperience,
       locale,
       durationMinutes,
     });
@@ -106,10 +117,12 @@ export async function startInterviewSession({
     sessionId = legacy.sessionId;
   }
 
-  if (mode === "video") {
+  // Media rooms use the video-call record for their voice/TTS exchange too.
+  // Starting it for voice prevents the room from opening without a callId.
+  if (mode === "video" || mode === "voice") {
     try {
       const call = await startVideoCall({ roomId: sessionId, sessionId });
-      if (typeof sessionStorage !== "undefined") {
+      if (call?.callId && typeof sessionStorage !== "undefined") {
         try {
           sessionStorage.setItem("video.callId", call.callId);
         } catch {
@@ -137,14 +150,26 @@ export async function startInterviewSession({
   if (jobTitle?.trim()) {
     search.set("topic", jobTitle.trim());
   }
-  if (hasCandidateId && hasJobId) {
+  const isStructuredText = mode === "chat";
+  if (hasCandidateId && hasJobId && isStructuredText) {
     search.set("runtime", "structured");
     search.set("experience", experience ?? "question_practice");
+  } else if (hasCandidateId && hasJobId) {
+    search.set("runtime", "media");
+    search.set(
+      "experience",
+      experience ?? (mode === "voice" ? "voice_interview" : "video_interview"),
+    );
   } else if (experience) {
     search.set("experience", experience);
   }
 
-  if (hasCandidateId && hasJobId && (experience === "question_practice" || !experience)) {
+  if (
+    hasCandidateId &&
+    hasJobId &&
+    mode === "chat" &&
+    (experience === "question_practice" || !experience)
+  ) {
     return `/practice/room/${encodeURIComponent(sessionId)}?${search.toString()}`;
   }
 

@@ -12,6 +12,7 @@ import { InterviewRoomHeader } from '@features/interview/components/InterviewRoo
 import { useWebRTC } from '@features/interview/hooks/useWebRTC';
 import { useVideoCallChat } from '@features/interview/hooks/useVideoCallChat';
 import { useVoiceRecognition } from '@features/interview/hooks/useVoiceRecognition';
+import LiveKitInterviewRoom from '@features/interview/components/LiveKitInterviewRoom';
 import { useLanguage } from '@/i18n/LanguageProvider';
 import { Loader2 } from 'lucide-react';
 
@@ -353,7 +354,12 @@ function RoomContent() {
     return <InterviewChatRoom sessionId={roomId} jobTitle={topic} backUrl={chatBackUrl} />;
   }
 
-  return <MediaRoomContent />;
+  return (
+    <LiveKitInterviewRoom
+      sessionId={roomId}
+      mode={mode === 'video' ? 'video' : 'voice'}
+    />
+  );
 }
 
 export default function RoomPage() {
