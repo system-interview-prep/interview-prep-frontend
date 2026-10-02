@@ -2,6 +2,15 @@ import apiClient from "@/lib/apiClient";
 
 export type ChatRole = "user" | "assistant" | "system";
 
+export type InterviewStage =
+  | "WARM_UP"
+  | "VALIDATE"
+  | "DEEP_DIVE"
+  | "CHALLENGE"
+  | "BEHAVIORAL"
+  | "CLOSING"
+  | "CLOSED";
+
 export type ChatMessageType =
   | "GREETING"
   | "MAIN_QUESTION"
@@ -28,7 +37,7 @@ export type ChatMessage = {
 export type CurrentTurnInfo = {
   turnId: string;
   turnIndex: number;
-  stage?: string;
+  stage?: InterviewStage | string;
   competency?: string;
   questionVersionId?: string | null;
   questionType?: string;
@@ -37,12 +46,20 @@ export type CurrentTurnInfo = {
   testCasesCode?: string;
 };
 
-export type EndReason = "COMPLETED" | "USER_ENDED" | "TECHNICAL_FAILURE";
+export type EndReason =
+  | "COMPLETED"
+  | "NORMAL_COMPLETION"
+  | "USER_ENDED"
+  | "CANDIDATE_ABORT"
+  | "HARD_TIMEOUT"
+  | "FAST_FAIL_TECH"
+  | "FAST_FAIL_VALIDATION"
+  | "TECHNICAL_FAILURE";
 
 export type ChatRuntimeTurn = {
   turnId: string;
   turnIndex: number;
-  stage?: string;
+  stage?: InterviewStage | string;
   status: string;
   questionType?: string;
   language?: string;
@@ -63,6 +80,12 @@ export type ChatRuntimeResponse = {
   isAwaitingCandidate: boolean;
   durationMinutes?: number;
   startedAt?: string | null;
+  workingMemory?: {
+    current_stage?: InterviewStage | string;
+    elapsed_time?: number;
+    remaining_time?: number;
+    [key: string]: unknown;
+  };
   turns?: ChatRuntimeTurn[];
 };
 
@@ -84,6 +107,9 @@ export type SendChatMessageResponse = {
   sessionStatus: "OPEN" | "CLOSED";
   endReason?: EndReason | null;
   action?: string;
+  currentStage?: InterviewStage | string;
+  currentTurnIndex?: number;
+  remainingTimeSeconds?: number;
 };
 
 export type CompleteChatResponse = {
