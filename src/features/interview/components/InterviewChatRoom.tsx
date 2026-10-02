@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
@@ -10,7 +10,6 @@ import {
   Clock,
   Loader2,
   LogOut,
-  RefreshCw,
   Send,
   Sparkles,
   User,
@@ -23,85 +22,18 @@ import {
 } from '../services/interviewChat.service';
 import InteractiveCodeSandbox from '@/components/interview/InteractiveCodeSandbox';
 import { AbortConfirmationModal } from '@/components/interview/AbortConfirmationModal';
+import {
+  ChatStageStepper,
+  getEndReasonLabel,
+  getStageLabel,
+  InterviewCountdownTimer,
+} from './ChatInterviewProgress';
+import { ChatRoomErrorState, ChatRoomLoadingState } from './ChatRoomStates';
 
 interface InterviewChatRoomProps {
   sessionId: string;
   jobTitle?: string;
   backUrl?: string;
-}
-
-function InterviewCountdownTimer({
-  startedAt,
-  durationMinutes = 25,
-  isClosed,
-}: {
-  startedAt?: string | null;
-  durationMinutes?: number;
-  isClosed: boolean;
-}) {
-  const computeRemaining = useCallback(() => {
-    const totalSec = durationMinutes * 60;
-    if (startedAt) {
-      const startMs = new Date(startedAt).getTime();
-      if (!isNaN(startMs)) {
-        const elapsed = Math.floor((Date.now() - startMs) / 1000);
-        return Math.max(0, totalSec - elapsed);
-      }
-    }
-    return totalSec;
-  }, [startedAt, durationMinutes]);
-
-  const [secondsRemaining, setSecondsRemaining] = useState<number>(computeRemaining);
-  const [prevTimerConfig, setPrevTimerConfig] = useState({ startedAt, durationMinutes });
-
-  if (prevTimerConfig.startedAt !== startedAt || prevTimerConfig.durationMinutes !== durationMinutes) {
-    setPrevTimerConfig({ startedAt, durationMinutes });
-    setSecondsRemaining(computeRemaining());
-  }
-
-  useEffect(() => {
-    if (isClosed) return;
-    const timer = setInterval(() => {
-      setSecondsRemaining(computeRemaining());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [computeRemaining, isClosed]);
-
-  const mins = Math.floor(secondsRemaining / 60);
-  const secs = secondsRemaining % 60;
-  const formatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-
-  const isLow = secondsRemaining <= 300 && secondsRemaining > 120; // 2 - 5 min
-  const isCritical = secondsRemaining <= 120; // < 2 min
-
-  return (
-    <div
-      className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-all ${
-        isClosed
-          ? 'border-slate-200 bg-slate-100/70 text-slate-500'
-          : isCritical
-          ? 'border-rose-300 bg-rose-50 text-rose-700 animate-pulse ring-1 ring-rose-300'
-          : isLow
-          ? 'border-amber-300 bg-amber-50 text-amber-800 ring-1 ring-amber-200'
-          : 'border-slate-200 bg-slate-50 text-slate-700'
-      }`}
-      title={isClosed ? 'Phiên phỏng vấn đã kết thúc' : 'Thời gian phỏng vấn còn lại'}
-    >
-      <Clock
-        className={`size-3.5 ${
-          isClosed
-            ? 'text-slate-400'
-            : isCritical
-            ? 'text-rose-600'
-            : isLow
-            ? 'text-amber-600'
-            : 'text-slate-500'
-        }`}
-      />
-      <span>{formatted}</span>
-      <span className="hidden md:inline font-normal text-[11px] opacity-80">còn lại</span>
-    </div>
-  );
 }
 
 export default function InterviewChatRoom({
@@ -223,7 +155,11 @@ export default function InterviewChatRoom({
       }
 
       if (res.sessionStatus === 'CLOSED') {
-        setRuntime((prev) => (prev ? { ...prev, sessionStatus: 'CLOSED' } : null));
+        setRuntime((prev) =>
+          prev
+            ? { ...prev, sessionStatus: 'CLOSED', endReason: res.endReason ?? prev.endReason }
+            : null
+        );
       } else {
         try {
           const freshRuntime = await interviewChatApi.getRuntime(sessionId);
@@ -235,6 +171,15 @@ export default function InterviewChatRoom({
                 ? {
                     ...prev,
                     currentTurnIndex: res.turnStatus.turnIndex ?? prev.currentTurnIndex,
+                    currentTurn: prev.currentTurn
+                      ? { ...prev.currentTurn, stage: res.currentStage ?? prev.currentTurn.stage }
+                      : prev.currentTurn,
+                    workingMemory: {
+                      ...prev.workingMemory,
+                      current_stage: res.currentStage ?? prev.workingMemory?.current_stage,
+                      remaining_time:
+                        res.remainingTimeSeconds ?? prev.workingMemory?.remaining_time,
+                    },
                   }
                 : null
             );
@@ -297,6 +242,7 @@ export default function InterviewChatRoom({
       setRuntime((prev) => (prev ? { ...prev, sessionStatus: 'CLOSED', endReason } : null));
       // Re-fetch latest transcript to ensure all wrap-up messages are loaded
       const updated = await interviewChatApi.getRuntime(sessionId);
+      setRuntime(updated);
       setMessages(updated.messages || []);
     } catch {
       router.push(backUrl);
@@ -307,58 +253,23 @@ export default function InterviewChatRoom({
 
   const jobTitle = runtime?.jobTitle || initialJobTitle || 'Vị trí phỏng vấn';
   const isClosed = runtime?.sessionStatus === 'CLOSED';
-  const totalTurns = runtime?.totalTurns || 0;
-  const currentTurnIndex = runtime?.currentTurnIndex ?? 0;
-  const currentTurnDisplay = Math.min(currentTurnIndex + 1, totalTurns || 1);
-  const currentStage = runtime?.currentTurn?.stage;
+  const currentStage = runtime?.currentTurn?.stage ?? runtime?.workingMemory?.current_stage;
   const currentCompetency = runtime?.currentTurn?.competency;
 
-  const durationMinutes = runtime?.durationMinutes || 25;
+  const durationMinutes = runtime?.durationMinutes;
   const startedAt = runtime?.startedAt;
-
-  const stagesList = useMemo(
-    () => [
-      { key: 'WARM_UP', label: 'Khởi động', shortLabel: 'Khởi động' },
-      { key: 'VALIDATE', label: 'Xác thực CV', shortLabel: 'Xác thực' },
-      { key: 'DEEP_DIVE', label: 'Kỹ thuật', shortLabel: 'Kỹ thuật' },
-      { key: 'CHALLENGE', label: 'Thử thách', shortLabel: 'Thử thách' },
-      { key: 'CLOSING', label: 'Hỏi đáp Q&A', shortLabel: 'Hỏi đáp' },
-      { key: 'COMPLETED', label: 'Tổng kết', shortLabel: 'Hoàn thành' },
-    ],
-    []
-  );
-
-  const activeStageKey = useMemo(() => {
-    if (isClosed) return 'COMPLETED';
-    if (currentTurnIndex === 0 || currentStage === 'WARM_UP') return 'WARM_UP';
-    if (currentTurnIndex === 1 || currentStage === 'VALIDATE') return 'VALIDATE';
-    if (currentStage === 'CHALLENGE') return 'CHALLENGE';
-    if (currentStage === 'CLOSING') return 'CLOSING';
-    return 'DEEP_DIVE';
-  }, [isClosed, currentTurnIndex, currentStage]);
-
-  const activeStageIndex = useMemo(() => {
-    const idx = stagesList.findIndex((s) => s.key === activeStageKey);
-    return idx >= 0 ? idx : 2;
-  }, [stagesList, activeStageKey]);
+  const serverRemainingSeconds = runtime?.workingMemory?.remaining_time;
 
   const stageHeaderBadge = useMemo(() => {
     if (isClosed) return 'Đã hoàn tất';
-    if (currentTurnIndex === 0 || currentStage === 'WARM_UP') {
-      return `Giai đoạn: Khởi động (Warm-up) • Lượt ${currentTurnDisplay}`;
-    }
-    if (currentTurnIndex === 1 || currentStage === 'VALIDATE') {
-      return `Giai đoạn: Xác thực CV (Validate) • Lượt ${currentTurnDisplay}`;
-    }
-    if (currentStage === 'CLOSING') {
-      return `Giai đoạn: Hỏi đáp ứng viên (Q&A) • Lượt ${currentTurnDisplay}`;
-    }
+    const stageLabel = getStageLabel(currentStage);
+    if (!stageLabel) return 'Giai đoạn chưa xác định';
     const compLabel =
-      currentCompetency && currentCompetency !== 'Chuyên môn'
+      currentStage === 'DEEP_DIVE' && currentCompetency && currentCompetency !== 'Chuyên môn'
         ? currentCompetency
-        : 'Kỹ thuật chuyên sâu';
-    return `Giai đoạn: ${compLabel} • Lượt ${currentTurnDisplay}`;
-  }, [isClosed, currentTurnIndex, currentStage, currentCompetency, currentTurnDisplay]);
+        : null;
+    return compLabel ? `Giai đoạn: ${stageLabel} · ${compLabel}` : `Giai đoạn: ${stageLabel}`;
+  }, [isClosed, currentStage, currentCompetency]);
 
   const isCodingQuestion = useMemo(() => {
     return (
@@ -509,47 +420,16 @@ export default function InterviewChatRoom({
   );
 
   if (loading) {
-    return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-slate-50 text-slate-800">
-        <div className="relative flex items-center justify-center">
-          <div className="size-16 rounded-2xl bg-indigo-600/10 animate-pulse" />
-          <Bot className="absolute size-8 text-indigo-600 animate-bounce" />
-        </div>
-        <div className="text-center">
-          <h2 className="text-lg font-semibold text-slate-900">Đang khởi tạo phòng phỏng vấn...</h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Đang đồng bộ hồ sơ và kết nối AI Interviewer
-          </p>
-        </div>
-      </div>
-    );
+    return <ChatRoomLoadingState />;
   }
 
   if (error) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-slate-50 p-4">
-        <div className="max-w-md w-full rounded-2xl bg-white p-6 shadow-sm border border-slate-200 text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 mb-4">
-            <AlertCircle className="size-6" />
-          </div>
-          <h3 className="text-base font-semibold text-slate-900">Không thể bắt đầu phỏng vấn</h3>
-          <p className="mt-2 text-sm text-slate-600 leading-relaxed">{error}</p>
-          <div className="mt-6 flex flex-col gap-2">
-            <button
-              onClick={loadChatSession}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 transition"
-            >
-              <RefreshCw className="size-4" /> Thử lại
-            </button>
-            <button
-              onClick={() => router.push(backUrl)}
-              className="inline-flex items-center justify-center rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-200 transition"
-            >
-              Quay về
-            </button>
-          </div>
-        </div>
-      </div>
+      <ChatRoomErrorState
+        message={error}
+        onRetry={loadChatSession}
+        onBack={() => router.push(backUrl)}
+      />
     );
   }
 
@@ -586,11 +466,7 @@ export default function InterviewChatRoom({
                 }`}
               >
                 {isClosed
-                  ? runtime?.endReason === 'USER_ENDED'
-                    ? 'Dừng theo yêu cầu'
-                    : runtime?.endReason === 'TECHNICAL_FAILURE'
-                    ? 'Lỗi hệ thống'
-                    : 'Đã hoàn tất'
+                  ? getEndReasonLabel(runtime?.endReason)
                   : 'Đang diễn ra'}
               </span>
             </div>
@@ -599,6 +475,7 @@ export default function InterviewChatRoom({
 
         <div className="flex items-center gap-2 sm:gap-2.5">
           <InterviewCountdownTimer
+            serverRemainingSeconds={serverRemainingSeconds}
             startedAt={startedAt}
             durationMinutes={durationMinutes}
             isClosed={isClosed}
@@ -622,52 +499,11 @@ export default function InterviewChatRoom({
         </div>
       </header>
 
-      {/* 2. Stage Stepper Bar (Thanh tiến độ theo giai đoạn) */}
-      <div className="border-b border-slate-200/80 bg-white/80 px-4 py-2 sm:px-6 backdrop-blur-xs">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-1 sm:gap-2">
-          {stagesList.map((st, idx) => {
-            const isPassed = isClosed || idx < activeStageIndex;
-            const isCurrent = !isClosed && idx === activeStageIndex;
-
-            return (
-              <React.Fragment key={st.key}>
-                {idx > 0 && (
-                  <div
-                    className={`h-0.5 flex-1 min-w-2 sm:min-w-6 rounded-full transition-all ${
-                      idx <= activeStageIndex ? 'bg-indigo-500' : 'bg-slate-200'
-                    }`}
-                  />
-                )}
-                <div
-                  className={`flex items-center gap-1 rounded-full px-2 sm:px-3 py-1 text-xs transition-all ${
-                    isCurrent
-                      ? 'bg-indigo-600 text-white font-bold shadow-xs ring-2 ring-indigo-200'
-                      : isPassed
-                      ? 'bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200'
-                      : 'bg-slate-50 text-slate-400 font-medium border border-slate-200/60'
-                  }`}
-                  title={st.label}
-                >
-                  {isPassed ? (
-                    <CheckCircle2 className="size-3.5 text-emerald-600 shrink-0" />
-                  ) : isCurrent ? (
-                    <span className="flex size-2 rounded-full bg-white shrink-0 animate-ping" />
-                  ) : (
-                    <span className="size-1.5 rounded-full bg-slate-300 shrink-0" />
-                  )}
-                  <span className="hidden sm:inline">{st.label}</span>
-                  <span className="sm:hidden">{st.shortLabel}</span>
-                  {isCurrent && (
-                    <span className="ml-1 rounded-full bg-white/25 px-1.5 py-0.2 text-[10px]">
-                      Lượt {currentTurnDisplay}
-                    </span>
-                  )}
-                </div>
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </div>
+      <ChatStageStepper
+        currentStage={currentStage}
+        sessionStatus={runtime?.sessionStatus ?? 'OPEN'}
+        turns={runtime?.turns}
+      />
 
       {/* 2. Main Content: Dual-Pane Coding Sandbox or Standard 1-Column Chat */}
       {isCodingQuestion && !isClosed ? (
