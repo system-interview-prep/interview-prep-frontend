@@ -1,6 +1,11 @@
 import apiClient from "@/lib/apiClient";
 
 export type InterviewRuntimeMode = "text" | "voice" | "video";
+export type InterviewRuntimeExperience =
+  | "question_practice"
+  | "interview_chat"
+  | "voice_interview"
+  | "video_interview";
 
 export type InterviewRuntimePlanSummary = {
   planId: string;
@@ -131,6 +136,7 @@ export type InterviewRuntimeSession = {
   resumeId: string | null;
   jobId: string | null;
   mode: InterviewRuntimeMode;
+  experienceType?: InterviewRuntimeExperience;
   locale: string;
   durationMinutes: number;
   status: string;
@@ -143,6 +149,7 @@ export type CreateInterviewRuntimeSessionRequest = {
   resumeId: string;
   jobId: string;
   mode: InterviewRuntimeMode;
+  experienceType?: InterviewRuntimeExperience;
   locale: string;
   durationMinutes?: number;
 };
@@ -155,6 +162,7 @@ export const interviewRuntimeApi = {
       "/api/v1/interviews/sessions",
       {
         ...payload,
+        experienceType: payload.experienceType ?? "question_practice",
         durationMinutes: payload.durationMinutes ?? 25,
       },
     );

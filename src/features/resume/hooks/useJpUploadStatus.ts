@@ -14,6 +14,7 @@ export type UseJpUploadStatusResult = {
   pollError: string | null;
   isTracking: boolean;
   latestUpload: Awaited<ReturnType<typeof jobProfileApi.getUpload>>["data"] | null;
+  restartTracking: () => void;
 };
 
 type Options = {
@@ -36,10 +37,17 @@ export function useJpUploadStatus(uploadId: string | null, options: Options = {}
   const [pollError, setPollError] = useState<string | null>(null);
   const [isTracking, setIsTracking] = useState(false);
   const [latestUpload, setLatestUpload] = useState<UseJpUploadStatusResult["latestUpload"]>(null);
+  const [trackingEpoch, setTrackingEpoch] = useState(0);
 
   const terminalRef = useRef(false);
   const pollStartRef = useRef(0);
   const uploadIdRef = useRef<string | null>(uploadId);
+  const trackingEpochRef = useRef(0);
+
+  const restartTracking = useCallback(() => {
+    trackingEpochRef.current += 1;
+    setTrackingEpoch(trackingEpochRef.current);
+  }, []);
 
   useEffect(() => {
     uploadIdRef.current = uploadId;
@@ -64,11 +72,12 @@ export function useJpUploadStatus(uploadId: string | null, options: Options = {}
       // Hydrate latestUpload once when reaching terminal state via socket
       // (polling might not have fetched the final record yet).
       const id = uploadIdRef.current;
+      const epoch = trackingEpochRef.current;
       if (id) {
         void jobProfileApi
           .getUpload(id)
           .then(({ data }) => {
-            if (uploadIdRef.current === id) setLatestUpload(data);
+            if (uploadIdRef.current === id && trackingEpochRef.current === epoch) setLatestUpload(data);
           })
           .catch(() => {
             // ignore
@@ -79,7 +88,13 @@ export function useJpUploadStatus(uploadId: string | null, options: Options = {}
 
   useEffect(() => {
     terminalRef.current = false;
-    queueMicrotask(() => setPollError(null));
+    queueMicrotask(() => {
+      if (uploadIdRef.current !== uploadId || trackingEpochRef.current !== trackingEpoch) return;
+      setPollError(null);
+      setStatus(null);
+      setLastPayload(null);
+      setLatestUpload(null);
+    });
     if (!uploadId) {
       queueMicrotask(() => {
         setStatus(null);
@@ -112,6 +127,7 @@ export function useJpUploadStatus(uploadId: string | null, options: Options = {}
     });
 
     const pollInterval = window.setInterval(async () => {
+      if (trackingEpochRef.current !== trackingEpoch) return;
       if (terminalRef.current) return;
       if (Date.now() - pollStartRef.current > POLL_MAX_MS) {
         applyPayload({ uploadId, status: "FAILED", error: "processing_timeout" });
@@ -121,6 +137,7 @@ export function useJpUploadStatus(uploadId: string | null, options: Options = {}
       }
       try {
         const { data } = await jobProfileApi.getUpload(uploadId);
+        if (uploadIdRef.current !== uploadId || trackingEpochRef.current !== trackingEpoch) return;
         setLatestUpload(data);
         const st = normalizeJpUploadStatus(data.status, { hasError: Boolean(data.error) });
         if (st) setStatus(data.error ? "FAILED" : st);
@@ -146,8 +163,8 @@ export function useJpUploadStatus(uploadId: string | null, options: Options = {}
       window.clearInterval(pollInterval);
       setIsTracking(false);
     };
-  }, [uploadId, applyPayload]);
+  }, [uploadId, applyPayload, trackingEpoch]);
 
-  return { status, lastPayload, pollError, isTracking, latestUpload };
+  return { status, lastPayload, pollError, isTracking, latestUpload, restartTracking };
 }
 

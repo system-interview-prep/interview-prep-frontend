@@ -76,12 +76,13 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
     }
   };
 
-  const displayName = profile?.name || profile?.email || "";
-  const primaryRole = profile?.roles?.[0];
-  const roleLabel = formatUserRole(primaryRole, t);
-
-  /** Active styles only after hydration so SSR and first client paint match (avoids usePathname mismatch warnings). */
+  /** Active styles and user profile only after hydration so SSR and first client paint match (avoids hydration mismatch). */
   const navReady = useIsClient();
+
+  const displayName = navReady ? (profile?.name || profile?.email || "") : "";
+  const primaryRole = navReady ? profile?.roles?.[0] : undefined;
+  const roleLabel = navReady ? formatUserRole(primaryRole, t) : "";
+  const userPicture = navReady && !avatarError ? profile?.picture : undefined;
 
   const isActive = useMemo(
     () => ({
@@ -373,11 +374,12 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
                   className="group flex min-w-0 flex-1 items-center gap-2 overflow-hidden"
                   aria-label={t("userDash.nav.profile")}
                   title={displayName}
+                  suppressHydrationWarning
                 >
-                  {profile?.picture && !avatarError ? (
+                  {userPicture ? (
                     <img
                       alt=""
-                      src={profile.picture}
+                      src={userPicture}
                       referrerPolicy="no-referrer"
                       onError={() => setAvatarError(true)}
                       className="h-8 w-8 shrink-0 rounded-full border border-[#DCE4F3] object-cover shadow-2xs"
@@ -433,11 +435,12 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
                 className="flex h-9 w-9 items-center justify-center"
                 title={displayName || t("userDash.nav.profile")}
                 aria-label={t("userDash.nav.profile")}
+                suppressHydrationWarning
               >
-                {profile?.picture && !avatarError ? (
+                {userPicture ? (
                   <img
                     alt=""
-                    src={profile.picture}
+                    src={userPicture}
                     referrerPolicy="no-referrer"
                     onError={() => setAvatarError(true)}
                     className="h-9 w-9 shrink-0 rounded-full border border-[#DCE4F3] object-cover shadow-2xs"

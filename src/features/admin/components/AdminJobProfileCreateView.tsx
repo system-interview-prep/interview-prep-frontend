@@ -639,7 +639,7 @@ export default function AdminJobProfileCreateView() {
   const [jdFile, setJdFile] = useState<File | null>(null);
   const [uploadId, setUploadId] = useState<string | null>(draftUploadId || null);
   const [uploading, setUploading] = useState(false);
-  const { status: jpStatus, latestUpload } = useJpUploadStatus(uploadId);
+  const { status: jpStatus, latestUpload, restartTracking } = useJpUploadStatus(uploadId);
   const [finalizeBusy, setFinalizeBusy] = useState(false);
   const [reparseBusy, setReparseBusy] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
@@ -1008,10 +1008,12 @@ export default function AdminJobProfileCreateView() {
     if (!uploadId || reparseBusy) return;
     setReparseBusy(true);
     setError(null);
-    setEditableCanonicalUi(null);
-    setEditableExtras(null);
     try {
       await jobProfileApi.reparseUpload(uploadId);
+      setEditableCanonicalUi(null);
+      setEditableExtras(null);
+      setDraftSavedAt(null);
+      restartTracking();
     } catch (err: unknown) {
       const msg = axios.isAxiosError(err)
         ? String((err.response?.data as { message?: string })?.message ?? err.message)

@@ -66,14 +66,45 @@ describe("startInterviewSession", () => {
       resumeId: "cv-1",
       jobId: "job-1",
       mode: "text",
+      experienceType: "question_practice",
       locale: "vi-VN",
       durationMinutes: 30,
     });
     expect(buildRuntimePlan).toHaveBeenCalledWith("runtime-1");
     expect(selectRuntimeQuestions).toHaveBeenCalledWith("runtime-1");
     expect(createLegacySession).not.toHaveBeenCalled();
-    expect(url).toContain("/interview/room/runtime-1");
+    expect(url).toContain("/practice/room/runtime-1");
     expect(url).toContain("runtime=structured");
+    expect(url).toContain("experience=question_practice");
+  });
+
+  it("starts grounded interview_chat session and routes to interview room", async () => {
+    createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-chat-1" });
+    buildRuntimePlan.mockResolvedValueOnce({
+      planId: "plan-chat-1",
+      sessionId: "runtime-chat-1",
+      status: "READY",
+    });
+
+    const url = await startInterviewSession({
+      mode: "chat",
+      experience: "interview_chat",
+      lang: "vi",
+      candidateId: "cv-1",
+      jobId: "job-1",
+    });
+
+    expect(createRuntimeSession).toHaveBeenCalledWith({
+      resumeId: "cv-1",
+      jobId: "job-1",
+      mode: "text",
+      experienceType: "interview_chat",
+      locale: "vi-VN",
+      durationMinutes: 25,
+    });
+    expect(url).toContain("/interview/room/runtime-chat-1");
+    expect(url).toContain("experience=interview_chat");
+    expect(url).not.toContain("/practice/room/");
   });
 
   it("keeps legacy standalone practice when neither id is present", async () => {
@@ -112,6 +143,34 @@ describe("startInterviewSession", () => {
 
     expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-selector-fail");
     expect(startVideoCall).not.toHaveBeenCalled();
+  });
+
+  it("enriches question_unavailable with Vietnamese explanation and code", async () => {
+    createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-selector-409" });
+    buildRuntimePlan.mockResolvedValueOnce({
+      planId: "plan-409",
+      sessionId: "runtime-selector-409",
+      status: "READY",
+    });
+    const axiosError = Object.assign(new Error("Request failed with status code 409"), {
+      response: {
+        status: 409,
+        data: { detail: "question_unavailable: internal-2026.1:skill-ai requires 3 questions, 0 exist" },
+      },
+    });
+    selectRuntimeQuestions.mockRejectedValueOnce(axiosError);
+    closeRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-selector-409" });
+
+    await expect(
+      startInterviewSession({
+        mode: "chat",
+        lang: "vi",
+        candidateId: "cv-1",
+        jobId: "job-1",
+      }),
+    ).rejects.toThrow(/Ngân hàng câu hỏi chưa có đủ câu hỏi đã duyệt/);
+
+    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-selector-409");
   });
 
   it("rejects an unlocked or empty selector response before room entry", async () => {
@@ -222,9 +281,9 @@ describe("startInterviewSession", () => {
   });
 
   it.each([
-    [{ candidateId: "cv-1" }, "missing job id"],
-    [{ jobId: "job-1" }, "missing candidate id"],
-  ])("rejects partial CV-JD context: %s", async (context, _caseName) => {
+    [{ candidateId: "cv-1" }],
+    [{ jobId: "job-1" }],
+  ])("rejects partial CV-JD context: %j", async (context) => {
     await expect(
       startInterviewSession({
         mode: "chat",
