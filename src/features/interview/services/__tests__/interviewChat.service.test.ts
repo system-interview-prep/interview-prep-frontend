@@ -37,6 +37,10 @@ describe("interviewChatApi", () => {
     const mockRuntime = {
       sessionId: "session-1",
       sessionStatus: "OPEN",
+      durationMinutes: 25,
+      startedAt: "2026-10-02T10:00:00+07:00",
+      currentTurn: { turnId: "turn-1", turnIndex: 2, stage: "BEHAVIORAL" },
+      workingMemory: { current_stage: "BEHAVIORAL", remaining_time: 420 },
       messages: [{ messageId: "msg-1", role: "assistant", content: "Hello" }],
     };
     get.mockResolvedValueOnce({ data: mockRuntime });
@@ -44,6 +48,8 @@ describe("interviewChatApi", () => {
     const res = await interviewChatApi.getRuntime("session-1");
     expect(get).toHaveBeenCalledWith("/api/v1/interviews/sessions/session-1/chat/runtime");
     expect(res.messages).toHaveLength(1);
+    expect(res.currentTurn?.stage).toBe("BEHAVIORAL");
+    expect(res.workingMemory?.remaining_time).toBe(420);
   });
 
   it("calls sendMessage endpoint", async () => {
