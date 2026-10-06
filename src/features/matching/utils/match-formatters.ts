@@ -18,7 +18,7 @@ export function formatStatusLabel(status: RequirementStatus): string {
       return "Không áp dụng";
     case "unknown":
     default:
-      return "Chưa đủ bằng chứng";
+      return "Cần xác nhận";
   }
 }
 
@@ -389,7 +389,10 @@ export function buildHumanizedRequirementsAndGroups(params: {
       priority,
       conditionText: conditionText || undefined,
       status,
-      statusLabel: formatStatusLabel(status),
+      statusLabel:
+        status === "not_met" && !(res.evidenceRefs?.length)
+          ? "Không tìm thấy"
+          : formatStatusLabel(status),
       reasonText: reasonText || undefined,
       reasonCode: res.reasonCode,
       evidenceExplanation: res.evidenceExplanation,
