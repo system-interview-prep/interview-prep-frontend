@@ -557,7 +557,7 @@ describe("Truthful Matching UI Remediation — Phase 1 & 1.1 Hardening", () => {
 
   describe("Reason code & warning mappings", () => {
     it("maps backend reason codes to friendly Vietnamese explanations without raw snake_case", () => {
-      expect(resolveReasonCodeText("skill_not_evidenced")).toContain("Không tìm thấy bằng chứng");
+      expect(resolveReasonCodeText("skill_not_found")).toContain("Không tìm thấy kỹ năng");
       expect(resolveReasonCodeText("skill_level_below_minimum")).toContain("Cấp độ kỹ năng");
       expect(resolveReasonCodeText("education_requirement_needs_specialized_evaluator")).toContain("học vấn");
       expect(resolveReasonCodeText("certificate_requirement_needs_specialized_evaluator")).toContain("chuyên viên nhân sự xác minh");
