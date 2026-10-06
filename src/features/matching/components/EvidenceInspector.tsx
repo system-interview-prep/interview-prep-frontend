@@ -11,7 +11,7 @@ interface EvidenceInspectorProps {
 
 const conceptStatusLabel = {
   met: "Có bằng chứng",
-  unknown: "Chưa đủ bằng chứng",
+  unknown: "Cần xác nhận",
   not_met: "Chưa đáp ứng",
   not_applicable: "Không áp dụng",
 } as const;
@@ -112,7 +112,11 @@ export function EvidenceInspector({ requirement, compact = false }: EvidenceInsp
                   <p className="text-sm font-semibold text-slate-800">{concept.label}</p>
                   <MatchStatusBadge
                     status={concept.status}
-                    labelOverride={conceptStatusLabel[concept.status]}
+                    labelOverride={
+                      concept.status === "not_met" && concept.evidence.length === 0
+                        ? "Không tìm thấy"
+                        : conceptStatusLabel[concept.status]
+                    }
                   />
                 </div>
                 {concept.evidence.length > 0 ? (
@@ -135,8 +139,8 @@ export function EvidenceInspector({ requirement, compact = false }: EvidenceInsp
                 ) : (
                   <p className="mt-2 text-xs leading-relaxed text-slate-500">
                     {concept.status === "not_met"
-                      ? "Không tìm thấy bằng chứng về nội dung này trong CV hiện tại."
-                      : "Chưa tìm thấy bằng chứng đủ rõ để kết luận nội dung này."}
+                      ? `Không tìm thấy “${concept.label}” trong CV hiện tại.`
+                      : "CV có nhắc đến nội dung liên quan nhưng chưa đủ rõ để xác nhận."}
                   </p>
                 )}
               </div>
@@ -161,8 +165,8 @@ export function EvidenceInspector({ requirement, compact = false }: EvidenceInsp
               (requirement.reasonCode === "requirement_evaluator_unsupported"
                 ? "Hệ thống chưa hỗ trợ phân tích tự động tiêu chí này."
                 : requirement.status === "not_met"
-                  ? "Không tìm thấy bằng chứng về yêu cầu này trong CV hiện tại."
-                  : "Chưa tìm thấy bằng chứng đủ rõ để kết luận tiêu chí này.")}
+                  ? `Không tìm thấy “${requirement.label}” trong CV hiện tại.`
+                  : "CV có nhắc đến nội dung liên quan nhưng chưa đủ rõ để xác nhận tiêu chí này.")}
           </div>
         )}
       </section>

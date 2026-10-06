@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { jobProfileApi } from "@features/admin/services/jobProfile.service";
-import { userCvApi } from "@features/resume/services/userCv.service";
 import {
   analyzeMatchClarifications,
+  rescoreMatchClarifications,
+  type ClarificationAnswerOutcome,
+  type MatchClarificationAnalysis,
+  type CandidateClarificationAnswer,
   type ClarificationRequest,
 } from "../services/clarification.service";
+import type { MatchResult } from "@/lib/aiService";
 import type { HumanizedRequirement, RequirementGroup } from "../types/match-details.types";
 import { ClarificationPanel } from "./ClarificationPanel";
 import { EvidenceInspector } from "./EvidenceInspector";
@@ -17,6 +20,9 @@ export interface CandidateMatchDetailsProps {
   requirements: HumanizedRequirement[];
   groups?: RequirementGroup[];
   emptyMessage?: string;
+  candidateId?: string;
+  jobId?: string;
+  onMatchUpdated?: (result: MatchResult) => void;
 }
 
 type StatusFilter = "all" | "met" | "unknown" | "not_met";
@@ -25,14 +31,21 @@ export function CandidateMatchDetails({
   requirements,
   groups = [],
   emptyMessage = "Chưa có kết quả đối chiếu cho vị trí này.",
+  candidateId = "",
+  jobId = "",
+  onMatchUpdated,
 }: CandidateMatchDetailsProps) {
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("all");
   const [selectedRequirementId, setSelectedRequirementId] = useState<string | null>(() =>
     requirements[0]?.id ?? groups[0]?.items[0]?.id ?? null
   );
   const [clarificationRequests, setClarificationRequests] = useState<ClarificationRequest[]>([]);
+  const [clarificationAnalysis, setClarificationAnalysis] = useState<MatchClarificationAnalysis | null>(null);
   const [clarificationLoading, setClarificationLoading] = useState(false);
   const [clarificationError, setClarificationError] = useState<string | null>(null);
+  const [clarificationSubmitting, setClarificationSubmitting] = useState(false);
+  const [clarificationSubmitError, setClarificationSubmitError] = useState<string | null>(null);
+  const [processedAnswers, setProcessedAnswers] = useState<ClarificationAnswerOutcome[]>([]);
 
   const summaryCounts = useMemo(
     () =>
@@ -60,52 +73,35 @@ export function CandidateMatchDetails({
   );
 
   useEffect(() => {
-    if (!unknownRequirementKey || typeof window === "undefined") {
+    if (!unknownRequirementKey || !candidateId || !jobId) {
       setClarificationRequests([]);
+      setClarificationAnalysis(null);
       setClarificationError(null);
       setClarificationLoading(false);
       return;
     }
 
-    const params = new URLSearchParams(window.location.search);
-    const candidateId = params.get("candidateId")?.trim() ?? "";
-    const jobId = params.get("jobId")?.trim() ?? "";
-    if (!candidateId || !jobId) return;
-
     let cancelled = false;
-    const unknownIds = new Set(unknownRequirementKey.split("|").filter(Boolean));
-
     const loadClarifications = async () => {
       setClarificationLoading(true);
       setClarificationError(null);
-
       try {
-        const [jobResponse, cvResponse] = await Promise.all([
-          jobProfileApi.get(jobId),
-          userCvApi.get(candidateId),
-        ]);
-        const job = jobResponse.data.structuredData;
-        const resume = cvResponse.data.parsedData;
-
-        if (!job || !resume) {
-          throw new Error("canonical_match_input_unavailable");
-        }
-
-        const analysis = await analyzeMatchClarifications({
-          schemaVersion: "2.1",
-          job: job as Record<string, unknown>,
-          resume: resume as unknown as Record<string, unknown>,
-          asyncProcessing: false,
-        });
-
+        const analysis = await analyzeMatchClarifications({ candidateId, jobId });
+        const actualUnknownIds = new Set(
+          analysis.matchResult.requirementResults
+            .filter((item) => item.status === "unknown")
+            .map((item) => item.requirementId)
+        );
         if (!cancelled) {
+          setClarificationAnalysis(analysis);
           setClarificationRequests(
-            analysis.clarificationRequests.filter((request) => unknownIds.has(request.requirementId))
+            analysis.clarificationRequests.filter((request) => actualUnknownIds.has(request.requirementId))
           );
         }
       } catch {
         if (!cancelled) {
           setClarificationRequests([]);
+          setClarificationAnalysis(null);
           setClarificationError("clarification_unavailable");
         }
       } finally {
@@ -117,7 +113,29 @@ export function CandidateMatchDetails({
     return () => {
       cancelled = true;
     };
-  }, [unknownRequirementKey]);
+  }, [candidateId, jobId, unknownRequirementKey]);
+
+  const submitClarificationAnswers = async (answers: CandidateClarificationAnswer[]) => {
+    if (!clarificationAnalysis || !candidateId || !jobId || answers.length === 0) return;
+    setClarificationSubmitting(true);
+    setClarificationSubmitError(null);
+    try {
+      const result = await rescoreMatchClarifications({
+        candidateId,
+        jobId,
+        initialAnalysis: clarificationAnalysis,
+        answers,
+      });
+      setProcessedAnswers(result.processedAnswers);
+      onMatchUpdated?.(result.finalMatchResult);
+    } catch {
+      setClarificationSubmitError(
+        "Ch\u01b0a th\u1ec3 ch\u1ea5m l\u1ea1i l\u00fac n\u00e0y. C\u00e2u tr\u1ea3 l\u1eddi ch\u01b0a đ\u01b0\u1ee3c áp d\u1ee5ng; vui l\u00f2ng th\u1eed l\u1ea1i."
+      );
+    } finally {
+      setClarificationSubmitting(false);
+    }
+  };
 
   const groupedRequirementIds = useMemo(
     () => new Set(groups.flatMap((group) => group.items.map((item) => item.id))),
@@ -272,6 +290,10 @@ export function CandidateMatchDetails({
               requirements={allRequirements}
               loading={clarificationLoading}
               error={clarificationError}
+              submitting={clarificationSubmitting}
+              submissionError={clarificationSubmitError}
+              processedAnswers={processedAnswers}
+              onSubmit={(answers) => void submitClarificationAnswers(answers)}
             />
           )}
 

@@ -78,11 +78,11 @@ export function EvidenceDrawer({
           <div className="mt-1.5 pl-5">
             {status === "unknown" ? (
               <p className="text-slate-500">
-                Trong CV hiện chưa tìm thấy thông tin đủ rõ để xác nhận tiêu chí này.
+                CV có nhắc đến nội dung liên quan nhưng chưa đủ rõ để xác nhận tiêu chí này.
               </p>
             ) : (
               <p className="text-slate-500">
-                Chưa tìm thấy bằng chứng phù hợp trong CV.
+                Không tìm thấy thông tin đáp ứng yêu cầu trong CV hiện tại.
               </p>
             )}
           </div>
