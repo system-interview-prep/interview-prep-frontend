@@ -1,107 +1,173 @@
 import React from "react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ClarificationPanel, clarificationPromptText } from "../components/ClarificationPanel";
+import type { MatchResult } from "@/lib/aiService";
+import { ClarificationPanel } from "../components/ClarificationPanel";
 import {
+  analyzeMatchClarifications,
   normalizeClarificationAnalysis,
   normalizeClarificationRequest,
+  normalizeClarificationRescoreResult,
+  rescoreMatchClarifications,
   type ClarificationRequest,
 } from "../services/clarification.service";
 import type { HumanizedRequirement } from "../types/match-details.types";
 
+const { post } = vi.hoisted(() => ({ post: vi.fn() }));
+vi.mock("@lib/apiClient", () => ({ default: { post } }));
+
+const question: ClarificationRequest = {
+  requirementId: "req-java",
+  missingDimension: "duration",
+  confidence: 0.9,
+  evidenceRefs: ["cv-evidence-1"],
+  questionText: "Bạn đã sử dụng Java trong bao lâu ở công việc thực tế?",
+  semanticAlignmentScore: 0.88,
+  reasonCode: "candidate_clarification_needed",
+};
+
 const requirement: HumanizedRequirement = {
-  id: "req-backend-scale",
-  label: "Kinh nghiệm thiết kế backend có khả năng mở rộng",
-  category: "experience",
+  id: "req-java",
+  label: "Kinh nghiệm sử dụng Java",
+  category: "skill",
   priority: "must_have",
   status: "unknown",
-  statusLabel: "Chưa đủ bằng chứng",
+  statusLabel: "Cần xác nhận",
 };
 
-const clarification: ClarificationRequest = {
-  requirementId: "req-backend-scale",
-  missingDimension: "scale",
-  confidence: 0.91,
-  evidenceRefs: ["cv-ev-1"],
-  reasonCode: "jev_candidate_clarification_needed",
-  promptKey: "matching.clarification.scale",
-};
+const matchResult = {
+  schemaVersion: "2.1",
+  pipelineVersion: "matching-v2",
+  resumeId: "cv-1",
+  jobId: "job-1",
+  policyVersion: "balanced-v1",
+  eligibility: "review_required",
+  compatibilityStatus: "not_applicable",
+  suitabilityScore: null,
+  fitBand: "review_required",
+  decision: "abstained",
+  requirementResults: [{
+    requirementId: "req-java",
+    status: "unknown",
+    evidenceRefs: [],
+    reasonCode: "skill_duration_not_evidenced",
+  }],
+  compatibilityResults: [],
+  factorResults: [],
+  warnings: [],
+} as MatchResult;
 
-describe("Jev clarification frontend contract", () => {
-  it("normalizes snake_case clarification payloads", () => {
-    const result = normalizeClarificationRequest({
-      requirement_id: "req-1",
+describe("matching clarification frontend contract", () => {
+  beforeEach(() => post.mockReset());
+
+  it("normalizes the backend-authored question and provenance fields", () => {
+    expect(normalizeClarificationRequest({
+      requirement_id: "req-java",
       missing_dimension: "duration",
-      confidence: 0.82,
-      evidence_refs: ["ev-1"],
-      reason_code: "jev_candidate_clarification_needed",
-      prompt_key: "matching.clarification.duration",
-    });
+      confidence: 0.9,
+      evidence_refs: ["cv-evidence-1"],
+      question_text: question.questionText,
+      semantic_alignment_score: 0.88,
+      reason_code: "candidate_clarification_needed",
+    })).toEqual(question);
+  });
 
-    expect(result).toEqual({
-      requirementId: "req-1",
+  it("fails closed when the AI-authored question or semantic score is missing", () => {
+    expect(normalizeClarificationRequest({
+      requirementId: "req-java",
       missingDimension: "duration",
-      confidence: 0.82,
-      evidenceRefs: ["ev-1"],
-      reasonCode: "jev_candidate_clarification_needed",
-      promptKey: "matching.clarification.duration",
-    });
+      confidence: 0.9,
+      questionText: "",
+      semanticAlignmentScore: 0.9,
+      reasonCode: "candidate_clarification_needed",
+    })).toBeNull();
+    expect(normalizeClarificationRequest({
+      ...question,
+      semanticAlignmentScore: 2,
+    })).toBeNull();
   });
 
-  it("falls back to a safe dimension without inventing status or score", () => {
-    const result = normalizeClarificationRequest({
-      requirementId: "req-1",
-      missingDimension: "unsupported_dimension",
-      confidence: 0.8,
-    });
-
-    expect(result?.missingDimension).toBe("other");
-    expect(result).not.toHaveProperty("status");
-    expect(result).not.toHaveProperty("score");
-  });
-
-  it("normalizes the additive analysis envelope", () => {
+  it("normalizes the analysis result and only retains valid clarification questions", () => {
     const analysis = normalizeClarificationAnalysis({
-      match_result: { schemaVersion: "2.1", requirementResults: [] },
-      clarification_requests: [clarification],
+      match_result: matchResult,
+      clarification_requests: [question, { requirementId: "bad", questionText: "missing gates" }],
     });
 
-    expect(analysis.clarificationRequests).toHaveLength(1);
-    expect(analysis.clarificationRequests[0].requirementId).toBe("req-backend-scale");
-    expect((analysis.matchResult as { schemaVersion?: string }).schemaVersion).toBe("2.1");
+    expect(analysis.matchResult.requirementResults[0].status).toBe("unknown");
+    expect(analysis.clarificationRequests).toEqual([question]);
   });
 
-  it("renders guidance as missing-evidence help, not a new matching conclusion", () => {
+  it("requests canonical CV/JD resolution by IDs for clarification analysis", async () => {
+    post.mockResolvedValue({ data: { matchResult, clarificationRequests: [question] } });
+    const payload = { candidateId: "cv-1", jobId: "job-1" };
+
+    const analysis = await analyzeMatchClarifications(payload);
+
+    expect(post).toHaveBeenCalledWith("/api/v1/matching/clarifications-by-ids", payload);
+    expect(analysis.clarificationRequests).toEqual([question]);
+  });
+
+  it("submits answers to the rescore endpoint and normalizes the final statuses", async () => {
+    const finalResult = {
+      ...matchResult,
+      requirementResults: [{ requirementId: "req-java", status: "met" }],
+    };
+    const response = {
+      initialMatchResult: matchResult,
+      finalMatchResult: finalResult,
+      processedAnswers: [{
+        requirementId: "req-java",
+        evidenceRef: "answer-ref",
+        evidenceSource: "candidate_self_report",
+        status: "met",
+      }],
+    };
+    post.mockResolvedValue({ data: response });
+    const payload = {
+      candidateId: "cv-1",
+      jobId: "job-1",
+      initialAnalysis: { matchResult, clarificationRequests: [question] },
+      answers: [{ requirementId: "req-java", answerText: "36 months using Java." }],
+    };
+
+    const result = normalizeClarificationRescoreResult(
+      (await rescoreMatchClarifications(payload))
+    );
+
+    expect(post).toHaveBeenCalledWith("/api/v1/matching/clarifications/rescore-by-ids", payload);
+    expect(result.finalMatchResult.requirementResults[0].status).toBe("met");
+    expect(result.processedAnswers[0].evidenceSource).toBe("candidate_self_report");
+  });
+
+  it("renders the exact AI-authored question with an answer field", () => {
     const html = renderToStaticMarkup(
       React.createElement(ClarificationPanel, {
-        requests: [clarification],
+        requests: [question],
         requirements: [requirement],
       })
     );
 
-    expect(html).toContain("Có thể bổ sung để xác minh tốt hơn");
-    expect(html).toContain("quy mô hệ thống hoặc dự án");
-    expect(html).toContain("91% confidence");
-    expect(html).toContain("không thay đổi điểm hoặc kết luận matching hiện tại");
-    expect(html).not.toContain("Phù hợp");
-    expect(html).not.toContain("Chưa đáp ứng");
+    expect(html).toContain(question.questionText);
+    expect(html).toContain("clarification-answer-req-java");
+    expect(html).toContain("Gửi câu trả lời và chấm lại");
+    expect(html).not.toContain("confidence");
   });
 
-  it("creates a factual clarification prompt tied to the requirement", () => {
-    expect(clarificationPromptText(clarification, requirement)).toBe(
-      "Vui lòng bổ sung quy mô hệ thống hoặc dự án để làm rõ “Kinh nghiệm thiết kế backend có khả năng mở rộng”."
-    );
-  });
-
-  it("renders an honest fallback when clarification analysis is unavailable", () => {
+  it("shows the unresolved outcome without claiming that matching is resolved", () => {
     const html = renderToStaticMarkup(
       React.createElement(ClarificationPanel, {
-        requests: [],
+        requests: [question],
         requirements: [requirement],
-        error: "clarification_unavailable",
+        processedAnswers: [{
+          requirementId: "req-java",
+          evidenceRef: "answer-ref",
+          evidenceSource: "candidate_self_report",
+          status: "unknown",
+        }],
       })
     );
 
-    expect(html).toContain("Kết quả matching hiện tại vẫn được giữ nguyên");
+    expect(html).toContain("Cần thêm bằng chứng để kết luận");
+    expect(html).toContain("tự khai");
   });
 });
