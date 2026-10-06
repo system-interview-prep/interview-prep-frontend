@@ -28,10 +28,12 @@ import {
 } from "lucide-react";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import {
+  normalizeMatchResult,
   scoreCvAgainstJobProfile,
   type CompatibilityResult,
   type CvScoringResponse,
   type FactorResult,
+  type MatchResult,
 } from "@/lib/aiService";
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
 import { userCvApi, type UserCvDto } from "@features/resume/services/userCv.service";
@@ -147,7 +149,7 @@ export function resolveRequirementStatus(status?: string) {
     case "unknown":
     default:
       return {
-        label: "Chưa đủ bằng chứng",
+        label: "Cần xác nhận",
         badgeClass: "bg-slate-100 text-slate-700 border-slate-200",
         barColor: "bg-slate-300",
         isMet: null,
@@ -159,13 +161,15 @@ export function resolveReasonCodeText(code?: string): string {
   if (!code) return "";
   switch (code) {
     case "skill_not_evidenced":
-      return "Không tìm thấy bằng chứng về kỹ năng này trong CV hiện tại.";
+    case "skill_not_found":
+      return "Không tìm thấy kỹ năng này trong CV hiện tại.";
     case "language_not_evidenced":
-      return "Không tìm thấy bằng chứng về ngoại ngữ hoặc chứng chỉ này trong CV hiện tại.";
+    case "language_not_found":
+      return "Không tìm thấy ngoại ngữ hoặc chứng chỉ này trong CV hiện tại.";
     case "education_not_evidenced":
-      return "Không tìm thấy bằng chứng học vấn đáp ứng yêu cầu trong CV hiện tại.";
+      return "Không tìm thấy thông tin học vấn đáp ứng yêu cầu trong CV hiện tại.";
     case "experience_not_evidenced":
-      return "Không tìm thấy bằng chứng kinh nghiệm đáp ứng yêu cầu trong CV hiện tại.";
+      return "Không tìm thấy kinh nghiệm đáp ứng yêu cầu trong CV hiện tại.";
     case "resume_section_incomplete":
       return "Dữ liệu CV chưa đầy đủ nên hệ thống chưa thể kết luận tiêu chí này.";
     case "requirement_evaluator_unsupported":
@@ -175,7 +179,8 @@ export function resolveReasonCodeText(code?: string): string {
     case "generic_requirement_evidence_weak":
       return "CV có đề cập nội dung liên quan nhưng chưa đủ ngữ cảnh thực hành để xác nhận.";
     case "requirement_not_evidenced":
-      return "Không tìm thấy bằng chứng phù hợp trong toàn bộ raw text của CV.";
+    case "requirement_not_found":
+      return "Không tìm thấy nội dung đáp ứng yêu cầu trong CV hiện tại.";
     case "credential_level_not_evidenced":
       return "CV có thông tin liên quan nhưng chưa nêu mức điểm hoặc cấp độ cần thiết.";
     case "experience_duration_not_evidenced":
@@ -185,11 +190,11 @@ export function resolveReasonCodeText(code?: string): string {
     case "experience_duration_satisfied":
       return "Thời lượng kinh nghiệm được xác thực đáp ứng mức tối thiểu của JD.";
     case "skill_level_not_evidenced":
-      return "Chưa đủ thông tin minh chứng cho cấp độ kỹ năng yêu cầu.";
+      return "CV có nhắc đến kỹ năng này nhưng chưa nêu rõ cấp độ.";
     case "skill_level_below_minimum":
       return "Cấp độ kỹ năng ghi nhận trong hồ sơ chưa đạt mức tối thiểu.";
     case "skill_duration_not_evidenced":
-      return "Chưa có bằng chứng rõ ràng về số tháng kinh nghiệm thực tế với kỹ năng này.";
+      return "CV có nhắc đến kỹ năng này nhưng chưa nêu rõ thời lượng kinh nghiệm thực tế.";
     case "skill_duration_below_minimum":
       return "Thời gian làm việc thực tế với kỹ năng này chưa đạt số tháng tối thiểu.";
     case "skill_evidenced":
@@ -198,15 +203,15 @@ export function resolveReasonCodeText(code?: string): string {
     case "skill_and_level_evidenced":
       return "Kỹ năng và cấp độ chuyên môn đáp ứng đầy đủ yêu cầu của công việc.";
     case "skill_claim_not_found":
-      return "Chưa tìm thấy bằng chứng hoặc từ khóa kỹ năng này trong CV.";
+      return "Không tìm thấy kỹ năng này trong CV hiện tại.";
     case "concept_group_evidenced":
       return "Các nội dung yêu cầu đều có bằng chứng phù hợp trong CV.";
     case "concept_group_evidence_missing":
-      return "Một hoặc nhiều nội dung chưa có đủ bằng chứng để xác nhận.";
+      return "CV có nhắc đến nội dung liên quan nhưng một số phần chưa đủ rõ để xác nhận.";
     case "concept_group_not_met":
-      return "Thông tin hiện có chưa đáp ứng đầy đủ yêu cầu này.";
+      return "Không tìm thấy một hoặc nhiều nội dung yêu cầu trong CV hiện tại.";
     case "language_level_not_evidenced":
-      return "Chưa có chứng chỉ hoặc bằng chứng rõ ràng về trình độ ngoại ngữ.";
+      return "CV có nhắc đến ngoại ngữ này nhưng chưa nêu rõ trình độ.";
     case "language_level_not_equal":
       return "Trình độ ngoại ngữ chưa tương thích với cấp độ yêu cầu.";
     case "language_evidenced":
@@ -222,11 +227,11 @@ export function resolveReasonCodeText(code?: string): string {
     case "candidate_location_matched":
       return "Địa điểm làm việc của ứng viên hoàn toàn tương thích.";
     case "evidence_insufficient":
-      return "Chưa có đủ bằng chứng minh chứng trong hồ sơ.";
+      return "CV có nhắc đến nội dung liên quan nhưng chưa đủ rõ để xác nhận.";
     case "career_experience_not_evidenced":
-      return "Chưa có bằng chứng về kinh nghiệm ngành nghề tương ứng.";
+      return "Không tìm thấy kinh nghiệm ngành nghề đáp ứng yêu cầu trong CV hiện tại.";
     case "career_experience_has_no_direct_evidence":
-      return "Kinh nghiệm chưa có trích đoạn bằng chứng trực tiếp.";
+      return "CV có nhắc đến kinh nghiệm liên quan nhưng chưa có đoạn mô tả trực tiếp.";
     case "semantic_dense_provider_fallback_to_sparse":
       return "Phân tích ngữ nghĩa đang sử dụng phương án dự phòng dựa trên đối sánh từ khóa.";
     case "semantic_input_not_evidenced":
@@ -390,14 +395,14 @@ export function CompactMatchSummary({
 
   const stateDescription =
     counts.met === 0 && counts.unknown > 0 && counts.notMet === 0
-      ? "Phần lớn tiêu chí hiện chưa có đủ bằng chứng để xác nhận."
+      ? "Phần lớn tiêu chí có thông tin liên quan nhưng chưa đủ rõ để xác nhận."
       : eligible
       ? "Thông tin hiện có cho thấy hồ sơ đáp ứng các điều kiện chính."
       : ineligible
       ? failedMustHaveCount > 0
         ? `Có ${failedMustHaveCount} tiêu chí bắt buộc chưa được hồ sơ đáp ứng.`
         : "Có tiêu chí chính chưa được hồ sơ đáp ứng."
-      : "Chưa đủ bằng chứng để đưa ra kết luận chắc chắn.";
+      : "Có thông tin liên quan nhưng chưa đủ rõ để đưa ra kết luận chắc chắn.";
   // Keep the legacy label when no score is exposed.  The reference label is
   // reserved for an explicit diagnostic score from the v2.1 contract.
   const scoreLabel =
@@ -690,6 +695,11 @@ function ScorePageContent() {
     } finally {
       setLoading(false);
     }
+  }, [candidateId, jobId]);
+
+  const handleMatchingResult = useCallback((matchResult: MatchResult) => {
+    if (!candidateId || !jobId) return;
+    setResult(normalizeMatchResult(matchResult, candidateId, jobId));
   }, [candidateId, jobId]);
 
   useEffect(() => {
@@ -1120,6 +1130,9 @@ function ScorePageContent() {
               jobProfile={jobProfile}
               cvData={cvData}
               requirementsMap={requirementsMap}
+              candidateId={candidateId}
+              jobId={jobId}
+              onMatchUpdated={handleMatchingResult}
               onStartInterview={handleStartInterview}
               startingInterview={startingInterview}
             />
@@ -1137,6 +1150,9 @@ export function ReportContent({
   jobProfile,
   requirementsMap,
   cvData,
+  candidateId,
+  jobId,
+  onMatchUpdated,
   onStartInterview,
   startingInterview = false,
 }: {
@@ -1144,6 +1160,9 @@ export function ReportContent({
   jobProfile?: JobProfile | null;
   requirementsMap: Map<string, { label: string; kind?: string; priority?: string }>;
   cvData?: UserCvDto | null;
+  candidateId?: string;
+  jobId?: string;
+  onMatchUpdated?: (result: MatchResult) => void;
   onStartInterview?: (mode: "chat" | "voice" | "video") => void;
   startingInterview?: boolean;
 }) {
@@ -1223,6 +1242,9 @@ export function ReportContent({
         <CandidateMatchDetails
           requirements={humanizedRequirements}
           groups={requirementGroups}
+          candidateId={candidateId}
+          jobId={jobId}
+          onMatchUpdated={onMatchUpdated}
         />
       </div>
 
@@ -1296,7 +1318,7 @@ export function ReportContent({
                     ) : (
                       <div className="flex items-center justify-between rounded bg-slate-100 px-2 py-1 text-xs">
                         <span className="text-slate-500 font-medium">Trạng thái</span>
-                        <span className="font-semibold text-slate-700">Chưa đủ bằng chứng</span>
+                        <span className="font-semibold text-slate-700">Cần xác nhận</span>
                       </div>
                     )}
                   </div>
