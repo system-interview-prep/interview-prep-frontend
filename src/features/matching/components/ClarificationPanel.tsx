@@ -49,7 +49,9 @@ export function ClarificationPanel({
   if (error) {
     return (
       <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600" role="status">
-        Chưa thể tải câu hỏi làm rõ lúc này. Kết quả matching hiện tại vẫn được giữ nguyên.
+        {error === "clarification_generation_unavailable"
+          ? "Hệ thống đã xác định cần hỏi lại nhưng chưa tạo được câu hỏi đạt chuẩn sau các lần thử. Kết quả matching hiện tại vẫn được giữ nguyên."
+          : "Chưa thể tải câu hỏi làm rõ lúc này. Kết quả matching hiện tại vẫn được giữ nguyên."}
       </div>
     );
   }

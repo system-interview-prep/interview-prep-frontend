@@ -27,9 +27,20 @@ export type ClarificationRequest = {
   reasonCode: "candidate_clarification_needed";
 };
 
+export type ClarificationCandidate = {
+  requirementId: string;
+  missingDimension: MissingEvidenceDimension;
+  confidence: number;
+};
+
+export type ClarificationStatus = "not_needed" | "ready" | "unavailable";
+
 export type MatchClarificationAnalysis = {
   matchResult: MatchResult;
   clarificationRequests: ClarificationRequest[];
+  clarificationStatus?: ClarificationStatus;
+  clarificationCandidates?: ClarificationCandidate[];
+  clarificationToken?: string;
 };
 
 export type ClarificationMatchPayload = {
@@ -119,15 +130,43 @@ export function normalizeClarificationAnalysis(raw: unknown): MatchClarification
   const body = asRecord(raw);
   const rawResult = asRecord(body.matchResult ?? body.match_result);
   const rawRequests = body.clarificationRequests ?? body.clarification_requests;
+  const rawCandidates = body.clarificationCandidates ?? body.clarification_candidates;
   const clarificationRequests = Array.isArray(rawRequests)
     ? rawRequests
         .map(normalizeClarificationRequest)
         .filter((item): item is ClarificationRequest => item !== null)
     : [];
+  const clarificationCandidates = Array.isArray(rawCandidates)
+    ? rawCandidates.flatMap((value) => {
+        const item = asRecord(value);
+        const requirementId = normalizedText(item.requirementId ?? item.requirement_id);
+        const rawDimension = normalizedText(item.missingDimension ?? item.missing_dimension);
+        const confidence = Number(item.confidence);
+        if (!requirementId || !Number.isFinite(confidence)) return [];
+        return [{
+          requirementId,
+          missingDimension: ALLOWED_DIMENSIONS.has(rawDimension as MissingEvidenceDimension)
+            ? (rawDimension as MissingEvidenceDimension)
+            : "other",
+          confidence,
+        }];
+      })
+    : [];
+  const rawStatus = normalizedText(body.clarificationStatus ?? body.clarification_status);
+  const clarificationToken = normalizedText(body.clarificationToken ?? body.clarification_token);
+  const clarificationStatus: ClarificationStatus =
+    rawStatus === "ready" || rawStatus === "unavailable"
+      ? rawStatus
+      : clarificationRequests.length > 0
+      ? "ready"
+      : "not_needed";
 
   return {
     matchResult: rawResult as unknown as MatchResult,
     clarificationRequests,
+    clarificationStatus,
+    clarificationCandidates,
+    clarificationToken: clarificationToken || undefined,
   };
 }
 
@@ -161,6 +200,23 @@ export async function analyzeMatchClarifications(
   payload: ClarificationMatchPayload
 ): Promise<MatchClarificationAnalysis> {
   const response = await api.post<unknown>("/api/v1/matching/clarifications-by-ids", payload);
+  return normalizeClarificationAnalysis(response.data);
+}
+
+export async function prepareMatchClarifications(
+  payload: ClarificationMatchPayload
+): Promise<MatchClarificationAnalysis> {
+  const response = await api.post<unknown>("/api/v1/matching/clarifications/prepare-by-ids", payload);
+  return normalizeClarificationAnalysis(response.data);
+}
+
+export async function generateMatchClarificationQuestions(
+  payload: ClarificationMatchPayload & { requirementIds: string[]; clarificationToken?: string }
+): Promise<MatchClarificationAnalysis> {
+  const response = await api.post<unknown>(
+    "/api/v1/matching/clarifications/questions-by-ids",
+    payload
+  );
   return normalizeClarificationAnalysis(response.data);
 }
 

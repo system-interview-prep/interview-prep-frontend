@@ -2,7 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  analyzeMatchClarifications,
+  generateMatchClarificationQuestions,
+  prepareMatchClarifications,
   rescoreMatchClarifications,
   type ClarificationAnswerOutcome,
   type MatchClarificationAnalysis,
@@ -42,6 +43,7 @@ export function CandidateMatchDetails({
   const [clarificationRequests, setClarificationRequests] = useState<ClarificationRequest[]>([]);
   const [clarificationAnalysis, setClarificationAnalysis] = useState<MatchClarificationAnalysis | null>(null);
   const [clarificationLoading, setClarificationLoading] = useState(false);
+  const [clarificationPhase, setClarificationPhase] = useState<"idle" | "generating" | "ready" | "unavailable" | "error">("idle");
   const [clarificationError, setClarificationError] = useState<string | null>(null);
   const [clarificationSubmitting, setClarificationSubmitting] = useState(false);
   const [clarificationSubmitError, setClarificationSubmitError] = useState<string | null>(null);
@@ -78,15 +80,39 @@ export function CandidateMatchDetails({
       setClarificationAnalysis(null);
       setClarificationError(null);
       setClarificationLoading(false);
+      setClarificationPhase("idle");
       return;
     }
 
     let cancelled = false;
     const loadClarifications = async () => {
-      setClarificationLoading(true);
+      // Jev runs first. Do not show a question-generation spinner while the
+      // system is still deciding whether asking the candidate is appropriate.
+      setClarificationLoading(false);
+      setClarificationPhase("idle");
       setClarificationError(null);
       try {
-        const analysis = await analyzeMatchClarifications({ candidateId, jobId });
+        const preparation = await prepareMatchClarifications({ candidateId, jobId });
+        if (cancelled) return;
+
+        const clarificationCandidates = preparation.clarificationCandidates ?? [];
+        if (preparation.clarificationStatus !== "ready" || clarificationCandidates.length === 0) {
+          setClarificationRequests([]);
+          setClarificationAnalysis(null);
+          setClarificationPhase("idle");
+          return;
+        }
+
+        // Jev has passed the ask-candidate gate (confidence >= 0.75).
+        // Only now should the FE tell the user that a question is being made.
+        setClarificationPhase("generating");
+        setClarificationLoading(true);
+        const analysis = await generateMatchClarificationQuestions({
+          candidateId,
+          jobId,
+          requirementIds: clarificationCandidates.map((item) => item.requirementId),
+          clarificationToken: preparation.clarificationToken,
+        });
         const actualUnknownIds = new Set(
           analysis.matchResult.requirementResults
             .filter((item) => item.status === "unknown")
@@ -97,12 +123,16 @@ export function CandidateMatchDetails({
           setClarificationRequests(
             analysis.clarificationRequests.filter((request) => actualUnknownIds.has(request.requirementId))
           );
+          setClarificationPhase(
+            analysis.clarificationRequests.length > 0 ? "ready" : "unavailable"
+          );
         }
       } catch {
         if (!cancelled) {
           setClarificationRequests([]);
           setClarificationAnalysis(null);
           setClarificationError("clarification_unavailable");
+          setClarificationPhase("error");
         }
       } finally {
         if (!cancelled) setClarificationLoading(false);
@@ -284,12 +314,15 @@ export function CandidateMatchDetails({
 
       <div className="grid min-h-[520px] lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] lg:divide-x lg:divide-slate-200">
         <div className="min-w-0 space-y-5 p-4 sm:p-5">
-          {summaryCounts.unknown > 0 && (
+          {summaryCounts.unknown > 0 && clarificationPhase !== "idle" && (
             <ClarificationPanel
               requests={clarificationRequests}
               requirements={allRequirements}
               loading={clarificationLoading}
-              error={clarificationError}
+              error={
+                clarificationError ||
+                (clarificationPhase === "unavailable" ? "clarification_generation_unavailable" : null)
+              }
               submitting={clarificationSubmitting}
               submissionError={clarificationSubmitError}
               processedAnswers={processedAnswers}
