@@ -135,6 +135,7 @@ export type InterviewRuntimeSession = {
   sessionId: string;
   resumeId: string | null;
   jobId: string | null;
+  jobTitle?: string | null;
   mode: InterviewRuntimeMode;
   experienceType?: InterviewRuntimeExperience;
   locale: string;
@@ -254,9 +255,20 @@ export const interviewRuntimeApi = {
     return response.data;
   },
 
-  close: async (sessionId: string): Promise<InterviewRuntimeSession> => {
+  /**
+   * Close a session outside the chat/text completion contract.
+   *
+   * `reason` defaults to USER_ENDED (abandonment). Pass TECHNICAL_FAILURE when
+   * compensating a failed create -> plan -> lock sequence so the record does not
+   * blame the candidate for a server-side failure.
+   */
+  close: async (
+    sessionId: string,
+    reason: "USER_ENDED" | "TECHNICAL_FAILURE" = "USER_ENDED",
+  ): Promise<InterviewRuntimeSession> => {
     const response = await apiClient.post<InterviewRuntimeSession>(
       `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/close`,
+      { reason },
     );
     return response.data;
   },
