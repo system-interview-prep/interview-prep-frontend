@@ -1,27 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  closeLegacySession,
-  createLegacySession,
-  startVideoCall,
   buildRuntimePlan,
   closeRuntimeSession,
   createRuntimeSession,
   selectRuntimeQuestions,
 } = vi.hoisted(() => ({
-  closeLegacySession: vi.fn(),
-  createLegacySession: vi.fn(),
-  startVideoCall: vi.fn(),
   buildRuntimePlan: vi.fn(),
   closeRuntimeSession: vi.fn(),
   createRuntimeSession: vi.fn(),
   selectRuntimeQuestions: vi.fn(),
-}));
-
-vi.mock("@/lib/aiService", () => ({
-  closeSession: closeLegacySession,
-  createSession: createLegacySession,
-  startVideoCall,
 }));
 
 vi.mock("../interviewRuntime.service", () => ({
@@ -72,7 +60,6 @@ describe("startInterviewSession", () => {
     });
     expect(buildRuntimePlan).toHaveBeenCalledWith("runtime-1");
     expect(selectRuntimeQuestions).toHaveBeenCalledWith("runtime-1");
-    expect(createLegacySession).not.toHaveBeenCalled();
     expect(url).toContain("/practice/room/runtime-1");
     expect(url).toContain("runtime=structured");
     expect(url).toContain("experience=question_practice");
@@ -107,17 +94,11 @@ describe("startInterviewSession", () => {
     expect(url).not.toContain("/practice/room/");
   });
 
-  it("keeps legacy standalone practice when neither id is present", async () => {
-    createLegacySession.mockResolvedValueOnce({ sessionId: "legacy-1" });
-
-    const url = await startInterviewSession({ mode: "voice", lang: "en" });
-
-    expect(createLegacySession).toHaveBeenCalledWith({
-      type: "Voice",
-      language: "English",
-    });
+  it("rejects standalone sessions without grounded CV-JD context", async () => {
+    await expect(startInterviewSession({ mode: "voice", lang: "en" })).rejects.toThrow(
+      "Vui lòng chọn đủ CV và vị trí tuyển dụng",
+    );
     expect(createRuntimeSession).not.toHaveBeenCalled();
-    expect(url).not.toContain("runtime=structured");
   });
 
 
@@ -141,8 +122,7 @@ describe("startInterviewSession", () => {
       }),
     ).rejects.toThrow("question_unavailable");
 
-    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-selector-fail");
-    expect(startVideoCall).not.toHaveBeenCalled();
+    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-selector-fail", "TECHNICAL_FAILURE");
   });
 
   it("enriches question_unavailable with Vietnamese explanation and code", async () => {
@@ -170,7 +150,35 @@ describe("startInterviewSession", () => {
       }),
     ).rejects.toThrow(/Ngân hàng câu hỏi chưa có đủ câu hỏi đã duyệt/);
 
-    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-selector-409");
+    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-selector-409", "TECHNICAL_FAILURE");
+  });
+
+  it("recognises Core's structured 409 payload for an insufficient question bank", async () => {
+    createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-selector-409-structured" });
+    buildRuntimePlan.mockResolvedValueOnce({
+      planId: "plan-409-structured",
+      sessionId: "runtime-selector-409-structured",
+      status: "READY",
+    });
+    // Exact shape of QuestionUnavailableError.to_payload() in Core.
+    const axiosError = Object.assign(new Error("Request failed with status code 409"), {
+      response: {
+        status: 409,
+        data: {
+          detail: {
+            errorCode: "question_bank_insufficient",
+            message: "Question bank cannot satisfy interview plan requirements under fail-closed policy",
+            details: {},
+          },
+        },
+      },
+    });
+    selectRuntimeQuestions.mockRejectedValueOnce(axiosError);
+    closeRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-selector-409-structured" });
+
+    await expect(
+      startInterviewSession({ mode: "chat", lang: "vi", candidateId: "cv-1", jobId: "job-1" }),
+    ).rejects.toMatchObject({ code: "QUESTION_UNAVAILABLE" });
   });
 
   it("rejects an unlocked or empty selector response before room entry", async () => {
@@ -197,7 +205,7 @@ describe("startInterviewSession", () => {
       }),
     ).rejects.toThrow("Interview question selection did not produce locked turns");
 
-    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-selector-empty");
+    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-selector-empty", "TECHNICAL_FAILURE");
   });
 
   it("closes a grounded session when planner creation fails", async () => {
@@ -214,8 +222,7 @@ describe("startInterviewSession", () => {
       }),
     ).rejects.toThrow("planner failed");
 
-    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-plan-fail");
-    expect(startVideoCall).not.toHaveBeenCalled();
+    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-plan-fail", "TECHNICAL_FAILURE");
   });
 
   it("closes a grounded session when planner resolves non-READY", async () => {
@@ -236,48 +243,32 @@ describe("startInterviewSession", () => {
       }),
     ).rejects.toThrow("Interview plan is not READY: DRAFT");
 
-    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-plan-draft");
-    expect(startVideoCall).not.toHaveBeenCalled();
+    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-plan-draft", "TECHNICAL_FAILURE");
   });
 
-  it("closes a grounded session when video setup fails", async () => {
+  it("routes grounded video directly to the canonical LiveKit room", async () => {
     createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-video-1" });
     buildRuntimePlan.mockResolvedValueOnce({
       planId: "plan-video-1",
       sessionId: "runtime-video-1",
       status: "READY",
     });
-    startVideoCall.mockRejectedValueOnce(new Error("video setup failed"));
-    closeRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-video-1" });
-
-    await expect(
-      startInterviewSession({
-        mode: "video",
-        lang: "en",
-        candidateId: "cv-1",
-        jobId: "job-1",
-      }),
-    ).rejects.toThrow("video setup failed");
-
-    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-video-1");
-    expect(closeLegacySession).not.toHaveBeenCalled();
-  });
-
-  it("closes a legacy session when standalone video setup fails", async () => {
-    createLegacySession.mockResolvedValueOnce({ sessionId: "legacy-video-1" });
-    startVideoCall.mockRejectedValueOnce(new Error("video setup failed"));
-    closeLegacySession.mockResolvedValueOnce({
-      sessionId: "legacy-video-1",
-      status: "CLOSED",
-      endedAt: "2026-09-25T00:00:00Z",
+    selectRuntimeQuestions.mockResolvedValueOnce({
+      sessionId: "runtime-video-1",
+      planId: "plan-video-1",
+      status: "LOCKED",
+      turns: [{ turnId: "turn-video-1" }],
     });
 
-    await expect(
-      startInterviewSession({ mode: "video", lang: "en" }),
-    ).rejects.toThrow("video setup failed");
-
-    expect(closeLegacySession).toHaveBeenCalledWith("legacy-video-1");
-    expect(closeRuntimeSession).not.toHaveBeenCalled();
+    const url = await startInterviewSession({
+      mode: "video",
+      lang: "en",
+      candidateId: "cv-1",
+      jobId: "job-1",
+    });
+    expect(url).toContain("/interview/room/runtime-video-1");
+    expect(url).toContain("runtime=media");
+    expect(url).toContain("experience=video_interview");
   });
 
   it.each([
@@ -290,9 +281,8 @@ describe("startInterviewSession", () => {
         lang: "en",
         ...context,
       }),
-    ).rejects.toThrow("candidateId and jobId must be provided together");
+    ).rejects.toThrow("Vui lòng chọn đủ CV và vị trí tuyển dụng");
 
     expect(createRuntimeSession).not.toHaveBeenCalled();
-    expect(createLegacySession).not.toHaveBeenCalled();
   });
 });
