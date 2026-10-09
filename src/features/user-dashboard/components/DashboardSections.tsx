@@ -11,16 +11,18 @@ import {
 } from "lucide-react";
 
 export type StoredDashboardSession = {
-  roomId: string;
-  topic: string;
+  sessionId: string;
+  jobTitle?: string;
   startedAt: string;
-  mode?: "video" | "voice" | "chat";
+  mode: "text" | "voice" | "video";
+  status: string;
+  experienceType?: string;
 };
 
 type Translate = (key: string) => string;
 
 function modeMeta(mode: StoredDashboardSession["mode"], t: Translate) {
-  if (mode === "chat") return { icon: MessageSquare, label: t("userDash.mode.chat.short") };
+  if (mode === "text") return { icon: MessageSquare, label: t("userDash.mode.chat.short") };
   if (mode === "voice") return { icon: Mic, label: t("userDash.mode.voice.short") };
   return { icon: Video, label: t("userDash.mode.video.short") };
 }
@@ -41,7 +43,7 @@ export function PracticeModes({
       iconWrap: "bg-emerald-50 text-emerald-600 border border-emerald-200",
       duration: "10–15",
       level: "userDash.mode.chat.level",
-      action: () => onNavigate("/chat"),
+      action: () => onNavigate("/interview/select?mode=chat"),
     },
     {
       key: "voice",
@@ -49,7 +51,7 @@ export function PracticeModes({
       iconWrap: "bg-blue-50 text-[#204195] border border-blue-200",
       duration: "5–15",
       level: "userDash.mode.voice.level",
-      action: () => onNavigate("/voice"),
+      action: () => onNavigate("/interview/select?mode=voice"),
     },
     {
       key: "video",
@@ -174,7 +176,7 @@ export function RecentActivity({
             const Icon = meta.icon;
             return (
               <article
-                key={session.roomId}
+                key={session.sessionId}
                 className="grid gap-4 p-4.5 transition-colors hover:bg-[#F8FAFC] sm:grid-cols-[minmax(0,1.5fr)_minmax(7rem,.6fr)_auto] sm:items-center sm:p-5"
               >
                 <div className="flex min-w-0 items-center gap-3">
@@ -182,7 +184,7 @@ export function RecentActivity({
                     <Icon className="size-5" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
-                    <h3 className="truncate text-sm font-semibold text-[#14244B]">{session.topic}</h3>
+                    <h3 className="truncate text-sm font-semibold text-[#14244B]">{session.jobTitle || t("userDash.activity.eyebrow")}</h3>
                     <time dateTime={session.startedAt} className="mt-0.5 block text-xs text-[#607096]">
                       {new Date(session.startedAt).toLocaleString(lang === "vi" ? "vi-VN" : "en-US", {
                         dateStyle: "medium",
@@ -194,18 +196,18 @@ export function RecentActivity({
                 <div className="flex items-center gap-2 text-xs text-[#607096]">
                   <span className="font-medium text-[#204195]">{meta.label}</span>
                   <span aria-hidden="true">·</span>
-                  <span>{t("userDash.activity.started")}</span>
+                  <span>{session.status === "CLOSED" ? "Đã kết thúc" : t("userDash.activity.started")}</span>
                   <span className="sr-only">{t("userDash.activity.scoreUnavailable")}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
-                    if (session.mode === "chat") {
-                      onNavigate("/chat");
-                    } else if (session.mode === "voice") {
-                      onNavigate("/voice");
+                    if (session.status === "CLOSED") {
+                      onNavigate(`/interview/results/${session.sessionId}`);
+                    } else if (session.experienceType === "question_practice") {
+                      onNavigate(`/practice/room/${session.sessionId}`);
                     } else {
-                      onNavigate(`/interview/room/${session.roomId}`);
+                      onNavigate(`/interview/room/${session.sessionId}`);
                     }
                   }}
                   className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#DCE4F3] bg-white px-4 text-xs font-semibold text-[#14244B] transition-all duration-150 hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] justify-self-start sm:justify-self-end"
@@ -225,7 +227,7 @@ export function RecentActivity({
           <p className="mx-auto mt-1.5 max-w-md text-sm leading-6 text-[#607096]">{t("userDash.activity.emptyBody")}</p>
           <button
             type="button"
-            onClick={() => onNavigate("/chat")}
+            onClick={() => onNavigate("/interview/select?mode=chat")}
             className="mt-5 inline-flex min-h-10 items-center justify-center rounded-xl bg-[#204195] px-5 text-sm font-semibold text-white shadow-xs transition-all hover:bg-[#183275]"
           >
             {t("userDash.activity.emptyCta")}
