@@ -427,7 +427,7 @@ export function ChatComposer({
       ? 'Đặt câu hỏi cho nhà tuyển dụng…'
       : currentStage === 'BEHAVIORAL'
         ? 'Kể lại tình huống: Bối cảnh → Nhiệm vụ → Hành động → Kết quả…'
-        : 'Nhập câu trả lời của bạn…';
+        : 'Trả lời ngắn theo ý chính, gạch đầu dòng cũng được…';
   return (
     <div className="flex flex-col gap-2">
       {!compact ? (
