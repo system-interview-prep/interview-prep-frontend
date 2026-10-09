@@ -75,7 +75,7 @@ function RoomContent() {
     }
     return <InterviewChatRoom sessionId={roomId} jobTitle={topic} backUrl={chatBackUrl} />;
   }
-  return <LiveKitInterviewRoom sessionId={roomId} mode={mode} />;
+  return <LiveKitInterviewRoom sessionId={roomId} mode={mode} jobTitle={topic} backUrl={chatBackUrl} />;
 }
 
 export default function RoomPage() {
