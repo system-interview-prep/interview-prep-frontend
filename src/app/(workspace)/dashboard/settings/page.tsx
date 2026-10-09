@@ -606,7 +606,7 @@ export default function SettingsPage() {
                           </span>
                         </div>
                         <p className="text-xs text-[#607096]">
-                          Phân tích ánh mắt, biểu cảm khuôn mặt để nâng cao điểm đánh giá tự tin.
+                          Camera chỉ dùng để bạn tự xem trước; hệ thống không phân tích ánh mắt hay biểu cảm để chấm điểm.
                         </p>
                       </div>
 
