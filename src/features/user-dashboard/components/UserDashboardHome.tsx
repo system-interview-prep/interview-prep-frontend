@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
+import { interviewRuntimeApi } from "@features/interview/services/interviewRuntime.service";
 import { JobInterviewCvModal } from "@features/user-dashboard/components/JobInterviewCvModal";
 import { LearningResources, PracticeModes, RecentActivity, type StoredDashboardSession } from "./DashboardSections";
 
@@ -25,20 +26,6 @@ type Props = {
   videoError: boolean;
   onDismissVideoError: () => void;
 };
-
-function readSessions(): StoredDashboardSession[] {
-  try {
-    const parsed = JSON.parse(localStorage.getItem("demo.sessions") ?? "[]") as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is StoredDashboardSession => {
-      if (!item || typeof item !== "object") return false;
-      const row = item as Partial<StoredDashboardSession>;
-      return Boolean(row.roomId && row.topic && row.startedAt);
-    });
-  } catch {
-    return [];
-  }
-}
 
 function dayKey(date: Date) {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
@@ -79,17 +66,31 @@ export function UserDashboardHome({ onNavigate, onStartVideo, videoError, onDism
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     setError(false);
-    setSessions(readSessions());
-    const profilesResult = await Promise.resolve(jobProfileApi.list({ limit: 6, order: "desc" })).then(
-      (value) => ({ status: "fulfilled" as const, value }),
-      (reason) => ({ status: "rejected" as const, reason }),
-    );
+    const [profilesResult, sessionsResult] = await Promise.allSettled([
+      jobProfileApi.list({ limit: 6, order: "desc" }),
+      interviewRuntimeApi.list(),
+    ]);
     if (profilesResult.status === "fulfilled") {
       setProfiles((profilesResult.value.data.items ?? []).filter((profile) => profile.status === "ACTIVE"));
     } else {
       setProfiles([]);
       setError(true);
       if (axios.isAxiosError(profilesResult.reason)) console.error("Dashboard profiles:", profilesResult.reason.message);
+    }
+    if (sessionsResult.status === "fulfilled") {
+      setSessions(sessionsResult.value.map((session) => ({
+        sessionId: session.sessionId,
+        // The API returns null for a session whose job was removed; the card
+        // type models "absent" as undefined so it can fall back to a label.
+        jobTitle: session.jobTitle ?? undefined,
+        startedAt: session.startedAt,
+        mode: session.mode,
+        status: session.status,
+        experienceType: session.experienceType,
+      })));
+    } else {
+      setSessions([]);
+      setError(true);
     }
     setLoading(false);
   }, []);
@@ -99,11 +100,10 @@ export function UserDashboardHome({ onNavigate, onStartVideo, videoError, onDism
     return () => window.clearTimeout(timer);
   }, [loadDashboard]);
   useEffect(() => {
-    const refresh = () => setSessions(readSessions());
+    const refresh = () => void loadDashboard();
     window.addEventListener("focus", refresh);
-    window.addEventListener("storage", refresh);
-    return () => { window.removeEventListener("focus", refresh); window.removeEventListener("storage", refresh); };
-  }, []);
+    return () => window.removeEventListener("focus", refresh);
+  }, [loadDashboard]);
 
   const activeJob = profiles[0];
   const categoryName = (profile: JobProfile) => profile.primaryTaxonomy?.label ?? t("userDash.jobProfiles.uncategorized");
@@ -164,7 +164,7 @@ export function UserDashboardHome({ onNavigate, onStartVideo, videoError, onDism
               <Play className="size-4 fill-current" aria-hidden="true" />
               <span>{sessions.length ? t("userDash.next.continue") : t("userDash.next.start")}</span>
             </button>
-            <button type="button" onClick={() => onNavigate("/voice")} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 backdrop-blur-sm px-6 text-sm font-extrabold text-white transition-all active:scale-[0.99] sm:w-auto cursor-pointer">
+            <button type="button" onClick={() => onNavigate("/interview/select?mode=voice")} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 backdrop-blur-sm px-6 text-sm font-extrabold text-white transition-all active:scale-[0.99] sm:w-auto cursor-pointer">
               <Zap className="size-4 text-[#FCB625]" aria-hidden="true" />
               <span>{t("userDash.next.quick")}</span>
             </button>
