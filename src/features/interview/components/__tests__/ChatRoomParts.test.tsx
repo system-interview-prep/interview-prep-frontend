@@ -2,7 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { ChatMessage, ChatRuntimeTurn } from '../../services/interviewChat.service';
-import { ChatStageStepper, getTimerTone } from '../ChatInterviewProgress';
+import { ChatStageStepper, getTimerTone, InterviewCountdownTimer } from '../ChatInterviewProgress';
 import {
   ChatClosedFooter,
   ChatComposer,
@@ -142,6 +142,14 @@ describe('Chat room terminal state and helpers', () => {
     expect(getTimerTone(600, 25)).toBe('normal');
     expect(getTimerTone(200, 25)).toBe('low');
     expect(getTimerTone(140, 25)).toBe('critical');
+  });
+
+  it('says the session is over time instead of a frozen 00:00 while it continues', () => {
+    const html = renderToStaticMarkup(
+      <InterviewCountdownTimer serverRemainingSeconds={0} durationMinutes={3} isClosed={false} />
+    );
+    expect(html).toContain('Quá giờ dự kiến');
+    expect(html).not.toContain('00:00');
   });
 
   it('shows the backend message without its error code prefix', () => {
