@@ -28,8 +28,8 @@ export const AbortConfirmationModal: React.FC<AbortConfirmationModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#14244B]/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#F7F9FD] space-y-5 animate-in zoom-in-95 duration-150">
         {/* Header Icon + Title */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3.5">
@@ -37,10 +37,10 @@ export const AbortConfirmationModal: React.FC<AbortConfirmationModalProps> = ({
               <AlertTriangle className="size-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-[#14244B]">
                 Xác nhận kết thúc phỏng vấn sớm?
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+              <p className="text-xs text-[#607096] mt-0.5 leading-relaxed">
                 Hành động này sẽ dừng buổi phỏng vấn hiện tại của bạn.
               </p>
             </div>
@@ -48,7 +48,7 @@ export const AbortConfirmationModal: React.FC<AbortConfirmationModalProps> = ({
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="rounded-lg p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+            className="rounded-lg p-1 text-[#A0AEC0] hover:text-[#607096] hover:bg-[#F7F9FD] transition"
             title="Đóng"
           >
             <X className="size-4" />
@@ -78,7 +78,7 @@ export const AbortConfirmationModal: React.FC<AbortConfirmationModalProps> = ({
 
         {/* Chọn lý do */}
         <div className="space-y-2">
-          <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+          <label className="text-[11px] font-bold text-[#607096] uppercase tracking-wider">
             Vui lòng chọn lý do (tùy chọn):
           </label>
           <div className="space-y-2">
@@ -89,8 +89,8 @@ export const AbortConfirmationModal: React.FC<AbortConfirmationModalProps> = ({
                   key={idx}
                   className={`flex items-center gap-3 p-3 rounded-xl border text-xs sm:text-sm cursor-pointer transition select-none ${
                     isSelected
-                      ? 'border-indigo-600 bg-indigo-50/50 text-indigo-950 font-medium shadow-2xs'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                      ? 'border-[#204195] bg-[#EEF2FD]/50 text-[#14244B] font-medium shadow-2xs'
+                      : 'border-[#DCE4F3] hover:bg-[#F7F9FD] text-[#425176]'
                   }`}
                 >
                   <input
@@ -99,7 +99,7 @@ export const AbortConfirmationModal: React.FC<AbortConfirmationModalProps> = ({
                     value={r}
                     checked={isSelected}
                     onChange={(e) => setSelectedReason(e.target.value)}
-                    className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300"
+                    className="w-4 h-4 text-[#204195] focus:ring-[#204195] border-[#DCE4F3]"
                   />
                   <span>{r}</span>
                 </label>
@@ -114,7 +114,7 @@ export const AbortConfirmationModal: React.FC<AbortConfirmationModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-4 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+            className="px-4 py-2.5 rounded-xl border border-[#DCE4F3] text-xs sm:text-sm font-semibold text-[#425176] hover:bg-[#F7F9FD] transition"
           >
             Tiếp tục phỏng vấn
           </button>
