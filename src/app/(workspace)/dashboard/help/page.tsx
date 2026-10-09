@@ -119,7 +119,7 @@ const FAQ_LIST: FaqItem[] = [
     categoryLabel: "Voice & Chat AI",
     question: "Dữ liệu âm thanh và hình ảnh của tôi có được bảo mật an toàn không?",
     answer:
-      "Chúng tôi áp dụng mã hóa SSL/TLS cho toàn bộ luồng truyền tải WebRTC. Dữ liệu video chỉ được xử lý cục bộ trên trình duyệt để phân tích ánh mắt/cử chỉ và hoàn toàn KHÔNG lưu lại video nếu không có sự đồng ý của bạn.",
+      "Chúng tôi áp dụng mã hóa SSL/TLS cho luồng WebRTC. Camera chỉ hiển thị khung xem trước cục bộ; hệ thống không dùng hình ảnh, ánh mắt hay cử chỉ để chấm điểm và không lưu video.",
     tips: [
       "Toàn bộ lịch sử phỏng vấn thuộc quyền sở hữu của bạn.",
       "Bạn có thể xuất toàn bộ bản ghi văn bản hoặc yêu cầu xóa vĩnh viễn dữ liệu trong trang Cài đặt.",
