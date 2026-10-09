@@ -491,7 +491,7 @@ export default function StructuredTextInterview({
                           }
                         }}
                         disabled={isSubmitting}
-                        placeholder="Nhập câu trả lời của bạn... Nêu luận điểm rõ ràng và ví dụ thực tế."
+                        placeholder="Trả lời theo ý chính, gạch đầu dòng cũng được…"
                         className="mt-3 min-h-40 flex-1 resize-y rounded-xl border border-[#DCE4F3] bg-white p-4 text-sm leading-relaxed text-[#14244B] placeholder:text-[#607096]/70 focus:border-[#204195] focus:outline-hidden focus:ring-2 focus:ring-[#204195]/15 disabled:cursor-not-allowed disabled:bg-[#F7F9FD]"
                       />
 
