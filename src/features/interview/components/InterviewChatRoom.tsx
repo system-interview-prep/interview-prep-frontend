@@ -244,8 +244,15 @@ export default function InterviewChatRoom({
       const updated = await interviewChatApi.getRuntime(sessionId);
       setRuntime(updated);
       setMessages(updated.messages || []);
-    } catch {
-      router.push(backUrl);
+    } catch (err: unknown) {
+      // Navigating away here used to leave the session OPEN without telling
+      // the candidate. Stay in the room so they can retry ending it.
+      const resData = (err as { response?: { data?: { detail?: string } } })?.response?.data;
+      alert(
+        typeof resData?.detail === 'string'
+          ? `Chưa kết thúc được buổi phỏng vấn: ${resData.detail}`
+          : 'Chưa kết thúc được buổi phỏng vấn. Vui lòng thử lại.'
+      );
     } finally {
       setIsEnding(false);
     }
