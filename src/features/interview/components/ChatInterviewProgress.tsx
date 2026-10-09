@@ -29,23 +29,23 @@ export const CHAT_STAGE_GUIDE: Record<
 > = {
   WARM_UP: {
     description: 'Làm quen và giới thiệu ngắn về bản thân.',
-    tip: 'Giới thiệu 3–4 câu: bạn là ai, kinh nghiệm gần nhất, vì sao quan tâm vị trí này.',
+    tip: '2–3 ý ngắn: bạn là ai, kinh nghiệm gần nhất, vì sao quan tâm vị trí này.',
   },
   VALIDATE: {
     description: 'Xác thực một dự án hoặc kinh nghiệm có trong CV.',
-    tip: 'Nói rõ vai trò của bạn, công nghệ đã dùng và kết quả đo được.',
+    tip: 'Liệt kê: phần bạn trực tiếp làm, quyết định khó nhất, kết quả đo được.',
   },
   DEEP_DIVE: {
     description: 'Câu hỏi chuyên môn theo kỹ năng JD yêu cầu.',
-    tip: 'Giải thích khái niệm, đưa ví dụ thực tế và nêu đánh đổi (trade-off).',
+    tip: 'Gạch đầu dòng ý chính: khái niệm, ví dụ thực tế, đánh đổi (trade-off). Không cần viết thành đoạn.',
   },
   CHALLENGE: {
     description: 'Câu hỏi khó hơn hoặc tình huống kỹ thuật.',
-    tip: 'Nghĩ thành tiếng: nêu giả định, hướng giải quyết rồi mới đi vào chi tiết.',
+    tip: 'Nêu giả định và hướng xử lý theo từng ý; chưa làm thực tế thì nói thật và nêu cách bạn sẽ làm.',
   },
   BEHAVIORAL: {
     description: 'Tình huống thực tế trong công việc.',
-    tip: 'Trả lời theo STAR: Bối cảnh → Nhiệm vụ → Hành động → Kết quả.',
+    tip: '3 ý là đủ: chuyện gì xảy ra → bạn đã làm gì → kết quả (theo STAR).',
   },
   CLOSING: {
     description: 'Bạn đặt câu hỏi cho nhà tuyển dụng.',
