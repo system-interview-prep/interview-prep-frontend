@@ -1,6 +1,7 @@
 "use client";
 
 import axios from "axios";
+import { DEMO_DURATION_MINUTES, totalQuestionCount } from "@features/interview/utils/questionBudget";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -659,13 +660,22 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                     <Clock className="size-3" /> Điều phối linh hoạt
                   </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {[
+                    {
+                      minutes: DEMO_DURATION_MINUTES,
+                      title: "Demo",
+                      badge: `${DEMO_DURATION_MINUTES} Phút`,
+                      questions: `${totalQuestionCount(DEMO_DURATION_MINUTES)} câu`,
+                      focus: "Trình bày nhanh toàn bộ luồng",
+                      desc: "Phù hợp: Demo / thử nghiệm",
+                      recommend: false,
+                    },
                     {
                       minutes: 15,
                       title: "Gói Nhanh",
                       badge: "15 Phút",
-                      questions: "Linh hoạt (4–6 câu)",
+                      questions: `${totalQuestionCount(15)} câu`,
                       focus: "Sơ loại & phản xạ nhanh",
                       desc: "Phù hợp: Luyện nhanh giờ nghỉ trưa",
                       recommend: false,
@@ -674,7 +684,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                       minutes: 25,
                       title: "Gói Chuẩn",
                       badge: "25 Phút",
-                      questions: "Linh hoạt (6–10 câu)",
+                      questions: `${totalQuestionCount(25)} câu`,
                       focus: "Đánh giá chuẩn năng lực",
                       desc: "Khuyên dùng cho hầu hết ứng viên",
                       recommend: true,
@@ -683,7 +693,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                       minutes: 45,
                       title: "Chuyên Sâu",
                       badge: "45 Phút",
-                      questions: "Linh hoạt (8–14 câu)",
+                      questions: `${totalQuestionCount(45)} câu`,
                       focus: "System Design & Tình huống",
                       desc: "Phù hợp: Ứng viên Mid / Senior",
                       recommend: false,
@@ -734,7 +744,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                 <div>
                   <p className="text-sm font-bold text-[#14244B]">2. Chọn hình thức tương tác</p>
                   <p className="mt-0.5 text-xs text-[#607096]">
-                    Bộ câu hỏi ({durationMinutes === 15 ? "4" : durationMinutes === 25 ? "6" : "8"} câu) sẽ được tối ưu theo thời lượng bạn đã chọn.
+                    Bộ câu hỏi ({totalQuestionCount(durationMinutes)} câu) sẽ được tối ưu theo thời lượng bạn đã chọn.
                   </p>
                 </div>
               </div>
@@ -787,7 +797,7 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                   },
                   {
                     key: "video",
-                    title: "Voice + Face to face",
+                    title: "Voice + camera preview",
                     desc: "Mô phỏng buổi phỏng vấn trực diện với giọng nói, camera và interviewer trên màn hình.",
                     meta: "Cần mic + camera",
                     badge: null,
