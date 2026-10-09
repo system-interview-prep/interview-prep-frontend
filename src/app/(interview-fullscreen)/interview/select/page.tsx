@@ -1,32 +1,86 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useNavigationLoading } from "@components/shared/NavigationLoadingProvider";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { startInterviewSession } from "@features/interview/services/interviewSession.service";
+import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
+import { userCvApi, type UserCvDto } from "@features/resume/services/userCv.service";
 import { MessageSquare, Mic, Video, ArrowRight } from "lucide-react";
 
 export default function InterviewSelectPage() {
   const { t, lang } = useLanguage();
   const router = useRouter();
   const { showNavigationLoading, hideNavigationLoading } = useNavigationLoading();
+  const [jobs, setJobs] = useState<JobProfile[]>([]);
+  const [cvs, setCvs] = useState<UserCvDto[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState("");
+  const [selectedCvId, setSelectedCvId] = useState("");
+  const [loadingContext, setLoadingContext] = useState(true);
+  const [contextError, setContextError] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([jobProfileApi.list({ limit: 50 }), userCvApi.list(50)])
+      .then(([jobsResponse, cvsResponse]) => {
+        if (!active) return;
+        const activeJobs = (jobsResponse.data.items ?? []).filter(
+          (job) => job.status === "ACTIVE" || !job.status,
+        );
+        const readyCvs = (cvsResponse.data.items ?? []).filter(
+          (cv) => cv.status === "DONE" || !cv.status,
+        );
+        setJobs(activeJobs);
+        setCvs(readyCvs);
+        setSelectedJobId(activeJobs[0]?.id ?? "");
+        setSelectedCvId(readyCvs[0]?.id ?? "");
+      })
+      .catch(() => {
+        if (active) setContextError("Không thể tải danh sách CV và vị trí tuyển dụng.");
+      })
+      .finally(() => {
+        if (active) setLoadingContext(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const selectedJob = useMemo(
+    () => jobs.find((job) => job.id === selectedJobId),
+    [jobs, selectedJobId],
+  );
+  const canStart = Boolean(selectedCvId && selectedJobId && !loadingContext);
 
   const startMode = async (
     mode: "chat" | "voice" | "video",
     experience?: "question_practice" | "interview_chat"
   ) => {
+    if (!canStart || isStarting) {
+      setContextError("Vui lòng chọn đủ CV và vị trí tuyển dụng.");
+      return;
+    }
+    setContextError(null);
+    setIsStarting(true);
     showNavigationLoading();
     try {
       const url = await startInterviewSession({
         mode,
         experience,
         lang: lang === "vi" ? "vi" : "en",
+        candidateId: selectedCvId,
+        jobId: selectedJobId,
+        jobTitle: selectedJob?.title,
       });
       router.push(url);
-    } catch {
+    } catch (error) {
+      setContextError(error instanceof Error ? error.message : "Không thể bắt đầu phỏng vấn.");
       hideNavigationLoading();
+      setIsStarting(false);
     }
   };
 
@@ -53,19 +107,31 @@ export default function InterviewSelectPage() {
             </div>
           </header>
 
-          <section className="mb-6 rounded-2xl border border-[#DCE4F3] bg-white px-5 py-4 shadow-xs sm:px-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <section className="mb-6 rounded-2xl border border-[#DCE4F3] bg-white px-5 py-5 shadow-xs sm:px-6">
+            <div className="flex flex-col gap-4">
               <div>
-                <p className="text-sm font-bold text-[#14244B]">Choose how you want to practise</p>
+                <p className="text-sm font-bold text-[#14244B]">Chọn ngữ cảnh phỏng vấn</p>
                 <p className="mt-1 text-xs leading-relaxed text-[#607096]">
-                  The interview plan and question set stay consistent. Only the interaction changes.
+                  Mọi chế độ đều dùng chung kế hoạch và bộ câu hỏi được khóa theo CV–JD.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-[#425477]">
-                <span className="rounded-full bg-[#F0F4FC] px-2.5 py-1">Text</span>
-                <span className="rounded-full bg-[#F0F4FC] px-2.5 py-1">Voice</span>
-                <span className="rounded-full bg-[#F0F4FC] px-2.5 py-1">Face to face</span>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-xs font-semibold text-[#425477]">
+                  CV ứng viên
+                  <select value={selectedCvId} onChange={(event) => setSelectedCvId(event.target.value)} disabled={loadingContext} className="mt-1.5 h-11 w-full rounded-xl border border-[#DCE4F3] bg-white px-3 text-sm text-[#14244B] outline-none focus:border-[#204195]">
+                    <option value="">Chọn CV đã phân tích</option>
+                    {cvs.map((cv) => <option key={cv.id} value={cv.id}>{cv.originalName || cv.id}</option>)}
+                  </select>
+                </label>
+                <label className="text-xs font-semibold text-[#425477]">
+                  Vị trí tuyển dụng
+                  <select value={selectedJobId} onChange={(event) => setSelectedJobId(event.target.value)} disabled={loadingContext} className="mt-1.5 h-11 w-full rounded-xl border border-[#DCE4F3] bg-white px-3 text-sm text-[#14244B] outline-none focus:border-[#204195]">
+                    <option value="">Chọn vị trí đang hoạt động</option>
+                    {jobs.map((job) => <option key={job.id} value={job.id}>{job.title}</option>)}
+                  </select>
+                </label>
               </div>
+              {contextError && <p className="text-xs font-semibold text-red-600" role="alert">{contextError}</p>}
             </div>
           </section>
 
@@ -76,6 +142,7 @@ export default function InterviewSelectPage() {
               <button
                 type="button"
                 onClick={goToInterviewChat}
+                disabled={!canStart || isStarting}
                 className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-7 text-left shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-[#204195]/40 hover:shadow-md md:p-8 cursor-pointer"
               >
                 <div>
@@ -113,6 +180,7 @@ export default function InterviewSelectPage() {
               <button
                 type="button"
                 onClick={goToVoice}
+                disabled={!canStart || isStarting}
                 className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-7 text-left shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-[#204195]/40 hover:shadow-md md:p-8 cursor-pointer"
               >
                 <div>
@@ -150,6 +218,7 @@ export default function InterviewSelectPage() {
               <button
                 type="button"
                 onClick={goToRoom}
+                disabled={!canStart || isStarting}
                 className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-7 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg md:p-8 cursor-pointer"
               >
                 <div>
@@ -157,7 +226,7 @@ export default function InterviewSelectPage() {
                   <div className="mb-4">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FCB625] px-3 py-1 text-xs font-bold text-[#14244B] shadow-xs">
                       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#14244B]" aria-hidden="true" />
-                      Voice + Face to face
+                      Voice + camera preview
                     </span>
                   </div>
 
