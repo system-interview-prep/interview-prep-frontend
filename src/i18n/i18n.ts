@@ -529,7 +529,7 @@ const en: Dict = {
   "interviewSummary.badge.analysisComplete": "Analysis Complete",
   "interviewSummary.hero.congrats": "Congratulations, {name}!",
   "interviewSummary.hero.description":
-    "You have successfully completed the Senior Product Design interview. Our AI INTERVIA has processed your responses, non-verbal cues, and technical depth.",
+    "You have successfully completed the interview. INTERVIA has evaluated your transcript against the role-specific competency rubric.",
   "interviewSummary.score.title": "INTERVIA Score",
   "interviewSummary.score.outOf": "/100",
   "interviewSummary.score.quote": "“Your performance ranks in the top 15% of candidates for this role.”",
@@ -541,7 +541,7 @@ const en: Dict = {
     "Your explanation of the scalable design system was exceptionally clear and demonstrated deep seniority.",
   "interviewSummary.strengths.item2.title": "Emotional Intelligence",
   "interviewSummary.strengths.item2.desc":
-    "Maintained high eye contact (92% duration) and used inclusive language when discussing team dynamics.",
+    "Used inclusive, clear language when discussing team dynamics.",
   "interviewSummary.growth.title": "Areas for Growth",
   "interviewSummary.growth.item1.title": "Conciseness in Technicals",
   "interviewSummary.growth.item1.desc":
@@ -1156,7 +1156,7 @@ const en: Dict = {
   "userDash.mode.voice.cta": "Call Now",
   "userDash.mode.video.title": "AI Video Interview",
   "userDash.mode.video.desc":
-    "Full-immersion video session. AI tracks engagement, facial expressions, and complex reasoning patterns.",
+    "Voice interview with a private camera preview. AI evaluates only your transcribed answers and technical reasoning.",
   "userDash.mode.video.cta": "Launch Studio",
   "userDash.mode.video.badge": "HD Studio Ready",
   "userDash.history.title": "Interview History",
@@ -1379,7 +1379,7 @@ const en: Dict = {
     "Perfect your phone etiquette. Our AI analyzes your pace, confidence markers, and use of filler words in real-time.",
   "landing.mode.video.title": "Immersive Video Call",
   "landing.mode.video.desc":
-    "The ultimate test. AI-driven video agents analyze your body language, eye contact, and background professionality.",
+    "A realistic voice interview with optional camera preview. Scoring uses only your transcript and role-specific rubric.",
   "landing.section.how.title": "An Editorial Approach to Hiring.",
   "landing.section.how.subtitle":
     "We don't just score you. We curate your professional narrative, helping you articulate your value with clarity and conviction.",
@@ -1393,7 +1393,7 @@ const en: Dict = {
   "landing.how.step3.desc":
     "Receive a deep-dive report with specific transcript improvements and behavioral coaching.",
   "landing.section.testimonials.title": "Loved by top professionals.",
-  "landing.testimonials.quote1": "\"The video call simulation felt incredibly real. The feedback on my body language helped me land my Senior Product role at a Tier 1 tech firm.\"",
+  "landing.testimonials.quote1": "\"The video call simulation felt incredibly real. The transcript feedback helped me sharpen my answers for a Senior Product interview.\"",
   "landing.testimonials.person1.name": "Alex Rivera",
   "landing.testimonials.person1.role": "Product Lead",
   "landing.testimonials.quote2": "\"INTERVIA AI's editorial feedback is a game changer. It didn't just tell me what was wrong, it showed me how to phrase my answers more powerfully.\"",
@@ -1432,11 +1432,11 @@ const en: Dict = {
   "solutions.segment.students.cta": "Launch Prep",
   "solutions.segment.seekers.title": "Active Job Seekers",
   "solutions.segment.seekers.desc":
-    "The definitive kit for high-stakes hiring. Specialized technical assessments and body language feedback to ensure you land the offer.",
+    "The definitive kit for high-stakes hiring, with specialized technical assessments and evidence-based answer feedback.",
   "solutions.segment.seekers.technical": "Technical",
   "solutions.segment.seekers.technicalDesc": "Scenario-based coding & design simulations",
   "solutions.segment.seekers.visual": "Visual",
-  "solutions.segment.seekers.visualDesc": "Real-time eye contact & posture analysis",
+  "solutions.segment.seekers.visualDesc": "Private camera preview during voice interviews",
   "solutions.segment.seekers.cta": "Explore Job Seeker Suite",
   "solutions.segment.seekers.imageAlt":
     "Professional woman looking confident and focused while engaging in a remote video interview with soft warm lighting",
@@ -1461,7 +1461,7 @@ const en: Dict = {
     "Perfect your phone etiquette. Our AI analyzes your pace, confidence markers, and use of filler words in real-time.",
   "solutions.modalities.video.title": "Immersive Video Call",
   "solutions.modalities.video.desc":
-    "The ultimate test. AI-driven video agents analyze your body language, eye contact, and background professionality.",
+    "A realistic voice interview with optional camera preview. Scoring uses only your transcript and role-specific rubric.",
   "solutions.editorial.badge": "Editorial Intelligence",
   "solutions.editorial.title": "Don't just practice. Curate your story.",
   "solutions.editorial.desc":
@@ -3487,7 +3487,7 @@ const vi: Dict = {
     "Hoàn thiện tác phong phỏng vấn qua điện thoại. AI phân tích nhịp độ, độ tự tin và filler words theo thời gian thực.",
   "landing.mode.video.title": "Video call nhập vai",
   "landing.mode.video.desc":
-    "Bài test sát thực nhất. AI phân tích body language, eye contact và độ chuyên nghiệp của bối cảnh.",
+    "Mô phỏng phỏng vấn giọng nói sát thực với khung xem camera tùy chọn. Điểm số chỉ dựa trên bản ghi và rubric theo vị trí.",
   "landing.section.how.title": "Cách tiếp cận kiểu biên tập.",
   "landing.section.how.subtitle":
     "Không chỉ chấm điểm. Chúng tôi giúp bạn “biên tập” câu chuyện nghề nghiệp để diễn đạt rõ ràng và thuyết phục.",
@@ -3501,7 +3501,7 @@ const vi: Dict = {
   "landing.how.step3.desc":
     "Nhận báo cáo chi tiết, gợi ý cải thiện transcript và coaching hành vi.",
   "landing.section.testimonials.title": "Được tin dùng bởi chuyên gia.",
-  "landing.testimonials.quote1": "\"Mô phỏng video call chân thực đến bất ngờ. Phản hồi về ngôn ngữ cơ thể giúp mình chốt được vị trí Product Senior ở một công ty công nghệ top.\"",
+  "landing.testimonials.quote1": "\"Mô phỏng video call rất chân thực. Phản hồi trên bản ghi giúp mình cải thiện câu trả lời cho vòng Product Senior.\"",
   "landing.testimonials.person1.name": "Alex Rivera",
   "landing.testimonials.person1.role": "Trưởng nhóm sản phẩm",
   "landing.testimonials.quote2": "\"Phản hồi kiểu biên tập của INTERVIA AI thực sự khác biệt. Không chỉ chỉ ra sai ở đâu, mà còn gợi cách diễn đạt để câu trả lời thuyết phục hơn.\"",
@@ -3540,11 +3540,11 @@ const vi: Dict = {
   "solutions.segment.students.cta": "Bắt đầu luyện",
   "solutions.segment.seekers.title": "Người đang tìm việc",
   "solutions.segment.seekers.desc":
-    "Bộ công cụ cho phỏng vấn quan trọng: đánh giá kỹ thuật và phản hồi ngôn ngữ cơ thể để bạn chốt offer.",
+    "Bộ công cụ cho phỏng vấn quan trọng: đánh giá kỹ thuật và phản hồi câu trả lời dựa trên bằng chứng.",
   "solutions.segment.seekers.technical": "Kỹ thuật",
   "solutions.segment.seekers.technicalDesc": "Mô phỏng coding & thiết kế theo tình huống",
   "solutions.segment.seekers.visual": "Hình ảnh",
-  "solutions.segment.seekers.visualDesc": "Phân tích ánh mắt & tư thế theo thời gian thực",
+  "solutions.segment.seekers.visualDesc": "Khung xem camera riêng tư khi phỏng vấn giọng nói",
   "solutions.segment.seekers.cta": "Khám phá bộ Job Seeker",
   "solutions.segment.seekers.imageAlt":
     "Ứng viên tự tin trong phỏng vấn video từ xa, ánh sáng ấm",
@@ -3569,7 +3569,7 @@ const vi: Dict = {
     "Hoàn thiện phong thái điện thoại. AI phân tích nhịp độ, độ tự tin và từ đệm theo thời gian thực.",
   "solutions.modalities.video.title": "Cuộc gọi video đắm chìm",
   "solutions.modalities.video.desc":
-    "Bài kiểm tra tối thượng. Tác nhân video AI phân tích ngôn ngữ cơ thể, ánh mắt và môi trường xung quanh.",
+    "Mô phỏng phỏng vấn giọng nói với camera tùy chọn. Điểm số chỉ dựa trên bản ghi và rubric theo vị trí.",
   "solutions.editorial.badge": "Trí tuệ biên tập",
   "solutions.editorial.title": "Đừng chỉ luyện. Hãy kiểm duyệt câu chuyện của bạn.",
   "solutions.editorial.desc":
