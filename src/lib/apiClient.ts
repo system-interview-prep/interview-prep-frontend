@@ -133,9 +133,9 @@ export type AdminOverviewData = {
   totalSessions: number;
   activeSessions: number;
   completedSessions: number;
-  averageScore: number;
-  averageTurnaround: number;
-  sentimentScore: number;
+  averageScore: number | null;
+  averageTurnaround: number | null;
+  sentimentScore: number | null;
   monthlyTrend: Array<{ month: string; count: number }>;
   modes: {
     chat: number;
