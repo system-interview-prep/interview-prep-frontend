@@ -35,10 +35,25 @@ export type LiveKitRoomStatus =
   | 'ended'
   | 'error';
 
+export type LiveKitTerminalEvent = {
+  sessionStatus: 'CLOSED';
+  endReason: string;
+};
+
+// Core answers these when the voice stack is not configured on the server.
+const VOICE_CONFIG_ERRORS: Record<string, string> = {
+  'Voice lab disabled': 'Phỏng vấn giọng nói/video chưa được bật trên máy chủ (VOICE_LAB_ENABLED=false). Hãy dùng chế độ chat hoặc liên hệ quản trị viên.',
+  'LiveKit is not configured': 'Máy chủ chưa cấu hình LiveKit (LIVEKIT_URL / API key). Hãy dùng chế độ chat hoặc liên hệ quản trị viên.',
+  'LiveKit dependencies are not installed': 'Máy chủ thiếu thư viện LiveKit. Hãy dùng chế độ chat hoặc liên hệ quản trị viên.',
+  'OpenAI API key is not configured': 'Máy chủ chưa cấu hình OpenAI API key cho phỏng vấn giọng nói.',
+};
+
 function errorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
     const response = (error as { response?: { data?: { detail?: string } } }).response;
-    if (typeof response?.data?.detail === 'string') return response.data.detail;
+    if (typeof response?.data?.detail === 'string') {
+      return VOICE_CONFIG_ERRORS[response.data.detail] ?? response.data.detail;
+    }
     if (error instanceof Error && error.message) return error.message;
   }
   return 'Không thể kết nối LiveKit. Hãy kiểm tra LiveKit Agent và quyền microphone.';
@@ -84,6 +99,7 @@ export function useLiveKitRoom({
   const [localVideoTrack, setLocalVideoTrack] = useState<LocalVideoTrack | null>(null);
   const [transcript, setTranscript] = useState<LiveKitTranscriptLine[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [terminalEvent, setTerminalEvent] = useState<LiveKitTerminalEvent | null>(null);
 
   const clearRemoteAudio = useCallback(() => {
     for (const element of remoteAudioElementsRef.current) {
@@ -111,6 +127,7 @@ export function useLiveKitRoom({
     if (!sessionId || roomRef.current || status === 'connecting') return;
 
     setError(null);
+    setTerminalEvent(null);
     setStatus('connecting');
     seenTranscriptIdsRef.current.clear();
     recentTranscriptRef.current.clear();
@@ -210,11 +227,27 @@ export function useLiveKitRoom({
       }
     };
 
+    const handleData = (payload: Uint8Array, _participant?: Participant, _kind?: unknown, topic?: string) => {
+      if (topic !== 'intervia.session') return;
+      try {
+        const event = JSON.parse(new TextDecoder().decode(payload)) as Record<string, unknown>;
+        if (event.type !== 'interview.session.closed' || event.sessionStatus !== 'CLOSED') return;
+        setTerminalEvent({
+          sessionStatus: 'CLOSED',
+          endReason: typeof event.endReason === 'string' ? event.endReason : 'COMPLETED',
+        });
+        setStatus('ended');
+      } catch {
+        // Ignore packets that do not implement the interview terminal contract.
+      }
+    };
+
     room.on(RoomEvent.TrackSubscribed, handleAgentTrack);
     room.on(RoomEvent.ParticipantConnected, handleParticipantConnected);
     room.on(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected);
     room.on(RoomEvent.ActiveSpeakersChanged, handleActiveSpeakers);
     room.on(RoomEvent.TranscriptionReceived, handleTranscription);
+    room.on(RoomEvent.DataReceived, handleData);
 
     try {
       const roomName = makeRoomName(sessionId);
@@ -323,5 +356,6 @@ export function useLiveKitRoom({
     micEnabled,
     cameraEnabled,
     error,
+    terminalEvent,
   };
 }
