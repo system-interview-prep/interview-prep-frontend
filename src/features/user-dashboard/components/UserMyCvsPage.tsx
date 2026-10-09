@@ -8,6 +8,7 @@ import {
   Loader2,
   Search,
   SearchX,
+  RotateCcw,
   Trash2,
 } from "lucide-react";
 import CareerClassificationSummary from "@features/resume/components/CareerClassificationSummary";
@@ -21,6 +22,8 @@ type CvFile = {
   id: string;
   name: string;
   uploadedAt: string;
+  /** Last status change; a re-parse of an old CV is not "stale" because of its upload date. */
+  updatedAt?: string;
   /** From API when listing user CVs; used to show PDF/Word when filename has no extension */
   contentType?: string;
   status?: CvProcessingStatus;
@@ -56,7 +59,17 @@ function dtoToCvFile(d: UserCvDto): CvFile {
   const name = d.originalName?.trim() || "document";
   const uploadedAt = d.createdAt ?? new Date().toISOString();
   const contentType = d.contentType?.trim() || undefined;
-  return { id: d.id, name, uploadedAt, contentType, status: d.status, error: d.error?.trim() || undefined, score: d.score, parsedData: d.parsedData };
+  return {
+    id: d.id,
+    name,
+    uploadedAt,
+    updatedAt: d.updatedAt || undefined,
+    contentType,
+    status: d.status,
+    error: d.error?.trim() || undefined,
+    score: d.score,
+    parsedData: d.parsedData,
+  };
 }
 
 function syncDemoCvFiles(items: CvFile[]) {
@@ -95,7 +108,7 @@ function labelForCvStatus(t: (key: string) => string, s: CvProcessingStatus | nu
 function effectiveCvStatus(file: CvFile): CvProcessingStatus | null {
   if (
     (file.status === "PARSING" || file.status === "AI_PROCESSING") &&
-    Date.now() - new Date(file.uploadedAt).getTime() > STALE_PROCESSING_MS
+    Date.now() - new Date(file.updatedAt || file.uploadedAt).getTime() > STALE_PROCESSING_MS
   ) {
     return "FAILED";
   }
@@ -138,6 +151,7 @@ export default function UserMyCvsPage() {
   const [trackingCvId, setTrackingCvId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CvFile | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [reparsingId, setReparsingId] = useState<string | null>(null);
 
   const loadFiles = useCallback(async () => {
     const token =
@@ -168,8 +182,32 @@ export default function UserMyCvsPage() {
 
   const finishCvTracking = useCallback(() => {
     setTrackingCvId(null);
+    setReparsingId(null);
     void loadFiles();
   }, [loadFiles]);
+
+  /** Re-run parsing for a CV that failed (OCR outage, slow network, worker restart). */
+  const retryParse = useCallback(
+    async (file: CvFile) => {
+      if (reparsingId) return;
+      setReparsingId(file.id);
+      setAnalyzeError(null);
+      try {
+        await userCvApi.reparse(file.id);
+        const now = new Date().toISOString();
+        setFiles((prev) =>
+          prev.map((item) =>
+            item.id === file.id ? { ...item, status: "PENDING", error: undefined, updatedAt: now } : item
+          )
+        );
+        setTrackingCvId(file.id);
+      } catch (e) {
+        setReparsingId(null);
+        setAnalyzeError(resolveBackendErrorMessage(e, t));
+      }
+    },
+    [reparsingId, t]
+  );
 
   const { status: cvProcessStatus, lastPayload: cvStatusPayload } = useCvProcessingStatus(
     trackingCvId,
@@ -666,7 +704,22 @@ export default function UserMyCvsPage() {
                           <td className="whitespace-nowrap px-4 py-4 align-middle text-xs text-[#607096]">
                             {formatDate(f.uploadedAt)}
                           </td>
-                          <td className="px-4 py-4 text-center align-middle">
+                          <td className="whitespace-nowrap px-4 py-4 text-center align-middle">
+                            {effectiveCvStatus(f) === "FAILED" ? (
+                              <button
+                                type="button"
+                                onClick={() => void retryParse(f)}
+                                disabled={reparsingId !== null}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#204195] transition-colors hover:bg-[#EEF2FD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195] disabled:cursor-not-allowed disabled:opacity-50"
+                                aria-label={t("userDash.myCvs.retryParse")}
+                                title={t("userDash.myCvs.retryParse")}
+                              >
+                                <RotateCcw
+                                  className={`size-4 ${reparsingId === f.id ? "animate-spin motion-reduce:animate-none" : ""}`}
+                                  aria-hidden="true"
+                                />
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               onClick={() => confirmRemoveFile(f.id)}
@@ -711,6 +764,20 @@ export default function UserMyCvsPage() {
                             <span>{formatDate(f.uploadedAt)}</span>
                           </div>
                         </div>
+                        {effectiveCvStatus(f) === "FAILED" ? (
+                          <button
+                            type="button"
+                            onClick={() => void retryParse(f)}
+                            disabled={reparsingId !== null}
+                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#204195] transition-colors hover:bg-[#EEF2FD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195] disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label={t("userDash.myCvs.retryParse")}
+                          >
+                            <RotateCcw
+                              className={`size-4 ${reparsingId === f.id ? "animate-spin motion-reduce:animate-none" : ""}`}
+                              aria-hidden="true"
+                            />
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => confirmRemoveFile(f.id)}
