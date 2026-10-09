@@ -32,23 +32,23 @@ export function difficultyLabel(value?: string | null): string | null {
 const QUESTION_TYPE: Record<string, { label: string; tip: string }> = {
   technical: {
     label: 'Kỹ thuật',
-    tip: 'Nêu khái niệm cốt lõi → cách bạn đã áp dụng → trade-off hoặc lưu ý khi dùng.',
+    tip: 'Gạch đầu dòng: khái niệm cốt lõi, cách bạn đã áp dụng, trade-off hoặc lưu ý khi dùng.',
   },
   behavioral: {
     label: 'Hành vi',
-    tip: 'Trả lời theo STAR: Bối cảnh → Nhiệm vụ → Hành động của bạn → Kết quả đo được.',
+    tip: '3 ý là đủ: chuyện gì xảy ra → bạn đã làm gì → kết quả đo được (theo STAR).',
   },
   validate_cv: {
     label: 'Xác minh CV',
-    tip: 'Kể cụ thể vai trò của bạn trong dự án trên CV, công nghệ đã dùng và kết quả.',
+    tip: 'Liệt kê: phần bạn trực tiếp làm, công nghệ đã dùng, kết quả.',
   },
   warm_up: {
     label: 'Khởi động',
-    tip: 'Giới thiệu ngắn gọn kinh nghiệm liên quan nhất tới vị trí đang ứng tuyển.',
+    tip: '2–3 ý về kinh nghiệm liên quan nhất tới vị trí đang ứng tuyển.',
   },
 };
 
-const DEFAULT_TIP = 'Trả lời có luận điểm rõ ràng, kèm ví dụ thực tế từ kinh nghiệm của bạn.';
+const DEFAULT_TIP = 'Trả lời theo ý chính, gạch đầu dòng cũng được; kèm ví dụ thực tế nếu có.';
 
 export function questionTypeInfo(value?: string | null): { label: string | null; tip: string } {
   const info = value ? QUESTION_TYPE[value.toLowerCase()] : undefined;
