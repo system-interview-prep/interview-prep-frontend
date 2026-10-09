@@ -22,6 +22,42 @@ export const CHAT_STAGE_DEFINITIONS: ReadonlyArray<{
   { key: 'CLOSED', label: 'Hoàn tất', shortLabel: 'Xong' },
 ];
 
+/** What happens in each stage and how to answer it, shown next to the chat. */
+export const CHAT_STAGE_GUIDE: Record<
+  Exclude<InterviewStage, 'CLOSED'>,
+  { description: string; tip: string }
+> = {
+  WARM_UP: {
+    description: 'Làm quen và giới thiệu ngắn về bản thân.',
+    tip: 'Giới thiệu 3–4 câu: bạn là ai, kinh nghiệm gần nhất, vì sao quan tâm vị trí này.',
+  },
+  VALIDATE: {
+    description: 'Xác thực một dự án hoặc kinh nghiệm có trong CV.',
+    tip: 'Nói rõ vai trò của bạn, công nghệ đã dùng và kết quả đo được.',
+  },
+  DEEP_DIVE: {
+    description: 'Câu hỏi chuyên môn theo kỹ năng JD yêu cầu.',
+    tip: 'Giải thích khái niệm, đưa ví dụ thực tế và nêu đánh đổi (trade-off).',
+  },
+  CHALLENGE: {
+    description: 'Câu hỏi khó hơn hoặc tình huống kỹ thuật.',
+    tip: 'Nghĩ thành tiếng: nêu giả định, hướng giải quyết rồi mới đi vào chi tiết.',
+  },
+  BEHAVIORAL: {
+    description: 'Tình huống thực tế trong công việc.',
+    tip: 'Trả lời theo STAR: Bối cảnh → Nhiệm vụ → Hành động → Kết quả.',
+  },
+  CLOSING: {
+    description: 'Bạn đặt câu hỏi cho nhà tuyển dụng.',
+    tip: 'Hỏi tối đa 2 câu về công việc, đội ngũ hoặc công ty. Không có câu hỏi thì gửi "Tôi không có câu hỏi nào".',
+  },
+};
+
+export function getStageGuide(stage?: string | null) {
+  const normalized = normalizeInterviewStage(stage);
+  return normalized && normalized !== 'CLOSED' ? CHAT_STAGE_GUIDE[normalized] : null;
+}
+
 export type ChatStageState = 'completed' | 'current' | 'upcoming' | 'skipped' | 'optional';
 
 export type ChatStageProgress = (typeof CHAT_STAGE_DEFINITIONS)[number] & {
@@ -137,6 +173,20 @@ export function calculateRemainingSeconds({
   return Math.max(0, Math.floor((durationMinutes as number) * 60) - elapsed);
 }
 
+export type TimerTone = 'normal' | 'low' | 'critical';
+
+export function getTimerTone(secondsRemaining: number, durationMinutes?: number): TimerTone {
+  const total = Number.isFinite(durationMinutes) && (durationMinutes as number) > 0
+    ? (durationMinutes as number) * 60
+    : null;
+  if (total === null) {
+    if (secondsRemaining <= 120) return 'critical';
+    return secondsRemaining <= 300 ? 'low' : 'normal';
+  }
+  if (secondsRemaining <= total * 0.1) return 'critical';
+  return secondsRemaining <= total * 0.25 ? 'low' : 'normal';
+}
+
 export function ChatStageStepper({
   currentStage,
   sessionStatus,
@@ -149,7 +199,7 @@ export function ChatStageStepper({
   const progress = deriveChatStageProgress({ currentStage, sessionStatus, turns });
 
   return (
-    <section aria-label="Tiến độ các giai đoạn phỏng vấn" className="border-b border-slate-200/80 bg-white/90">
+    <section aria-label="Tiến độ các giai đoạn phỏng vấn" className="border-b border-[#DCE4F3] bg-white">
       {progress.unknownStage && (
         <div
           role="status"
@@ -159,7 +209,10 @@ export function ChatStageStepper({
           <span>Giai đoạn hiện tại chưa được nhận diện; hội thoại vẫn được giữ nguyên.</span>
         </div>
       )}
-      <div className="mx-auto max-w-4xl overflow-x-auto px-4 py-2.5 sm:px-6">
+      {/* relative: the sr-only labels are absolutely positioned; without a
+          positioned scroller their containing block is the viewport, so they
+          escape the overflow clip and widen the mobile layout viewport. */}
+      <div className="relative mx-auto max-w-4xl overflow-x-auto px-4 py-2.5 sm:px-6">
         <ol className="flex min-w-max items-center" role="list">
           {progress.stages.map((stage, index) => {
             const isCurrent = stage.state === 'current';
@@ -171,7 +224,7 @@ export function ChatStageStepper({
                   <span
                     aria-hidden="true"
                     className={`h-0.5 w-5 sm:w-8 ${
-                      isCompleted || isCurrent ? 'bg-indigo-400' : 'bg-slate-200'
+                      isCompleted || isCurrent ? 'bg-[#204195]/40' : 'bg-[#DCE4F3]'
                     }`}
                   />
                 )}
@@ -181,14 +234,14 @@ export function ChatStageStepper({
                   aria-current={isCurrent ? 'step' : undefined}
                   className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold sm:px-3 ${
                     isCurrent
-                      ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-100'
+                      ? 'border-[#204195] bg-[#204195] text-white shadow-sm ring-2 ring-[#204195]/15'
                       : isCompleted
                         ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                         : isSkipped
-                          ? 'border-dashed border-slate-200 bg-white text-slate-400'
+                          ? 'border-dashed border-[#DCE4F3] bg-white text-[#A0AEC0]'
                           : stage.state === 'optional'
-                            ? 'border-dashed border-slate-200 bg-slate-50 text-slate-400'
-                            : 'border-slate-200 bg-slate-50 text-slate-500'
+                            ? 'border-dashed border-[#DCE4F3] bg-[#F7F9FD] text-[#A0AEC0]'
+                            : 'border-[#DCE4F3] bg-[#F7F9FD] text-[#607096]'
                   }`}
                   title={
                     isSkipped
@@ -268,7 +321,7 @@ export function InterviewCountdownTimer({
   if (secondsRemaining === null) return null;
   if (isClosed) {
     return (
-      <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100/70 px-2.5 py-1.5 text-xs font-semibold text-slate-500 sm:px-3">
+      <div className="inline-flex items-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-[#F7F9FD] px-2.5 py-1.5 text-xs font-semibold text-[#607096] sm:px-3">
         <Clock className="size-3.5" />
         <span>Đồng hồ đã dừng</span>
       </div>
@@ -278,8 +331,9 @@ export function InterviewCountdownTimer({
   const mins = Math.floor(secondsRemaining / 60);
   const secs = secondsRemaining % 60;
   const formatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  const isLow = secondsRemaining <= 300 && secondsRemaining > 120;
-  const isCritical = secondsRemaining <= 120;
+  const tone = getTimerTone(secondsRemaining, durationMinutes);
+  const isLow = tone === 'low';
+  const isCritical = tone === 'critical';
 
   return (
     <div
@@ -289,11 +343,11 @@ export function InterviewCountdownTimer({
           ? 'border-rose-300 bg-rose-50 text-rose-700'
           : isLow
             ? 'border-amber-300 bg-amber-50 text-amber-800'
-            : 'border-slate-200 bg-slate-50 text-slate-700'
+            : 'border-[#DCE4F3] bg-[#F7F9FD] text-[#14244B]'
       }`}
     >
       <Clock className="size-3.5" />
-      <span>{formatted}</span>
+      <span className="tabular-nums">{formatted}</span>
       <span className="hidden font-normal opacity-80 md:inline">dự kiến còn lại</span>
     </div>
   );
