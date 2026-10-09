@@ -328,6 +328,20 @@ export function InterviewCountdownTimer({
     );
   }
 
+  // A demo session keeps going past its nominal time to finish its stages
+  // (Core demo_mode); a frozen red 00:00 next to a live interviewer misleads.
+  if (secondsRemaining === 0) {
+    return (
+      <div
+        role="status"
+        className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800 sm:px-3"
+      >
+        <Clock className="size-3.5" />
+        <span>Quá giờ dự kiến</span>
+      </div>
+    );
+  }
+
   const mins = Math.floor(secondsRemaining / 60);
   const secs = secondsRemaining % 60;
   const formatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
