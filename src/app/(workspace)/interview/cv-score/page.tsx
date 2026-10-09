@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
+import { DEMO_DURATION_MINUTES, totalQuestionCount } from "@features/interview/utils/questionBudget";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -918,11 +919,12 @@ function ScorePageContent() {
                       Số câu hỏi điều phối linh hoạt theo nhịp độ thực tế
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {[
-                      { minutes: 15, label: "Flash Screen", time: "15 Phút", q: "Linh hoạt (4–6 câu)", tag: "Luyện nhanh" },
-                      { minutes: 25, label: "Standard", time: "25 Phút", q: "Linh hoạt (6–10 câu)", tag: "★ Khuyên dùng" },
-                      { minutes: 45, label: "Deep Dive", time: "45 Phút", q: "Linh hoạt (8–14 câu)", tag: "Toàn diện" },
+                      { minutes: DEMO_DURATION_MINUTES, label: "Demo", time: `${DEMO_DURATION_MINUTES} Phút`, q: `${totalQuestionCount(DEMO_DURATION_MINUTES)} câu`, tag: "Trình bày" },
+                      { minutes: 15, label: "Flash Screen", time: "15 Phút", q: `${totalQuestionCount(15)} câu`, tag: "Luyện nhanh" },
+                      { minutes: 25, label: "Standard", time: "25 Phút", q: `${totalQuestionCount(25)} câu`, tag: "★ Khuyên dùng" },
+                      { minutes: 45, label: "Deep Dive", time: "45 Phút", q: `${totalQuestionCount(45)} câu`, tag: "Toàn diện" },
                     ].map((pkg) => {
                       const active = durationMinutes === pkg.minutes;
                       return (
@@ -983,7 +985,7 @@ function ScorePageContent() {
                     },
                     {
                       key: "video",
-                      title: "Voice + Face to face",
+                      title: "Voice + camera preview",
                       desc: "Mô phỏng phỏng vấn trực diện với voice, camera và interviewer trên màn hình.",
                       meta: "Cần mic + camera",
                       badge: null,
