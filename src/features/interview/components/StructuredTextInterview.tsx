@@ -163,6 +163,25 @@ export default function StructuredTextInterview({
     setSubmitError(null);
   }, [activeTurn?.turnId, activeTurn?.status, activeTurn?.answerText]);
 
+  // Close the practice session once every answer is saved. Retryable from the
+  // completed screen if it fails.
+  const finalizePractice = async () => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const closed = await interviewRuntimeApi.completeTextRuntime(sessionId);
+      setRuntime(closed);
+      onCompleted?.();
+    } catch (err: unknown) {
+      const msg = extractErrorMessage(err);
+      setSubmitError(
+        `Đã lưu toàn bộ câu trả lời nhưng chưa hoàn tất được phiên${msg ? `: ${msg}` : ''}. Vui lòng thử lại.`
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Submit answer
   const handleSubmitAnswer = async () => {
     if (!runtime?.currentTurn || isSubmitting) return;
@@ -187,10 +206,12 @@ export default function StructuredTextInterview({
       let next = await interviewRuntimeApi.getTextRuntime(sessionId);
 
       if (next.completed) {
-        next = await interviewRuntimeApi.completeTextRuntime(sessionId);
+        // Every answer is saved now; show that state even if closing the
+        // session fails, so the candidate is not asked to resubmit an
+        // immutable answer. The completed screen offers a retry.
         setRuntime(next);
         setSelectedTurnId(null);
-        onCompleted?.();
+        await finalizePractice();
         return;
       }
 
@@ -277,6 +298,9 @@ export default function StructuredTextInterview({
   const answeredTurns = runtime.progress.answered;
   const progressPercent = totalTurns > 0 ? (answeredTurns / totalTurns) * 100 : 0;
   const isSessionClosed = runtime.completed || runtime.sessionStatus === 'CLOSED';
+  // All answers recorded but the session is not closed yet (completion failed):
+  // the report cannot be generated until it is.
+  const needsFinalize = runtime.completed && runtime.sessionStatus !== 'CLOSED';
   const isViewingCurrentTurn =
     !isSessionClosed &&
     runtime.currentTurn &&
@@ -472,12 +496,25 @@ export default function StructuredTextInterview({
                         </p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => router.push(`/interview/results/${sessionId}`)}
-                      className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#183273] transition shadow-xs"
-                    >
-                      <Sparkles className="size-3.5" /> Xem báo cáo đánh giá
-                    </button>
+                    {needsFinalize && submitError && (
+                      <p className="text-xs text-red-700">{submitError}</p>
+                    )}
+                    {needsFinalize ? (
+                      <button
+                        onClick={() => void finalizePractice()}
+                        disabled={isSubmitting}
+                        className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#183273] transition shadow-xs disabled:opacity-60"
+                      >
+                        {isSubmitting ? 'Đang hoàn tất…' : 'Hoàn tất phiên để tạo báo cáo'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => router.push(`/interview/results/${sessionId}`)}
+                        className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#183273] transition shadow-xs"
+                      >
+                        <Sparkles className="size-3.5" /> Xem báo cáo đánh giá
+                      </button>
+                    )}
                   </div>
                 </div>
 
