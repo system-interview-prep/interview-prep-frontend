@@ -5,13 +5,12 @@ import { useRouter } from "next/navigation";
 import { UserDashboardHome } from "@features/user-dashboard/components/UserDashboardHome";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { startInterviewSession } from "@features/interview/services/interviewSession.service";
 import { useNavigationLoading } from "@components/shared/NavigationLoadingProvider";
 
 export default function DashboardPage() {
-  const { t, lang } = useLanguage();
+  const { t } = useLanguage();
   const router = useRouter();
-  const { showNavigationLoading, hideNavigationLoading } = useNavigationLoading();
+  const { showNavigationLoading } = useNavigationLoading();
   const [videoError, setVideoError] = useState(false);
 
   const navigate = (href: string) => {
@@ -19,20 +18,10 @@ export default function DashboardPage() {
     router.push(href);
   };
 
-  const startVideo = async (jobTitle?: string) => {
+  const startVideo = async () => {
     setVideoError(false);
     showNavigationLoading();
-    try {
-      const url = await startInterviewSession({
-        mode: "video",
-        lang: lang === "vi" ? "vi" : "en",
-        jobTitle,
-      });
-      router.push(url);
-    } catch {
-      hideNavigationLoading();
-      setVideoError(true);
-    }
+    router.push("/interview/select");
   };
 
   return (
