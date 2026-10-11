@@ -44,7 +44,7 @@ describe('Chat room guide panel', () => {
     expect(html).toContain('Node.js');
     expect(html).toContain('trade-off');
     expect(html).toContain('data-stage="DEEP_DIVE" data-state="current"');
-    expect(html).toContain('Đã trả lời 2 lượt');
+    expect(html).toContain('Đã trả lời 2 câu hỏi');
     // Total turn count changes when the closing turn is inserted: no X/N counter.
     expect(html).not.toMatch(/(?:Lượt|Câu)\s*\d+\s*\/\s*\d+/i);
   });
@@ -75,7 +75,7 @@ describe('Chat messages', () => {
     const html = renderToStaticMarkup(
       <MessageBubble message={message({})} stageLabel="Chuyên môn" isClosed={false} isEnding={false} isSending={false} onConfirmAbort={noop} onContinue={noop} />
     );
-    expect(html).toContain('AI Interviewer');
+    expect(html).toContain('Người phỏng vấn AI');
     expect(html).toContain('Câu hỏi');
     expect(html).toContain('Chuyên môn');
     expect(html).toContain('data-role="assistant"');
@@ -131,7 +131,7 @@ describe('Chat room terminal state and helpers', () => {
       <ChatClosedFooter endReason="HARD_TIMEOUT" answeredCount={5} onReport={noop} onBack={noop} />
     );
     expect(html).toContain('Đã kết thúc do hết thời gian');
-    expect(html).toContain('Bạn đã trả lời 5 lượt');
+    expect(html).toContain('Bạn đã trả lời 5 câu hỏi');
     expect(html).toContain('Xem báo cáo đánh giá');
   });
 

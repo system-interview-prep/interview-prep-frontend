@@ -159,7 +159,8 @@ export type AdminSessionItem = {
   candidateName: string;
   candidateEmail: string;
   candidateInitials: string;
-  position: string;
+  /** Job title of the session; null when the JD was deleted. */
+  position: string | null;
   teamAndLocation: string;
   type: 'video' | 'chat' | 'voice';
   aiScore: number | null;
@@ -169,11 +170,19 @@ export type AdminSessionItem = {
   actionLabel: string;
 };
 
+/** Aggregates over every session matching the filters (not just the current page). */
+export type AdminSessionStats = {
+  active: number;
+  completed: number;
+  /** Percentage (0–100); null when nothing has been graded. */
+  avgScore: number | null;
+};
+
 export const adminApi = {
   getOverview: () =>
     apiClient.get<{ success: boolean; overview: AdminOverviewData }>('/admin/overview'),
   getSessions: (params?: { mode?: string; search?: string; limit?: number; offset?: number }) =>
-    apiClient.get<{ success: boolean; total: number; sessions: AdminSessionItem[] }>('/admin/sessions', {
+    apiClient.get<{ success: boolean; total: number; stats?: AdminSessionStats; sessions: AdminSessionItem[] }>('/admin/sessions', {
       params,
     }),
 };

@@ -3,22 +3,20 @@
 import axios from "axios";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { useParams } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import ReactMarkdown from "react-markdown";
 
 export default function AdminJobProfileDetailView() {
   const params = useParams();
-  const router = useRouter();
   const { t, lang } = useLanguage();
   const id = typeof params.id === "string" ? params.id : "";
 
   const [profile, setProfile] = useState<JobProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -46,29 +44,17 @@ export default function AdminJobProfileDetailView() {
     };
   }, [id, t]);
 
-  const handleDelete = async () => {
-    if (!profile || !window.confirm(t("admin.jobProfile.confirmDelete"))) return;
-    setDeleting(true);
-    try {
-      await jobProfileApi.delete(profile.id);
-      router.push("/admin/job-descriptions");
-    } catch {
-      alert(t("admin.jobProfile.deleteError"));
-      setDeleting(false);
-    }
-  };
-
   if (loading) {
     return (
-      <p className="py-12 text-center text-on-surface-variant">{t("admin.jobProfile.loading")}</p>
+      <p className="py-12 text-center text-[#607096]">{t("admin.jobProfile.loading")}</p>
     );
   }
 
   if (error && !profile) {
     return (
       <div className="space-y-4">
-        <div className="rounded-xl border border-error/30 bg-error-container/20 px-4 py-3 text-sm text-error">{error}</div>
-        <Link href="/admin/job-descriptions" className="inline-flex items-center gap-2 text-primary hover:underline">
+        <div className="rounded-2xl border border-[#C43B3B]/30 bg-[#FDF2F2] px-4 py-3 text-sm text-[#C43B3B]" role="alert">{error}</div>
+        <Link href="/admin/job-descriptions" className="inline-flex items-center gap-2 text-[#204195] hover:underline">
           <ArrowLeft className="size-4" />
           {t("admin.jobProfile.detail.back")}
         </Link>
@@ -78,34 +64,34 @@ export default function AdminJobProfileDetailView() {
 
   if (!profile) return null;
 
-  const categoryName = profile.primaryTaxonomy?.label ?? "Unclassified";
+  const categoryName = profile.primaryTaxonomy?.label ?? t("fixAdmin.jp.unclassified");
 
   return (
     <div className="min-w-0 space-y-6">
       <Link
         href="/admin/job-descriptions"
-        className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-primary hover:underline"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-[#204195] hover:underline"
       >
         <ArrowLeft className="size-4" />
         {t("admin.jobProfile.detail.back")}
       </Link>
 
-      <article className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-primary via-primary-container to-tertiary p-8 text-on-primary shadow-xl md:p-10">
-        <div className="pointer-events-none absolute -right-8 -top-8 opacity-[0.12]">
-          <Sparkles className="size-40" />
-        </div>
-
+      <article className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#204195] via-[#2C52B5] to-[#14244B] p-8 text-white shadow-xl md:p-10">
         <div className="relative z-10">
           <div className="mb-4 flex flex-wrap gap-2">
             <span className="rounded-full bg-white/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest backdrop-blur-sm">
               {t("admin.jobProfile.featured.badge")}
             </span>
-            <span className="rounded-full bg-emerald-400/90 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-emerald-950">
+            <span className="rounded-full bg-[#FCB625] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#14244B]">
               {categoryName}
             </span>
             {profile.status && profile.status !== "ACTIVE" && (
               <span className="rounded-full bg-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest">
-                {profile.status}
+                {profile.status === "DRAFT"
+                  ? t("fixAdmin.jp.status.draft")
+                  : profile.status === "ARCHIVED"
+                    ? t("fixAdmin.jp.status.archived")
+                    : profile.status}
               </span>
             )}
           </div>
@@ -116,7 +102,7 @@ export default function AdminJobProfileDetailView() {
               {profile.keywords.map((k) => (
                 <span
                   key={k}
-                  className="rounded-full border border-dashed border-white/45 bg-transparent px-3 py-1.5 text-sm font-medium text-on-primary/90 backdrop-blur-sm"
+                  className="rounded-full border border-dashed border-white/45 bg-transparent px-3 py-1.5 text-sm font-medium text-white/90 backdrop-blur-sm"
                 >
                   {k}
                 </span>
@@ -125,7 +111,7 @@ export default function AdminJobProfileDetailView() {
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/20 pt-6">
-            <span className="text-xs font-medium text-on-primary/85">
+            <span className="text-xs font-medium text-white/85">
               {t("admin.jobProfile.card.updated")}:{" "}
               {profile.updatedAt || profile.createdAt
                 ? new Date(profile.updatedAt ?? profile.createdAt ?? "").toLocaleString(
@@ -139,13 +125,13 @@ export default function AdminJobProfileDetailView() {
       </article>
 
       {String(profile.description || "").trim() ? (
-        <section className="rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-6 shadow-sm">
+        <section className="rounded-3xl border border-[#DCE4F3] bg-white p-6 shadow-sm">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-              Job description
+            <h2 className="text-xs font-bold uppercase tracking-widest text-[#607096]">
+              {t("fixAdmin.jp.jobDescription")}
             </h2>
           </div>
-          <div className="text-sm leading-relaxed text-on-surface">
+          <div className="text-sm leading-relaxed text-[#14244B]">
             <ReactMarkdown
               components={{
                 h2: (p) => <h3 className="mt-5 mb-2 text-base font-extrabold" {...p} />,

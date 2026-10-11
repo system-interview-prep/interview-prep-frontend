@@ -7,14 +7,13 @@ import {
   BadgeCheck,
   MessageSquare,
   RefreshCw,
-  TrendingUp,
 } from "lucide-react";
 import { adminApi, AdminOverviewData } from "@/lib/apiClient";
 import AdminPageHeader from "./primitives/AdminPageHeader";
-import AdminStatusBadge from "./primitives/AdminStatusBadge";
 import AdminMetricCard from "./primitives/AdminMetricCard";
 import AdminEmptyState from "./primitives/AdminEmptyState";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { StatusNote } from "@components/shared/StatusNote";
 
 interface AdminInsightsClientProps {
   initialLang?: string;
@@ -34,15 +33,20 @@ export default function AdminInsightsClient({
   const [data, setData] = useState<AdminOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const fetchOverview = async () => {
     try {
       const res = await adminApi.getOverview();
       if (res.data?.success && res.data.overview) {
         setData(res.data.overview);
+        setLoadError(false);
+      } else {
+        setLoadError(true);
       }
     } catch (err) {
       console.error("Failed to load admin overview:", err);
+      setLoadError(true);
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -58,6 +62,9 @@ export default function AdminInsightsClient({
     fetchOverview();
   };
 
+  const metricPending = loading || data === null;
+  const metricPendingText = loading || isRefreshing ? t("admin.common.loading") : t("fixAdmin.ops.insights.unavailable");
+
   const monthlyTrend = data?.monthlyTrend || [];
   const maxCount = monthlyTrend.length > 0 ? Math.max(...monthlyTrend.map((m) => m.count), 1) : 1;
   const cohorts = data?.cohorts || [];
@@ -72,20 +79,34 @@ export default function AdminInsightsClient({
           { label: "Admin", href: "/admin/dashboard" },
           { label: t("admin.sidebar.insights") },
         ]}
-        statusBadge={
-          <AdminStatusBadge status="healthy" label={t("admin.common.realTime")} />
-        }
         primaryAction={
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-2xs hover:bg-[#F8FAFC] transition-all disabled:opacity-60 cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-full border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-2xs hover:bg-[#F8FAFC] transition-all disabled:opacity-60 cursor-pointer"
           >
             <RefreshCw className={`size-3.5 ${isRefreshing ? "animate-spin text-[#204195]" : "text-[#607096]"}`} />
             <span>{t("admin.common.refresh")}</span>
           </button>
         }
       />
+
+      {loadError && !isRefreshing && (
+        <StatusNote
+          tone="error"
+          text={data ? t("fixAdmin.ops.insights.refreshError") : t("fixAdmin.ops.insights.loadError")}
+          hint={
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-[#C43B3B]/30 bg-white px-3 py-1 text-xs font-semibold text-[#C43B3B] hover:bg-[#FDF2F2] transition-colors cursor-pointer"
+            >
+              <RefreshCw className="size-3" aria-hidden="true" />
+              {t("fixAdmin.ops.common.retry")}
+            </button>
+          }
+        />
+      )}
 
       {/* Metric Cards Row (Strict Rule 2 - No fake metrics) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -95,8 +116,8 @@ export default function AdminInsightsClient({
           unit={t("admin.common.sessionUnit")}
           subtitle={t("admin.insights.stat.allTime")}
           icon={MessageSquare}
-          isPending={loading || data === null}
-          pendingText={t("admin.common.loading")}
+          isPending={metricPending}
+          pendingText={metricPendingText}
         />
         <AdminMetricCard
           title={t("admin.insights.stat.activeSessions")}
@@ -105,8 +126,8 @@ export default function AdminInsightsClient({
           subtitle={t("admin.insights.stat.inProgress")}
           icon={Timer}
           status={data?.activeSessions ? "active" : undefined}
-          isPending={loading || data === null}
-          pendingText={t("admin.common.loading")}
+          isPending={metricPending}
+          pendingText={metricPendingText}
         />
         <AdminMetricCard
           title={t("admin.insights.stat.completedSessions")}
@@ -115,16 +136,16 @@ export default function AdminInsightsClient({
           subtitle={t("admin.insights.stat.finalized")}
           icon={BadgeCheck}
           status={data?.completedSessions ? "success" : undefined}
-          isPending={loading || data === null}
-          pendingText={t("admin.common.loading")}
+          isPending={metricPending}
+          pendingText={metricPendingText}
         />
         <AdminMetricCard
           title={t("admin.insights.stat.avgAiScore")}
           value={data?.averageScore ? `${data.averageScore.toFixed(1)}/100` : null}
           subtitle={data?.averageScore ? t("admin.insights.stat.scoredByAi") : t("admin.insights.stat.noScoredSession")}
           icon={Brain}
-          isPending={loading || data === null}
-          pendingText={t("admin.common.noData")}
+          isPending={metricPending}
+          pendingText={loading || data === null ? metricPendingText : t("admin.common.noData")}
         />
       </div>
 
@@ -148,10 +169,6 @@ export default function AdminInsightsClient({
                 {t("admin.insights.trendDesc")}
               </p>
             </div>
-            <div className="inline-flex items-center gap-1 rounded-lg bg-[#EEF2FD] px-2.5 py-1 text-xs font-semibold text-[#204195] border border-[#DCE4F3]">
-              <TrendingUp className="size-3.5" />
-              <span>{t("admin.common.realTime")}</span>
-            </div>
           </div>
 
           {/* Dynamic Bar Chart based on DB data */}
@@ -165,7 +182,8 @@ export default function AdminInsightsClient({
               </div>
 
               {monthlyTrend.map((m, idx) => {
-                const heightPercent = Math.max(15, Math.round((m.count / maxCount) * 100));
+                // Empty months stay at zero (drawn as a hairline) so they never look non-zero.
+                const heightPercent = m.count > 0 ? Math.max(4, Math.round((m.count / maxCount) * 100)) : 0;
                 const isLatest = idx === monthlyTrend.length - 1;
                 return (
                   <div key={m.month} className="group relative z-10 flex flex-1 flex-col items-center gap-2 h-full justify-end">
@@ -173,11 +191,13 @@ export default function AdminInsightsClient({
                       {m.count} {t("admin.common.sessionUnit")}
                     </div>
                     <div
-                      style={{ height: `${heightPercent}%` }}
-                      className={`w-full max-w-[48px] rounded-t-lg transition-all duration-300 ${
-                        isLatest
-                          ? "bg-[#204195] shadow-xs"
-                          : "bg-[#EEF2FD] hover:bg-[#DCE4F3]"
+                      style={{ height: heightPercent > 0 ? `${heightPercent}%` : "2px" }}
+                      className={`w-full max-w-[48px] transition-all duration-300 ${
+                        heightPercent === 0
+                          ? "rounded-full bg-[#DCE4F3]"
+                          : isLatest
+                          ? "rounded-t-lg bg-[#204195] shadow-xs"
+                          : "rounded-t-lg bg-[#C9D7F1] hover:bg-[#AFC2E8]"
                       }`}
                     />
                     <span className="text-xs font-bold text-[#607096]">
@@ -222,7 +242,7 @@ export default function AdminInsightsClient({
                         ? `${Math.min(100, Math.round(((data.completedSessions || 0) / data.totalSessions) * 100))}%`
                         : "0%",
                     }}
-                    className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                    className="h-full bg-[#287A4B] rounded-full transition-all duration-500"
                   />
                 </div>
               </div>
@@ -230,7 +250,7 @@ export default function AdminInsightsClient({
               <div>
                 <div className="flex justify-between text-xs font-semibold mb-1">
                   <span className="text-[#14244B]">{t("admin.insights.active")}</span>
-                  <span className="text-amber-600">
+                  <span className="text-[#8A5A00]">
                     {data?.totalSessions && data.totalSessions > 0
                       ? `${Math.round(((data.activeSessions || 0) / data.totalSessions) * 100)}%`
                       : "0%"}
@@ -243,7 +263,7 @@ export default function AdminInsightsClient({
                         ? `${Math.min(100, Math.round(((data.activeSessions || 0) / data.totalSessions) * 100))}%`
                         : "0%",
                     }}
-                    className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                    className="h-full bg-[#FCB625] rounded-full transition-all duration-500"
                   />
                 </div>
               </div>

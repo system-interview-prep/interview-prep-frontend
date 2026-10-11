@@ -21,15 +21,15 @@ export default function AdminAiPromptsClient() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        title={t("admin.ai.prompts.title") || "Quản lý System Prompts & Templates"}
-        description={t("admin.ai.prompts.subtitle") || "Theo dõi phiên bản, nội dung prompt và quy trình promote an toàn từ Staging sang Production"}
+        title={t("admin.ai.prompts.title")}
+        description={t("admin.ai.prompts.subtitle")}
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
-          { label: t("admin.sidebar.aiOverview") || "AI Operations", href: "/admin/ai" },
-          { label: t("admin.sidebar.aiPrompts") || "Quản lý Prompts" },
+          { label: t("admin.sidebar.aiOverview"), href: "/admin/ai" },
+          { label: t("admin.sidebar.aiPrompts") },
         ]}
         statusBadge={
-          <AdminStatusBadge status="pending" label={t("admin.common.backendPending") || "Backend Integration Pending"} />
+          <AdminStatusBadge status="pending" label={t("admin.common.backendPending")} />
         }
         primaryAction={
           <button
@@ -38,7 +38,7 @@ export default function AdminAiPromptsClient() {
             className="inline-flex items-center gap-2 rounded-xl bg-[#204195] px-3.5 py-2 text-xs font-semibold text-white shadow-2xs opacity-60 cursor-not-allowed"
           >
             <Plus className="size-3.5" />
-            <span>{t("admin.ai.prompts.createDraft") || "Tạo Draft Prompt (Pending BE)"}</span>
+            <span>{t("admin.ai.prompts.createDraft")}</span>
           </button>
         }
       />
@@ -47,9 +47,9 @@ export default function AdminAiPromptsClient() {
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] p-4 text-xs text-[#607096] flex items-start gap-3">
         <Lock className="size-4 text-[#204195] shrink-0 mt-0.5" />
         <div>
-          <p className="font-bold text-[#14244B]">Quy trình quản lý phiên bản Prompt chuẩn (Rule 31):</p>
+          <p className="font-bold text-[#14244B]">{t("fixAdmin.ai.prompts.processTitle")}</p>
           <p className="mt-0.5 leading-relaxed">
-            {t("admin.ai.prompts.safetyNotice") || "Hệ thống không cho phép sửa đè trực tiếp lên Production prompt. Quy trình chuẩn bắt buộc: v1.0 Production → Tạo v1.1 Draft → Chạy Evaluation Benchmark → Review Phê duyệt → Promote sang Production."}
+            {t("admin.ai.prompts.safetyNotice")}
           </p>
         </div>
       </div>
@@ -57,28 +57,28 @@ export default function AdminAiPromptsClient() {
       {/* Metrics Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <AdminMetricCard
-          title="Tổng số Prompts"
+          title={t("fixAdmin.ai.prompts.total")}
           value={null}
-          subtitle="Tất cả các tính năng"
+          subtitle={t("fixAdmin.common.allFeatures")}
           icon={Terminal}
           isPending={true}
-          pendingText={t("admin.common.backendPending") || "Backend pending"}
+          pendingText={t("admin.common.backendPending")}
         />
         <AdminMetricCard
-          title="Bản nháp đang thử nghiệm"
+          title={t("fixAdmin.ai.prompts.drafts")}
           value={null}
-          subtitle="Draft versions"
+          subtitle={t("fixAdmin.ai.prompts.draftSub")}
           icon={GitBranch}
           isPending={true}
-          pendingText={t("admin.common.backendPending") || "Backend pending"}
+          pendingText={t("admin.common.backendPending")}
         />
         <AdminMetricCard
-          title="Phiên bản Production"
+          title={t("fixAdmin.ai.prompts.production")}
           value={null}
-          subtitle="Đang phục vụ người dùng"
+          subtitle={t("fixAdmin.ai.prompts.productionSub")}
           icon={Lock}
           isPending={true}
-          pendingText={t("admin.common.backendPending") || "Backend pending"}
+          pendingText={t("admin.common.backendPending")}
         />
       </div>
 
@@ -90,7 +90,7 @@ export default function AdminAiPromptsClient() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-9 pr-4 text-xs font-medium text-[#14244B] placeholder-[#8A98B8] focus:border-[#204195] focus:bg-white focus:outline-none transition-colors"
-            placeholder="Tìm kiếm theo tên prompt, key hoặc capability..."
+            placeholder={t("fixAdmin.ai.prompts.search")}
             type="text"
           />
         </div>
@@ -102,13 +102,13 @@ export default function AdminAiPromptsClient() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
-                <th className="px-6 py-4">{t("admin.ai.prompts.table.name") || "Tên Prompt & Key"}</th>
-                <th className="px-6 py-4">{t("admin.ai.prompts.table.capability") || "Năng lực (Capability)"}</th>
-                <th className="px-6 py-4 text-center">{t("admin.ai.prompts.table.version") || "Phiên bản"}</th>
-                <th className="px-6 py-4 text-center">{t("admin.ai.prompts.table.env") || "Môi trường"}</th>
-                <th className="px-6 py-4">{t("admin.ai.prompts.table.updatedBy") || "Người cập nhật"}</th>
-                <th className="px-6 py-4">{t("admin.ai.prompts.table.updatedAt") || "Thời gian"}</th>
-                <th className="px-6 py-4 text-right">{t("admin.ai.prompts.table.actions") || "Thao tác"}</th>
+                <th className="px-6 py-4">{t("admin.ai.prompts.table.name")}</th>
+                <th className="px-6 py-4">{t("admin.ai.prompts.table.capability")}</th>
+                <th className="px-6 py-4 text-center">{t("admin.ai.prompts.table.version")}</th>
+                <th className="px-6 py-4 text-center">{t("admin.ai.prompts.table.env")}</th>
+                <th className="px-6 py-4">{t("admin.ai.prompts.table.updatedBy")}</th>
+                <th className="px-6 py-4">{t("admin.ai.prompts.table.updatedAt")}</th>
+                <th className="px-6 py-4 text-right">{t("admin.ai.prompts.table.actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EAEFF8] text-xs">
@@ -117,8 +117,8 @@ export default function AdminAiPromptsClient() {
                   <td colSpan={7} className="p-8">
                     <AdminEmptyState
                       variant="pending"
-                      title={t("admin.ai.prompts.emptyTitle") || "Chưa kết nối API Quản lý Prompts"}
-                      description={t("admin.ai.prompts.emptyDesc") || "Giao diện theo dõi và quản trị prompt đã sẵn sàng. Core Backend cần triển khai endpoint GET /admin/ai/prompts để hiển thị danh sách prompt và lịch sử các phiên bản."}
+                      title={t("admin.ai.prompts.emptyTitle")}
+                      description={t("admin.ai.prompts.emptyDesc")}
                     />
                   </td>
                 </tr>
@@ -136,7 +136,7 @@ export default function AdminAiPromptsClient() {
                     <td className="px-6 py-4">{p.updatedAt}</td>
                     <td className="px-6 py-4 text-right">
                       <Link href={`/admin/ai/prompts/${p.id}`} className="text-[#204195] font-semibold hover:underline">
-                        {t("admin.common.view") || "Xem chi tiết"}
+                        {t("admin.common.view")}
                       </Link>
                     </td>
                   </tr>

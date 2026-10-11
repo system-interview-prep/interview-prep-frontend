@@ -1,4 +1,3 @@
-import { Briefcase } from "lucide-react";
 import {
   primarySpecialization,
   resolveClassificationEvidence,
@@ -6,6 +5,15 @@ import {
   type ParsedCvData,
   type CvProcessingStatus,
 } from "@features/resume/types";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
+
+/** Plain-words confidence for candidates instead of the raw model score. */
+function confidenceKey(confidence: number): string {
+  if (confidence >= 0.85) return "picker.career.conf.high";
+  if (confidence >= 0.6) return "picker.career.conf.medium";
+  return "picker.career.conf.low";
+}
 
 export default function CareerClassificationSummary({
   status,
@@ -16,6 +24,7 @@ export default function CareerClassificationSummary({
   parsedData?: ParsedCvData;
   compact?: boolean;
 }) {
+  const { t } = useLanguage();
   if (status !== "DONE") return null;
 
   const classifications = parsedData?.careerClassifications ?? [];
@@ -26,35 +35,36 @@ export default function CareerClassificationSummary({
   const evidence = resolveClassificationEvidence(primary, parsedData?.evidence ?? []);
 
   return (
-    <div className={compact ? "mt-3" : "border-2 border-[#234196] bg-white p-5"}>
-      <div className="flex flex-wrap items-center gap-1.5" aria-label="Phân loại nghề nghiệp từ nội dung CV">
-        <span className="inline-flex items-center gap-1 rounded-md bg-[#EFF6E9] px-2 py-1 text-[11px] font-bold text-[#476038]">
-          <Briefcase className="size-3.5 shrink-0" aria-hidden="true" />
+    <div className={compact ? "mt-3" : "rounded-3xl bg-white p-5 border border-[#DCE4F3]"}>
+      <div className="flex flex-wrap items-center gap-1.5" aria-label={t("picker.career.ariaLabel")}>
+        <span className="inline-flex items-center rounded-full bg-[#F0F4FC] px-2.5 py-0.5 text-xs font-semibold text-[#204195]">
           {primary.label}
         </span>
         {supporting.map((item) => (
-          <span key={item.code} className="rounded-md bg-[#F0F4FC] px-2 py-1 font-metadata text-[9px] text-[#5A6B8F]">
+          <span key={item.code} className="rounded-full bg-[#F0F4FC] px-2.5 py-0.5 text-[11px] text-[#607096]">
             {item.label}
           </span>
         ))}
       </div>
 
       {!compact && (
-        <p className="mt-3 text-xs leading-5 text-[#5E5D59]">Nhãn được suy luận từ bằng chứng trong CV và không phải quyết định tuyển dụng.</p>
+        <p className="mt-3 text-xs leading-5 text-[#607096]">{t("picker.career.note")}</p>
       )}
 
       {evidence.length > 0 && (
-        <details className="group mt-2 text-xs text-[#5A6B8F]">
-          <summary className="w-fit cursor-pointer select-none font-medium text-[#5A6B8F] hover:text-[#234196]">Vì sao có nhãn này?</summary>
-          <ul className="mt-2 space-y-2 border-l border-[#FCB625] pl-3">
+        <details className="group mt-2 text-xs text-[#607096]">
+          <summary className="w-fit cursor-pointer select-none font-medium text-[#607096] hover:text-[#204195]">{t("picker.career.why")}</summary>
+          <ul className="mt-2 space-y-2 border-l-2 border-[#FCB625] pl-3">
             {evidence.map((item) => (
               <li key={item.evidenceId}>
                 <span>{item.text}</span>
-                {item.pageNumber ? <span className="ml-1 font-metadata text-[9px] text-[#87867F]">· Trang {item.pageNumber}</span> : null}
+                {item.pageNumber ? <span className="ml-1 text-[10px] text-[#204195]">{fmt(t("picker.career.page"), { n: item.pageNumber })}</span> : null}
               </li>
             ))}
           </ul>
-          <p className="mt-2 font-metadata text-[9px] text-[#87867F]">Độ tin cậy mô hình: {primary.confidence.toFixed(2)} · {primary.taxonomyVersion}</p>
+          <p className="mt-2 text-[11px] text-[#607096]">
+            {fmt(t("picker.career.confidence"), { level: t(confidenceKey(primary.confidence)) })}
+          </p>
         </details>
       )}
     </div>

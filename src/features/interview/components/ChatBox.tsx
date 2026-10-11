@@ -111,7 +111,7 @@ export default function ChatBox({ messages, onSendMessage, disabled = false }: P
             rows={2}
             className="max-h-32 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none"
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
                 commitSend();
               }

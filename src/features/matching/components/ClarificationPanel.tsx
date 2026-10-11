@@ -7,6 +7,8 @@ import type {
   ClarificationAnswerOutcome,
   ClarificationRequest,
 } from "../services/clarification.service";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
 
 export interface ClarificationPanelProps {
   requests: ClarificationRequest[];
@@ -17,13 +19,15 @@ export interface ClarificationPanelProps {
   submissionError?: string | null;
   processedAnswers?: ClarificationAnswerOutcome[];
   onSubmit?: (answers: CandidateClarificationAnswer[]) => void;
+  /** Shown as "Thử lại" when loading the questions failed. */
+  onRetry?: () => void;
 }
 
-const STATUS_LABELS: Record<ClarificationAnswerOutcome["status"], string> = {
-  met: "Đã đáp ứng theo câu trả lời",
-  not_met: "Chưa đáp ứng theo câu trả lời",
-  unknown: "Cần thêm bằng chứng để kết luận",
-  not_applicable: "Không áp dụng",
+const STATUS_LABEL_KEYS: Record<ClarificationAnswerOutcome["status"], string> = {
+  met: "fit.clar.outcome.met",
+  not_met: "fit.clar.outcome.notMet",
+  unknown: "fit.clar.outcome.unknown",
+  not_applicable: "fit.status.notApplicable",
 };
 
 export function ClarificationPanel({
@@ -35,23 +39,39 @@ export function ClarificationPanel({
   submissionError = null,
   processedAnswers = [],
   onSubmit,
+  onRetry,
 }: ClarificationPanelProps) {
+  const { t } = useLanguage();
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800" role="status">
-        Đang tìm câu hỏi để làm rõ các tiêu chí chưa đủ bằng chứng…
+      <div className="rounded-2xl border border-[#FCB625]/40 bg-[#FFF8E6]/60 px-4 py-3 text-sm text-[#8A5A00]" role="status">
+        {t("fit.clar.loading")}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600" role="status">
-        {error === "clarification_generation_unavailable"
-          ? "Hệ thống đã xác định cần hỏi lại nhưng chưa tạo được câu hỏi đạt chuẩn sau các lần thử. Kết quả matching hiện tại vẫn được giữ nguyên."
-          : "Chưa thể tải câu hỏi làm rõ lúc này. Kết quả matching hiện tại vẫn được giữ nguyên."}
+      <div
+        className="flex flex-col gap-2 rounded-2xl bg-[#F8FAFC] px-4 py-3 text-sm text-[#607096] ring-1 ring-[#DCE4F3] sm:flex-row sm:items-center sm:justify-between"
+        role="status"
+      >
+        <span>
+          {error === "clarification_generation_unavailable"
+            ? t("fit.clar.genUnavailable")
+            : t("fit.clar.loadError")}
+        </span>
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex h-9 w-fit shrink-0 items-center rounded-full bg-white px-4 text-[13px] font-semibold text-[#14244B] ring-1 ring-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
+          >
+            {t("fixApp.common.retry")}
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -72,18 +92,18 @@ export function ClarificationPanel({
 
   return (
     <section
-      className="space-y-4 rounded-lg border border-amber-200 bg-amber-50/50 p-4"
-      aria-label="Câu hỏi làm rõ tiêu chí chưa đủ bằng chứng"
+      className="space-y-4 rounded-3xl border border-[#FCB625]/40 bg-[#FFF8E6]/50 p-4 sm:p-5"
+      aria-label={t("fit.clar.aria")}
     >
       <div>
-        <h3 className="text-sm font-semibold text-amber-950">Làm rõ thông tin còn thiếu</h3>
-        <p className="mt-1 text-xs leading-5 text-amber-800">
-          Trả lời các câu hỏi để hệ thống chấm lại những tiêu chí đang chưa đủ bằng chứng. Câu trả lời được ghi nhận là thông tin tự khai.
+        <h3 className="text-sm font-semibold text-[#8A5A00]">{t("fit.clar.title")}</h3>
+        <p className="mt-1 text-xs leading-5 text-[#8A5A00]">
+          {t("fit.clar.intro")}
         </p>
       </div>
 
       {submissionError && (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800" role="alert">
+        <p className="rounded-2xl bg-[#FDF2F2] px-3 py-2 text-xs text-[#C43B3B]" role="alert">
           {submissionError}
         </p>
       )}
@@ -95,15 +115,15 @@ export function ClarificationPanel({
           return (
             <div
               key={request.requirementId}
-              className="rounded-md border border-amber-200 bg-white/90 p-3"
+              className="rounded-2xl bg-white p-3 ring-1 ring-[#FCB625]/40"
             >
               <label
                 htmlFor={`clarification-answer-${request.requirementId}`}
-                className="block text-xs font-medium text-slate-700"
+                className="block text-xs font-medium text-[#607096]"
               >
                 {requirement?.label || request.requirementId}
               </label>
-              <p className="mt-2 text-sm font-medium leading-6 text-slate-900">
+              <p className="mt-2 text-sm font-medium leading-6 text-[#14244B]">
                 {request.questionText}
               </p>
               <textarea
@@ -117,13 +137,13 @@ export function ClarificationPanel({
                 }
                 rows={3}
                 maxLength={5000}
-                placeholder="Chia sẻ thông tin thực tế của bạn…"
+                placeholder={t("fit.clar.placeholder")}
                 disabled={submitting}
-                className="mt-2 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[#204195] focus:ring-2 focus:ring-[#204195]/15 disabled:bg-slate-50"
+                className="mt-2 w-full resize-y rounded-2xl border-0 bg-[#F8FAFC] px-3 py-2 text-sm text-[#14244B] outline-none ring-1 ring-[#DCE4F3] transition focus:bg-white focus:ring-2 focus:ring-[#204195] disabled:opacity-60"
               />
               {outcome && (
-                <p className="mt-2 text-xs text-slate-600" role="status">
-                  Kết quả sau khi chấm lại: {STATUS_LABELS[outcome.status]}.
+                <p className="mt-2 text-xs text-[#607096]" role="status">
+                  {fmt(t("fit.clar.outcomeLine"), { status: t(STATUS_LABEL_KEYS[outcome.status]) })}
                 </p>
               )}
             </div>
@@ -131,15 +151,15 @@ export function ClarificationPanel({
         })}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs leading-5 text-slate-600">
-            Hệ thống chỉ đổi trạng thái khi câu trả lời cung cấp đủ dữ kiện; nếu chưa rõ, tiêu chí vẫn cần xác minh.
+          <p className="text-xs leading-5 text-[#607096]">
+            {t("fit.clar.note")}
           </p>
           <button
             type="submit"
             disabled={submitting || readyAnswers.length === 0}
-            className="inline-flex shrink-0 items-center justify-center rounded-md bg-[#204195] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitting ? "Đang chấm lại…" : "Gửi câu trả lời và chấm lại"}
+            {submitting ? t("fit.clar.submitting") : t("fit.clar.submit")}
           </button>
         </div>
       </form>

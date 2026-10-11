@@ -23,9 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
       "Pricing | INTERVIA",
 
     description:
-      lang === "vi"
-        ? "Chọn pass hoặc credit INTERVIA phù hợp với giai đoạn chuẩn bị CV và phỏng vấn của bạn. Thanh toán một lần, không tự động gia hạn."
-        : "Choose an INTERVIA pass or credit for your CV and interview preparation. One-time payment with no automatic renewal.",
+      "Chọn pass hoặc credit INTERVIA phù hợp với giai đoạn chuẩn bị CV và phỏng vấn của bạn. Thanh toán một lần, không tự động gia hạn.",
   };
 }
 

@@ -11,11 +11,14 @@ import {
   type TranscriptionSegment,
 } from 'livekit-client';
 import { apiClient } from '@/lib/apiClient';
+import { normalizeVoiceTranscript, reconcileVoiceTranscript } from '../utils/voiceLanguage';
+import { voiceTransportHealthMessage } from '../utils/voiceTransportHealth';
 
 type LiveKitTokenResponse = {
   serverUrl: string;
   participantToken: string;
   agentName: string;
+  roomName: string;
   expiresInSeconds: number;
 };
 
@@ -35,6 +38,14 @@ export type LiveKitRoomStatus =
   | 'ended'
   | 'error';
 
+/** Where the agent's answer window is, from the `intervia.turn` topic. */
+export type LiveKitTurnState = 'answering' | 'processing' | 'listening';
+
+/** Commands the room sends to the agent on the `intervia.answer` topic. */
+export type LiveKitAnswerCommand = 'answer.commit' | 'question.repeat';
+
+const TURN_STATES: readonly LiveKitTurnState[] = ['answering', 'processing', 'listening'];
+
 export type LiveKitTerminalEvent = {
   sessionStatus: 'CLOSED';
   endReason: string;
@@ -49,6 +60,17 @@ const VOICE_CONFIG_ERRORS: Record<string, string> = {
 };
 
 function errorMessage(error: unknown): string {
+  if (error instanceof DOMException) {
+    if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
+      return 'Trình duyệt đang chặn quyền micro hoặc camera. Hãy cho phép quyền truy cập trong thanh địa chỉ rồi thử lại.';
+    }
+    if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      return 'Không tìm thấy micro hoặc camera phù hợp trên thiết bị này.';
+    }
+    if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+      return 'Micro hoặc camera đang được ứng dụng khác sử dụng. Hãy đóng ứng dụng đó rồi thử lại.';
+    }
+  }
   if (error && typeof error === 'object') {
     const response = (error as { response?: { data?: { detail?: string } } }).response;
     if (typeof response?.data?.detail === 'string') {
@@ -61,11 +83,9 @@ function errorMessage(error: unknown): string {
 
 function makeRoomName(sessionId: string): string {
   const safeSessionId = sessionId.replace(/[^A-Za-z0-9._:-]/g, '').slice(0, 48) || 'session';
-  const suffix =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID().replace(/-/g, '').slice(0, 10)
-      : Math.random().toString(36).slice(2, 12);
-  return `interview-${safeSessionId}-${suffix}`;
+  // A session owns exactly one media room. Reconnects and second tabs must
+  // rejoin that room instead of dispatching another interviewer agent.
+  return `interview-${safeSessionId}`;
 }
 
 function isRemoteParticipant(participant: Participant | undefined, localIdentity: string): boolean {
@@ -74,15 +94,19 @@ function isRemoteParticipant(participant: Participant | undefined, localIdentity
 
 export function useLiveKitRoom({
   sessionId,
+  locale,
   cameraOnStart = false,
 }: {
   sessionId: string;
+  locale: string;
   cameraOnStart?: boolean;
 }) {
   const roomRef = useRef<Room | null>(null);
   const localMicTrackSidRef = useRef<string | null>(null);
   const userSpeakingRef = useRef(false);
   const agentSpeakingRef = useRef(false);
+  const agentConnectedRef = useRef(false);
+  const intentionalDisconnectRef = useRef(false);
   const seenTranscriptIdsRef = useRef(new Set<string>());
   const recentTranscriptRef = useRef(new Map<string, number>());
   const remoteAudioElementsRef = useRef<HTMLElement[]>([]);
@@ -98,8 +122,11 @@ export function useLiveKitRoom({
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [localVideoTrack, setLocalVideoTrack] = useState<LocalVideoTrack | null>(null);
   const [transcript, setTranscript] = useState<LiveKitTranscriptLine[]>([]);
+  const [interimTranscript, setInterimTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [transportError, setTransportError] = useState<string | null>(null);
   const [terminalEvent, setTerminalEvent] = useState<LiveKitTerminalEvent | null>(null);
+  const [turnState, setTurnState] = useState<LiveKitTurnState | null>(null);
 
   const clearRemoteAudio = useCallback(() => {
     for (const element of remoteAudioElementsRef.current) {
@@ -109,17 +136,22 @@ export function useLiveKitRoom({
   }, []);
 
   const disconnect = useCallback(async () => {
+    intentionalDisconnectRef.current = true;
     clearRemoteAudio();
     const room = roomRef.current;
     roomRef.current = null;
     if (room) await room.disconnect();
     setIsConnected(false);
     setIsAgentConnected(false);
+    agentConnectedRef.current = false;
     setIsAgentSpeaking(false);
     setIsUserSpeaking(false);
     setMicEnabled(false);
     setCameraEnabled(false);
     setLocalVideoTrack(null);
+    setInterimTranscript('');
+    setTransportError(null);
+    setTurnState(null);
     setStatus('ended');
   }, [clearRemoteAudio]);
 
@@ -127,8 +159,11 @@ export function useLiveKitRoom({
     if (!sessionId || roomRef.current || status === 'connecting') return;
 
     setError(null);
+    setTransportError(null);
     setTerminalEvent(null);
+    setTurnState(null);
     setStatus('connecting');
+    intentionalDisconnectRef.current = false;
     seenTranscriptIdsRef.current.clear();
     recentTranscriptRef.current.clear();
     userSpeakingRef.current = false;
@@ -151,8 +186,17 @@ export function useLiveKitRoom({
       }
     };
 
+    const handleTrackUnsubscribed = (track: RemoteTrack) => {
+      const detached = track.detach();
+      for (const element of detached) {
+        remoteAudioElementsRef.current = remoteAudioElementsRef.current.filter((item) => item !== element);
+        element.remove();
+      }
+    };
+
     const handleParticipantConnected = (participant: Participant) => {
       if (isRemoteParticipant(participant, room.localParticipant.identity)) {
+        agentConnectedRef.current = true;
         setIsAgentConnected(true);
         setStatus('connected');
       }
@@ -160,6 +204,7 @@ export function useLiveKitRoom({
 
     const handleParticipantDisconnected = (participant: Participant) => {
       if (isRemoteParticipant(participant, room.localParticipant.identity)) {
+        agentConnectedRef.current = false;
         setIsAgentConnected(false);
         setStatus('waiting-agent');
       }
@@ -175,7 +220,42 @@ export function useLiveKitRoom({
       setIsAgentSpeaking(agentSpeaking);
       if (agentSpeaking) setStatus('agent-speaking');
       else if (userSpeaking) setStatus('user-speaking');
-      else if (roomRef.current) setStatus(isAgentConnected ? 'connected' : 'waiting-agent');
+      else if (roomRef.current) setStatus(agentConnectedRef.current ? 'connected' : 'waiting-agent');
+    };
+
+    const handleDisconnected = () => {
+      clearRemoteAudio();
+      roomRef.current = null;
+      agentConnectedRef.current = false;
+      setIsConnected(false);
+      setIsAgentConnected(false);
+      setIsAgentSpeaking(false);
+      setIsUserSpeaking(false);
+      setMicEnabled(false);
+      setCameraEnabled(false);
+      setLocalVideoTrack(null);
+      setInterimTranscript('');
+      setTurnState(null);
+      if (intentionalDisconnectRef.current) {
+        setStatus('ended');
+        return;
+      }
+      setStatus('error');
+      setError('Kết nối phòng phỏng vấn đã bị gián đoạn. Hãy kiểm tra mạng và kết nối lại.');
+    };
+
+    const handleReconnecting = () => {
+      setStatus('connecting');
+      setTransportError(
+        locale.toLowerCase().startsWith('vi')
+          ? 'Kết nối giọng nói đang gián đoạn. Hệ thống đang tự kết nối lại; vui lòng tạm dừng nói.'
+          : 'The voice connection is interrupted. Reconnecting automatically; please pause speaking.',
+      );
+    };
+
+    const handleReconnected = () => {
+      setTransportError(null);
+      setStatus(agentConnectedRef.current ? 'connected' : 'waiting-agent');
     };
 
     const handleTranscription = (
@@ -184,15 +264,13 @@ export function useLiveKitRoom({
       publication?: { trackSid?: string },
     ) => {
       for (const segment of segments) {
-        if (!segment.text || !segment.final) continue;
+        if (!segment.text) continue;
         const rawSegment = segment as TranscriptionSegment & {
           transcribedTrackId?: string;
           trackId?: string;
         };
         const trackId = rawSegment.transcribedTrackId || rawSegment.trackId || publication?.trackSid || '';
         const id = `${trackId}:${segment.id}`;
-        if (seenTranscriptIdsRef.current.has(id)) continue;
-        seenTranscriptIdsRef.current.add(id);
 
         const isUserTrack = Boolean(localMicTrackSidRef.current && trackId === localMicTrackSidRef.current);
         const isLocalParticipant = participant?.identity === room.localParticipant.identity;
@@ -201,7 +279,15 @@ export function useLiveKitRoom({
             ? 'user'
             : 'ai';
 
-        const normalizedText = segment.text.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+        const text = normalizeVoiceTranscript(segment.text, locale, speaker);
+        if (!segment.final) {
+          if (speaker === 'user') setInterimTranscript(text);
+          continue;
+        }
+        if (seenTranscriptIdsRef.current.has(id)) continue;
+        seenTranscriptIdsRef.current.add(id);
+        if (speaker === 'user') setInterimTranscript('');
+        const normalizedText = text.toLocaleLowerCase();
         const dedupeKey = `${speaker}:${normalizedText}`;
         const now = Date.now();
         const previousAt = recentTranscriptRef.current.get(dedupeKey);
@@ -211,26 +297,26 @@ export function useLiveKitRoom({
           if (now - timestamp > 5000) recentTranscriptRef.current.delete(key);
         }
 
-        const text = segment.text.trim().replace(/\s+/g, ' ');
         setTranscript((previous) => {
-          const last = previous[previous.length - 1];
-          // AssemblyAI can emit several final clauses before the user has
-          // actually yielded the turn. Keep those clauses in one bubble.
-          if (last && last.speaker === speaker) {
-            return [
-              ...previous.slice(0, -1),
-              { ...last, id, text: `${last.text} ${text}`.trim() },
-            ].slice(-100);
-          }
-          return [...previous, { id, speaker, text }].slice(-100);
+          return reconcileVoiceTranscript(previous, { id, speaker, text }, locale);
         });
       }
     };
 
     const handleData = (payload: Uint8Array, _participant?: Participant, _kind?: unknown, topic?: string) => {
-      if (topic !== 'intervia.session') return;
+      if (topic !== 'intervia.session' && topic !== 'intervia.health' && topic !== 'intervia.turn') return;
       try {
         const event = JSON.parse(new TextDecoder().decode(payload)) as Record<string, unknown>;
+        if (topic === 'intervia.turn') {
+          const state = event.state as LiveKitTurnState;
+          if (event.type === 'turn.state' && TURN_STATES.includes(state)) setTurnState(state);
+          return;
+        }
+        if (topic === 'intervia.health') {
+          const message = voiceTransportHealthMessage(event, locale);
+          if (message !== undefined) setTransportError(message);
+          return;
+        }
         if (event.type !== 'interview.session.closed' || event.sessionStatus !== 'CLOSED') return;
         setTerminalEvent({
           sessionStatus: 'CLOSED',
@@ -243,8 +329,12 @@ export function useLiveKitRoom({
     };
 
     room.on(RoomEvent.TrackSubscribed, handleAgentTrack);
+    room.on(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed);
     room.on(RoomEvent.ParticipantConnected, handleParticipantConnected);
     room.on(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected);
+    room.on(RoomEvent.Disconnected, handleDisconnected);
+    room.on(RoomEvent.Reconnecting, handleReconnecting);
+    room.on(RoomEvent.Reconnected, handleReconnected);
     room.on(RoomEvent.ActiveSpeakersChanged, handleActiveSpeakers);
     room.on(RoomEvent.TranscriptionReceived, handleTranscription);
     room.on(RoomEvent.DataReceived, handleData);
@@ -273,12 +363,20 @@ export function useLiveKitRoom({
       setMicEnabled(true);
 
       if (cameraOnStart) {
-        const cameraPublication = await room.localParticipant.setCameraEnabled(true);
-        const track = cameraPublication?.track;
-        if (track && track.kind === Track.Kind.Video) {
-          setLocalVideoTrack(track as LocalVideoTrack);
+        try {
+          const cameraPublication = await room.localParticipant.setCameraEnabled(true);
+          const track = cameraPublication?.track;
+          if (track && track.kind === Track.Kind.Video) {
+            setLocalVideoTrack(track as LocalVideoTrack);
+          }
+          setCameraEnabled(Boolean(cameraPublication));
+        } catch (cameraError) {
+          // A denied or unavailable camera must not tear down a working voice
+          // interview. Keep the room connected and let the candidate retry.
+          setCameraEnabled(false);
+          setLocalVideoTrack(null);
+          setError(errorMessage(cameraError));
         }
-        setCameraEnabled(Boolean(cameraPublication));
       }
 
       for (const participant of room.remoteParticipants.values()) {
@@ -291,7 +389,7 @@ export function useLiveKitRoom({
       }
 
       setIsConnected(true);
-      setStatus(isAgentConnected ? 'connected' : 'waiting-agent');
+      setStatus(agentConnectedRef.current ? 'connected' : 'waiting-agent');
     } catch (connectionError) {
       room.removeAllListeners();
       await room.disconnect();
@@ -300,28 +398,56 @@ export function useLiveKitRoom({
       setStatus('error');
       setError(errorMessage(connectionError));
     }
-  }, [cameraOnStart, isAgentConnected, sessionId, status]);
+  }, [cameraOnStart, clearRemoteAudio, locale, sessionId, status]);
+
+  /** "Xong" submits the buffered answer now; "Nhắc lại" replays the question. */
+  const sendAnswerCommand = useCallback(async (type: LiveKitAnswerCommand) => {
+    const room = roomRef.current;
+    if (!room) return;
+    try {
+      await room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type })), {
+        reliable: true,
+        topic: 'intervia.answer',
+      });
+    } catch {
+      setError(
+        locale.toLowerCase().startsWith('vi')
+          ? 'Chưa gửi được yêu cầu tới người phỏng vấn. Bạn thử lại nhé.'
+          : 'Could not reach the interviewer. Please try again.',
+      );
+    }
+  }, [locale]);
 
   const toggleMic = useCallback(async () => {
     const room = roomRef.current;
     if (!room) return;
     const next = !micEnabled;
-    await room.localParticipant.setMicrophoneEnabled(next, {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    });
-    setMicEnabled(next);
+    try {
+      await room.localParticipant.setMicrophoneEnabled(next, {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      });
+      setMicEnabled(next);
+      setError(null);
+    } catch (mediaError) {
+      setError(errorMessage(mediaError));
+    }
   }, [micEnabled]);
 
   const toggleCamera = useCallback(async () => {
     const room = roomRef.current;
     if (!room) return;
     const next = !cameraEnabled;
-    const publication = await room.localParticipant.setCameraEnabled(next);
-    const track = publication?.track;
-    setLocalVideoTrack(track && track.kind === Track.Kind.Video ? (track as LocalVideoTrack) : null);
-    setCameraEnabled(next);
+    try {
+      const publication = await room.localParticipant.setCameraEnabled(next);
+      const track = publication?.track;
+      setLocalVideoTrack(track && track.kind === Track.Kind.Video ? (track as LocalVideoTrack) : null);
+      setCameraEnabled(next);
+      setError(null);
+    } catch (mediaError) {
+      setError(errorMessage(mediaError));
+    }
   }, [cameraEnabled]);
 
   useEffect(() => {
@@ -345,9 +471,11 @@ export function useLiveKitRoom({
     disconnect,
     toggleMic,
     toggleCamera,
+    sendAnswerCommand,
     localVideoRef,
     remoteAudioContainerRef,
     transcript,
+    interimTranscript,
     status,
     isConnected,
     isAgentConnected,
@@ -355,7 +483,8 @@ export function useLiveKitRoom({
     isUserSpeaking,
     micEnabled,
     cameraEnabled,
-    error,
+    error: transportError || error,
     terminalEvent,
+    turnState,
   };
 }

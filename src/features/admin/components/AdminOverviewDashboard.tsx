@@ -7,7 +7,8 @@ import {
   Activity,
   FileText,
   MessageSquare,
-  Sparkles,
+  Target,
+  Eye,
   ArrowUpRight,
   RefreshCw,
   Clock,
@@ -73,9 +74,9 @@ export default function AdminOverviewDashboard() {
     <div className="space-y-6">
       {/* 0. Header */}
       <AdminPageHeader
-        title={t("admin.dashboard.title") || "Tổng quan vận hành sản phẩm"}
-        description={t("admin.dashboard.subtitle") || "Theo dõi toàn diện trạng thái hệ thống, phiên phỏng vấn, hồ sơ năng lực và hoạt động AI"}
-        breadcrumbs={[{ label: "Admin", href: "/admin/dashboard" }, { label: t("admin.sidebar.group.overview") || "Tổng quan" }]}
+        title={t("fixAdmin.overview.title")}
+        description={t("fixAdmin.overview.subtitle")}
+        breadcrumbs={[{ label: t("fixAdmin.shell.adminBadge"), href: "/admin/dashboard" }, { label: t("admin.sidebar.group.overview") || "Tổng quan" }]}
         statusBadge={
           <AdminStatusBadge
             status={backendStatus === "healthy" ? "healthy" : "unavailable"}
@@ -87,7 +88,7 @@ export default function AdminOverviewDashboard() {
             type="button"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-2xs hover:bg-[#F8FAFC] transition-all cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-2 rounded-full border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-2xs hover:bg-[#F8FAFC] transition-all cursor-pointer disabled:opacity-50"
           >
             <RefreshCw className={`size-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
             <span>{t("admin.dashboard.refresh") || "Làm mới"}</span>
@@ -109,7 +110,7 @@ export default function AdminOverviewDashboard() {
               </span>
               <AdminStatusBadge
                 status={backendStatus === "healthy" ? "healthy" : "unavailable"}
-                label={backendStatus === "healthy" ? "Healthy" : "Offline"}
+                label={backendStatus === "healthy" ? t("fixAdmin.status.healthy") : t("fixAdmin.status.offline")}
                 size="sm"
               />
             </div>
@@ -124,7 +125,7 @@ export default function AdminOverviewDashboard() {
               </span>
               <AdminStatusBadge
                 status={backendStatus === "healthy" ? "healthy" : "unknown"}
-                label={backendStatus === "healthy" ? "Healthy" : "Unknown"}
+                label={backendStatus === "healthy" ? t("fixAdmin.status.healthy") : t("fixAdmin.status.unknown")}
                 size="sm"
               />
             </div>
@@ -137,7 +138,7 @@ export default function AdminOverviewDashboard() {
                 <FileText className="size-3.5 text-[#607096]" />
                 {t("admin.dashboard.cvProcessing") || "CV Processing"}
               </span>
-              <AdminStatusBadge status="unknown" label="Unknown" size="sm" />
+              <AdminStatusBadge status="unknown" label={t("fixAdmin.status.unknown")} size="sm" />
             </div>
             <p className="text-[11px] text-[#607096]">{t("admin.dashboard.cvProcessingSub") || "Chưa có health endpoint"}</p>
           </div>
@@ -148,7 +149,7 @@ export default function AdminOverviewDashboard() {
                 <Cpu className="size-3.5 text-[#607096]" />
                 {t("admin.dashboard.aiProvider") || "AI Provider"}
               </span>
-              <AdminStatusBadge status="unknown" label="Unknown" size="sm" />
+              <AdminStatusBadge status="unknown" label={t("fixAdmin.status.unknown")} size="sm" />
             </div>
             <p className="text-[11px] text-[#607096]">{t("admin.dashboard.aiProviderSub") || "LLM Gateway status pending"}</p>
           </div>
@@ -156,10 +157,10 @@ export default function AdminOverviewDashboard() {
           <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-[#14244B] flex items-center gap-1.5">
-                <Sparkles className="size-3.5 text-amber-600" />
+                <Eye className="size-3.5 text-[#607096]" />
                 {t("admin.dashboard.observability") || "Observability"}
               </span>
-              <AdminStatusBadge status="warning" label="Not Connected" size="sm" />
+              <AdminStatusBadge status="warning" label={t("fixAdmin.status.notConnected")} size="sm" />
             </div>
             <p className="text-[11px] text-[#607096]">{t("admin.dashboard.observabilitySub") || "Langfuse / LangSmith pending"}</p>
           </div>
@@ -205,7 +206,7 @@ export default function AdminOverviewDashboard() {
             title={t("admin.dashboard.averageScore") || "Điểm AI trung bình"}
             value={overviewData?.averageScore ? `${overviewData.averageScore.toFixed(1)}/100` : null}
             subtitle={overviewData?.averageScore ? (t("admin.dashboard.averageScoreSub") || "Dựa trên session đã chấm") : (t("admin.dashboard.averageScoreEmpty") || "Chưa có session có điểm")}
-            icon={Sparkles}
+            icon={Target}
             isPending={loading || overviewData === null}
             pendingText={t("admin.common.noData") || "Chưa có dữ liệu"}
           />
@@ -218,15 +219,12 @@ export default function AdminOverviewDashboard() {
           title={t("admin.dashboard.aiHealthSectionTitle") || "3. Trạng thái AI Observability"}
           description={t("admin.dashboard.aiHealthSectionSubtitle") || "Tích hợp giám sát Traces, Latency, Token và Chi phí suy luận"}
         >
-          <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-5">
+          <div className="rounded-3xl border border-[#FCB625]/40 bg-[#FCB625]/10 p-5">
             <div className="flex items-start gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
-                <Sparkles className="size-5" />
-              </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-[#14244B]">AI Observability</h3>
-                  <AdminStatusBadge status="warning" label="Not connected" size="sm" />
+                  <h3 className="text-sm font-bold text-[#14244B]">{t("fixAdmin.overview.observability")}</h3>
+                  <AdminStatusBadge status="warning" label={t("fixAdmin.status.notConnected")} size="sm" />
                 </div>
                 <p className="mt-1.5 text-xs text-[#607096] leading-relaxed">
                   {t("admin.dashboard.aiHealthDesc") || "Cần kết nối nhà cung cấp Observability (như Langfuse hoặc LangSmith) thông qua INTERVIA Backend để giám sát chi tiết Traces, Latency (p50/p95), Tokens, Chi phí và Đánh giá AI."}
@@ -234,7 +232,7 @@ export default function AdminOverviewDashboard() {
                 <div className="mt-4 flex items-center gap-3">
                   <Link
                     href="/admin/ai"
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#204195] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#183275] transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#204195] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#183275] transition-colors"
                   >
                     <span>{t("admin.dashboard.exploreAiOps") || "Khám phá AI Operations"}</span>
                     <ArrowUpRight className="size-3.5" />
@@ -337,7 +335,7 @@ export default function AdminOverviewDashboard() {
             className="group flex flex-col items-center rounded-xl border border-[#DCE4F3] bg-white p-4 text-center transition-all hover:border-[#204195] hover:shadow-xs"
           >
             <div className="mb-2 flex size-10 items-center justify-center rounded-xl bg-[#EEF2FD] text-[#204195] group-hover:bg-[#204195] group-hover:text-white transition-colors">
-              <Sparkles className="size-5" />
+              <Cpu className="size-5" />
             </div>
             <span className="text-xs font-bold text-[#14244B]">{t("admin.sidebar.aiOverview") || "AI Operations"}</span>
             <span className="text-[10.5px] text-[#607096] mt-0.5">{t("admin.dashboard.action.aiOpsSub") || "Model & Prompts"}</span>

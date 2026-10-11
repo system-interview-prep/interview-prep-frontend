@@ -9,6 +9,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
 import AdminPageHeader from "@features/admin/components/primitives/AdminPageHeader";
 import AdminStatusBadge from "@features/admin/components/primitives/AdminStatusBadge";
 import AdminMetricCard from "@features/admin/components/primitives/AdminMetricCard";
@@ -21,14 +22,14 @@ export default function AdminEvaluationOverviewClient() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        title={t("admin.eval.overview.title") || "AI Evaluation Suite"}
-        description={t("admin.eval.overview.subtitle") || "Đo lường chất lượng định lượng của AI: Đánh giá cải thiện mô hình, phát hiện hồi quy chất lượng và quản lý bộ dữ liệu vàng"}
+        title={t("admin.eval.overview.title")}
+        description={t("admin.eval.overview.subtitle")}
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
-          { label: t("admin.sidebar.evalOverview") || "Đánh giá AI (Eval)" },
+          { label: t("admin.sidebar.evalOverview") },
         ]}
         statusBadge={
-          <AdminStatusBadge status="pending" label={t("admin.common.backendPending") || "Backend Integration Pending"} />
+          <AdminStatusBadge status="pending" label={t("admin.common.backendPending")} />
         }
       />
 
@@ -36,44 +37,44 @@ export default function AdminEvaluationOverviewClient() {
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#EEF2FD] p-4 text-xs text-[#14244B] flex items-start gap-3">
         <ShieldCheck className="size-5 text-[#204195] shrink-0 mt-0.5" />
         <div>
-          <p className="font-bold">Chính sách An toàn Đánh giá Phỏng vấn INTERVIA (Rule 50):</p>
+          <p className="font-bold">{t("fixAdmin.eval.overview.safetyTitle")}</p>
           <p className="mt-0.5 text-[#607096] leading-relaxed">
-            {t("admin.eval.safetyNotice") || "Hệ thống chấm điểm AI tuân thủ nghiêm ngặt khung năng lực chuyên môn và tiêu chí rubric chuẩn hóa. Tuyệt đối không chấm điểm hay suy diễn dựa trên: ánh mắt (eye contact), dáng ngồi (posture), ngôn ngữ cơ thể, biểu cảm khuôn mặt hay suy đoán tính cách thiên kiến."}
+            {t("admin.eval.safetyNotice")}
           </p>
         </div>
       </div>
 
       {/* Evaluation Core Questions (Rule 42) */}
       <AdminSection
-        title="Mục tiêu đánh giá (Evaluation Core Metrics)"
-        description="Giải đáp các câu hỏi trọng tâm về việc nâng cấp chất lượng mô hình và prompt"
+        title={t("fixAdmin.eval.overview.goalsTitle")}
+        description={t("fixAdmin.eval.overview.goalsDesc")}
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
-            <span className="text-xs font-bold text-[#607096] block mb-1">1. Chất lượng AI có đang cải thiện?</span>
+            <span className="text-xs font-bold text-[#607096] block mb-1">{t("fixAdmin.eval.overview.q1")}</span>
             <div className="flex items-center justify-between mt-2">
-              <span className="text-sm font-semibold italic text-[#8A98B8]">Chưa có kết quả benchmark</span>
-              <AdminStatusBadge status="unknown" label="Pending" size="sm" />
+              <span className="text-sm font-semibold italic text-[#8A98B8]">{t("fixAdmin.eval.overview.q1Ans")}</span>
+              <AdminStatusBadge status="unknown" label={t("fixAdmin.common.pending")} size="sm" />
             </div>
-            <p className="text-[11px] text-[#607096] mt-2">Cần chạy thử nghiệm trên Golden Dataset</p>
+            <p className="text-[11px] text-[#607096] mt-2">{t("fixAdmin.eval.overview.q1Note")}</p>
           </div>
 
           <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
-            <span className="text-xs font-bold text-[#607096] block mb-1">2. Prompt/Model mới có gây thụt lùi (Regression)?</span>
+            <span className="text-xs font-bold text-[#607096] block mb-1">{t("fixAdmin.eval.overview.q2")}</span>
             <div className="flex items-center justify-between mt-2">
-              <span className="text-sm font-semibold italic text-[#8A98B8]">Chưa có báo cáo hồi quy</span>
-              <AdminStatusBadge status="unknown" label="Pending" size="sm" />
+              <span className="text-sm font-semibold italic text-[#8A98B8]">{t("fixAdmin.eval.overview.q2Ans")}</span>
+              <AdminStatusBadge status="unknown" label={t("fixAdmin.common.pending")} size="sm" />
             </div>
-            <p className="text-[11px] text-[#607096] mt-2">Cần so sánh Variant A vs Variant B</p>
+            <p className="text-[11px] text-[#607096] mt-2">{t("fixAdmin.eval.overview.q2Note")}</p>
           </div>
 
           <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
-            <span className="text-xs font-bold text-[#607096] block mb-1">3. Tình trạng bộ kiểm thử (Suite Health)?</span>
+            <span className="text-xs font-bold text-[#607096] block mb-1">{t("fixAdmin.eval.overview.q3")}</span>
             <div className="flex items-center justify-between mt-2">
-              <span className="text-sm font-semibold italic text-[#8A98B8]">0 Datasets đã nạp</span>
-              <AdminStatusBadge status="unknown" label="Empty" size="sm" />
+              <span className="text-sm font-semibold italic text-[#8A98B8]">{fmt(t("fixAdmin.eval.overview.q3Ans"), { n: 0 })}</span>
+              <AdminStatusBadge status="unknown" label={t("fixAdmin.common.empty")} size="sm" />
             </div>
-            <p className="text-[11px] text-[#607096] mt-2">Đang chờ backend endpoint /admin/eval</p>
+            <p className="text-[11px] text-[#607096] mt-2">{t("fixAdmin.eval.overview.q3Note")}</p>
           </div>
         </div>
       </AdminSection>
@@ -81,28 +82,28 @@ export default function AdminEvaluationOverviewClient() {
       {/* Metrics Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <AdminMetricCard
-          title="Bộ dữ liệu kiểm thử (Datasets)"
+          title={t("fixAdmin.eval.overview.datasets")}
           value={null}
-          subtitle="Test cases & Golden datasets"
+          subtitle={t("fixAdmin.eval.overview.datasetsSub")}
           icon={Database}
           isPending={!isConnected}
-          pendingText="Backend pending"
+          pendingText={t("fixAdmin.common.backendPending")}
         />
         <AdminMetricCard
-          title="Thử nghiệm so sánh (Experiments)"
+          title={t("fixAdmin.eval.overview.experiments")}
           value={null}
-          subtitle="A/B so sánh Prompt & Model"
+          subtitle={t("fixAdmin.eval.overview.experimentsSub")}
           icon={FlaskConical}
           isPending={!isConnected}
-          pendingText="Backend pending"
+          pendingText={t("fixAdmin.common.backendPending")}
         />
         <AdminMetricCard
-          title="Ca kiểm thử bị hồi quy"
+          title={t("fixAdmin.eval.overview.regressions")}
           value={null}
-          subtitle="Các case bị giảm điểm sau cập nhật"
+          subtitle={t("fixAdmin.eval.overview.regressionsSub")}
           icon={GitCompare}
           isPending={!isConnected}
-          pendingText="Backend pending"
+          pendingText={t("fixAdmin.common.backendPending")}
         />
       </div>
 
@@ -118,9 +119,9 @@ export default function AdminEvaluationOverviewClient() {
             </div>
             <ArrowUpRight className="size-4 text-[#607096] group-hover:text-[#204195]" />
           </div>
-          <h4 className="text-sm font-bold text-[#14244B]">Datasets & Golden Sets</h4>
+          <h4 className="text-sm font-bold text-[#14244B]">{t("fixAdmin.eval.overview.datasetsHeading")}</h4>
           <p className="text-xs text-[#607096] mt-1">
-            Quản lý tập mẫu kiểm thử chuẩn hóa cho CV, câu hỏi phỏng vấn và câu trả lời ứng viên
+            {t("fixAdmin.eval.overview.datasetsLinkDesc")}
           </p>
         </Link>
 
@@ -134,9 +135,9 @@ export default function AdminEvaluationOverviewClient() {
             </div>
             <ArrowUpRight className="size-4 text-[#607096] group-hover:text-[#204195]" />
           </div>
-          <h4 className="text-sm font-bold text-[#14244B]">Thử nghiệm so sánh (Experiments)</h4>
+          <h4 className="text-sm font-bold text-[#14244B]">{t("fixAdmin.eval.overview.experiments")}</h4>
           <p className="text-xs text-[#607096] mt-1">
-            Chạy benchmark so sánh đối đầu giữa Variant A và Variant B trên cùng một bộ dữ liệu
+            {t("fixAdmin.eval.overview.experimentsLinkDesc")}
           </p>
         </Link>
 
@@ -150,9 +151,9 @@ export default function AdminEvaluationOverviewClient() {
             </div>
             <ArrowUpRight className="size-4 text-[#607096] group-hover:text-[#204195]" />
           </div>
-          <h4 className="text-sm font-bold text-[#14244B]">Kiểm thử hồi quy (Regression)</h4>
+          <h4 className="text-sm font-bold text-[#14244B]">{t("fixAdmin.eval.overview.regressionLink")}</h4>
           <p className="text-xs text-[#607096] mt-1">
-            Bảng theo dõi các ca phỏng vấn bị giảm chất lượng để ngăn chặn việc triển khai lỗi lên Production
+            {t("fixAdmin.eval.overview.regressionLinkDesc")}
           </p>
         </Link>
       </div>

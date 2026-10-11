@@ -12,9 +12,9 @@ import {
   Mail,
   Shield,
   ShieldAlert,
-  Sparkles,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { FoxAvatar } from "@features/mascot/components/FoxAvatar";
 import {
   completeAuthSession,
   getAuthErrorMessage,
@@ -112,7 +112,7 @@ export default function AdminLoginForm() {
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#607096] hover:text-[#204195] transition-colors"
         >
           <ArrowLeft size={14} />
-          <span>{t("admin.login.backToIntervia") || "Trở về INTERVIA"}</span>
+          <span>{t("fixAdmin.login.backToIntervia")}</span>
         </Link>
 
         <span className="inline-flex items-center gap-1 rounded-full border border-[#DCE4F3] bg-white px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-[#204195]">
@@ -123,15 +123,15 @@ export default function AdminLoginForm() {
 
       {/* Main card */}
       <main className="mx-auto my-auto w-full max-w-[420px]">
-        <div className="rounded-[20px] border border-[#DCE4F3] bg-white p-7 shadow-[0_12px_40px_rgba(20,36,75,0.06)] sm:p-8">
+        <div className="rounded-3xl border border-[#DCE4F3] bg-white p-7 shadow-[0_12px_40px_rgba(20,36,75,0.06)] sm:p-8">
           {/* Logo & Header */}
           <div className="text-center">
             <div className="mx-auto inline-flex items-center justify-center gap-2 mb-3">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#204195] text-[#FCB625] shadow-2xs">
-                <Sparkles size={16} />
+              <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-white ring-1 ring-[#DCE4F3]">
+                <FoxAvatar size={34} />
               </span>
-              <span className="font-headline text-lg font-extrabold tracking-tight text-[#14244B]">
-                INTERVIA
+              <span className="font-display text-lg font-semibold tracking-tight text-[#14244B]">
+                Intervia
               </span>
             </div>
 
@@ -148,11 +148,12 @@ export default function AdminLoginForm() {
           <div className="min-h-[20px] mt-3">
             {errorMessage && (
               <div
+                id="admin-login-error"
                 role="alert"
                 aria-live="polite"
-                className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700"
+                className="flex items-start gap-2.5 rounded-2xl border border-[#C43B3B]/25 bg-[#FDF2F2] p-3 text-xs font-semibold text-[#C43B3B]"
               >
-                <ShieldAlert size={16} className="mt-0.5 shrink-0 text-red-600" />
+                <ShieldAlert size={16} className="mt-0.5 shrink-0 text-[#C43B3B]" />
                 <span className="leading-relaxed">{errorMessage}</span>
               </div>
             )}
@@ -185,7 +186,9 @@ export default function AdminLoginForm() {
                     t("admin.login.emailPlaceholder") || "admin@intervia.io"
                   }
                   disabled={loading}
-                  className="h-[44px] w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] pl-10 pr-4 text-xs font-medium text-[#14244B] placeholder-[#8A98B8] focus:border-[#204195] focus:bg-white focus:outline-none transition-all disabled:opacity-60"
+                  aria-invalid={!!errorMessage}
+                  aria-describedby={errorMessage ? "admin-login-error" : undefined}
+                  className="h-[44px] w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] pl-10 pr-4 text-xs font-medium text-[#14244B] placeholder-[#8A98B8] transition-all focus:border-[#204195] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]/20 disabled:opacity-60"
                 />
               </div>
             </div>
@@ -211,14 +214,16 @@ export default function AdminLoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t("admin.login.passwordPlaceholder") || "••••••••"}
                   disabled={loading}
-                  className="h-[44px] w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] pl-10 pr-10 text-xs font-medium text-[#14244B] placeholder-[#8A98B8] focus:border-[#204195] focus:bg-white focus:outline-none transition-all disabled:opacity-60"
+                  aria-invalid={!!errorMessage}
+                  aria-describedby={errorMessage ? "admin-login-error" : undefined}
+                  className="h-[44px] w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] pl-10 pr-12 text-xs font-medium text-[#14244B] placeholder-[#8A98B8] transition-all focus:border-[#204195] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]/20 disabled:opacity-60"
                 />
                 <button
                   type="button"
-                  tabIndex={-1}
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8A98B8] hover:text-[#14244B] cursor-pointer"
+                  aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                  aria-pressed={showPassword}
+                  className="absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-full text-[#607096] hover:bg-[#F0F4FC] hover:text-[#14244B] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]/30"
                 >
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -228,7 +233,7 @@ export default function AdminLoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-2 flex h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-[#204195] px-6 text-xs font-bold text-white shadow-xs hover:bg-[#183377] transition-all disabled:opacity-60 cursor-pointer"
+              className="mt-2 flex h-[44px] w-full items-center justify-center gap-2 rounded-full bg-[#204195] px-6 text-xs font-bold text-white shadow-xs hover:bg-[#183275] transition-all disabled:opacity-60 cursor-pointer"
             >
               {loading && <LoaderCircle className="animate-spin" size={16} />}
               <span>
@@ -248,7 +253,7 @@ export default function AdminLoginForm() {
                 setPassword("Admin@123456");
                 setDemoFilled(true);
               }}
-              className="mt-4 flex w-full items-center justify-between gap-3 rounded-[14px] border border-[#DCE4F3] bg-[#F7F9FD] p-3.5 text-left transition-colors hover:border-[#204195]/35 hover:bg-[#EEF3FC] cursor-pointer"
+              className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-[#DCE4F3] bg-[#F7F9FD] p-3.5 text-left transition-colors hover:border-[#204195]/35 hover:bg-[#EEF3FC] cursor-pointer"
             >
               <div>
                 <p className="text-[13px] font-bold text-[#14244B]">
@@ -257,7 +262,7 @@ export default function AdminLoginForm() {
                 <p className="mt-0.5 font-mono text-[13px] font-semibold text-[#204195]">
                   admin@intervia.io
                 </p>
-                <p className={`mt-1.5 text-[11px] font-medium ${demoFilled ? "text-emerald-600" : "text-[#607096]"}`}>
+                <p className={`mt-1.5 text-[11px] font-medium ${demoFilled ? "text-[#287A4B]" : "text-[#607096]"}`}>
                   {demoFilled ? (t("admin.login.demoFilled") || "✓ Đã điền tài khoản demo") : (t("admin.login.demoPrompt") || "Nhấn để tự động điền thông tin đăng nhập")}
                 </p>
               </div>

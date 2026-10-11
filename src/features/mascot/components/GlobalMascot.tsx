@@ -1,23 +1,16 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import MascotContainer from "./MascotContainer";
 import useMascotMood from "../hooks/useMascotMood";
+import { useInlineMascotPresent } from "../voice/presence";
 
 export function GlobalMascot() {
-  const pathname = usePathname();
-  const isAdminRoute = pathname?.startsWith("/admin");
-  const isAuthRoute =
-    pathname === "/login" ||
-    pathname === "/signup" ||
-    pathname === "/logout" ||
-    pathname?.startsWith("/login") ||
-    pathname?.startsWith("/signup") ||
-    pathname?.startsWith("/logout");
+  const { mood, line, isHidden, nextTip } = useMascotMood();
+  // A page-level fox is already on screen; don't show a second one in the corner.
+  const inlinePresent = useInlineMascotPresent();
 
-  const { mood, speechText, isHidden } = useMascotMood();
-  if (isAdminRoute || isAuthRoute || isHidden) return null;
-  return <MascotContainer mood={mood} speechText={speechText} />;
+  if (isHidden || inlinePresent) return null;
+  return <MascotContainer mood={mood} line={line} onPoke={nextTip} />;
 }
 
 export default GlobalMascot;

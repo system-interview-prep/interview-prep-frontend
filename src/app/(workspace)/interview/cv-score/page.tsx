@@ -4,29 +4,12 @@ import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import { DEMO_DURATION_MINUTES, totalQuestionCount } from "@features/interview/utils/questionBudget";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  AlertTriangle,
-  ArrowLeft,
-  Brain,
-  Briefcase,
-  Building2,
-  CheckCircle2,
-  Clock,
-  Code2,
-  Coins,
-  ExternalLink,
-  FileText,
-  Globe,
-  HelpCircle,
-  Minus,
-  MapPin,
-  MessageSquare,
-  RefreshCw,
-  Sparkles,
-  Video,
-  XCircle,
-  Mic,
-} from "lucide-react";
+import WorkspacePageHeader from "@features/resume/components/WorkspacePageHeader";
+import { ProcessStatus } from "@components/shared/ProcessSteps";
+import StatusNote from "@components/shared/StatusNote";
+import { useDialogA11y } from "@components/shared/useDialogA11y";
+import { mapBackendErrorToI18nKey } from "@/utils/backendError";
+import { X } from "lucide-react";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import {
   normalizeMatchResult,
@@ -38,287 +21,262 @@ import {
 } from "@/lib/aiService";
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
 import { userCvApi, type UserCvDto } from "@features/resume/services/userCv.service";
-import { startInterviewSession } from "@features/interview/services/interviewSession.service";
+import {
+  describeStartInterviewError,
+  startInterviewSession,
+} from "@features/interview/services/interviewSession.service";
 import { formatSalary, formatExperience, getCompanyInitials } from "@/components/jobs/job-card.utils";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { fitVi } from "@/i18n/dicts/fit.dict";
+import { fmt } from "@/i18n/format";
 import { CandidateMatchDetails } from "@features/matching/components/CandidateMatchDetails";
 import { buildHumanizedRequirementsAndGroups } from "@features/matching/utils/match-formatters";
+import { countFit, saveFit } from "@features/matching/utils/fitCache";
 
 /* ── Helper Resolvers ── */
 
-export function resolveFitBandInfo(fitBand?: string) {
+type Translate = (key: string) => string;
+/** Vietnamese lookup used when a caller does not pass the active translator. */
+const viT: Translate = (key) => fitVi[key] ?? key;
+
+export function resolveFitBandInfo(fitBand?: string, t: Translate = viT) {
   switch (fitBand) {
     case "strong_fit":
       return {
-        label: "Rất phù hợp (Strong Fit)",
-        badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-        dotClass: "bg-emerald-500",
-        description: "Hồ sơ đáp ứng vượt trội các tiêu chí và yêu cầu trọng yếu.",
+        label: t("fit.band.strong.label"),
+        badgeClass: "bg-[#EAF5EE] text-[#287A4B] border-[#287A4B]/25",
+        dotClass: "bg-[#287A4B]",
+        description: t("fit.band.strong.desc"),
       };
     case "partial_fit":
       return {
-        label: "Phù hợp một phần (Partial Fit)",
-        badgeClass: "bg-blue-50 text-[#204195] border-blue-200",
-        dotClass: "bg-blue-500",
-        description: "Hồ sơ đáp ứng phần lớn yêu cầu, có một vài điểm cần trau dồi thêm.",
+        label: t("fit.band.partial.label"),
+        badgeClass: "bg-[#F0F4FC] text-[#204195] border-[#C9D7F1]",
+        dotClass: "bg-[#204195]",
+        description: t("fit.band.partial.desc"),
       };
     case "review_required":
       return {
-        label: "Cần xem xét thêm (Review Required)",
-        badgeClass: "bg-amber-50 text-amber-800 border-amber-200",
-        dotClass: "bg-amber-500",
-        description: "Có tiêu chí cần thẩm định thêm từ hồ sơ hoặc chứng chỉ liên quan.",
+        label: t("fit.band.review.label"),
+        badgeClass: "bg-[#FFF8E6] text-[#8A5A00] border-[#FCB625]/40",
+        dotClass: "bg-[#FCB625]",
+        description: t("fit.band.review.desc"),
       };
     case "not_eligible":
       return {
-        label: "Chưa đạt yêu cầu (Not Eligible)",
-        badgeClass: "bg-red-50 text-red-700 border-red-200",
-        dotClass: "bg-red-500",
-        description: "Chưa đáp ứng đủ các tiêu chuẩn bắt buộc (must-have) của công việc.",
+        label: t("fit.band.notEligible.label"),
+        badgeClass: "bg-[#FDF2F2] text-[#C43B3B] border-[#F5C2C2]",
+        dotClass: "bg-[#C43B3B]",
+        description: t("fit.band.notEligible.desc"),
       };
     case "insufficient_evidence":
     default:
       return {
-        label: "Thiếu bằng chứng (Insufficient Evidence)",
-        badgeClass: "bg-slate-100 text-slate-700 border-slate-200",
-        dotClass: "bg-slate-400",
-        description: "Dữ liệu trong CV chưa đủ để kết luận, cần bổ sung thêm chi tiết.",
+        label: t("fit.band.insufficient.label"),
+        badgeClass: "bg-[#F0F4FC] text-[#607096] border-[#DCE4F3]",
+        dotClass: "bg-[#C9D7F1]",
+        description: t("fit.band.insufficient.desc"),
       };
   }
 }
 
-export function resolveEligibilityInfo(status?: string) {
+export function resolveEligibilityInfo(status?: string, t: Translate = viT) {
   switch (status) {
     case "eligible":
       return {
-        label: "Đáp ứng điều kiện bắt buộc",
-        color: "text-emerald-700",
-        bg: "bg-emerald-50 border-emerald-200",
-        badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-        description: "Hồ sơ đáp ứng các tiêu chuẩn bắt buộc (must-have).",
+        label: t("fit.elig.eligible.label"),
+        color: "text-[#287A4B]",
+        bg: "bg-[#EAF5EE] border-[#287A4B]/25",
+        badgeClass: "bg-[#EAF5EE] text-[#287A4B] border-[#287A4B]/25",
+        description: t("fit.elig.eligible.desc"),
       };
     case "review_required":
       return {
-        label: "Cần xác minh thêm",
-        color: "text-amber-700",
-        bg: "bg-amber-50 border-amber-200",
-        badgeClass: "bg-amber-50 text-amber-800 border-amber-200",
-        description: "Có tiêu chí bắt buộc chưa đủ dữ liệu xác minh trong hồ sơ.",
+        label: t("fit.elig.review.label"),
+        color: "text-[#8A5A00]",
+        bg: "bg-[#FFF8E6] border-[#FCB625]/40",
+        badgeClass: "bg-[#FFF8E6] text-[#8A5A00] border-[#FCB625]/40",
+        description: t("fit.elig.review.desc"),
       };
     case "ineligible":
       return {
-        label: "Chưa đáp ứng điều kiện bắt buộc",
-        color: "text-red-700",
-        bg: "bg-red-50 border-red-200",
-        badgeClass: "bg-red-50 text-red-700 border-red-200",
-        description: "Chưa đáp ứng một hoặc nhiều tiêu chuẩn bắt buộc của vị trí.",
+        label: t("fit.elig.ineligible.label"),
+        color: "text-[#C43B3B]",
+        bg: "bg-[#FDF2F2] border-[#F5C2C2]",
+        badgeClass: "bg-[#FDF2F2] text-[#C43B3B] border-[#F5C2C2]",
+        description: t("fit.elig.ineligible.desc"),
       };
     default:
       return {
-        label: "Đang đánh giá",
-        color: "text-slate-700",
-        bg: "bg-slate-100 border-slate-200",
-        badgeClass: "bg-slate-100 text-slate-700 border-slate-200",
-        description: "Chưa có kết quả thẩm định tiêu chuẩn bắt buộc.",
+        label: t("fit.elig.pending.label"),
+        color: "text-[#607096]",
+        bg: "bg-[#F0F4FC] border-[#DCE4F3]",
+        badgeClass: "bg-[#F0F4FC] text-[#607096] border-[#DCE4F3]",
+        description: t("fit.elig.pending.desc"),
       };
   }
 }
 
-export function resolveRequirementStatus(status?: string) {
+export function resolveRequirementStatus(status?: string, t: Translate = viT) {
   switch (status) {
     case "met":
       return {
-        label: "Đáp ứng",
-        badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-        barColor: "bg-emerald-500",
+        label: t("fit.reqStatus.met"),
+        badgeClass: "bg-[#EAF5EE] text-[#287A4B] border-[#287A4B]/25",
+        barColor: "bg-[#287A4B]",
         isMet: true,
       };
     case "not_met":
       return {
-        label: "Chưa đáp ứng",
-        badgeClass: "bg-red-50 text-red-700 border-red-200",
-        barColor: "bg-red-500",
+        label: t("fit.status.notMet"),
+        badgeClass: "bg-[#FDF2F2] text-[#C43B3B] border-[#F5C2C2]",
+        barColor: "bg-[#C43B3B]",
         isMet: false,
       };
     case "not_applicable":
       return {
-        label: "Không áp dụng",
-        badgeClass: "bg-slate-50 text-slate-500 border-slate-200",
-        barColor: "bg-slate-200",
+        label: t("fit.status.notApplicable"),
+        badgeClass: "bg-[#F8FAFC] text-[#607096] border-[#DCE4F3]",
+        barColor: "bg-[#DCE4F3]",
         isMet: null,
       };
     case "unknown":
     default:
       return {
-        label: "Cần xác nhận",
-        badgeClass: "bg-slate-100 text-slate-700 border-slate-200",
-        barColor: "bg-slate-300",
+        label: t("fit.status.unknown"),
+        badgeClass: "bg-[#F0F4FC] text-[#607096] border-[#DCE4F3]",
+        barColor: "bg-[#C9D7F1]",
         isMet: null,
       };
   }
 }
 
-export function resolveReasonCodeText(code?: string): string {
+// Reason codes that share their copy with another code.
+const REASON_CODE_ALIASES: Record<string, string> = {
+  concept_not_evidenced: "skill_not_evidenced",
+  concept_group_not_evidenced: "skill_not_evidenced",
+  language_not_evidenced: "language_not_found",
+  skill_claim_verified: "skill_evidenced",
+  skill_claim_not_found: "skill_not_found",
+};
+
+// Codes with their own `fit.reason.<code>` text.
+const KNOWN_REASON_CODES = new Set([
+  "skill_not_evidenced",
+  "skill_not_found",
+  "language_not_found",
+  "education_not_evidenced",
+  "experience_not_evidenced",
+  "resume_section_incomplete",
+  "requirement_evaluator_unsupported",
+  "raw_text_coverage_incomplete",
+  "generic_requirement_evidence_weak",
+  "requirement_not_evidenced",
+  "requirement_not_found",
+  "credential_level_not_evidenced",
+  "experience_duration_not_evidenced",
+  "experience_duration_below_minimum",
+  "experience_duration_satisfied",
+  "skill_level_not_evidenced",
+  "skill_level_below_minimum",
+  "skill_duration_not_evidenced",
+  "skill_duration_below_minimum",
+  "skill_evidenced",
+  "skill_and_level_evidenced",
+  "concept_group_evidenced",
+  "concept_group_evidence_missing",
+  "concept_group_not_met",
+  "language_level_not_evidenced",
+  "language_level_not_equal",
+  "language_evidenced",
+  "education_requirement_needs_specialized_evaluator",
+  "experience_duration_gap",
+  "candidate_accepts_hybrid",
+  "candidate_accepts_remote",
+  "candidate_location_matched",
+  "evidence_insufficient",
+  "career_experience_not_evidenced",
+  "career_experience_has_no_direct_evidence",
+  "semantic_dense_provider_fallback_to_sparse",
+  "semantic_input_not_evidenced",
+  "semantic_scorer_unavailable",
+  "work_mode_accepted",
+  "work_mode_not_accepted",
+  "location_accepted",
+  "location_not_accepted_and_no_relocation",
+  "relocation_preference_missing",
+  "job_work_mode_not_specified",
+  "job_location_not_specified",
+  "candidate_work_mode_preference_missing",
+  "candidate_location_preference_missing",
+]);
+
+export function resolveReasonCodeText(code?: string, t: Translate = viT): string {
   if (!code) return "";
-  switch (code) {
-    case "skill_not_evidenced":
-    case "skill_not_found":
-      return "Không tìm thấy kỹ năng này trong CV hiện tại.";
-    case "language_not_evidenced":
-    case "language_not_found":
-      return "Không tìm thấy ngoại ngữ hoặc chứng chỉ này trong CV hiện tại.";
-    case "education_not_evidenced":
-      return "Không tìm thấy thông tin học vấn đáp ứng yêu cầu trong CV hiện tại.";
-    case "experience_not_evidenced":
-      return "Không tìm thấy kinh nghiệm đáp ứng yêu cầu trong CV hiện tại.";
-    case "resume_section_incomplete":
-      return "Dữ liệu CV chưa đầy đủ nên hệ thống chưa thể kết luận tiêu chí này.";
-    case "requirement_evaluator_unsupported":
-      return "Chưa đủ dữ liệu bằng chứng để kết luận tiêu chí này.";
-    case "raw_text_coverage_incomplete":
-      return "Raw text của CV chưa được thu thập đầy đủ; cần bổ sung hoặc parse lại CV để kết luận.";
-    case "generic_requirement_evidence_weak":
-      return "CV có đề cập nội dung liên quan nhưng chưa đủ ngữ cảnh thực hành để xác nhận.";
-    case "requirement_not_evidenced":
-    case "requirement_not_found":
-      return "Không tìm thấy nội dung đáp ứng yêu cầu trong CV hiện tại.";
-    case "credential_level_not_evidenced":
-      return "CV có thông tin liên quan nhưng chưa nêu mức điểm hoặc cấp độ cần thiết.";
-    case "experience_duration_not_evidenced":
-      return "CV có kinh nghiệm liên quan nhưng chưa đủ mốc thời gian để xác định thời lượng.";
-    case "experience_duration_below_minimum":
-      return "Thời lượng kinh nghiệm được xác thực thấp hơn mức tối thiểu của JD.";
-    case "experience_duration_satisfied":
-      return "Thời lượng kinh nghiệm được xác thực đáp ứng mức tối thiểu của JD.";
-    case "skill_level_not_evidenced":
-      return "CV có nhắc đến kỹ năng này nhưng chưa nêu rõ cấp độ.";
-    case "skill_level_below_minimum":
-      return "Cấp độ kỹ năng ghi nhận trong hồ sơ chưa đạt mức tối thiểu.";
-    case "skill_duration_not_evidenced":
-      return "CV có nhắc đến kỹ năng này nhưng chưa nêu rõ thời lượng kinh nghiệm thực tế.";
-    case "skill_duration_below_minimum":
-      return "Thời gian làm việc thực tế với kỹ năng này chưa đạt số tháng tối thiểu.";
-    case "skill_evidenced":
-    case "skill_claim_verified":
-      return "Kỹ năng đã được chứng minh qua kinh nghiệm và dự án trong hồ sơ.";
-    case "skill_and_level_evidenced":
-      return "Kỹ năng và cấp độ chuyên môn đáp ứng đầy đủ yêu cầu của công việc.";
-    case "skill_claim_not_found":
-      return "Không tìm thấy kỹ năng này trong CV hiện tại.";
-    case "concept_group_evidenced":
-      return "Các nội dung yêu cầu đều có bằng chứng phù hợp trong CV.";
-    case "concept_group_evidence_missing":
-      return "CV có nhắc đến nội dung liên quan nhưng một số phần chưa đủ rõ để xác nhận.";
-    case "concept_group_not_met":
-      return "Không tìm thấy một hoặc nhiều nội dung yêu cầu trong CV hiện tại.";
-    case "language_level_not_evidenced":
-      return "CV có nhắc đến ngoại ngữ này nhưng chưa nêu rõ trình độ.";
-    case "language_level_not_equal":
-      return "Trình độ ngoại ngữ chưa tương thích với cấp độ yêu cầu.";
-    case "language_evidenced":
-      return "Trình độ ngoại ngữ đã được ghi nhận đầy đủ trong hồ sơ.";
-    case "education_requirement_needs_specialized_evaluator":
-      return "Yêu cầu về học vấn & văn bằng cần được xác minh thêm từ hồ sơ gốc.";
-    case "experience_duration_gap":
-      return "Tổng số năm kinh nghiệm chưa đáp ứng đủ số năm yêu cầu.";
-    case "candidate_accepts_hybrid":
-      return "Ứng viên phù hợp với hình thức làm việc kết hợp (Hybrid).";
-    case "candidate_accepts_remote":
-      return "Ứng viên phù hợp với hình thức làm việc từ xa (Remote).";
-    case "candidate_location_matched":
-      return "Địa điểm làm việc của ứng viên hoàn toàn tương thích.";
-    case "evidence_insufficient":
-      return "CV có nhắc đến nội dung liên quan nhưng chưa đủ rõ để xác nhận.";
-    case "career_experience_not_evidenced":
-      return "Không tìm thấy kinh nghiệm ngành nghề đáp ứng yêu cầu trong CV hiện tại.";
-    case "career_experience_has_no_direct_evidence":
-      return "CV có nhắc đến kinh nghiệm liên quan nhưng chưa có đoạn mô tả trực tiếp.";
-    case "semantic_dense_provider_fallback_to_sparse":
-      return "Phân tích ngữ nghĩa đang sử dụng phương án dự phòng dựa trên đối sánh từ khóa.";
-    case "semantic_input_not_evidenced":
-      return "Nội dung văn bản CV hoặc JD chưa đủ để phân tích ngữ nghĩa sâu.";
-    case "semantic_scorer_unavailable":
-      return "Mô hình chấm điểm ngữ nghĩa tạm thời không khả dụng.";
-    case "work_mode_accepted":
-      return "Hình thức làm việc được chấp nhận theo nguyện vọng.";
-    case "work_mode_not_accepted":
-      return "Hình thức làm việc chưa phù hợp với nguyện vọng ứng viên.";
-    case "location_accepted":
-      return "Địa điểm làm việc phù hợp với nguyện vọng của ứng viên.";
-    case "location_not_accepted_and_no_relocation":
-      return "Địa điểm làm việc chưa phù hợp và ứng viên không thể chuyển chỗ ở.";
-    case "relocation_preference_missing":
-      return "Chưa rõ nguyện vọng chuyển chỗ ở của ứng viên.";
-    case "job_work_mode_not_specified":
-      return "Tin tuyển dụng không ghi rõ hình thức làm việc.";
-    case "job_location_not_specified":
-      return "Tin tuyển dụng không yêu cầu địa điểm cụ thể.";
-    case "candidate_work_mode_preference_missing":
-      return "Chưa có thông tin nguyện vọng hình thức làm việc của ứng viên.";
-    case "candidate_location_preference_missing":
-      return "Chưa có thông tin nguyện vọng địa điểm làm việc của ứng viên.";
-    default:
-      if (code.endsWith("_requirement_needs_specialized_evaluator")) {
-        return "Tiêu chí này cần được chuyên viên nhân sự xác minh thêm.";
-      }
-      return "";
+  // Backend "not evidenced": the CV never mentions it, which is not proof of
+  // absence. The status is "Cần xác nhận", so the copy must not say "không có".
+  const canonical = REASON_CODE_ALIASES[code] ?? code;
+  if (KNOWN_REASON_CODES.has(canonical)) return t(`fit.reason.${canonical}`);
+  if (code.endsWith("_requirement_needs_specialized_evaluator")) {
+    return t("fit.reason.specializedEvaluator");
   }
+  return "";
 }
 
-export function resolveCompatibilityInfo(status?: string, criterion?: string) {
+export function resolveCompatibilityInfo(status?: string, criterion?: string, t: Translate = viT) {
   void criterion;
   switch (status) {
     case "compatible":
       return {
-        label: "Phù hợp",
-        badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-        iconColor: "text-emerald-600",
-        boxBg: "bg-emerald-50/40 border-emerald-100",
+        label: t("fit.compat.compatible"),
+        badgeClass: "bg-[#EAF5EE] text-[#287A4B] border-[#287A4B]/25",
+        iconColor: "text-[#287A4B]",
+        boxBg: "bg-white border-[#287A4B]/25",
         isWarning: false,
       };
     case "incompatible":
       return {
-        label: "Không phù hợp",
-        badgeClass: "bg-red-50 text-red-700 border-red-200",
-        iconColor: "text-red-600",
-        boxBg: "bg-red-50/40 border-red-100",
+        label: t("fit.compat.incompatible"),
+        badgeClass: "bg-[#FDF2F2] text-[#C43B3B] border-[#F5C2C2]",
+        iconColor: "text-[#C43B3B]",
+        boxBg: "bg-white border-[#F5C2C2]",
         isWarning: true,
       };
     case "not_applicable":
       return {
-        label: "Không áp dụng",
-        badgeClass: "bg-slate-100 text-slate-600 border-slate-200",
-        iconColor: "text-slate-400",
-        boxBg: "bg-slate-50 border-slate-200",
+        label: t("fit.status.notApplicable"),
+        badgeClass: "bg-[#F0F4FC] text-[#607096] border-[#DCE4F3]",
+        iconColor: "text-[#9AA6C2]",
+        boxBg: "bg-[#F8FAFC] border-[#DCE4F3]",
         isWarning: false,
       };
     case "unknown":
     default:
       return {
-        label: "Chưa có đủ thông tin",
-        badgeClass: "bg-amber-50 text-amber-800 border-amber-200",
-        iconColor: "text-amber-600",
-        boxBg: "bg-amber-50/40 border-amber-100",
+        label: t("fit.compat.unknown"),
+        badgeClass: "bg-[#FFF8E6] text-[#8A5A00] border-[#FCB625]/40",
+        iconColor: "text-[#8A5A00]",
+        boxBg: "bg-white border-[#FCB625]/40",
         isWarning: true,
       };
   }
 }
 
-export function resolveWarningText(warning: string): string {
+export function resolveWarningText(warning: string, t: Translate = viT): string {
   switch (warning) {
     case "semantic_dense_provider_fallback_to_sparse":
-      return "Phân tích ngữ nghĩa đang sử dụng phương án dự phòng dựa trên đối sánh từ khóa.";
+      return t("fit.reason.semantic_dense_provider_fallback_to_sparse");
     case "career_experience_has_no_direct_evidence":
-      return "Điểm kinh nghiệm được ước lượng từ chức danh nhưng thiếu đoạn văn bản minh chứng trực tiếp.";
+      return t("fit.warn.careerNoDirectEvidence");
     case "factor_not_evidenced":
-      return "Một số tiêu chí đánh giá chưa có đủ bằng chứng trong hồ sơ.";
+      return t("fit.warn.factorNotEvidenced");
     default:
-      return "Có lưu ý từ hệ thống chưa được mô tả chi tiết.";
+      return t("fit.warn.other");
   }
 }
 
 export function resolveFitBandGaugeColor(fitBand?: string, hasScore?: boolean): string {
-  if (!hasScore) return "#94A3B8";
+  if (!hasScore) return "#9AA6C2";
   switch (fitBand) {
     case "strong_fit":
       return "#16A34A";
@@ -330,22 +288,22 @@ export function resolveFitBandGaugeColor(fitBand?: string, hasScore?: boolean): 
       return "#DC2626";
     case "insufficient_evidence":
     default:
-      return "#94A3B8";
+      return "#9AA6C2";
   }
 }
 
-function getFactorLabel(factor: string) {
+function getFactorLabel(factor: string, t: Translate = viT) {
   switch (factor) {
     case "skill":
-      return { label: "Kỹ năng bổ trợ", icon: Code2, desc: "Mức độ đáp ứng các kỹ năng mở rộng và ưu tiên thêm" };
+      return { label: t("fit.factor.skill.label"), desc: t("fit.factor.skill.desc") };
     case "experience":
-      return { label: "Mức phù hợp kinh nghiệm & vai trò", icon: Briefcase, desc: "Sự liên quan giữa chức danh, chuyên môn và quá trình làm việc" };
+      return { label: t("fit.factor.experience.label"), desc: t("fit.factor.experience.desc") };
     case "semantic":
-      return { label: "Mức tương đồng vai trò & nội dung công việc", icon: Brain, desc: "Độ phù hợp ngữ nghĩa giữa mô tả công việc và kinh nghiệm CV" };
+      return { label: t("fit.factor.semantic.label"), desc: t("fit.factor.semantic.desc") };
     case "language":
-      return { label: "Ngoại ngữ chuyên môn", icon: Globe, desc: "Trình độ ngôn ngữ đáp ứng yêu cầu vị trí" };
+      return { label: t("fit.factor.language.label"), desc: t("fit.factor.language.desc") };
     default:
-      return { label: factor, icon: Sparkles, desc: "Chỉ số đánh giá chuyên sâu" };
+      return { label: factor, desc: t("fit.factor.other.desc") };
   }
 }
 
@@ -364,6 +322,7 @@ export function CompactMatchSummary({
   failedMustHaveCount?: number;
   scoreIsDiagnostic?: boolean;
 }) {
+  const { t } = useLanguage();
   const eligible = eligibility === "eligible";
   const ineligible = eligibility === "ineligible";
 
@@ -383,71 +342,71 @@ export function CompactMatchSummary({
   const displayPercentage = percentage != null && (eligible || scoreIsDiagnostic);
 
   const stateDot = eligible
-    ? "bg-emerald-500"
+    ? "bg-[#287A4B]"
     : ineligible
-    ? "bg-rose-500"
-    : "bg-amber-400";
+    ? "bg-[#C43B3B]"
+    : "bg-[#FCB625]";
 
   const stateLabel = eligible
-    ? "Đáp ứng điều kiện bắt buộc"
+    ? t("fit.elig.eligible.label")
     : ineligible
-    ? "Chưa đáp ứng điều kiện bắt buộc"
-    : "Cần xác minh thêm";
+    ? t("fit.elig.ineligible.label")
+    : t("fit.elig.review.label");
 
   const stateDescription =
     counts.met === 0 && counts.unknown > 0 && counts.notMet === 0
-      ? "Phần lớn tiêu chí có thông tin liên quan nhưng chưa đủ rõ để xác nhận."
+      ? t("fit.summary.mostlyUnclear")
       : eligible
-      ? "Thông tin hiện có cho thấy hồ sơ đáp ứng các điều kiện chính."
+      ? t("fit.summary.eligible")
       : ineligible
       ? failedMustHaveCount > 0
-        ? `Có ${failedMustHaveCount} tiêu chí bắt buộc chưa được hồ sơ đáp ứng.`
-        : "Có tiêu chí chính chưa được hồ sơ đáp ứng."
-      : "Có thông tin liên quan nhưng chưa đủ rõ để đưa ra kết luận chắc chắn.";
+        ? fmt(t("fit.summary.failedMustHave"), { count: failedMustHaveCount })
+        : t("fit.summary.ineligible")
+      : t("fit.summary.unclear");
   // Keep the legacy label when no score is exposed.  The reference label is
   // reserved for an explicit diagnostic score from the v2.1 contract.
   const scoreLabel =
     eligible || !scoreIsDiagnostic
-      ? "Điểm phù hợp tổng hợp"
-      : "Điểm phù hợp tham khảo";
+      ? t("fit.summary.scoreFinal")
+      : t("fit.summary.scoreReference");
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white px-5 py-5 shadow-2xs sm:px-6 md:min-h-[156px]">
+    <section className="rounded-3xl bg-white px-5 py-5 ring-1 ring-[#DCE4F3] sm:px-6 md:min-h-[156px]">
       <div className="grid gap-5 md:grid-cols-[minmax(180px,0.8fr)_minmax(0,1.5fr)] md:items-center md:gap-8">
         <div>
           {displayPercentage ? (
             <>
-              <div className="flex items-start font-semibold leading-none tracking-tight text-slate-950">
+              <div className="flex items-start font-semibold leading-none text-[#14244B]">
                 <span className="text-[40px] sm:text-[44px] md:text-[54px]">{percentage}</span>
                 <span className="mt-1 text-xl sm:text-2xl md:mt-1.5 md:text-[28px]">%</span>
               </div>
-              <p className="mt-1.5 text-sm font-medium text-slate-700">{scoreLabel}</p>
-              <div className="mt-3 h-1.5 max-w-56 overflow-hidden rounded-full bg-slate-200">
-                <div className="h-full rounded-full bg-slate-700" style={{ width: `${percentage}%` }} />
+              <p className="mt-1.5 text-sm font-medium text-[#607096]">{scoreLabel}</p>
+              <div className="mt-3 h-1.5 max-w-56 overflow-hidden rounded-full bg-[#DCE4F3]">
+                <div className="h-full rounded-full bg-[#204195]" style={{ width: `${percentage}%` }} />
               </div>
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-[#607096]">
                 {eligible
-                  ? "Điểm phù hợp cuối cùng dựa trên thông tin hiện có."
-                  : "Điểm tham khảo không thay đổi kết luận về điều kiện bắt buộc."}
+                  ? t("fit.summary.finalNote")
+                  : t("fit.summary.referenceNote")}
               </p>
             </>
           ) : (
             <div>
-              <span className="text-4xl font-semibold leading-none text-slate-400">—</span>
-              <p className="mt-2 text-sm font-medium text-slate-700">{scoreLabel}</p>
-              <p className="mt-2 text-xs text-slate-500">Chưa đủ dữ liệu để tính điểm phù hợp.</p>
+              <span className="text-4xl font-semibold leading-none text-[#9AA6C2]">—</span>
+              <p className="mt-2 text-sm font-medium text-[#607096]">{scoreLabel}</p>
+              <p className="mt-2 text-xs text-[#607096]">{t("fit.summary.noScore")}</p>
             </div>
           )}
         </div>
 
-        <div className="md:border-l md:border-slate-200 md:pl-8">
+        <div className="md:border-l md:border-[#EAEFF8] md:pl-8">
           <div className="flex items-center gap-2.5">
             <span className={`size-2.5 shrink-0 rounded-full ${stateDot}`} aria-hidden="true" />
-            <h2 className="text-xl font-semibold tracking-tight text-slate-900 md:text-[22px]">
+            <h2 className="text-xl font-semibold text-[#14244B] md:text-[22px]">
               {stateLabel}
             </h2>
           </div>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">{stateDescription}</p>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-[#607096]">{stateDescription}</p>
         </div>
       </div>
     </section>
@@ -459,6 +418,7 @@ export function MatchBreakdown({
 }: {
   requirementResults?: Array<{ status: string }>;
 }) {
+  const { t } = useLanguage();
   const hasResults = Boolean(requirementResults?.length);
   const counts = useMemo(() => {
     if (!requirementResults?.length) return null;
@@ -472,45 +432,42 @@ export function MatchBreakdown({
   const items = [
     {
       count: counts?.met,
-      label: "Phù hợp",
-      description: "Đã có bằng chứng rõ trong CV",
-      icon: CheckCircle2,
-      iconClass: "text-emerald-600",
+      label: t("fit.status.met"),
+      description: t("fit.breakdown.met.desc"),
+      dotClass: "bg-[#287A4B]",
     },
     {
       count: counts?.unknown,
-      label: "Cần xác minh",
-      description: "CV chưa thể hiện đủ thông tin",
-      icon: HelpCircle,
-      iconClass: "text-slate-500",
+      label: t("fit.status.needsVerification"),
+      description: t("fit.breakdown.unknown.desc"),
+      dotClass: "bg-[#FCB625]",
     },
     {
       count: counts?.notMet,
-      label: "Chưa đáp ứng",
-      description: "Thông tin hiện tại chưa đạt yêu cầu",
-      icon: Minus,
-      iconClass: "text-rose-500",
+      label: t("fit.status.notMet"),
+      description: t("fit.breakdown.notMet.desc"),
+      dotClass: "bg-[#C43B3B]",
     },
   ];
 
   return (
-    <section aria-label="Tổng hợp trạng thái tiêu chí" className="border-y border-slate-200 bg-white">
-      <div className="grid sm:grid-cols-3 sm:divide-x sm:divide-slate-200">
-        {items.map(({ count, label, description, icon: Icon, iconClass }, index) => (
+    <section aria-label={t("fit.breakdown.aria")} className="overflow-hidden rounded-3xl bg-white ring-1 ring-[#DCE4F3]">
+      <div className="grid sm:grid-cols-3 sm:divide-x sm:divide-[#EAEFF8]">
+        {items.map(({ count, label, description, dotClass }, index) => (
           <div
             key={label}
-            className={`flex items-start gap-3 px-4 py-4 sm:px-5 ${index > 0 ? "border-t border-slate-200 sm:border-t-0" : ""}`}
+            className={`flex items-start gap-3 px-4 py-4 sm:px-5 ${index > 0 ? "border-t border-[#EAEFF8] sm:border-t-0" : ""}`}
           >
-            <Icon className={`mt-0.5 size-4 shrink-0 ${iconClass}`} aria-hidden="true" />
+            <span className={`mt-2 size-2.5 shrink-0 rounded-full ${dotClass}`} aria-hidden="true" />
             <div className="min-w-0">
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-semibold tabular-nums text-slate-900">
+                <span className="text-2xl font-semibold tabular-nums text-[#14244B]">
                   {hasResults ? count : "—"}
                 </span>
-                <span className="text-sm font-semibold text-slate-800">{label}</span>
+                <span className="text-sm font-semibold text-[#14244B]">{label}</span>
               </div>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                {hasResults ? description : "Chưa có dữ liệu trạng thái tiêu chí"}
+              <p className="mt-1 text-xs leading-5 text-[#607096]">
+                {hasResults ? description : t("fit.breakdown.noData")}
               </p>
             </div>
           </div>
@@ -525,7 +482,7 @@ export function MatchBreakdown({
 function ScorePageContent() {
   const params = useSearchParams();
   const router = useRouter();
-  const { lang } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const urlCandidateId = params.get("candidateId")?.trim() ?? "";
   const urlJobId = params.get("jobId")?.trim() ?? "";
@@ -617,14 +574,16 @@ function ScorePageContent() {
         const cvItems = (cvRes?.data?.items as Record<string, unknown>[]) || [];
         const jobItems = (jobsRes?.data?.items as Record<string, unknown>[]) || [];
 
-        const validCv = cvItems.find((c) => c?.status === "DONE" || c?.id) || cvItems[0];
-        const validJob = jobItems.find((j) => j?.isActive !== false && j?.id) || jobItems[0];
+        // Only pair a parsed CV with an open job; anything else shows the empty state.
+        const validCv = cvItems.find((c) => c?.id && c?.status === "DONE");
+        // Same rule as the jobs board (isActiveProfile).
+        const validJob = jobItems.find((j) => j?.id && j?.status === "ACTIVE");
 
         if (validCv?.id && validJob?.id) {
           const autoCtx = {
             candidateId: String(validCv.id),
             jobId: String(validJob.id),
-            jobTitle: String(validJob.title || "Vị trí tuyển dụng"),
+            jobTitle: String(validJob.title || t("fit.page.defaultJobTitle")),
           };
           try {
             sessionStorage.setItem("interview.cvScoreContext", JSON.stringify(autoCtx));
@@ -659,6 +618,9 @@ function ScorePageContent() {
     return () => {
       isCancelled = true;
     };
+    // `t` only supplies a fallback title; re-running discovery on a language
+    // switch is unnecessary.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlCandidateId, urlJobId, urlJobTitle, router]);
 
   const candidateId = activeContext?.candidateId || "";
@@ -686,13 +648,21 @@ function ScorePageContent() {
       const [scoringResult, jobData, cvRecord] = await Promise.all([scorePromise, jobPromise, cvPromise]);
 
       setResult(scoringResult);
+      saveFit({
+        jobId,
+        cvId: candidateId,
+        cvName: cvRecord?.originalName ?? null,
+        ...countFit(scoringResult.requirementResults),
+        analyzedAt: new Date().toISOString(),
+      });
       if (jobData) setJobProfile(jobData);
       if (cvRecord) {
         setCvData(cvRecord);
         setCvFileName(cvRecord.originalName || null);
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Không thể tạo báo cáo phân tích độ phù hợp lúc này.");
+      // Store a translation key, never raw server/Axios text.
+      setError(mapBackendErrorToI18nKey(cause) ?? "fit.page.loadError");
     } finally {
       setLoading(false);
     }
@@ -700,8 +670,16 @@ function ScorePageContent() {
 
   const handleMatchingResult = useCallback((matchResult: MatchResult) => {
     if (!candidateId || !jobId) return;
-    setResult(normalizeMatchResult(matchResult, candidateId, jobId));
-  }, [candidateId, jobId]);
+    const normalized = normalizeMatchResult(matchResult, candidateId, jobId);
+    setResult(normalized);
+    saveFit({
+      jobId,
+      cvId: candidateId,
+      cvName: cvFileName,
+      ...countFit(normalized.requirementResults),
+      analyzedAt: new Date().toISOString(),
+    });
+  }, [candidateId, jobId, cvFileName]);
 
   useEffect(() => {
     if (candidateId && jobId) {
@@ -731,6 +709,18 @@ function ScorePageContent() {
   }, [jobProfile]);
 
   const [durationMinutes, setDurationMinutes] = useState<number>(25);
+  /** 0 creating the session, 1 preparing questions, 2 opening the room (time-based captions of one request). */
+  const [startStage, setStartStage] = useState(0);
+  useEffect(() => {
+    if (!startingInterview) return;
+    const timer = window.setTimeout(() => setStartStage((stage) => Math.max(stage, 1)), 1800);
+    return () => {
+      window.clearTimeout(timer);
+      setStartStage(0);
+    };
+  }, [startingInterview]);
+  const closeModeChooser = useCallback(() => setShowModeChooser(false), []);
+  const modeDialogRef = useDialogA11y<HTMLDivElement>(showModeChooser, startingInterview ? undefined : closeModeChooser);
 
   const handleStartInterview = async (
     mode: "chat" | "voice" | "video",
@@ -738,13 +728,13 @@ function ScorePageContent() {
   ) => {
     if (startingInterview) return;
     if (!candidateId || !jobId) {
-      setInterviewStartError("Thiếu CV hoặc Job Profile để tạo phiên phỏng vấn.");
+      setInterviewStartError("fit.page.missingContext");
       return;
     }
     setInterviewStartError(null);
     setStartingInterview(true);
     try {
-      const activeJobTitle = jobProfile?.title || queryJobTitle || "AI Engineer";
+      const activeJobTitle = jobProfile?.title || queryJobTitle || t("fit.page.defaultJobTitle");
       const targetUrl = await startInterviewSession({
         mode,
         experience,
@@ -754,25 +744,44 @@ function ScorePageContent() {
         jobId,
         durationMinutes,
       });
+      setStartStage(2);
       router.push(targetUrl);
     } catch (cause) {
       setStartingInterview(false);
-      setInterviewStartError(
-        cause instanceof Error
-          ? cause.message
-          : "Không thể tạo phiên phỏng vấn lúc này. Vui lòng thử lại."
-      );
+      setInterviewStartError(describeStartInterviewError(cause, t));
     }
   };
 
-  const displayJobTitle = jobProfile?.title || queryJobTitle || "AI Engineer";
+  const displayJobTitle = jobProfile?.title || queryJobTitle || t("fit.page.defaultJobTitle");
+
+  // Staged status text while the existing loading flags are on. The request is
+  // a single round trip, so these are time-based captions, not real progress.
+  const busy = loading || resolving;
+  const [loadingStage, setLoadingStage] = useState(0);
+  useEffect(() => {
+    if (!busy) return;
+    const timers = [
+      window.setTimeout(() => setLoadingStage(1), 2500),
+      window.setTimeout(() => setLoadingStage(2), 6000),
+    ];
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+      setLoadingStage(0);
+    };
+  }, [busy]);
+  const loadingPhases = [
+    "uxWs.cvScore.stage.resolving",
+    "uxWs.cvScore.stage.reading",
+    "uxWs.cvScore.stage.matching",
+    "uxWs.cvScore.stage.summarizing",
+  ].map((key) => t(key).replace(/…$/, ""));
 
   return (
     <UserDashboardShell>
-      <main className="min-h-screen bg-[#F8FAFC] px-4 pb-20 pt-6 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10">
-        <div className="mx-auto max-w-[1200px]">
+      <main className="min-h-screen px-4 pb-16 pt-4 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
+        <div className="mx-auto max-w-[1280px]">
           {/* Top Bar / Navigation */}
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="mb-6">
             <button
               type="button"
               onClick={() => {
@@ -782,102 +791,80 @@ function ScorePageContent() {
                   router.push("/dashboard/jobs");
                 }
               }}
-              className="group inline-flex items-center gap-2 text-sm font-semibold text-[#607096] transition-colors hover:text-[#204195]"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-[#607096] transition-colors hover:text-[#204195]"
             >
-              <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-0.5" />
-              <span>Quay lại</span>
+              <span aria-hidden="true">←</span>
+              <span>{t("fit.page.back")}</span>
             </button>
-
-            <div className="flex items-center gap-2 text-xs text-[#7A89A8]">
-              <Link href="/dashboard" className="hover:text-[#204195]">Trang chủ</Link>
-              <span>/</span>
-              <Link href="/dashboard/jobs" className="hover:text-[#204195]">Việc làm</Link>
-              <span>/</span>
-              <span className="font-semibold text-[#204195]">Báo cáo phù hợp</span>
-            </div>
           </div>
 
-          {/* Job Banner Header Card - Only show when context is present and not empty */}
-          {!resolving && !hasNoContext && (
-            <header className="mb-8 overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-7">
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-start gap-4 sm:gap-5">
-                  {/* Company Logo Avatar */}
-                  <div className="relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] shadow-2xs sm:size-20">
+          <WorkspacePageHeader
+            className="mb-6"
+            title={t("fit.page.crumbReport")}
+            subtitle={hasNoContext ? t("fit.page.emptyDesc") : t("uxWs.cvScore.subtitle")}
+            aside={
+              !resolving && !hasNoContext ? (
+                <div className="rounded-3xl bg-white p-5 ring-1 ring-[#DCE4F3]">
+                  <div className="flex items-start gap-3">
                     {jobProfile?.company?.logoUrl && !logoError ? (
-                    <img
-                      src={jobProfile.company.logoUrl}
-                      alt={jobProfile.company.name || "Company Logo"}
-                      onError={() => setLogoError(true)}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : jobProfile?.company?.name ? (
-                    <div className="flex h-full w-full items-center justify-center bg-[#EEF2FD] text-lg font-bold text-[#204195]">
-                      {getCompanyInitials(jobProfile.company.name)}
+                      <img
+                        src={jobProfile.company.logoUrl}
+                        alt={jobProfile.company.name || t("fixApp.jobs.companyLogo")}
+                        onError={() => setLogoError(true)}
+                        className="size-12 shrink-0 rounded-2xl object-cover ring-1 ring-[#DCE4F3]"
+                        loading="lazy"
+                      />
+                    ) : jobProfile?.company?.name ? (
+                      <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#F8FAFC] text-base font-semibold text-[#204195] ring-1 ring-[#DCE4F3]">
+                        {getCompanyInitials(jobProfile.company.name)}
+                      </div>
+                    ) : null}
+                    <div className="min-w-0 flex-1">
+                      {jobProfile?.company?.name && (
+                        <p className="break-words text-xs font-semibold text-[#607096]">{jobProfile.company.name}</p>
+                      )}
+                      <p className="mt-0.5 break-words text-lg font-semibold leading-snug text-[#14244B]">
+                        {displayJobTitle}
+                      </p>
                     </div>
-                  ) : (
-                    <Building2 className="size-8 text-[#94A3B8]" />
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  {jobProfile?.company?.name && (
-                    <p className="text-sm font-semibold text-[#607096]">{jobProfile.company.name}</p>
-                  )}
-                  <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[#14244B] sm:text-3xl">
-                    {displayJobTitle}
-                  </h1>
-
-                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[#607096]">
-                    {jobProfile?.location && (
-                      <span className="inline-flex items-center gap-1.5 font-medium">
-                        <MapPin className="size-3.5 text-[#5572B8]" />
-                        {jobProfile.location}
-                      </span>
-                    )}
-                    {jobProfile?.workMode && (
-                      <span className="inline-flex items-center gap-1.5 font-medium">
-                        <Briefcase className="size-3.5 text-[#5572B8]" />
-                        {jobProfile.workMode === "remote"
-                          ? "Từ xa (Remote)"
-                          : jobProfile.workMode === "hybrid"
-                          ? "Linh hoạt (Hybrid)"
-                          : "Tại văn phòng"}
-                      </span>
-                    )}
-                    {jobProfile?.salary && (
-                      <span className="inline-flex items-center gap-1.5 font-semibold text-[#16A34A]">
-                        <Coins className="size-3.5" />
-                        {formatSalary(jobProfile.salary)}
-                      </span>
-                    )}
-                    {jobProfile?.experience && (
-                      <span className="inline-flex items-center gap-1.5 font-medium text-[#425477]">
-                        <Clock className="size-3.5 text-[#5572B8]" />
-                        {formatExperience(jobProfile.experience)}
-                      </span>
-                    )}
-                    {cvFileName && (
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-[#F0F4FC] px-2.5 py-1 font-medium text-[#204195]">
-                        <FileText className="size-3.5" />
-                        CV: {cvFileName}
-                      </span>
-                    )}
                   </div>
+
+                  <p className="mt-3 flex flex-wrap gap-x-2 gap-y-1 text-xs leading-5 text-[#607096]">
+                    {[
+                      jobProfile?.location || null,
+                      jobProfile?.workMode
+                        ? jobProfile.workMode === "remote"
+                          ? t("fit.page.workMode.remote")
+                          : jobProfile.workMode === "hybrid"
+                          ? t("fit.page.workMode.hybrid")
+                          : t("fit.page.workMode.onsite")
+                        : null,
+                      jobProfile?.experience ? formatExperience(jobProfile.experience, lang) : null,
+                    ]
+                      .filter(Boolean)
+                      .map((part, index) => (
+                        <span key={index} className="break-words">
+                          {index > 0 && <span aria-hidden="true" className="mr-2">·</span>}
+                          {part}
+                        </span>
+                      ))}
+                  </p>
+                  {jobProfile?.salary && (
+                    <p className="mt-1 text-xs font-semibold text-[#287A4B]">
+                      {formatSalary(jobProfile.salary, undefined, lang)}
+                    </p>
+                  )}
+                  {cvFileName && (
+                    <p className="mt-3 break-words border-t border-[#EAEFF8] pt-3 text-xs text-[#607096]">
+                      {t("fixApp.cvScore.cvLabel")} <span className="font-semibold text-[#14244B]">{cvFileName}</span>
+                    </p>
+                  )}
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-3 border-t border-[#EDF2F9] pt-4 lg:border-t-0 lg:pt-0">
-                <Link
-                  href={`/dashboard/jobs/${jobId}`}
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-4 py-2.5 text-sm font-semibold text-[#204195] shadow-2xs transition hover:bg-[#F8FAFC]"
-                >
-                  <ExternalLink className="size-4" />
-                  <span>Xem JD đầy đủ</span>
-                </Link>
-
+              ) : undefined
+            }
+          >
+            {!resolving && !hasNoContext && (
+              <>
                 <button
                   type="button"
                   onClick={() => {
@@ -885,46 +872,66 @@ function ScorePageContent() {
                     setShowModeChooser(true);
                   }}
                   disabled={startingInterview}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#204195] px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-[#183275] active:scale-[0.99] disabled:opacity-50"
+                  className="inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:opacity-50"
                 >
-                  <MessageSquare className="size-4" />
-                  <span>{startingInterview ? "Đang tạo phòng..." : "Luyện phỏng vấn ngay"}</span>
+                  {startingInterview ? t("fit.page.creatingRoom") : t("fit.page.practiceNow")}
                 </button>
-              </div>
-            </div>
-          </header>
-          )}
+                <Link
+                  href={`/dashboard/jobs/${jobId}`}
+                  className="inline-flex h-11 items-center rounded-full bg-white px-5 text-sm font-semibold text-[#204195] ring-1 ring-[#DCE4F3] transition-colors hover:bg-[#F8FAFC]"
+                >
+                  {t("fit.page.viewJd")}
+                </Link>
+              </>
+            )}
+          </WorkspacePageHeader>
+
 
           {showModeChooser && (
-            <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="interview-mode-title">
-              <button
-                type="button"
-                className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-                aria-label="Đóng"
+            <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 sm:p-6">
+              <div
+                className="absolute inset-0 bg-[#14244B]/45"
+                aria-hidden="true"
                 onClick={() => !startingInterview && setShowModeChooser(false)}
               />
-              <div className="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-[#DCE4F3] bg-white shadow-2xl">
-                <div className="border-b border-[#EAEFF8] px-6 py-5 sm:px-7">
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#204195]">Interview mode</p>
-                  <h2 id="interview-mode-title" className="mt-1 text-xl font-extrabold tracking-tight text-[#14244B]">
-                    Bạn muốn phỏng vấn theo cách nào?
+              <div
+                ref={modeDialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="interview-mode-title"
+                aria-busy={startingInterview}
+                tabIndex={-1}
+                className="anim-pop relative max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white ring-1 ring-[#DCE4F3] outline-none"
+              >
+                <div className="flex items-start justify-between gap-3 border-b border-[#EAEFF8] px-6 py-5 sm:px-7">
+                  <h2 id="interview-mode-title" className="text-2xl font-semibold text-[#14244B]">
+                    {t("fit.mode.question")}
                   </h2>
+                  <button
+                    type="button"
+                    onClick={closeModeChooser}
+                    disabled={startingInterview}
+                    aria-label={t("fit.page.close")}
+                    className="shrink-0 rounded-full p-2 text-[#607096] transition-colors hover:bg-[#F8FAFC] hover:text-[#14244B] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <X className="size-5" aria-hidden="true" />
+                  </button>
                 </div>
                 <div className="border-b border-[#EAEFF8] bg-[#F8FAFC] px-6 py-4 sm:px-7">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#204195]">
-                      Thời lượng phỏng vấn
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-[#607096]">
+                      {t("fit.mode.duration")}
                     </span>
                     <span className="text-[11px] text-[#607096]">
-                      Số câu hỏi điều phối linh hoạt theo nhịp độ thực tế
+                      {t("fit.mode.durationHint")}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {[
-                      { minutes: DEMO_DURATION_MINUTES, label: "Demo", time: `${DEMO_DURATION_MINUTES} Phút`, q: `${totalQuestionCount(DEMO_DURATION_MINUTES)} câu`, tag: "Trình bày" },
-                      { minutes: 15, label: "Flash Screen", time: "15 Phút", q: `${totalQuestionCount(15)} câu`, tag: "Luyện nhanh" },
-                      { minutes: 25, label: "Standard", time: "25 Phút", q: `${totalQuestionCount(25)} câu`, tag: "★ Khuyên dùng" },
-                      { minutes: 45, label: "Deep Dive", time: "45 Phút", q: `${totalQuestionCount(45)} câu`, tag: "Toàn diện" },
+                      { minutes: DEMO_DURATION_MINUTES, label: t("fixApp.mode.demo"), time: fmt(t("fit.mode.minutes"), { n: DEMO_DURATION_MINUTES }), q: fmt(t("fit.mode.questions"), { n: totalQuestionCount(DEMO_DURATION_MINUTES) }), tag: t("fit.mode.tag.demo") },
+                      { minutes: 15, label: t("fixApp.mode.flash"), time: fmt(t("fit.mode.minutes"), { n: 15 }), q: fmt(t("fit.mode.questions"), { n: totalQuestionCount(15) }), tag: t("fit.mode.tag.flash") },
+                      { minutes: 25, label: t("fixApp.mode.standard"), time: fmt(t("fit.mode.minutes"), { n: 25 }), q: fmt(t("fit.mode.questions"), { n: totalQuestionCount(25) }), tag: t("fit.mode.tag.standard") },
+                      { minutes: 45, label: t("fixApp.mode.deep"), time: fmt(t("fit.mode.minutes"), { n: 45 }), q: fmt(t("fit.mode.questions"), { n: totalQuestionCount(45) }), tag: t("fit.mode.tag.deep") },
                     ].map((pkg) => {
                       const active = durationMinutes === pkg.minutes;
                       return (
@@ -932,19 +939,19 @@ function ScorePageContent() {
                           key={pkg.minutes}
                           type="button"
                           onClick={() => setDurationMinutes(pkg.minutes)}
-                          className={`flex flex-col rounded-xl border p-2.5 text-left transition-all ${
+                          className={`flex flex-col rounded-2xl border p-2.5 text-left transition-all ${
                             active
-                              ? "border-[#204195] bg-white ring-2 ring-[#204195] shadow-xs"
-                              : "border-[#DCE4F3] bg-white/70 hover:bg-white hover:border-[#204195]/40"
+                              ? "border-[#204195] bg-white ring-2 ring-[#204195]"
+                              : "border-[#DCE4F3] bg-white hover:border-[#204195]/40"
                           }`}
                         >
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-wrap items-center justify-between gap-1">
                             <span className={`text-xs font-bold ${active ? "text-[#204195]" : "text-[#14244B]"}`}>
                               {pkg.label}
                             </span>
                             <span
-                              className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                                active ? "bg-[#204195] text-white" : "bg-slate-100 text-slate-600"
+                              className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                                active ? "bg-[#204195] text-white" : "bg-[#F0F4FC] text-[#607096]"
                               }`}
                             >
                               {pkg.time}
@@ -963,143 +970,125 @@ function ScorePageContent() {
                   {[
                     {
                       key: "interview_chat",
-                      title: "Interview Chat",
-                      desc: "Hội thoại phỏng vấn hai chiều với AI Interviewer theo thời gian thực.",
-                      meta: "Nhắn tin tương tác",
-                      badge: "Khuyên dùng",
-                      Icon: MessageSquare,
+                      title: t("mode.chat.name"),
+                      desc: t("mode.chat.desc"),
+                      meta: t("mode.chat.needs"),
+                      badge: t("mode.recommended"),
                       action: () => void handleStartInterview("chat", "interview_chat"),
                       disabled: false,
-                      cta: "Bắt đầu",
+                      cta: t("userDash.mode.chat.cta"),
                     },
                     {
                       key: "voice",
-                      title: "Voice",
-                      desc: "Trả lời bằng giọng nói để luyện nhịp phỏng vấn tự nhiên mà không cần bật camera.",
-                      meta: "Cần microphone",
+                      title: t("mode.voice.name"),
+                      desc: t("mode.voice.desc"),
+                      meta: t("mode.voice.needs"),
                       badge: null,
-                      Icon: Mic,
                       action: () => void handleStartInterview("voice"),
                       disabled: false,
-                      cta: "Bắt đầu",
+                      cta: t("userDash.mode.chat.cta"),
                     },
                     {
                       key: "video",
-                      title: "Voice + camera preview",
-                      desc: "Mô phỏng phỏng vấn trực diện với voice, camera và interviewer trên màn hình.",
-                      meta: "Cần mic + camera",
+                      title: t("mode.video.name"),
+                      desc: t("mode.video.desc"),
+                      meta: t("mode.video.needs"),
                       badge: null,
-                      Icon: Video,
                       action: () => void handleStartInterview("video"),
                       disabled: false,
-                      cta: "Bắt đầu",
+                      cta: t("userDash.mode.chat.cta"),
                     },
-                  ].map(({ key, title, desc, meta, badge, Icon, action, disabled, cta }) => (
+                  ].map(({ key, title, desc, meta, badge, action, disabled, cta }) => (
                     <button
                       key={key}
                       type="button"
                       disabled={disabled || startingInterview}
                       onClick={action}
-                      className={`group flex min-h-[250px] flex-col rounded-2xl border p-5 text-left shadow-xs transition-all ${
+                      className={`group flex min-h-[220px] flex-col rounded-3xl border p-5 text-left transition-colors ${
                         disabled
-                          ? "border-[#DCE4F3] bg-slate-50/70 opacity-70 cursor-not-allowed"
-                          : "border-[#DCE4F3] bg-white hover:-translate-y-0.5 hover:border-[#204195]/60 hover:shadow-md disabled:cursor-wait disabled:opacity-60"
+                          ? "border-[#DCE4F3] bg-[#F8FAFC] opacity-70 cursor-not-allowed"
+                          : "border-[#DCE4F3] bg-white hover:border-[#204195]/60 hover:bg-[#F8FAFC] disabled:cursor-wait disabled:opacity-60"
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={`flex size-11 items-center justify-center rounded-xl ${
-                            disabled ? "bg-slate-100 text-slate-500" : "bg-[#F0F4FC] text-[#204195]"
-                          }`}
-                        >
-                          <Icon className="size-5" />
-                        </span>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-lg font-semibold text-[#14244B]">{title}</span>
                         {badge && (
                           <span
                             className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                               disabled
-                                ? "bg-amber-100 text-amber-800 border border-amber-200"
-                                : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                ? "bg-[#FFF8E6] text-[#8A5A00]"
+                                : "bg-[#EAF5EE] text-[#287A4B] border border-[#287A4B]/25"
                             }`}
                           >
                             {badge}
                           </span>
                         )}
                       </div>
-                      <span className="mt-4 text-base font-bold text-[#14244B]">{title}</span>
-                      <span className="mt-1.5 flex-1 text-xs leading-5 text-[#607096]">{desc}</span>
+                      <span className="mt-2 flex-1 text-xs leading-5 text-[#607096]">{desc}</span>
                       <span className="mt-3 w-fit rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-semibold text-[#607096]">
                         {meta}
                       </span>
                       <span
-                        className={`mt-4 flex w-full items-center justify-between border-t border-[#EAEFF8] pt-4 text-sm font-bold ${
-                          disabled ? "text-[#7A89A8]" : "text-[#204195]"
+                        className={`mt-4 flex w-full items-center justify-between border-t border-[#EAEFF8] pt-4 text-sm font-semibold ${
+                          disabled ? "text-[#607096]" : "text-[#204195]"
                         }`}
                       >
-                        <span>{startingInterview && !disabled ? "Đang chuẩn bị..." : cta}</span>
+                        <span>{startingInterview && !disabled ? t("fit.mode.preparing") : cta}</span>
                         {!startingInterview && !disabled && (
-                          <ArrowLeft className="size-4 rotate-180 transition-transform group-hover:translate-x-0.5" />
+                          <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">→</span>
                         )}
                       </span>
                     </button>
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between border-t border-[#EAEFF8] bg-[#F8FAFC] px-6 py-3.5 text-xs text-[#607096] sm:px-7">
-                  <span>Bạn muốn tự ôn luyện câu hỏi trắc nghiệm & tình huống?</span>
-                  <Link
-                    href="/practice"
-                    onClick={() => setShowModeChooser(false)}
-                    className="font-bold text-[#204195] hover:underline"
-                  >
-                    Đến trang Luyện tập &rarr;
-                  </Link>
-                </div>
+                {startingInterview && (
+                  <div className="border-t border-[#EAEFF8] px-6 py-4 sm:px-7">
+                    <ProcessStatus
+                      phases={[t("fixApp.start.creating"), t("fixApp.start.questions"), t("fixApp.start.opening")]}
+                      activeIndex={startStage}
+                    />
+                  </div>
+                )}
 
                 {interviewStartError && (
-                  <div className="border-t border-red-100 bg-red-50 px-6 py-3 text-sm font-medium text-red-700 sm:px-7" role="alert">
-                    {interviewStartError}
+                  <div className="border-t border-[#EAEFF8] bg-[#FDF2F2] px-6 py-3 text-sm font-medium text-[#C43B3B] sm:px-7" role="alert">
+                    {t(interviewStartError)}
                   </div>
                 )}
               </div>
             </div>
           )}
 
-                    {/* Loading or Resolving State */}
+          {/* Loading or Resolving State: what the system is doing, phase by phase. */}
           {(loading || resolving) && (
-            <div className="rounded-2xl border border-[#DCE4F3] bg-white p-14 text-center shadow-xs">
-              <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-[#F0F4FC] text-[#204195]">
-                <RefreshCw className="size-7 animate-spin" />
-              </div>
-              <h3 className="mt-4 text-base font-bold text-[#14244B]">Đang đối chiếu CV và phân tích độ tương thích…</h3>
-              <p className="mt-1 text-sm text-[#607096]">Thuật toán đối chiếu kỹ năng, kinh nghiệm và các tiêu chí tuyển dụng.</p>
+            <div className="mx-auto max-w-xl rounded-3xl bg-white p-6 ring-1 ring-[#DCE4F3] sm:p-8">
+              <h3 className="text-xl font-bold text-[#14244B]">{t("fit.page.loadingTitle")}</h3>
+              <p className="mt-1 text-sm text-[#607096]">{t("fit.page.loadingDesc")}</p>
+              <ProcessStatus
+                className="mt-5"
+                phases={loadingPhases}
+                activeIndex={resolving ? 0 : loadingStage + 1}
+              />
             </div>
           )}
 
           {/* Empty State when no context is selected */}
           {!resolving && hasNoContext && (
-            <section className="rounded-2xl border border-dashed border-[#CBD5E1] bg-white p-10 text-center shadow-xs sm:p-14">
-              <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-[#EEF2FD] text-[#204195]">
-                <Briefcase className="size-8" />
-              </div>
-              <h2 className="mt-5 text-xl font-bold text-[#14244B]">Chưa có thông tin CV hoặc vị trí việc làm</h2>
-              <p className="mx-auto mt-2 max-w-lg text-sm text-[#607096] leading-relaxed">
-                Để xem báo cáo phân tích độ tương thích và bắt đầu phỏng vấn AI, vui lòng chọn một vị trí tuyển dụng và hồ sơ CV của bạn.
-              </p>
+            <section className="rounded-3xl bg-white p-10 text-center ring-1 ring-[#DCE4F3] sm:p-14">
+              <h2 className="mt-4 text-2xl font-semibold text-[#14244B]">{t("fit.page.emptyTitle")}</h2>
               <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
                 <Link
                   href="/dashboard/jobs"
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#204195] px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-[#183275]"
+                  className="inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
                 >
-                  <Briefcase className="size-4" />
-                  <span>Khám phá việc làm</span>
+                  {t("fit.page.exploreJobs")}
                 </Link>
                 <Link
                   href="/dashboard/cvs"
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#CBD5E1] bg-white px-5 py-2.5 text-sm font-semibold text-[#14244B] transition hover:bg-[#F8FAFC]"
+                  className="inline-flex h-11 items-center rounded-full bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F0F4FC]"
                 >
-                  <FileText className="size-4" />
-                  <span>Quản lý CV của tôi</span>
+                  {t("fit.page.manageCvs")}
                 </Link>
               </div>
             </section>
@@ -1107,21 +1096,15 @@ function ScorePageContent() {
 
           {/* Error State */}
           {!loading && !resolving && !hasNoContext && error && (
-            <section className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-xs" role="alert">
-              <div className="flex items-start gap-4">
-                <XCircle className="mt-0.5 size-6 shrink-0 text-red-600" />
-                <div className="flex-1">
-                  <h2 className="text-base font-bold text-red-900">Không thể tải báo cáo phân tích</h2>
-                  <p className="mt-1 text-sm text-red-800">{error}</p>
-                  <button
-                    type="button"
-                    onClick={() => void loadData()}
-                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white shadow-xs transition hover:bg-red-800"
-                  >
-                    <RefreshCw className="size-4" /> Thử lại
-                  </button>
-                </div>
-              </div>
+            <section className="space-y-4">
+              <StatusNote tone="error" text={`${t("fit.page.errorTitle")}. ${t(error)}`} hint={t("uxWs.cvScore.errorHint")} />
+              <button
+                type="button"
+                onClick={() => void loadData()}
+                className="ml-[54px] inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+              >
+                {t("fit.page.retry")}
+              </button>
             </section>
           )}
 
@@ -1135,7 +1118,10 @@ function ScorePageContent() {
               candidateId={candidateId}
               jobId={jobId}
               onMatchUpdated={handleMatchingResult}
-              onStartInterview={handleStartInterview}
+              onChooseInterviewMode={() => {
+                setInterviewStartError(null);
+                setShowModeChooser(true);
+              }}
               startingInterview={startingInterview}
             />
           )}
@@ -1155,7 +1141,7 @@ export function ReportContent({
   candidateId,
   jobId,
   onMatchUpdated,
-  onStartInterview,
+  onChooseInterviewMode,
   startingInterview = false,
 }: {
   result: CvScoringResponse;
@@ -1165,9 +1151,11 @@ export function ReportContent({
   candidateId?: string;
   jobId?: string;
   onMatchUpdated?: (result: MatchResult) => void;
-  onStartInterview?: (mode: "chat" | "voice" | "video") => void;
+  /** Opens the interview mode chooser (same as the header button). */
+  onChooseInterviewMode?: () => void;
   startingInterview?: boolean;
 }) {
+  const { t } = useLanguage();
   // Priority Source: requirementResults
   const requirementItems = useMemo(() => {
     if (result.requirementResults && result.requirementResults.length > 0) {
@@ -1188,10 +1176,12 @@ export function ReportContent({
       requirementResults: requirementItems,
       jobStructuredData: (jobProfile?.structuredData as Record<string, unknown> | null) || null,
       cvParsedData: (cvData?.parsedData as Record<string, unknown> | null) || null,
+      matchEvidence: result.matchResult?.evidence,
       requirementsMap,
-      resolveReasonCodeText,
+      resolveReasonCodeText: (code?: string) => resolveReasonCodeText(code, t),
+      t,
     });
-  }, [requirementItems, jobProfile, cvData, requirementsMap]);
+  }, [requirementItems, jobProfile, cvData, requirementsMap, result.matchResult?.evidence, t]);
 
   // Factor results — ONLY Truthful backend factors, NO synthetic fabrication
   const factors: FactorResult[] = useMemo(() => {
@@ -1203,26 +1193,26 @@ export function ReportContent({
     if (statuses.includes("not_met")) {
       return {
         kind: "review" as const,
-        title: "Xem các tiêu chí còn thiếu",
-        description: "Tập trung vào những yêu cầu chưa được hồ sơ hiện tại đáp ứng.",
+        title: t("fit.next.review.title"),
+        description: t("fit.next.review.desc"),
       };
     }
     if (statuses.includes("unknown")) {
       return {
         kind: "update" as const,
-        title: "Bổ sung thông tin CV để kết quả chính xác hơn",
-        description: "Một số tiêu chí chưa có đủ bằng chứng rõ ràng trong hồ sơ.",
+        title: t("fit.next.update.title"),
+        description: t("fit.next.update.desc"),
       };
     }
     if (result.eligibility === "eligible") {
       return {
         kind: "interview" as const,
-        title: "Bạn đã có nền tảng phù hợp với vị trí này",
-        description: "Tiếp tục chuẩn bị bằng cách luyện tập với yêu cầu thực tế của vị trí.",
+        title: t("fit.next.interview.title"),
+        description: t("fit.next.interview.desc"),
       };
     }
     return null;
-  }, [result.eligibility, result.requirementResults]);
+  }, [result.eligibility, result.requirementResults, t]);
 
   return (
     <div className="space-y-8">
@@ -1236,7 +1226,44 @@ export function ReportContent({
           failedMustHaveCount={result.failedMustHaveRequirements?.length ?? 0}
           scoreIsDiagnostic={result.diagnosticScore != null}
         />
-        <MatchBreakdown requirementResults={result.requirementResults} />
+        {nextAction && (
+          <section className="rounded-3xl bg-[#FFF8E6] p-5 ring-1 ring-[#FCB625]/50 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold text-[#204195]">{t("fit.next.eyebrow")}</p>
+                <h3 className="mt-1 text-xl font-semibold text-[#14244B]">
+                  {nextAction.title}
+                </h3>
+                <p className="mt-1 text-sm leading-6 text-[#607096]">{nextAction.description}</p>
+              </div>
+
+              {nextAction.kind === "update" ? (
+                <Link
+                  href="/dashboard/cvs"
+                  className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+                >
+                  {t("fit.next.updateCv")}
+                </Link>
+              ) : nextAction.kind === "review" ? (
+                <a
+                  href="#criteria-review"
+                  className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+                >
+                  {t("fit.next.reviewCta")}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onChooseInterviewMode}
+                  disabled={startingInterview}
+                  className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:opacity-50"
+                >
+                  {t("fit.next.interviewCta")}
+                </button>
+              )}
+            </div>
+          </section>
+        )}
       </div>
 
       {/* ── Candidate Job Match Details UI (ATS / SaaS design) ── */}
@@ -1247,65 +1274,61 @@ export function ReportContent({
           candidateId={candidateId}
           jobId={jobId}
           onMatchUpdated={onMatchUpdated}
+          cvRawText={cvData?.rawText}
+          cvContentType={cvData?.contentType}
+          cvFileName={cvData?.originalName}
         />
       </div>
 
       {/* ── Section: Competency Factors — collapsed by default ── */}
       {factors.length > 0 && (
-        <details className="group rounded-xl border border-slate-200 bg-white shadow-2xs" open={false}>
-          <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-3.5 border-b border-slate-100 group-open:border-slate-200">
+        <details className="group overflow-hidden rounded-3xl bg-white ring-1 ring-[#DCE4F3]" open={false}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 group-open:border-b group-open:border-[#EAEFF8]">
             <div>
-              <span className="text-sm font-bold text-slate-900">Chi tiết điểm</span>
-              <span className="ml-2 text-xs text-slate-500">Phân tích theo các trụ cột năng lực</span>
+              <span className="text-lg font-semibold text-[#14244B]">{t("fit.factors.title")}</span>
+              <span className="ml-2 text-xs text-[#607096]">{t("fit.factors.subtitle")}</span>
             </div>
-            <svg className="size-4 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <svg className="size-4 text-[#9AA6C2] transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
             </svg>
           </summary>
 
         {factors.length > 0 ? (
-          <div className="mt-5 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3.5 p-5 sm:grid-cols-2 lg:grid-cols-4">
             {factors.map((f, idx) => {
-              const info = getFactorLabel(f.factor);
-              const Icon = info.icon;
+              const info = getFactorLabel(f.factor, t);
               const isScored = f.status === "scored" && typeof f.rawScore === "number";
               const factorScore = isScored ? Math.round(f.rawScore! * 100) : null;
 
               const barColor =
                 factorScore !== null
                   ? factorScore >= 70
-                    ? "bg-emerald-600"
+                    ? "bg-[#287A4B]"
                     : factorScore >= 45
                     ? "bg-[#204195]"
                     : factorScore >= 30
-                    ? "bg-amber-500"
-                    : "bg-rose-500"
-                  : "bg-slate-300";
+                    ? "bg-[#FCB625]"
+                    : "bg-[#C43B3B]"
+                  : "bg-[#C9D7F1]";
 
               return (
                 <div
                   key={`${f.factor}-${idx}`}
-                  className="flex flex-col justify-between rounded-lg border border-slate-200 bg-slate-50/40 p-4 transition-colors hover:border-slate-300"
+                  className="flex flex-col justify-between rounded-2xl bg-[#F8FAFC] p-4"
                 >
                   <div>
-                    <div className="flex items-center">
-                      <div className="flex size-8 items-center justify-center rounded bg-slate-100 text-slate-700">
-                        <Icon className="size-4" />
-                      </div>
-                    </div>
-
-                    <h4 className="mt-2.5 text-xs font-bold text-slate-900">{info.label}</h4>
-                    <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-slate-500">{info.desc}</p>
+                    <h4 className="text-sm font-semibold text-[#14244B]">{info.label}</h4>
+                    <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-[#607096]">{info.desc}</p>
                   </div>
 
                   <div className="mt-3.5">
                     {f.status === "scored" && factorScore !== null ? (
                       <>
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-medium text-slate-500">Mức độ đạt</span>
-                          <span className="font-bold text-slate-900">{factorScore}%</span>
+                          <span className="font-medium text-[#607096]">{t("fit.factors.achieved")}</span>
+                          <span className="font-bold text-[#14244B]">{factorScore}%</span>
                         </div>
-                        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[#DCE4F3]">
                           <div
                             className={`h-full rounded-full ${barColor}`}
                             style={{ width: `${factorScore}%` }}
@@ -1313,14 +1336,14 @@ export function ReportContent({
                         </div>
                       </>
                     ) : f.status === "not_applicable" ? (
-                      <div className="flex items-center justify-between rounded bg-slate-100 px-2 py-1 text-xs">
-                        <span className="text-slate-500 font-medium">Trạng thái</span>
-                        <span className="font-semibold text-slate-600">Không áp dụng</span>
+                      <div className="flex items-center justify-between rounded-xl bg-[#F0F4FC] px-2.5 py-1 text-xs">
+                        <span className="text-[#607096] font-medium">{t("fit.factors.status")}</span>
+                        <span className="font-semibold text-[#607096]">{t("fit.status.notApplicable")}</span>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between rounded bg-slate-100 px-2 py-1 text-xs">
-                        <span className="text-slate-500 font-medium">Trạng thái</span>
-                        <span className="font-semibold text-slate-700">Cần xác nhận</span>
+                      <div className="flex items-center justify-between rounded-xl bg-[#F0F4FC] px-2.5 py-1 text-xs">
+                        <span className="text-[#607096] font-medium">{t("fit.factors.status")}</span>
+                        <span className="font-semibold text-[#607096]">{t("fit.status.unknown")}</span>
                       </div>
                     )}
                   </div>
@@ -1329,8 +1352,8 @@ export function ReportContent({
             })}
           </div>
         ) : (
-          <div className="mt-5 rounded-lg border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center text-xs text-slate-500">
-            Chưa có dữ liệu đánh giá theo từng yếu tố.
+          <div className="m-5 rounded-2xl bg-[#F8FAFC] p-6 text-center text-xs text-[#607096]">
+            {t("fit.factors.empty")}
           </div>
         )}
         </details>
@@ -1341,33 +1364,24 @@ export function ReportContent({
 
       {/* ── Section: Workplace Compatibility ── */}
       {result.compatibilityResults && result.compatibilityResults.length > 0 && (
-        <section className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs">
-          <h3 className="text-base font-bold text-slate-900">Tính tương thích về môi trường làm việc</h3>
-          <p className="mt-0.5 text-xs text-slate-500">Đối chiếu giữa nguyện vọng của bạn và chính sách làm việc của doanh nghiệp.</p>
+        <section className="rounded-3xl bg-white p-5 ring-1 ring-[#DCE4F3] sm:p-6">
+          <h3 className="text-lg font-semibold text-[#14244B]">{t("fit.compat.title")}</h3>
+          <p className="mt-0.5 text-xs text-[#607096]">{t("fit.compat.subtitle")}</p>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {result.compatibilityResults.map((c: CompatibilityResult, idx: number) => {
-              const compatInfo = resolveCompatibilityInfo(c.status, c.criterion);
-              const title = c.criterion === "work_mode" ? "Hình thức làm việc" : "Địa điểm làm việc";
+              const compatInfo = resolveCompatibilityInfo(c.status, c.criterion, t);
+              const title = c.criterion === "work_mode" ? t("fit.compat.workMode") : t("fit.compat.location");
               return (
-                <div key={idx} className={`flex items-start gap-3 rounded-lg border p-3.5 ${compatInfo.boxBg}`}>
-                  <div className={`mt-0.5 rounded p-1.5 ${compatInfo.badgeClass}`}>
-                    {c.status === "compatible" ? (
-                      <CheckCircle2 className="size-4" />
-                    ) : c.status === "incompatible" ? (
-                      <XCircle className="size-4" />
-                    ) : (
-                      <HelpCircle className="size-4" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-slate-900">{title}</h4>
-                      <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold border ${compatInfo.badgeClass}`}>
+                <div key={idx} className={`rounded-2xl border p-3.5 ${compatInfo.boxBg}`}>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h4 className="text-sm font-semibold text-[#14244B]">{title}</h4>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold border ${compatInfo.badgeClass}`}>
                         {compatInfo.label}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-slate-600">{resolveReasonCodeText(c.reasonCode)}</p>
+                    <p className="mt-1 text-xs text-[#607096]">{resolveReasonCodeText(c.reasonCode, t)}</p>
                   </div>
                 </div>
               );
@@ -1378,16 +1392,15 @@ export function ReportContent({
 
       {/* ── Section: System Warnings ── */}
       {result.warnings && result.warnings.length > 0 && (
-        <section className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-2xs">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-slate-700" />
-            <div>
-              <h3 className="text-xs font-bold text-slate-900">Lưu ý về độ tin cậy</h3>
-              <ul className="mt-1.5 space-y-1 text-xs leading-relaxed text-slate-600">
+        <section className="rounded-3xl bg-[#F0F4FC] p-5">
+          <div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-[#14244B]">{t("fit.warn.title")}</h3>
+              <ul className="mt-1.5 space-y-1 text-xs leading-relaxed text-[#607096]">
                 {result.warnings.map((w, index) => (
                   <li key={`${w}-${index}`} className="flex items-start gap-2">
-                    <span className="mt-1.5 size-1 shrink-0 rounded-full bg-slate-500" />
-                    <span>{resolveWarningText(w)}</span>
+                    <span className="mt-1.5 size-1 shrink-0 rounded-full bg-[#9AA6C2]" aria-hidden="true" />
+                    <span>{resolveWarningText(w, t)}</span>
                   </li>
                 ))}
               </ul>
@@ -1396,57 +1409,18 @@ export function ReportContent({
         </section>
       )}
 
-      {nextAction && (
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Bước tiếp theo</p>
-              <h3 className="mt-1.5 text-lg font-semibold tracking-tight text-slate-900">
-                {nextAction.title}
-              </h3>
-              <p className="mt-1 text-sm leading-6 text-slate-500">{nextAction.description}</p>
-            </div>
-
-            {nextAction.kind === "update" ? (
-              <Link
-                href="/dashboard/cvs"
-                className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[#204195] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
-              >
-                Cập nhật CV
-              </Link>
-            ) : nextAction.kind === "review" ? (
-              <a
-                href="#criteria-review"
-                className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[#204195] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
-              >
-                Xem tiêu chí cần cải thiện
-              </a>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onStartInterview?.("video")}
-                disabled={startingInterview}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#204195] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:opacity-50"
-              >
-                <Video className="size-4" />
-                Luyện phỏng vấn cho vị trí này
-              </button>
-            )}
-          </div>
-        </section>
-      )}
     </div>
   );
 }
 
 export default function CvScorePage() {
+  const { t } = useLanguage();
   return (
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
-          <div className="flex items-center gap-3 rounded-2xl border border-[#DCE4F3] bg-white px-6 py-4 shadow-xs">
-            <RefreshCw className="size-5 animate-spin text-[#204195]" />
-            <span className="text-sm font-semibold text-[#607096]">Đang chuẩn bị báo cáo đối chiếu...</span>
+          <div className="flex items-center gap-3 rounded-3xl bg-white px-6 py-4 ring-1 ring-[#DCE4F3]">
+            <span className="text-sm font-semibold text-[#607096]">{t("fit.page.suspense")}</span>
           </div>
         </div>
       }

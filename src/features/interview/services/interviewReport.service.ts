@@ -59,7 +59,34 @@ export interface EvaluationReport {
   evaluatedAt?: string;
 }
 
+export interface SessionReflection {
+  sessionId: string;
+  /** turnId → 1..4 (Còn yếu · Tạm được · Khá · Tốt) */
+  selfRatings: Record<string, number>;
+  takeaway: string | null;
+  submitted: boolean;
+  updatedAt: string | null;
+}
+
 export const interviewReportApi = {
+  getReflection: async (sessionId: string): Promise<SessionReflection> => {
+    const res = await apiClient.get<SessionReflection>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/reflection`
+    );
+    return res.data;
+  },
+
+  saveReflection: async (
+    sessionId: string,
+    payload: { selfRatings: Record<string, number>; takeaway?: string | null }
+  ): Promise<SessionReflection> => {
+    const res = await apiClient.put<SessionReflection>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/reflection`,
+      payload
+    );
+    return res.data;
+  },
+
   getEvaluation: async (sessionId: string): Promise<EvaluationReport> => {
     const res = await apiClient.get<EvaluationReport>(
       `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/evaluation`

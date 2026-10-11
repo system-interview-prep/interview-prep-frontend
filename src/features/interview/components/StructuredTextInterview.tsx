@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, ArrowLeft, CheckCircle2, Clock, Eye, Loader2, LogOut, Send, Sparkles, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, Clock, Eye, Loader2, LogOut, Send, X } from 'lucide-react';
 import {
   interviewRuntimeApi,
   type InterviewFrozenTurn,
@@ -10,6 +10,13 @@ import {
   type InterviewTextRuntime,
 } from '../services/interviewRuntime.service';
 import { PracticeHeader, PracticeQuestionCard, PracticeSidebar, PracticeTurnStepper } from './PracticeRoomParts';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import { fmt, localeOf } from '@/i18n/format';
+import { ProcessStatus } from '@components/shared/ProcessSteps';
+import { useDialogA11y } from '@components/shared/useDialogA11y';
+
+/** Why the room could not load; translated at render so a language switch applies. */
+type LoadError = 'question_unavailable' | 'not_found' | 'network';
 
 interface StructuredTextInterviewProps {
   sessionId: string;
@@ -18,10 +25,10 @@ interface StructuredTextInterviewProps {
   backUrl?: string;
 }
 
-function formatTime(isoString?: string | null): string {
+function formatTime(isoString: string | null | undefined, locale: string): string {
   if (!isoString) return '';
   try {
-    return new Date(isoString).toLocaleTimeString('vi-VN', {
+    return new Date(isoString).toLocaleTimeString(locale, {
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -54,15 +61,16 @@ export default function StructuredTextInterview({
   sessionId,
   jobTitle,
   onCompleted,
-  backUrl = '/practice?tab=cv-jd',
+  backUrl = '/interview/select',
 }: StructuredTextInterviewProps) {
   const router = useRouter();
+  const { t, lang } = useLanguage();
 
   // Runtime and plan state
   const [runtime, setRuntime] = useState<InterviewTextRuntime | null>(null);
   const [plan, setPlan] = useState<InterviewRuntimePlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LoadError | null>(null);
 
   // Turn management
   const [selectedTurnId, setSelectedTurnId] = useState<string | null>(null);
@@ -73,6 +81,15 @@ export default function StructuredTextInterview({
   // Exit dialog
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [exitError, setExitError] = useState<string | null>(null);
+  const exitTitleId = useId();
+  const closeExitDialog = useCallback(() => {
+    setShowExitConfirm(false);
+    setExitError(null);
+  }, []);
+  const exitDialogRef = useDialogA11y<HTMLDivElement>(showExitConfirm, isClosing ? undefined : closeExitDialog);
+  // Bumped by "Retry" on the fatal error screen to load the room again.
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Load session plan (best-effort for agenda sidebar)
   const loadPlan = useCallback(async () => {
@@ -113,13 +130,12 @@ export default function StructuredTextInterview({
         const msg = extractErrorMessage(err);
         const status = extractErrorStatus(err);
         if (msg.includes('question_unavailable')) {
-          setError(
-            'question_unavailable: Phiên luyện tập chưa thể bắt đầu vì Question Bank chưa có đủ câu hỏi đã duyệt và hiệu chuẩn cho vị trí này.'
-          );
+          setError('question_unavailable');
         } else if (status === 404) {
-          setError('Không tìm thấy phiên luyện tập hoặc bạn không có quyền truy cập.');
+          setError('not_found');
         } else {
-          setError(msg ? msg : 'Không thể tải phòng luyện tập.');
+          // Raw backend text is not shown to candidates.
+          setError('network');
         }
       })
       .finally(() => {
@@ -129,7 +145,7 @@ export default function StructuredTextInterview({
     return () => {
       active = false;
     };
-  }, [loadPlan, loadRuntime]);
+  }, [loadPlan, loadRuntime, reloadKey]);
 
   // Determine current active turn
   const activeTurn: InterviewFrozenTurn | null = useMemo(() => {
@@ -160,11 +176,9 @@ export default function StructuredTextInterview({
       const closed = await interviewRuntimeApi.completeTextRuntime(sessionId);
       setRuntime(closed);
       onCompleted?.();
-    } catch (err: unknown) {
-      const msg = extractErrorMessage(err);
-      setSubmitError(
-        `Đã lưu toàn bộ câu trả lời nhưng chưa hoàn tất được phiên${msg ? `: ${msg}` : ''}. Vui lòng thử lại.`
-      );
+    } catch {
+      // Raw backend text is not shown to candidates.
+      setSubmitError(fmt(t('room.practice.finalizeError'), { detail: '' }));
     } finally {
       setIsSubmitting(false);
     }
@@ -177,7 +191,7 @@ export default function StructuredTextInterview({
 
     const trimmed = answerInput.trim();
     if (!trimmed) {
-      setSubmitError('Vui lòng nhập nội dung câu trả lời trước khi gửi.');
+      setSubmitError(t('room.practice.emptyAnswer'));
       return;
     }
 
@@ -213,66 +227,84 @@ export default function StructuredTextInterview({
         setSelectedTurnId(next.currentTurn.turnId);
       }
       setAnswerInput('');
-    } catch (err: unknown) {
-      const msg = extractErrorMessage(err);
-      setSubmitError(
-        msg ? msg : 'Không thể gửi câu trả lời. Vui lòng kiểm tra kết nối mạng và thử lại.'
-      );
+    } catch {
+      // Raw backend text is not shown to candidates.
+      setSubmitError(t('room.practice.sendError'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   // Close session on confirm exit
+  // Ending keeps the candidate here: the completed screen offers the report.
   const handleConfirmExit = async () => {
     setIsClosing(true);
+    setExitError(null);
     try {
       await interviewRuntimeApi.close(sessionId);
     } catch {
-      // Best effort close
-    } finally {
+      setExitError(t('room.practice.closeError'));
       setIsClosing(false);
-      setShowExitConfirm(false);
-      router.push(backUrl);
+      return;
     }
+    setRuntime((prev) => (prev ? { ...prev, sessionStatus: 'CLOSED' } : prev));
+    setSelectedTurnId(null);
+    try {
+      setRuntime(await interviewRuntimeApi.getTextRuntime(sessionId));
+    } catch {
+      // The local CLOSED state is enough to show the completed screen.
+    }
+    setIsClosing(false);
+    setShowExitConfirm(false);
+    onCompleted?.();
   };
 
   // 1. Loading State
   if (isLoading) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-[#F7F9FD] p-6 text-[#14244B]">
-        <Loader2 className="size-10 animate-spin text-[#204195]" />
-        <p className="font-headline text-base font-bold text-[#14244B]">Đang tải phòng luyện tập theo CV–JD...</p>
-        <p className="text-xs text-[#607096]">Đang kết nối session và nạp danh sách câu hỏi đã khóa theo CV–JD</p>
+      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-[#F7F9FD] p-6 text-[#14244B]">
+        <div className="text-center">
+          <p className="font-display text-xl font-semibold text-[#14244B]">{t('room.practice.loadingTitle')}</p>
+          <p className="mt-1 text-sm text-[#607096]">{t('room.practice.loadingSub')}</p>
+        </div>
+        <ProcessStatus
+          className="w-full max-w-sm"
+          phases={[t('uxWs.room.phaseLoad'), t('uxWs.room.phasePlan'), t('uxWs.room.phaseOpen')]}
+          activeIndex={2}
+        />
       </div>
     );
   }
 
   // 2. Fatal Error State (e.g. 409 question_unavailable, 404, etc.)
   if (error && !runtime) {
-    const isQuestionUnavailable = error.includes('question_unavailable');
+    const isQuestionUnavailable = error === 'question_unavailable';
     return (
-      <div className="flex h-screen flex-col items-center justify-center p-6 text-center bg-[#F7F9FD]">
-        <div className="max-w-md rounded-2xl border border-red-200 bg-white p-6 shadow-sm">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-red-100 text-red-600">
-            <AlertCircle className="size-6" />
-          </div>
-          <h2 className="mt-4 text-lg font-bold text-[#14244B]">
-            {isQuestionUnavailable ? 'Chưa thể bắt đầu luyện tập' : 'Không thể tải phòng luyện tập'}
+      <div className="flex h-dvh flex-col items-center justify-center p-6 text-center bg-[#F7F9FD]">
+        <div className="max-w-md rounded-3xl bg-white p-6 ring-1 ring-[#DCE4F3]">
+          <h2 className="mt-3 font-display text-xl font-semibold text-[#14244B]">
+            {isQuestionUnavailable ? t('room.practice.unavailableTitle') : t('room.practice.loadErrorTitle')}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-[#607096]">
             {isQuestionUnavailable
-              ? 'Ngân hàng câu hỏi hiện chưa có đủ câu hỏi đã được phê duyệt và hiệu chuẩn cho vị trí này. Vui lòng quay lại chọn vị trí khác hoặc liên hệ bộ phận hỗ trợ.'
-              : error}
+              ? t('room.practice.unavailableBody')
+              : t(error === 'not_found' ? 'room.practice.notFound' : 'room.practice.networkError')}
           </p>
           <div className="mt-6 flex flex-col gap-2">
             <button
               type="button"
+              onClick={() => setReloadKey((key) => key + 1)}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#204195] px-6 text-sm font-semibold text-white hover:bg-[#183275] transition-colors"
+            >
+              {t('room.common.retry')}
+            </button>
+            <button
+              type="button"
               onClick={() => router.push(backUrl)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#204195] px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-[#183275] transition-colors"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#F7F9FD] px-5 text-sm font-semibold text-[#14244B] hover:bg-[#EEF2FD] transition-colors"
             >
               <ArrowLeft className="size-4" />
-              <span>Quay lại</span>
+              <span>{t('room.common.back')}</span>
             </button>
           </div>
         </div>
@@ -299,7 +331,7 @@ export default function StructuredTextInterview({
   const charCount = answerInput.length;
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#F7F9FD] font-body text-[#14244B]">
+    <div className="flex h-dvh flex-col overflow-hidden bg-[#F7F9FD] font-body text-[#14244B]">
       <PracticeHeader
         jobTitle={jobTitle}
         isClosed={isSessionClosed}
@@ -334,19 +366,16 @@ export default function StructuredTextInterview({
             {isSessionClosed ? (
               /* ── COMPLETED: report CTA + read-only transcript ── */
               <div className="space-y-6">
-                <section className="rounded-2xl border border-[#DCE4F3] bg-white p-6 text-center shadow-xs">
-                  <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-                    <CheckCircle2 className="size-7" aria-hidden="true" />
-                  </div>
-                  <h2 className="mt-3 text-lg font-bold text-[#14244B]">Bạn đã hoàn thành phiên luyện tập</h2>
+                <section className="rounded-3xl bg-[#F0F4FC]/70 p-6 text-center">
+                  <h2 className="mt-3 font-display text-2xl font-semibold text-[#14244B]">{t('room.practice.completedTitle')}</h2>
                   <p className="mt-1 text-sm text-[#607096]">
-                    Đã ghi nhận câu trả lời cho {answeredTurns}/{totalTurns} câu hỏi.
+                    {fmt(t('room.practice.recorded'), { answered: answeredTurns, total: totalTurns })}
                   </p>
 
                   {needsFinalize && submitError ? (
                     <p
                       role="alert"
-                      className="mx-auto mt-4 max-w-md rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800"
+                      className="mx-auto mt-4 max-w-md rounded-2xl bg-[#FDF2F2] px-3 py-2 text-xs text-[#C43B3B]"
                     >
                       {submitError}
                     </p>
@@ -358,56 +387,50 @@ export default function StructuredTextInterview({
                         type="button"
                         onClick={() => void finalizePractice()}
                         disabled={isSubmitting}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#204195] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#183273] disabled:opacity-60 sm:w-auto"
+                        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275] disabled:opacity-60 sm:w-auto"
                       >
-                        {isSubmitting ? (
-                          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                        ) : (
-                          <Sparkles className="size-4" aria-hidden="true" />
-                        )}
-                        {isSubmitting ? 'Đang hoàn tất…' : 'Hoàn tất phiên để tạo báo cáo'}
+                        {isSubmitting ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+                        {isSubmitting ? t('room.practice.finalizing') : t('room.practice.finalize')}
                       </button>
                     ) : (
                       <button
                         type="button"
                         onClick={() => router.push(`/interview/results/${sessionId}`)}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#204195] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#183273] sm:w-auto"
+                        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275] sm:w-auto"
                       >
-                        <Sparkles className="size-4" aria-hidden="true" />
-                        Xem báo cáo đánh giá
+                        {t('room.common.viewReport')}
                       </button>
                     )}
                     <button
                       type="button"
                       onClick={() => router.push(backUrl)}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-5 py-2.5 text-sm font-semibold text-[#14244B] transition hover:bg-[#F7F9FD] sm:w-auto"
+                      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-[#14244B] transition hover:bg-[#F7F9FD] sm:w-auto"
                     >
-                      <ArrowLeft className="size-4" aria-hidden="true" />
-                      Quay lại
+                      {t('room.common.back')}
                     </button>
                   </div>
                 </section>
 
                 <section className="space-y-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#607096]">
-                    Xem lại câu hỏi và câu trả lời ({runtime.turns.length} câu)
+                  <h3 className="text-[12px] font-semibold text-[#204195]">
+                    {fmt(t('room.practice.reviewHeading'), { n: runtime.turns.length })}
                   </h3>
                   {runtime.turns.map((turn, i) => (
-                    <article key={turn.turnId} className="rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs">
+                    <article key={turn.turnId} className="rounded-3xl border border-[#DCE4F3] bg-white p-5">
                       <div className="flex items-center justify-between text-xs text-[#607096]">
-                        <span className="font-bold text-[#204195]">Câu {i + 1}</span>
+                        <span className="font-bold text-[#204195]">{fmt(t('room.common.questionN'), { n: i + 1 })}</span>
                         {turn.completedAt ? (
                           <span className="inline-flex items-center gap-1">
                             <Clock className="size-3" aria-hidden="true" />
-                            {formatTime(turn.completedAt)}
+                            {formatTime(turn.completedAt, localeOf(lang))}
                           </span>
                         ) : null}
                       </div>
                       <p className="mt-2 font-semibold text-[#14244B]">{turn.question?.questionText}</p>
-                      <div className="mt-3 rounded-xl bg-[#F7F9FD] p-3.5">
-                        <p className="text-xs font-bold text-[#607096]">Câu trả lời của bạn</p>
+                      <div className="mt-3 rounded-2xl bg-[#F7F9FD] p-3.5">
+                        <p className="text-xs font-bold text-[#607096]">{t('room.practice.yourAnswer')}</p>
                         <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-[#14244B]">
-                          {turn.answerText || '(Chưa có nội dung trả lời)'}
+                          {turn.answerText || t('room.practice.noAnswer')}
                         </p>
                       </div>
                     </article>
@@ -418,10 +441,10 @@ export default function StructuredTextInterview({
               /* ── ACTIVE / REVIEW QUESTION PANEL ── */
               <div className="flex flex-1 flex-col space-y-4">
                 {!isViewingCurrentTurn && activeTurn.status === 'ANSWERED' ? (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#DCE4F3] bg-[#EEF2FD] px-4 py-2.5 text-xs text-[#14244B]">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#EEF2FD] px-4 py-2.5 text-xs text-[#14244B]">
                     <span className="inline-flex items-center gap-1.5 font-medium">
                       <Eye className="size-3.5 text-[#204195]" aria-hidden="true" />
-                      Đang xem lại câu {activeTurn.turnIndex + 1} (chỉ đọc)
+                      {fmt(t('room.practice.reviewing'), { n: activeTurn.turnIndex + 1 })}
                     </span>
                     <button
                       type="button"
@@ -430,21 +453,21 @@ export default function StructuredTextInterview({
                       }}
                       className="font-bold text-[#204195] hover:underline"
                     >
-                      Về câu đang trả lời →
+                      {t('room.practice.backToCurrent')}
                     </button>
                   </div>
                 ) : null}
 
                 <PracticeQuestionCard turn={activeTurn} total={totalTurns} />
 
-                <section className="flex flex-1 flex-col rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs sm:p-6">
+                <section className="flex flex-1 flex-col rounded-3xl border border-[#DCE4F3] bg-white p-5 sm:p-6">
                   <div className="flex items-center justify-between">
                     <label htmlFor="candidate-answer-input" className="text-sm font-bold text-[#14244B]">
-                      {activeTurn.status === 'ANSWERED' ? 'Câu trả lời đã lưu' : 'Câu trả lời của bạn'}
+                      {activeTurn.status === 'ANSWERED' ? t('room.practice.savedAnswer') : t('room.practice.yourAnswer')}
                     </label>
                     {activeTurn.status !== 'ANSWERED' ? (
                       <span className="text-xs tabular-nums text-[#607096]">
-                        {wordCount} từ · {charCount} ký tự
+                        {fmt(t('room.practice.counts'), { words: wordCount, chars: charCount })}
                       </span>
                     ) : null}
                   </div>
@@ -452,15 +475,15 @@ export default function StructuredTextInterview({
                   {submitError ? (
                     <div
                       role="alert"
-                      className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800"
+                      className="mt-3 flex items-start gap-2 rounded-2xl bg-[#FDF2F2] px-3 py-2.5 text-sm text-[#C43B3B]"
                     >
                       <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                       <p className="flex-1">{submitError}</p>
                       <button
                         type="button"
                         onClick={() => setSubmitError(null)}
-                        className="rounded-md p-0.5 hover:bg-rose-100"
-                        aria-label="Đóng thông báo"
+                        className="rounded-full p-0.5 hover:bg-[#FBE6E6]"
+                        aria-label={t('room.common.dismiss')}
                       >
                         <X className="size-4" />
                       </button>
@@ -468,13 +491,13 @@ export default function StructuredTextInterview({
                   ) : null}
 
                   {activeTurn.status === 'ANSWERED' ? (
-                    <div className="mt-3 flex-1 rounded-xl bg-[#F7F9FD] p-4">
+                    <div className="mt-3 flex-1 rounded-2xl bg-[#F7F9FD] p-4">
                       <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#14244B]">
-                        {activeTurn.answerText || '(Trống)'}
+                        {activeTurn.answerText || t('room.practice.empty')}
                       </p>
-                      <p className="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                      <p className="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-[#287A4B]">
                         <CheckCircle2 className="size-3.5" aria-hidden="true" />
-                        Đã ghi nhận — câu trả lời không thể sửa.
+                        {t('room.practice.lockedNote')}
                       </p>
                     </div>
                   ) : (
@@ -485,36 +508,36 @@ export default function StructuredTextInterview({
                         value={answerInput}
                         onChange={(e) => setAnswerInput(e.target.value)}
                         onKeyDown={(e) => {
-                          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !e.nativeEvent.isComposing) {
                             e.preventDefault();
                             void handleSubmitAnswer();
                           }
                         }}
                         disabled={isSubmitting}
-                        placeholder="Trả lời theo ý chính, gạch đầu dòng cũng được…"
-                        className="mt-3 min-h-40 flex-1 resize-y rounded-xl border border-[#DCE4F3] bg-white p-4 text-sm leading-relaxed text-[#14244B] placeholder:text-[#607096]/70 focus:border-[#204195] focus:outline-hidden focus:ring-2 focus:ring-[#204195]/15 disabled:cursor-not-allowed disabled:bg-[#F7F9FD]"
+                        placeholder={t('room.practice.placeholder')}
+                        className="mt-3 min-h-40 flex-1 resize-y rounded-2xl border border-[#DCE4F3] bg-white p-4 text-sm leading-relaxed text-[#14244B] placeholder:text-[#607096]/70 focus:border-[#204195] focus:outline-hidden focus:ring-2 focus:ring-[#204195]/15 disabled:cursor-not-allowed disabled:bg-[#F7F9FD]"
                       />
 
                       <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-xs text-[#607096]">
-                          Câu đã gửi sẽ được khóa ·{' '}
+                          {t('room.practice.lockHint')} ·{' '}
                           <kbd className="rounded border border-[#DCE4F3] bg-[#F7F9FD] px-1.5 py-0.5 font-mono text-[10px]">Ctrl</kbd> +{' '}
-                          <kbd className="rounded border border-[#DCE4F3] bg-[#F7F9FD] px-1.5 py-0.5 font-mono text-[10px]">Enter</kbd> để gửi
+                          <kbd className="rounded border border-[#DCE4F3] bg-[#F7F9FD] px-1.5 py-0.5 font-mono text-[10px]">Enter</kbd> {t('room.common.toSend')}
                         </span>
                         <button
                           type="button"
                           onClick={() => void handleSubmitAnswer()}
                           disabled={isSubmitting || !answerInput.trim()}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#204195] px-6 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-[#183273] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {isSubmitting ? (
                             <>
                               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                              <span>Đang lưu...</span>
+                              <span>{t('room.practice.saving')}</span>
                             </>
                           ) : (
                             <>
-                              <span>Gửi câu trả lời</span>
+                              <span>{t('room.practice.send')}</span>
                               <Send className="size-4" aria-hidden="true" />
                             </>
                           )}
@@ -531,34 +554,42 @@ export default function StructuredTextInterview({
 
       {/* ── EXIT CONFIRMATION MODAL ── */}
       {showExitConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#14244B]/50 p-4 backdrop-blur-xs"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="relative w-full max-w-md rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-[#14244B]">Xác nhận kết thúc phiên luyện tập?</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#14244B]/60 p-4">
+          <div
+            ref={exitDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={exitTitleId}
+            tabIndex={-1}
+            className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-[0_28px_60px_-30px_rgba(30,34,53,0.7)] ring-1 ring-[#DCE4F3] outline-none"
+          >
+            <h3 id={exitTitleId} className="font-display text-xl font-semibold text-[#14244B]">{t('room.practice.exitTitle')}</h3>
             <p className="mt-2 text-xs leading-relaxed text-[#607096]">
-              Phiên luyện tập sẽ được đóng lại. Các câu trả lời bạn đã gửi vẫn được lưu.
+              {t('room.practice.exitBody')}
             </p>
+            {exitError ? (
+              <p role="alert" className="mt-3 rounded-2xl bg-[#FDF2F2] px-3 py-2 text-xs text-[#C43B3B]">
+                {exitError}
+              </p>
+            ) : null}
 
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setShowExitConfirm(false)}
+                onClick={closeExitDialog}
                 disabled={isClosing}
-                className="rounded-xl border border-[#DCE4F3] bg-white px-4 py-2 text-xs font-semibold text-[#14244B] transition-colors hover:bg-[#F7F9FD]"
+                className="h-10 rounded-full bg-[#F7F9FD] px-5 text-xs font-semibold text-[#14244B] transition-colors hover:bg-[#EEF2FD]"
               >
-                Tiếp tục luyện tập
+                {t('room.practice.continue')}
               </button>
               <button
                 type="button"
                 onClick={() => void handleConfirmExit()}
                 disabled={isClosing}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
+                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#C43B3B] px-5 text-xs font-semibold text-white transition-colors hover:bg-[#A93232] disabled:opacity-50"
               >
                 {isClosing ? <Loader2 className="size-3.5 animate-spin" /> : <LogOut className="size-3.5" />}
-                <span>Kết thúc luyện tập</span>
+                <span>{t('room.practice.endPractice')}</span>
               </button>
             </div>
           </div>

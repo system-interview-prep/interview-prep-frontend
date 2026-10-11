@@ -16,43 +16,43 @@ export default function AdminAiErrorsClient() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        title={t("admin.ai.errors.title") || "Nhật ký Sự cố AI (AI Errors & Exceptions)"}
-        description={t("admin.ai.errors.subtitle") || "Tổng hợp và phân nhóm các lỗi phát sinh từ LLM Gateway: Timeout, Rate limit, Invalid JSON output, Schema mismatch"}
+        title={t("admin.ai.errors.title")}
+        description={t("admin.ai.errors.subtitle")}
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
-          { label: t("admin.sidebar.aiOverview") || "AI Operations", href: "/admin/ai" },
-          { label: t("admin.sidebar.aiErrors") || "Sự cố AI" },
+          { label: t("admin.sidebar.aiOverview"), href: "/admin/ai" },
+          { label: t("admin.sidebar.aiErrors") },
         ]}
         statusBadge={
-          <AdminStatusBadge status="warning" label={t("admin.dashboard.observabilitySub") || "Observability Not Connected"} />
+          <AdminStatusBadge status="warning" label={t("admin.dashboard.observabilitySub")} />
         }
       />
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <AdminMetricCard
-          title="Tổng số lỗi ghi nhận"
+          title={t("fixAdmin.ai.errors.total")}
           value={null}
-          subtitle="Exceptions từ LLM Gateway"
+          subtitle={t("fixAdmin.ai.errors.totalSub")}
           icon={AlertOctagon}
           isPending={true}
-          pendingText="Chưa kết nối provider"
+          pendingText={t("fixAdmin.ai.providerNotConnected")}
         />
         <AdminMetricCard
-          title="Loại lỗi phổ biến"
+          title={t("fixAdmin.ai.errors.commonType")}
           value={null}
-          subtitle="Tần suất xuất hiện cao nhất"
+          subtitle={t("fixAdmin.ai.errors.commonTypeSub")}
           icon={AlertTriangle}
           isPending={true}
-          pendingText="Chưa kết nối provider"
+          pendingText={t("fixAdmin.ai.providerNotConnected")}
         />
         <AdminMetricCard
-          title="Tỷ lệ yêu cầu thử lại"
+          title={t("fixAdmin.ai.errors.retryRate")}
           value={null}
-          subtitle="Retry rate sau lỗi"
+          subtitle={t("fixAdmin.ai.errors.retryRateSub")}
           icon={ShieldCheck}
           isPending={true}
-          pendingText="Chưa kết nối provider"
+          pendingText={t("fixAdmin.ai.providerNotConnected")}
         />
       </div>
 
@@ -62,12 +62,12 @@ export default function AdminAiErrorsClient() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
-                <th className="px-6 py-4">Tính năng phát sinh lỗi</th>
-                <th className="px-6 py-4">Nhà cung cấp & Mô hình</th>
-                <th className="px-6 py-4">Loại lỗi (Error Type)</th>
-                <th className="px-6 py-4 text-center">Số lần (Count)</th>
-                <th className="px-6 py-4">Lần gần nhất</th>
-                <th className="px-6 py-4 text-right">Chi tiết</th>
+                <th className="px-6 py-4">{t("fixAdmin.ai.errors.colFeature")}</th>
+                <th className="px-6 py-4">{t("fixAdmin.ai.errors.colProviderModel")}</th>
+                <th className="px-6 py-4">{t("fixAdmin.ai.errors.colType")}</th>
+                <th className="px-6 py-4 text-center">{t("fixAdmin.ai.errors.colCount")}</th>
+                <th className="px-6 py-4">{t("fixAdmin.ai.errors.colLast")}</th>
+                <th className="px-6 py-4 text-right">{t("fixAdmin.common.details")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EAEFF8] text-xs">
@@ -76,8 +76,8 @@ export default function AdminAiErrorsClient() {
                   <td colSpan={6} className="p-8">
                     <AdminEmptyState
                       variant="pending"
-                      title="Chưa có dữ liệu sự cố AI (Observability Not Connected)"
-                      description="INTERVIA Backend cần kết nối với nhà cung cấp Observability để tự động gom cụm các lỗi gọi LLM (như 429 Rate Limit, 504 Gateway Timeout, Bad JSON response) và hiển thị tại đây."
+                      title={t("fixAdmin.ai.errors.emptyTitle")}
+                      description={t("fixAdmin.ai.errors.emptyDesc")}
                     />
                   </td>
                 </tr>
@@ -89,7 +89,7 @@ export default function AdminAiErrorsClient() {
                     <td className="px-6 py-4 font-mono text-rose-600">{err.errorType}</td>
                     <td className="px-6 py-4 text-center font-bold">{err.count}</td>
                     <td className="px-6 py-4">{err.lastOccurrence}</td>
-                    <td className="px-6 py-4 text-right">Xem</td>
+                    <td className="px-6 py-4 text-right">{t("fixAdmin.common.view")}</td>
                   </tr>
                 ))
               )}

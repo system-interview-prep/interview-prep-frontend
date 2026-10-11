@@ -1,143 +1,54 @@
 "use client";
 
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import FoxAvatar from "@features/mascot/components/FoxAvatar";
+
+const linkClass = "transition-colors hover:text-[#14244B]";
+const headingClass = "text-[13px] font-semibold text-[#14244B]";
+const listClass = "mt-4 space-y-2.5 text-sm text-[#607096]";
 
 export default function Footer() {
   const { t } = useLanguage();
 
   return (
-    <footer
-      className="
-        border-t border-[#DCE4F3]
-        bg-white
-        text-[#14244B]
-        px-5
-        sm:px-8
-        lg:px-10
-        xl:px-12
-      "
-    >
+    <footer className="border-t border-[#DCE4F3] bg-[#F7F9FD] px-4 text-[#14244B] sm:px-8 lg:px-10 xl:px-12">
       {/* Main footer */}
-      <div
-        className="
-          mx-auto
-          grid w-full max-w-[1320px]
-          gap-10
-          py-14
-          md:py-16
-          lg:grid-cols-12
-        "
-      >
+      <div className="mx-auto grid w-full max-w-[1320px] gap-10 py-14 md:py-16 lg:grid-cols-12">
         {/* Brand */}
-        <div
-          className="
-            space-y-4
-            text-left
-            lg:col-span-4
-          "
-        >
-          <Link
-            href="/"
-            className="
-              inline-flex items-center gap-2.5
-              font-sans
-              text-2xl font-extrabold
-              text-[#204195]
-            "
-          >
-            <span
-              className="
-                grid h-8 w-8 place-items-center
-                rounded-lg
-                bg-[#FCB625]
-                text-[#204195]
-              "
-            >
-              <Sparkles
-                size={16}
-                strokeWidth={2.4}
-              />
+        <div className="space-y-4 text-left lg:col-span-4">
+          <Link href="/" className="inline-flex items-center gap-2.5">
+            <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-white ring-1 ring-[#DCE4F3]">
+              <FoxAvatar size={38} />
             </span>
-
-            INTERVIA
+            <span className="font-display text-[22px] font-semibold leading-none tracking-tight text-[#14244B]">
+              Intervia
+            </span>
           </Link>
 
-          <p
-            className="
-              max-w-sm
-              text-sm leading-relaxed
-              text-[#607096]
-            "
-          >
+          <p className="max-w-sm text-sm leading-relaxed text-[#607096]">
             {t("footer.tagline")}
           </p>
         </div>
 
         {/* Navigation */}
-        <div
-          className="
-            grid gap-8
-            text-left
-
-            sm:grid-cols-3
-
-            lg:col-span-8
-          "
-        >
+        <div className="grid grid-cols-2 gap-8 text-left sm:grid-cols-3 lg:col-span-8">
           {/* Product */}
           <nav aria-label={t("footer.product")}>
-            <h3
-              className="
-                font-mono
-                text-xs font-bold uppercase
-                tracking-wider
-                text-[#204195]
-              "
-            >
-              {t("footer.product")}
-            </h3>
-
-            <ul
-              className="
-                mt-4 space-y-2.5
-                text-xs font-medium
-                text-[#607096]
-              "
-            >
+            <h3 className={headingClass}>{t("footer.product")}</h3>
+            <ul className={listClass}>
               <li>
-                <Link
-                  href="/#matching-showcase"
-                  className="
-                    transition-colors
-                    hover:text-[#204195]
-                  "
-                >
+                <Link href="/#matching-showcase" className={linkClass}>
                   {t("footer.cvMatch")}
                 </Link>
               </li>
-
               <li>
-                <Link
-                  href="/#interview-experience"
-                  className="
-                    transition-colors
-                    hover:text-[#204195]
-                  "
-                >
+                <Link href="/#interview-experience" className={linkClass}>
                   {t("footer.voiceInterview")}
                 </Link>
               </li>
-
               <li>
-                <Link
-                  href="/#progress-preview"
-                  className="
-                    transition-colors
-                    hover:text-[#204195]
-                  "
-                >
+                <Link href="/#feedback-preview" className={linkClass}>
                   {t("footer.progressReadiness")}
                 </Link>
               </li>
@@ -146,115 +57,38 @@ export default function Footer() {
 
           {/* Learn */}
           <nav aria-label={t("footer.learn")}>
-            <h3
-              className="
-                font-mono
-                text-xs font-bold uppercase
-                tracking-wider
-                text-[#204195]
-              "
-            >
-              {t("footer.learn")}
-            </h3>
-
-            <ul
-              className="
-                mt-4 space-y-2.5
-                text-xs font-medium
-                text-[#607096]
-              "
-            >
+            <h3 className={headingClass}>{t("footer.learn")}</h3>
+            <ul className={listClass}>
               <li>
-                <Link
-                  href="/resources"
-                  className="
-                    transition-colors
-                    hover:text-[#204195]
-                  "
-                >
+                <Link href="/resources" className={linkClass}>
                   {t("footer.resources")}
                 </Link>
               </li>
-
               <li>
-                <Link
-                  href="/resources?topic=cv"
-                  className="
-                    transition-colors
-                    hover:text-[#204195]
-                  "
-                >
+                <Link href="/resources?topic=cv" className={linkClass}>
                   {t("footer.atsGuides")}
                 </Link>
               </li>
-
               <li>
-                <Link
-                  href="/#faq"
-                  className="
-                    transition-colors
-                    hover:text-[#204195]
-                  "
-                >
+                <Link href="/#faq" className={linkClass}>
                   {t("footer.faq")}
                 </Link>
               </li>
             </ul>
           </nav>
 
-          {/* Company */}
-          <nav aria-label={t("footer.company")}>
-            <h3
-              className="
-                font-mono
-                text-xs font-bold uppercase
-                tracking-wider
-                text-[#204195]
-              "
-            >
-              {t("footer.company")}
-            </h3>
-
-            <ul
-              className="
-                mt-4 space-y-2.5
-                text-xs font-medium
-                text-[#607096]
-              "
-            >
+          {/* Explore (no legal / about pages exist yet, so none are linked) */}
+          <nav aria-label={t("fixm.footer.explore")}>
+            <h3 className={headingClass}>{t("fixm.footer.explore")}</h3>
+            <ul className={listClass}>
               <li>
-                <Link
-                  href="/solutions"
-                  className="
-                    transition-colors
-                    hover:text-[#204195]
-                  "
-                >
-                  {t("footer.aboutUs")}
+                <Link href="/solutions" className={linkClass}>
+                  {t("nav.solutions")}
                 </Link>
               </li>
-
               <li>
-                <Link
-                  href="/resources"
-                  className="
-                    transition-colors
-                    hover:text-[#204195]
-                  "
-                >
-                  {t("footer.privacyPolicy")}
-                </Link>
-              </li>
-
-              <li>
-                <Link
-                  href="/resources"
-                  className="
-                    transition-colors
-                    hover:text-[#204195]
-                  "
-                >
-                  {t("footer.termsOfService")}
+                <Link href="/pricing" className={linkClass}>
+                  {t("nav.pricing")}
                 </Link>
               </li>
             </ul>
@@ -263,36 +97,10 @@ export default function Footer() {
       </div>
 
       {/* Bottom legal */}
-      <div
-        className="
-          border-t border-[#DCE4F3]
-          bg-[#F7F9FD]/65
-          px-5 py-5
-
-          sm:px-8
-
-          lg:px-10
-
-          xl:px-12
-        "
-      >
-        <div
-          className="
-            mx-auto flex
-            w-full max-w-[1320px]
-            items-center
-            justify-between
-          "
-        >
-          <p
-            className="
-              text-xs font-medium
-              text-[#607096]
-            "
-          >
-            © 2026 INTERVIA. {t("footer.rights")}
-          </p>
-        </div>
+      <div className="mx-auto w-full max-w-[1320px] border-t border-[#DCE4F3] py-5">
+        <p className="text-xs text-[#607096]">
+          © 2026 Intervia. {t("footer.rights")}
+        </p>
       </div>
     </footer>
   );

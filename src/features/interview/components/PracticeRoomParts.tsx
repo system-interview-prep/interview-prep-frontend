@@ -7,8 +7,15 @@
  */
 
 import React from 'react';
-import { ArrowLeft, CheckCircle2, Lightbulb, ListOrdered, Lock, LogOut, Target } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Lock, LogOut } from 'lucide-react';
 import type { InterviewFrozenTurn } from '../services/interviewRuntime.service';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import { fmt } from '@/i18n/format';
+import { roomVi } from '@/i18n/dicts/room.dict';
+
+type Translate = (key: string) => string;
+
+const viT: Translate = (k) => roomVi[k] ?? k;
 
 export type PracticeTurnState = 'answered' | 'current' | 'locked';
 
@@ -18,41 +25,32 @@ export function practiceTurnState(turn: InterviewFrozenTurn, currentTurnId?: str
   return 'locked';
 }
 
-const DIFFICULTY_LABEL: Record<string, string> = {
-  foundational: 'Cơ bản',
-  intermediate: 'Trung bình',
-  advanced: 'Nâng cao',
+const DIFFICULTY_KEY: Record<string, string> = {
+  foundational: 'room.practice.difficulty.foundational',
+  intermediate: 'room.practice.difficulty.intermediate',
+  advanced: 'room.practice.difficulty.advanced',
 };
 
-export function difficultyLabel(value?: string | null): string | null {
+export function difficultyLabel(value?: string | null, t?: Translate): string | null {
   if (!value) return null;
-  return DIFFICULTY_LABEL[value.toLowerCase()] ?? value;
+  const key = DIFFICULTY_KEY[value.toLowerCase()];
+  return key ? (t ?? viT)(key) : value;
 }
 
-const QUESTION_TYPE: Record<string, { label: string; tip: string }> = {
-  technical: {
-    label: 'Kỹ thuật',
-    tip: 'Gạch đầu dòng: khái niệm cốt lõi, cách bạn đã áp dụng, trade-off hoặc lưu ý khi dùng.',
-  },
-  behavioral: {
-    label: 'Hành vi',
-    tip: '3 ý là đủ: chuyện gì xảy ra → bạn đã làm gì → kết quả đo được (theo STAR).',
-  },
-  validate_cv: {
-    label: 'Xác minh CV',
-    tip: 'Liệt kê: phần bạn trực tiếp làm, công nghệ đã dùng, kết quả.',
-  },
-  warm_up: {
-    label: 'Khởi động',
-    tip: '2–3 ý về kinh nghiệm liên quan nhất tới vị trí đang ứng tuyển.',
-  },
+/** Question type → dictionary id: `room.practice.type.<id>.label|tip`. */
+const QUESTION_TYPE_ID: Record<string, string> = {
+  technical: 'technical',
+  behavioral: 'behavioral',
+  validate_cv: 'validateCv',
+  warm_up: 'warmUp',
 };
 
-const DEFAULT_TIP = 'Trả lời theo ý chính, gạch đầu dòng cũng được; kèm ví dụ thực tế nếu có.';
-
-export function questionTypeInfo(value?: string | null): { label: string | null; tip: string } {
-  const info = value ? QUESTION_TYPE[value.toLowerCase()] : undefined;
-  return { label: info?.label ?? null, tip: info?.tip ?? DEFAULT_TIP };
+export function questionTypeInfo(value?: string | null, t?: Translate): { label: string | null; tip: string } {
+  const tr = t ?? viT;
+  const id = value ? QUESTION_TYPE_ID[value.toLowerCase()] : undefined;
+  return id
+    ? { label: tr(`room.practice.type.${id}.label`), tip: tr(`room.practice.type.${id}.tip`) }
+    : { label: null, tip: tr('room.practice.defaultTip') };
 }
 
 // ── Header ───────────────────────────────────────────────────────────────────
@@ -72,59 +70,60 @@ export function PracticeHeader({
   onBack: () => void;
   onEnd: () => void;
 }) {
+  const { t } = useLanguage();
   const percent = total > 0 ? Math.round((answered / total) * 100) : 0;
   return (
-    <header className="shrink-0 border-b border-[#DCE4F3] bg-white/95 backdrop-blur-md">
+    <header className="shrink-0 border-b border-[#DCE4F3] bg-white">
       <div className="flex h-16 items-center justify-between gap-3 px-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={onBack}
-            className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-[#DCE4F3] text-[#607096] transition hover:bg-[#F7F9FD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]"
-            aria-label="Quay lại"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#F7F9FD] text-[#607096] transition hover:bg-[#EEF2FD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]"
+            aria-label={t('room.common.back')}
           >
             <ArrowLeft className="size-4" />
           </button>
           <div className="min-w-0">
-            <h1 className="truncate text-sm font-bold text-[#14244B] sm:text-base">{jobTitle || 'Luyện tập theo CV–JD'}</h1>
+            <h1 className="truncate text-sm font-bold text-[#14244B] sm:text-base">{jobTitle || t('room.practice.defaultTitle')}</h1>
             <p className="flex items-center gap-1.5 text-xs text-[#607096]">
               <span
-                className={`size-2 shrink-0 rounded-full ${isClosed ? 'bg-[#A0AEC0]' : 'bg-emerald-500'}`}
+                className={`size-2 shrink-0 rounded-full ${isClosed ? 'bg-[#A0AEC0]' : 'bg-[#287A4B]'}`}
                 aria-hidden="true"
               />
               <span className="truncate">
-                {isClosed ? 'Đã hoàn tất' : 'Đang luyện tập'}
-                {jobTitle ? ' · Luyện tập theo CV–JD' : ''}
+                {isClosed ? t('room.practice.done') : t('room.practice.active')}
+                {jobTitle ? ` · ${t('room.practice.defaultTitle')}` : ''}
               </span>
             </p>
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
-          <div className="text-right" aria-label={`Đã trả lời ${answered} trên ${total} câu`}>
-            <p className="text-[11px] font-semibold text-[#607096]">Tiến độ</p>
+          <div className="text-right" aria-label={fmt(t('room.practice.progressAria'), { answered, total })}>
+            <p className="text-[11px] font-semibold text-[#607096]">{t('room.practice.progress')}</p>
             <p className="text-sm font-bold tabular-nums text-[#14244B]">
               {answered}/{total}
-              <span className="hidden font-semibold text-[#607096] sm:inline"> câu</span>
+              <span className="hidden font-semibold text-[#607096] sm:inline"> {t('room.practice.questionsUnit')}</span>
             </p>
           </div>
           {isClosed ? (
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#204195] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#183273]"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#204195] px-4 text-xs font-semibold text-white transition hover:bg-[#183275]"
             >
-              Rời phòng
+              {t('room.common.leaveRoom')}
             </button>
           ) : (
             <button
               type="button"
               onClick={onEnd}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#FDF2F2] px-3.5 text-xs font-semibold text-[#C43B3B] transition hover:bg-[#FBE6E6]"
             >
               <LogOut className="size-3.5" aria-hidden="true" />
-              <span className="hidden sm:inline">Kết thúc</span>
-              <span className="sr-only sm:hidden">Kết thúc luyện tập</span>
+              <span className="hidden sm:inline">{t('room.common.end')}</span>
+              <span className="sr-only sm:hidden">{t('room.practice.endPractice')}</span>
             </button>
           )}
         </div>
@@ -135,7 +134,7 @@ export function PracticeHeader({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
-        aria-label="Tiến độ luyện tập"
+        aria-label={t('room.practice.progressbarAria')}
       >
         <div className="h-full bg-[#204195] transition-all duration-300" style={{ width: `${percent}%` }} />
       </div>
@@ -145,10 +144,10 @@ export function PracticeHeader({
 
 // ── Question navigation ──────────────────────────────────────────────────────
 
-const STATE_LABEL: Record<PracticeTurnState, string> = {
-  answered: 'Đã trả lời',
-  current: 'Đang trả lời',
-  locked: 'Sắp tới',
+const STATE_LABEL_KEY: Record<PracticeTurnState, string> = {
+  answered: 'room.practice.state.answered',
+  current: 'room.practice.state.current',
+  locked: 'room.practice.state.locked',
 };
 
 /** Compact Câu 1…N strip shown below lg, where the sidebar is hidden. */
@@ -163,15 +162,16 @@ export function PracticeTurnStepper({
   selectedTurnId?: string | null;
   onSelect: (turnId: string) => void;
 }) {
+  const { t } = useLanguage();
   return (
-    <nav aria-label="Danh sách câu hỏi" className="border-b border-[#DCE4F3] bg-white lg:hidden">
+    <nav aria-label={t('room.practice.questionList')} className="border-b border-[#DCE4F3] bg-white lg:hidden">
       <ol className="relative flex gap-2 overflow-x-auto px-3 py-2.5 sm:px-6">
         {turns.map((turn, index) => {
           const state = practiceTurnState(turn, currentTurnId);
           const selected = turn.turnId === selectedTurnId;
           const tone =
             state === 'answered'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              ? 'border-[#BFDFCB] bg-[#EAF5EE] text-[#287A4B]'
               : state === 'current'
                 ? 'border-[#204195] bg-[#EEF2FD] text-[#204195]'
                 : 'border-[#DCE4F3] bg-[#F7F9FD] text-[#A0AEC0]';
@@ -187,8 +187,8 @@ export function PracticeTurnStepper({
               >
                 {state === 'answered' ? <CheckCircle2 className="size-3" aria-hidden="true" /> : null}
                 {state === 'locked' ? <Lock className="size-3" aria-hidden="true" /> : null}
-                Câu {index + 1}
-                <span className="sr-only"> — {STATE_LABEL[state]}</span>
+                {fmt(t('room.common.questionN'), { n: index + 1 })}
+                <span className="sr-only"> — {t(STATE_LABEL_KEY[state])}</span>
               </button>
             </li>
           );
@@ -211,31 +211,30 @@ export function PracticeSidebar({
   targets?: Array<{ conceptId: string; label: string; targetQuestionCount?: number }>;
   onSelect: (turnId: string) => void;
 }) {
+  const { t } = useLanguage();
   return (
     <aside className="hidden w-80 shrink-0 flex-col overflow-y-auto border-r border-[#DCE4F3] bg-white lg:flex">
       <section className="border-b border-[#DCE4F3] p-4">
-        <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#607096]">
-          <Lightbulb className="size-3.5 text-[#204195]" aria-hidden="true" />
-          Cách luyện tập
+        <h2 className="flex items-center gap-2 text-[12px] font-semibold text-[#204195]">
+          {t('room.practice.howTo')}
         </h2>
         <ol className="mt-2.5 space-y-1.5 text-xs leading-relaxed text-[#14244B]">
-          <li>1. Đọc câu hỏi và gợi ý cách trả lời.</li>
-          <li>2. Viết câu trả lời, bấm “Gửi” (hoặc Ctrl + Enter).</li>
-          <li>3. Câu đã gửi được khóa; trả lời hết để nhận báo cáo.</li>
+          <li>{t('room.practice.howTo.step1')}</li>
+          <li>{t('room.practice.howTo.step2')}</li>
+          <li>{t('room.practice.howTo.step3')}</li>
         </ol>
       </section>
 
       {targets && targets.length > 0 ? (
         <section className="border-b border-[#DCE4F3] p-4">
-          <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#607096]">
-            <Target className="size-3.5 text-[#204195]" aria-hidden="true" />
-            Năng lực đánh giá ({targets.length})
+          <h2 className="text-[12px] font-semibold text-[#204195]">
+            {fmt(t('room.practice.targets'), { n: targets.length })}
           </h2>
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             {targets.map((target) => (
               <span
                 key={target.conceptId}
-                className="inline-flex items-center rounded-lg border border-[#DCE4F3] bg-[#F7F9FD] px-2 py-1 text-[11px] font-medium text-[#14244B]"
+                className="inline-flex items-center rounded-full bg-[#F7F9FD] px-2.5 py-1 text-[11px] font-medium text-[#14244B] ring-1 ring-[#DCE4F3]"
               >
                 {target.label}
               </span>
@@ -245,9 +244,8 @@ export function PracticeSidebar({
       ) : null}
 
       <section className="flex-1 p-4">
-        <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#607096]">
-          <ListOrdered className="size-3.5 text-[#204195]" aria-hidden="true" />
-          Danh sách câu hỏi
+        <h2 className="text-[12px] font-semibold text-[#204195]">
+          {t('room.practice.questionList')}
         </h2>
         <ol className="mt-3 space-y-2">
           {turns.map((turn, index) => {
@@ -261,20 +259,20 @@ export function PracticeSidebar({
                   disabled={state === 'locked'}
                   onClick={() => onSelect(turn.turnId)}
                   aria-current={selected ? 'step' : undefined}
-                  className={`w-full rounded-xl border p-3 text-left text-xs transition ${
+                  className={`w-full rounded-2xl border p-3 text-left text-xs transition ${
                     selected
-                      ? 'border-[#204195] bg-[#EEF2FD]'
+                      ? 'border-[#204195] bg-[#EEF2FD]/60'
                       : state === 'locked'
                         ? 'cursor-not-allowed border-[#DCE4F3] bg-[#F7F9FD] opacity-70'
                         : 'border-[#DCE4F3] bg-white hover:border-[#204195]/40 hover:bg-[#F7F9FD]'
                   }`}
                 >
                   <span className="flex items-center justify-between">
-                    <span className="font-bold text-[#14244B]">Câu {index + 1}</span>
+                    <span className="font-bold text-[#14244B]">{fmt(t('room.common.questionN'), { n: index + 1 })}</span>
                     <span
                       className={`inline-flex items-center gap-1 text-[10px] font-bold ${
                         state === 'answered'
-                          ? 'text-emerald-700'
+                          ? 'text-[#287A4B]'
                           : state === 'current'
                             ? 'text-[#204195]'
                             : 'font-medium text-[#607096]'
@@ -285,14 +283,14 @@ export function PracticeSidebar({
                         <span className="size-1.5 rounded-full bg-[#204195] motion-safe:animate-pulse" aria-hidden="true" />
                       ) : null}
                       {state === 'locked' ? <Lock className="size-3" aria-hidden="true" /> : null}
-                      {STATE_LABEL[state]}
+                      {t(STATE_LABEL_KEY[state])}
                     </span>
                   </span>
                   {/* Planned questions stay hidden until their turn. */}
                   <span className="mt-1 line-clamp-2 block text-[11px] text-[#607096]">
                     {state === 'locked'
-                      ? 'Nội dung câu hỏi sẽ hiển thị khi đến lượt.'
-                      : turn.question?.questionText || 'Đang chờ nạp nội dung...'}
+                      ? t('room.practice.lockedText')
+                      : turn.question?.questionText || t('room.practice.loadingContent')}
                   </span>
                 </button>
               </li>
@@ -307,38 +305,38 @@ export function PracticeSidebar({
 // ── Question card ────────────────────────────────────────────────────────────
 
 export function PracticeQuestionCard({ turn, total }: { turn: InterviewFrozenTurn; total: number }) {
-  const type = questionTypeInfo(turn.question?.questionType);
-  const difficulty = difficultyLabel(turn.question?.difficulty);
+  const { t } = useLanguage();
+  const type = questionTypeInfo(turn.question?.questionType, t);
+  const difficulty = difficultyLabel(turn.question?.difficulty, t);
   return (
-    <section className="rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs sm:p-6">
+    <section className="rounded-3xl border border-[#DCE4F3] bg-white p-5 sm:p-6">
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-bold uppercase tracking-wider text-[#204195]">
-          Câu hỏi {turn.turnIndex + 1} / {total}
+        <span className="font-semibold text-[#204195]">
+          {fmt(t('room.practice.cardTitle'), { n: turn.turnIndex + 1, total })}
         </span>
         {type.label ? (
-          <span className="rounded-md bg-[#EEF2FD] px-2 py-0.5 font-semibold text-[#204195]">{type.label}</span>
+          <span className="rounded-full bg-[#EEF2FD] px-2.5 py-0.5 font-semibold text-[#204195]">{type.label}</span>
         ) : null}
         {difficulty ? (
-          <span className="rounded-md border border-[#DCE4F3] bg-[#F7F9FD] px-2 py-0.5 font-medium text-[#607096]">
-            Độ khó: {difficulty}
+          <span className="rounded-full bg-[#F7F9FD] px-2.5 py-0.5 font-medium text-[#607096] ring-1 ring-[#DCE4F3]">
+            {fmt(t('room.practice.difficulty'), { d: difficulty })}
           </span>
         ) : null}
       </div>
 
-      <h2 className="mt-3 text-lg font-bold leading-relaxed text-[#14244B] sm:text-xl">
-        {turn.question?.questionText || 'Đang tải câu hỏi...'}
+      <h2 className="mt-3 font-display text-xl font-semibold leading-snug text-[#14244B] sm:text-2xl">
+        {turn.question?.questionText || t('room.practice.loadingQuestion')}
       </h2>
 
       {turn.question?.objective ? (
         <p className="mt-3 text-xs leading-relaxed text-[#607096]">
-          <strong className="text-[#14244B]">Mục tiêu:</strong> {turn.question.objective}
+          <strong className="text-[#14244B]">{t('room.practice.objective')}</strong> {turn.question.objective}
         </p>
       ) : null}
 
-      <div className="mt-3 flex items-start gap-2 rounded-xl bg-[#F7F9FD] p-3 text-xs leading-relaxed text-[#14244B]">
-        <Lightbulb className="mt-0.5 size-4 shrink-0 text-[#204195]" aria-hidden="true" />
+      <div className="mt-4 rounded-2xl border-l-4 border-[#FCB625] bg-[#F0F4FC]/60 p-3 text-xs leading-relaxed text-[#14244B]">
         <p>
-          <strong>Gợi ý trả lời:</strong> {type.tip}
+          <strong>{t('room.practice.tip')}</strong> {type.tip}
         </p>
       </div>
     </section>

@@ -110,7 +110,7 @@ export function JobCardHeader({
         className={`relative z-[3] -mr-1 -mt-1 flex size-9 shrink-0 items-center justify-center rounded-xl transition-all duration-150 active:scale-90 ${
           saved
             ? "bg-[#EEF2FD] text-[#204195] hover:bg-[#E0E8FA]"
-            : "text-[#94A3B8] hover:bg-[#F1F5F9] hover:text-[#14244B]"
+            : "text-[#9AA6C2] hover:bg-[#F1F5F9] hover:text-[#14244B]"
         }`}
       >
         <Bookmark

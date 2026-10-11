@@ -17,6 +17,7 @@ export type ChatMessageType =
   | "CLARIFY"
   | "PROBE"
   | "CANDIDATE_ANSWER"
+  | "CANDIDATE_QUESTION"
   | "ACKNOWLEDGMENT"
   | "WRAP_UP"
   | "CONFIRM_ABORT";

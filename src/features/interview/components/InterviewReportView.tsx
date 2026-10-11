@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { flushSync } from 'react-dom';
 import {
   Radar,
   RadarChart,
@@ -9,38 +10,183 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer,
 } from 'recharts';
-import {
-  Award,
-  BarChart3,
-  Users,
-  GraduationCap,
-  AlertTriangle,
-  Quote,
-  Clock,
-  Sparkles,
-  ArrowRight,
-  TrendingUp,
-} from 'lucide-react';
+import Link from 'next/link';
+import { Clock } from 'lucide-react';
 import type { EvaluationReport, TurnEvaluation } from '../services/interviewReport.service';
+import type { ChatMessage } from '../services/interviewChat.service';
+import type { InterviewRuntimeSession } from '../services/interviewRuntime.service';
+import { endReasonKey, getStageLabel } from './ChatInterviewProgress';
+import {
+  LEVEL_LABEL_KEY,
+  calibrate,
+  locateQuotes,
+  scoreToLevel,
+  transcriptByTurn,
+  turnDurationSeconds,
+  type DebriefLevel,
+  type TranscriptLine,
+} from '../utils/debrief';
+import { MODE_NAME_KEY, modeKeyFromRuntime } from '../utils/interviewModes';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import { fmt, localeOf } from '@/i18n/format';
+
+export interface ReflectionState {
+  selfRatings: Record<string, number>;
+  takeaway: string | null;
+  submitted: boolean;
+}
 
 export interface InterviewReportViewProps {
   report: EvaluationReport;
   onBack?: () => void;
+  /** Session context (job, mode, dates, end reason). Optional: the report still renders without it. */
+  session?: (InterviewRuntimeSession & { endReason?: string | null }) | null;
+  /** Full chat transcript; enables the per-question exchange view. */
+  messages?: ChatMessage[] | null;
+  /** Saved reflection; `null` while unknown or unavailable. */
+  reflection?: ReflectionState | null;
+  /** Persists the reflection. Must not throw: failures are reported via the returned boolean. */
+  onSaveReflection?: (reflection: { selfRatings: Record<string, number>; takeaway: string | null }) => Promise<boolean>;
 }
 
-export const InterviewReportView: React.FC<InterviewReportViewProps> = ({ report, onBack }) => {
-  const [activeTab, setActiveTab] = useState<'recruiter' | 'candidate'>('recruiter');
+type Translate = (key: string) => string;
 
-  // Normalize camelCase vs snake_case
-  const overallScore = report.overall_score ?? report.overallScore ?? 0;
-  const decision = report.decision_recommendation ?? report.decisionRecommendation ?? 'CONSIDER';
-  const evaluatedAt = report.evaluated_at ?? report.evaluatedAt;
-  const recruiterSummary = report.recruiter_summary ?? report.recruiterSummary ?? '';
+const LEVEL_MEANING_KEY: Record<DebriefLevel, string> = {
+  1: 'report.levelMeaning.1',
+  2: 'report.levelMeaning.2',
+  3: 'report.levelMeaning.3',
+  4: 'report.levelMeaning.4',
+};
+
+const LEVEL_TONE: Record<DebriefLevel, string> = {
+  1: 'bg-[#FDF2F2] text-[#C43B3B] border-[#F5C2C2]',
+  2: 'bg-[#FFF8E6] text-[#8A5A00] border-[#F6DFA3]',
+  3: 'bg-[#EEF2FD] text-[#204195] border-[#C9D5F2]',
+  4: 'bg-[#EAF5EE] text-[#287A4B] border-[#BFDFCB]',
+};
+
+const KIND_LABEL_KEY: Record<string, string> = {
+  MAIN_QUESTION: 'report.kind.MAIN_QUESTION',
+  PROBE: 'report.kind.PROBE',
+  CLARIFY: 'report.kind.CLARIFY',
+  CANDIDATE_ANSWER: 'report.kind.CANDIDATE_ANSWER',
+  CANDIDATE_QUESTION: 'report.kind.CANDIDATE_QUESTION',
+};
+
+// STAR is only extracted by the backend for these stages.
+const STAR_STAGES = new Set(['VALIDATE', 'BEHAVIORAL']);
+
+function turnIdOf(t: TurnEvaluation): string {
+  return t.turn_id || t.turnId || t.id || '';
+}
+
+function formatDuration(t: Translate, seconds: number): string {
+  if (seconds < 60) return fmt(t('report.duration.seconds'), { n: seconds });
+  return fmt(t('common.minutes'), { n: Math.round(seconds / 60) });
+}
+
+function LevelChip({ level, prefix }: { level: DebriefLevel; prefix?: string }) {
+  const { t } = useLanguage();
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${LEVEL_TONE[level]}`}>
+      {prefix}
+      {t(LEVEL_LABEL_KEY[level])}
+    </span>
+  );
+}
+
+/** Candidate lines with evidence quotes highlighted; reports quotes found nowhere. */
+function TurnExchange({ lines, quotes }: { lines: TranscriptLine[]; quotes: string[] }) {
+  const { t } = useLanguage();
+  const found = new Set<string>();
+  const rendered = lines.map((line) => {
+    if (line.speaker !== 'candidate') return { line, segments: null };
+    const { segments, unmatched } = locateQuotes(line.content, quotes);
+    quotes.forEach((quote) => {
+      if (!unmatched.includes(quote)) found.add(quote);
+    });
+    return { line, segments };
+  });
+  const missing = quotes.filter((quote) => quote.trim().length >= 3 && !found.has(quote));
+
+  return (
+    <div className="space-y-2">
+      <ol className="space-y-1.5">
+        {rendered.map(({ line, segments }) => (
+          <li
+            key={line.messageId}
+            className={`grid gap-1 rounded-lg px-3 py-2 text-[13px] leading-6 sm:grid-cols-[110px_1fr] ${
+              line.speaker === 'candidate' ? 'bg-white border border-[#DCE4F3]' : 'bg-[#F7F9FD]'
+            }`}
+          >
+            <span
+              className={`text-[11px] font-semibold uppercase tracking-wide ${
+                line.speaker === 'candidate' ? 'text-[#607096]' : 'text-[#204195]'
+              }`}
+            >
+              {KIND_LABEL_KEY[line.kind] ? t(KIND_LABEL_KEY[line.kind]) : line.kind}
+            </span>
+            <span className="min-w-0 whitespace-pre-wrap break-words text-[#14244B]">
+              {segments
+                ? segments.map((segment, index) =>
+                    segment.quoted ? (
+                      <mark
+                        key={index}
+                        className="rounded-sm bg-amber-100 px-0.5 text-[#14244B] underline decoration-amber-500 decoration-2 underline-offset-2"
+                        title={t('report.exchange.evidenceTitle')}
+                      >
+                        {segment.text}
+                      </mark>
+                    ) : (
+                      <React.Fragment key={index}>{segment.text}</React.Fragment>
+                    )
+                  )
+                : line.content}
+            </span>
+          </li>
+        ))}
+      </ol>
+      {quotes.length > 0 && (
+        <p className="flex items-center gap-1.5 text-[11px] text-[#607096]">
+          <mark className="rounded-sm bg-amber-100 px-1 text-[#14244B] underline decoration-amber-500">
+            {t('report.exchange.legendMark')}
+          </mark>
+          {t('report.exchange.legendText')}
+        </p>
+      )}
+      {missing.length > 0 && (
+        <div className="rounded-lg border border-[#DCE4F3] bg-[#F7F9FD] p-2.5 text-xs text-[#607096]">
+          <p className="font-semibold text-[#14244B]">
+            {fmt(t('report.exchange.unmatchedTitle'), { n: missing.length })}
+          </p>
+          <p className="mt-0.5">{t('report.exchange.unmatchedBody')}</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 italic">
+            {missing.map((quote) => (
+              <li key={quote}>&ldquo;{quote}&rdquo;</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
+  report,
+  onBack,
+  session,
+  messages,
+  reflection,
+  onSaveReflection,
+}) => {
+  const { t, lang } = useLanguage();
+  const overallRaw = report.overall_score ?? report.overallScore;
+  const overallScore = typeof overallRaw === 'number' ? overallRaw : null;
   const candidateFeedback = report.candidate_feedback ?? report.candidateFeedback ?? '';
   const nextRoundTopics = report.next_round_topics ?? report.nextRoundTopics ?? [];
   const redFlags = report.red_flags ?? report.redFlags ?? [];
   const rawCompetencies = report.competency_scores ?? report.competencyScores ?? [];
-  const rawTurns = report.turn_evaluations ?? report.turnEvaluations ?? [];
+  const rawTurns = useMemo(() => report.turn_evaluations ?? report.turnEvaluations ?? [], [report]);
 
   const competencyScores = rawCompetencies.map((c) => ({
     competency: c.competency,
@@ -48,303 +194,548 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({ report
     summary: c.summary,
   }));
 
-  const getBadgeStyle = (rec: string) => {
-    switch (rec) {
-      case 'STRONG_PASS':
-        return 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-400/30';
-      case 'PASS':
-        return 'bg-green-50 text-green-800 border-green-300 ring-1 ring-green-400/30';
-      case 'CONSIDER':
-        return 'bg-amber-50 text-amber-800 border-amber-300 ring-1 ring-amber-400/30';
-      default:
-        return 'bg-rose-50 text-rose-800 border-rose-300 ring-1 ring-rose-400/30';
-    }
+  const transcript = useMemo(() => (messages ? transcriptByTurn(messages) : new Map<string, TranscriptLine[]>()), [messages]);
+  const ratableTurns = useMemo(
+    () =>
+      rawTurns
+        .map((turn) => ({
+          turnId: turnIdOf(turn),
+          score: Number(turn.score),
+          question: turn.question_text ?? turn.questionText ?? '',
+        }))
+        .filter((turn) => turn.turnId && Number.isFinite(turn.score)),
+    [rawTurns]
+  );
+
+  // ---- Reflection gate: rate before the scores are revealed (skippable).
+  const [draftRatings, setDraftRatings] = useState<Record<string, number>>({});
+  const [skipped, setSkipped] = useState(false);
+  const [revealedNow, setRevealedNow] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [savingRatings, setSavingRatings] = useState(false);
+  const savedRatings = reflection?.selfRatings ?? {};
+  const ratings = reflection?.submitted ? savedRatings : draftRatings;
+  const gateOpen =
+    Boolean(onSaveReflection) && ratableTurns.length > 0 && reflection != null && !reflection.submitted && !skipped && !revealedNow;
+  const allRated = ratableTurns.every((turn) => draftRatings[turn.turnId]);
+
+  const reveal = async () => {
+    setSavingRatings(true);
+    const ok = onSaveReflection
+      ? await onSaveReflection({ selfRatings: draftRatings, takeaway: reflection?.takeaway ?? null })
+      : false;
+    setSavingRatings(false);
+    setRevealedNow(true);
+    if (!ok) setSaveFailed(true);
   };
 
-  const getBadgeLabel = (rec: string) => {
-    switch (rec) {
-      case 'STRONG_PASS':
-        return 'Xuất sắc (Strong Pass)';
-      case 'PASS':
-        return 'Đạt yêu cầu (Pass)';
-      case 'CONSIDER':
-        return 'Cần cân nhắc (Consider)';
-      default:
-        return 'Chưa đạt (Reject)';
-    }
+  // ---- Takeaway
+  const [takeaway, setTakeaway] = useState(reflection?.takeaway ?? '');
+  const [takeawayState, setTakeawayState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const saveTakeaway = async () => {
+    if (!onSaveReflection) return;
+    setTakeawayState('saving');
+    // PUT replaces both fields, so resend the ratings already given.
+    const ok = await onSaveReflection({ selfRatings: ratings, takeaway: takeaway.trim() || null });
+    setTakeawayState(ok ? 'saved' : 'error');
   };
+
+  const calibration = useMemo(() => calibrate(ratings, ratableTurns), [ratings, ratableTurns]);
+
+  // ---- Per-question cards are collapsed; the weakest answer starts open.
+  const weakestTurnId = useMemo(
+    () =>
+      ratableTurns.reduce<{ id: string; score: number } | null>(
+        (low, turn) => (low == null || turn.score < low.score ? { id: turn.turnId, score: turn.score } : low),
+        null
+      )?.id ?? null,
+    [ratableTurns]
+  );
+  const [openTurns, setOpenTurns] = useState<Set<string> | null>(null);
+  const isTurnOpen = (id: string) => (openTurns ? openTurns.has(id) : id === weakestTurnId);
+  const setTurnOpen = (id: string, open: boolean) =>
+    setOpenTurns((prev) => {
+      const next = new Set(prev ?? (weakestTurnId ? [weakestTurnId] : []));
+      if (open) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  // Closed <details> hide their content on paper, so open every card while printing.
+  const [printing, setPrinting] = useState(false);
+  useEffect(() => {
+    // flushSync: the print layout is taken before a normal re-render would land.
+    const before = () => flushSync(() => setPrinting(true));
+    const after = () => flushSync(() => setPrinting(false));
+    window.addEventListener('beforeprint', before);
+    window.addEventListener('afterprint', after);
+    return () => {
+      window.removeEventListener('beforeprint', before);
+      window.removeEventListener('afterprint', after);
+    };
+  }, []);
+  const answeredCount = rawTurns.length;
+  const startedAt = session?.startedAt ? new Date(session.startedAt) : null;
+  const endedAt = session?.endedAt ? new Date(session.endedAt) : null;
+  const elapsedSeconds =
+    startedAt && endedAt ? Math.max(0, Math.round((endedAt.getTime() - startedAt.getTime()) / 1000)) : null;
+  const overallLevel = overallScore != null ? scoreToLevel(overallScore) : null;
+
+  const contextItems = [
+    session?.jobTitle ? [t('report.ctx.position'), session.jobTitle] : null,
+    session?.mode ? [t('report.ctx.mode'), t(MODE_NAME_KEY[modeKeyFromRuntime(session.mode)])] : null,
+    startedAt ? [t('report.ctx.date'), startedAt.toLocaleDateString(localeOf(lang))] : null,
+    elapsedSeconds != null ? [t('report.ctx.duration'), formatDuration(t, elapsedSeconds)] : null,
+    [t('report.ctx.graded'), String(answeredCount)],
+    session ? [t('report.ctx.ended'), t(endReasonKey(session.endReason))] : null,
+  ].filter((item): item is string[] => item != null);
+
+  // Text-only intro from the fox. It never reveals the verdict while the
+  // reflection gate is still asking the candidate to rate themselves.
+  const heroBody = gateOpen
+    ? t('uxInterview.report.heroGate')
+    : overallLevel
+      ? t(LEVEL_MEANING_KEY[overallLevel])
+      : t('uxInterview.report.heroDone');
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 p-4 sm:p-6 lg:p-8 font-sans">
-      {/* 1. Header & Overall Score */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-        <div>
+    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6 lg:p-8 font-sans print:max-w-none print:space-y-4 print:p-0">
+      <section className="anim-rise rounded-3xl bg-[#F0F4FC] p-5 sm:p-7 print:hidden">
+        <div className="relative min-w-0 rounded-3xl bg-white p-5 ring-1 ring-[#DCE4F3] sm:p-6">
+          <h1 className="font-display text-[clamp(1.5rem,2.4vw,2.1rem)] font-semibold leading-tight text-[#14244B]">{t('report.title')}</h1>
+          <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-[#607096]">{heroBody}</p>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+          <Link
+            href="/interview/select"
+            className="inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275]"
+          >
+            {t('report.page.continue')}
+          </Link>
           {onBack && (
             <button
               type="button"
               onClick={onBack}
-              className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition"
+              className="inline-flex h-11 items-center rounded-full bg-[#F7F9FD] px-5 text-sm font-semibold text-[#14244B] transition hover:bg-[#EEF2FD]"
             >
-              <ArrowRight className="size-3.5 rotate-180" /> Quay lại
+              {t('report.page.backAria')}
             </button>
           )}
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-indigo-700 border border-indigo-100">
-              <Sparkles className="size-3.5" /> Báo cáo đánh giá năng lực AI
-            </span>
-          </div>
-          <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-            Kết Quả Phỏng Vấn Chuyên Môn
-          </h1>
-          <p className="mt-1 flex items-center gap-1.5 text-xs sm:text-sm text-slate-500">
-            <Clock className="size-3.5 text-slate-400" />
-            Hoàn tất lúc: {evaluatedAt ? new Date(evaluatedAt).toLocaleString('vi-VN') : 'Vừa xong'}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-4 self-end md:self-center">
-          <div className="text-right">
-            <div className="text-3xl sm:text-4xl font-black tracking-tight text-[#204195]">
-              {overallScore.toFixed(1)} <span className="text-base font-normal text-slate-400">/ 10</span>
-            </div>
-            <div className={`mt-1.5 inline-block rounded-full border px-3 py-1 text-xs font-bold ${getBadgeStyle(decision)}`}>
-              {getBadgeLabel(decision)}
-            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* 2. Radar Chart & Competencies */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="flex flex-col items-center rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-          <div className="flex w-full items-center justify-between mb-2">
-            <h3 className="flex items-center gap-2 text-base font-bold text-slate-800">
-              <BarChart3 className="size-4 text-indigo-600" /> Đa Giác Năng Lực (Radar Chart)
-            </h3>
-            <span className="text-xs text-slate-400 font-medium">Thang điểm 10</span>
-          </div>
-          <div className="w-full h-72">
-            {competencyScores.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={competencyScores}>
-                  <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                  <PolarAngleAxis
-                    dataKey="competency"
-                    tick={{ fill: '#334155', fontSize: 11, fontWeight: 500 }}
-                  />
-                  <PolarRadiusAxis angle={30} domain={[0, 10]} stroke="#94a3b8" />
-                  <Radar
-                    name="Điểm số"
-                    dataKey="score"
-                    stroke="#2563eb"
-                    fill="#3b82f6"
-                    fillOpacity={0.35}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center text-xs text-slate-400">
-                Đang tổng hợp dữ liệu nhóm năng lực...
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col justify-center space-y-3.5 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-          <h3 className="flex items-center gap-2 text-base font-bold text-slate-800">
-            <TrendingUp className="size-4 text-indigo-600" /> Chi tiết nhóm kỹ năng
-          </h3>
-          <div className="space-y-3">
-            {competencyScores.map((c, i) => (
-              <div key={i} className="flex flex-col border-b border-slate-100 pb-2.5 last:border-0">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold text-slate-700">{c.competency}</span>
-                  <span className="font-bold text-[#204195]">{c.score.toFixed(1)} / 10</span>
+      {/* 1. Session context + overall score (the page title prints from here). */}
+      <div className="rounded-3xl border border-[#DCE4F3] bg-white p-6 print:break-inside-avoid">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <h1 className="hidden font-display text-2xl font-semibold tracking-tight text-[#14244B] print:block">{t('report.title')}</h1>
+            <dl className="flex print:mt-3 flex-wrap gap-x-5 gap-y-1.5 text-xs text-[#607096]">
+              {contextItems.map(([label, value]) => (
+                <div key={label} className="flex gap-1">
+                  <dt className="text-[#A0AEC0]">{label}:</dt>
+                  <dd className="font-semibold text-[#14244B]">{value}</dd>
                 </div>
-                {/* Progress bar visual */}
-                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-500"
-                    style={{ width: `${Math.min(100, Math.max(0, (c.score / 10) * 100))}%` }}
-                  />
-                </div>
-                {c.summary && <p className="mt-1 text-xs text-slate-500 line-clamp-1">{c.summary}</p>}
-              </div>
-            ))}
+              ))}
+            </dl>
           </div>
-        </div>
-      </div>
 
-      {/* 3. Dual-View Tabs: Recruiter vs Candidate */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-        <div className="flex border-b border-slate-200 bg-slate-50/70">
-          <button
-            onClick={() => setActiveTab('recruiter')}
-            className={`flex flex-1 items-center justify-center gap-2 py-3.5 text-sm font-bold transition border-b-2 ${
-              activeTab === 'recruiter'
-                ? 'border-[#204195] text-[#204195] bg-white shadow-2xs'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <Users className="size-4" /> Góc nhìn Nhà tuyển dụng (Recruiter View)
-          </button>
-          <button
-            onClick={() => setActiveTab('candidate')}
-            className={`flex flex-1 items-center justify-center gap-2 py-3.5 text-sm font-bold transition border-b-2 ${
-              activeTab === 'candidate'
-                ? 'border-[#204195] text-[#204195] bg-white shadow-2xs'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <GraduationCap className="size-4" /> Phản hồi cho Ứng viên (Candidate Coaching)
-          </button>
-        </div>
-
-        <div className="p-6">
-          {activeTab === 'recruiter' ? (
-            <div className="space-y-5">
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Tóm tắt chuyên môn
-                </h4>
-                <p className="mt-1.5 text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-                  {recruiterSummary || 'Chưa có tóm tắt tuyển dụng.'}
-                </p>
-              </div>
-
-              {nextRoundTopics.length > 0 && (
-                <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-4">
-                  <h5 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-900">
-                    <ArrowRight className="size-3.5" /> Chủ đề đề xuất đào sâu ở vòng tiếp theo:
-                  </h5>
-                  <ul className="mt-2 space-y-1.5 pl-5 text-sm text-blue-900 list-disc">
-                    {nextRoundTopics.map((top, idx) => (
-                      <li key={idx} className="leading-snug">{top}</li>
-                    ))}
-                  </ul>
-                </div>
+          {!gateOpen && (
+            <div className="shrink-0 text-left md:text-right">
+              {overallScore != null && overallLevel ? (
+                <>
+                  <div className="font-display text-4xl sm:text-5xl font-semibold tracking-tight text-[#204195]">
+                    {overallScore.toFixed(1)} <span className="text-base font-normal text-[#A0AEC0]">/ 10</span>
+                  </div>
+                  <div className="mt-1.5">
+                    <LevelChip level={overallLevel} prefix={t('report.levelPrefix')} />
+                  </div>
+                  <p className="mt-1.5 max-w-xs text-xs leading-5 text-[#607096]">{t(LEVEL_MEANING_KEY[overallLevel])}</p>
+                </>
+              ) : (
+                <p className="text-sm font-semibold text-[#607096]">{t('report.noOverall')}</p>
               )}
-
-              {redFlags.length > 0 && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4">
-                  <h5 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-900">
-                    <AlertTriangle className="size-3.5 text-rose-600" /> Cảnh báo rủi ro / nghi vấn (Red Flags):
-                  </h5>
-                  <ul className="mt-2 space-y-1.5 pl-5 text-sm text-rose-900 list-disc">
-                    {redFlags.map((flag, idx) => (
-                      <li key={idx} className="leading-snug">{flag}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Góp ý cải thiện kỹ năng
-              </h4>
-              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-                {candidateFeedback || 'Chưa có nhận xét chi tiết.'}
-              </p>
             </div>
           )}
         </div>
+        <p className="mt-4 border-t border-[#EEF2FD] pt-3 text-[11px] leading-5 text-[#A0AEC0]">
+          {t('report.disclaimer')}
+        </p>
       </div>
 
-      {/* 4. Turn-by-Turn STAR & Evidence Quotes Breakdown */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <Award className="size-5 text-[#204195]" /> Chi tiết từng câu hỏi & Bằng chứng đối chiếu
-          </h3>
-          <span className="text-xs text-slate-500 font-medium">
-            Tổng cộng: {rawTurns.length} câu hỏi
-          </span>
-        </div>
-
-        {rawTurns.map((t: TurnEvaluation, idx: number) => {
-          const turnIndex = t.turn_index ?? t.turnIndex ?? (idx + 1);
-          const comp = t.competency || 'Chuyên môn';
-          const stage = t.stage || 'DEEP_DIVE';
-          const score = typeof t.score === 'number' ? t.score : parseFloat(String(t.score || 0));
-          const star = t.star_analysis ?? t.starAnalysis ?? {};
-          const evidence = t.evidence_quotes ?? t.evidenceQuotes ?? [];
-          const questionText = t.question_text ?? t.questionText;
-
-          return (
-            <div
-              key={t.id || t.turn_id || t.turnId || idx}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700 border border-blue-200">
-                    Câu {turnIndex}
-                  </span>
-                  <span className="text-xs font-semibold text-slate-700">
-                    {comp}
-                  </span>
-                  <span className="text-[11px] font-medium text-slate-400">
-                    ({stage})
-                  </span>
-                </div>
-                <span className="text-sm font-extrabold text-[#204195]">
-                  {score.toFixed(1)} / 10 điểm
-                </span>
-              </div>
-
-              {questionText && (
-                <p className="text-xs font-medium text-slate-700 italic bg-slate-50 rounded-lg p-2.5 border border-slate-100">
-                  &ldquo;{questionText}&rdquo;
+      {/* 2. Reflection gate */}
+      {gateOpen ? (
+        <section className="rounded-3xl border border-[#204195]/30 bg-white p-6 print:break-inside-avoid">
+          <h2 className="font-display text-xl font-semibold text-[#14244B]">{t('report.gate.title')}</h2>
+          <p className="mt-1 text-sm leading-6 text-[#607096]">{t('report.gate.body')}</p>
+          <ol className="mt-4 space-y-3">
+            {ratableTurns.map((turn, index) => (
+              <li key={turn.turnId} className="rounded-xl border border-[#DCE4F3] p-3">
+                <p className="text-sm text-[#14244B]">
+                  <span className="font-semibold">{fmt(t('report.questionN'), { n: index + 1 })}.</span>{' '}
+                  {turn.question || t('report.questionEmpty')}
                 </p>
-              )}
+                <div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label={fmt(t('report.gate.rateAria'), { n: index + 1 })}>
+                  {([1, 2, 3, 4] as DebriefLevel[]).map((level) => {
+                    const active = draftRatings[turn.turnId] === level;
+                    return (
+                      <button
+                        key={level}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        onClick={() => setDraftRatings((prev) => ({ ...prev, [turn.turnId]: level }))}
+                        className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+                          active
+                            ? 'border-[#204195] bg-[#204195] text-white'
+                            : 'border-[#DCE4F3] bg-white text-[#607096] hover:border-[#CBD5E1]'
+                        }`}
+                      >
+                        {t(LEVEL_LABEL_KEY[level])}
+                      </button>
+                    );
+                  })}
+                </div>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void reveal()}
+              disabled={!allRated || savingRatings}
+              className="rounded-full bg-[#204195] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#183275] disabled:opacity-50"
+            >
+              {savingRatings ? t('report.saving') : t('report.gate.reveal')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSkipped(true)}
+              className="rounded-full border border-[#DCE4F3] px-4 py-2 text-sm font-semibold text-[#607096] hover:bg-[#F7F9FD]"
+            >
+              {t('report.gate.skip')}
+            </button>
+            <span className="text-xs text-[#607096]">{t('report.gate.scale')}</span>
+          </div>
+        </section>
+      ) : (
+        <>
+          {saveFailed && (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+              {t('report.gate.saveFailed')}
+            </p>
+          )}
 
-              {/* STAR Breakdown Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
-                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-2.5">
-                  <strong className="text-slate-800">S (Bối cảnh):</strong>{' '}
-                  <span className="text-slate-600">{star.situation || 'Chưa rõ ràng'}</span>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-2.5">
-                  <strong className="text-slate-800">T (Nhiệm vụ):</strong>{' '}
-                  <span className="text-slate-600">{star.task || 'Chưa rõ ràng'}</span>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-2.5">
-                  <strong className="text-slate-800">A (Hành động):</strong>{' '}
-                  <span className="text-slate-600">{star.action || 'Chưa rõ ràng'}</span>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-2.5">
-                  <strong className="text-slate-800">R (Kết quả):</strong>{' '}
-                  <span className="text-slate-600">{star.result || 'Chưa rõ ràng'}</span>
-                </div>
-              </div>
-
-              {/* Evidence Quotes */}
-              {evidence.length > 0 && (
-                <div className="rounded-xl border-l-4 border-l-amber-400 border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-900">
-                  <div className="flex items-center gap-1 font-bold">
-                    <Quote className="size-3.5 text-amber-700" /> Trích dẫn nguyên văn câu trả lời (Evidence Quotes):
-                  </div>
-                  <ul className="mt-1.5 space-y-1 pl-4 list-disc italic text-amber-950">
-                    {evidence.map((q, qIdx) => (
-                      <li key={qIdx}>&ldquo;{q}&rdquo;</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Feedback */}
-              {t.feedback && (
-                <div className="text-xs text-slate-600 bg-slate-50/50 rounded-xl p-3 border border-slate-100">
-                  <p>
-                    <strong className="text-slate-800">Nhận xét:</strong> {t.feedback}
-                  </p>
-                </div>
+          {/* 3. Overall feedback + what to study next */}
+          <section className="grid gap-6 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+            <div className="rounded-3xl border border-[#DCE4F3] bg-white p-6 print:shadow-none print:break-inside-avoid">
+              <h3 className="font-display text-lg font-semibold text-[#14244B]">{t('report.feedback.title')}</h3>
+              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-[#14244B]">
+                {candidateFeedback || t('report.feedback.empty')}
+              </p>
+            </div>
+            <div className="rounded-3xl border border-[#DCE4F3] bg-white p-6 print:shadow-none print:break-inside-avoid">
+              <h3 className="font-display text-lg font-semibold text-[#14244B]">{t('report.next.title')}</h3>
+              {nextRoundTopics.length > 0 ? (
+                <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-[#14244B]">
+                  {nextRoundTopics.map((topic, idx) => (
+                    <li key={idx}>{topic}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm text-[#607096]">{t('report.next.empty')}</p>
               )}
             </div>
-          );
-        })}
-      </div>
+          </section>
+
+          {/* 4. Self vs system calibration */}
+          {calibration.length > 0 && (
+            <section className="rounded-3xl border border-[#DCE4F3] bg-white p-6 print:shadow-none print:break-inside-avoid">
+              <h2 className="font-display text-lg font-semibold text-[#14244B]">{t('report.calib.title')}</h2>
+              <ul className="mt-3 space-y-1.5">
+                {calibration.map((row) => {
+                  const index = ratableTurns.findIndex((turn) => turn.turnId === row.turnId);
+                  const note =
+                    row.gap === 0
+                      ? t('report.calib.match')
+                      : row.gap > 0
+                        ? fmt(t('report.calib.higher'), { n: row.gap })
+                        : fmt(t('report.calib.lower'), { n: -row.gap });
+                  return (
+                    <li
+                      key={row.turnId}
+                      className={`flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${
+                        Math.abs(row.gap) >= 2 ? 'bg-amber-50' : 'bg-[#F7F9FD]'
+                      }`}
+                    >
+                      <a href={`#turn-${row.turnId}`} onClick={() => setTurnOpen(row.turnId, true)} className="font-medium text-[#14244B] hover:underline">
+                        {fmt(t('report.questionN'), { n: index + 1 })} · {note}
+                      </a>
+                      <span className="flex gap-1.5">
+                        <LevelChip level={row.self} prefix={t('report.calib.you')} />
+                        <LevelChip level={row.system} prefix={t('report.calib.system')} />
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="mt-2 text-xs text-[#607096]">{t('report.calib.note')}</p>
+            </section>
+          )}
+
+          {/* 5. Competencies */}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="flex flex-col rounded-3xl border border-[#DCE4F3] bg-white p-6 print:shadow-none print:break-inside-avoid">
+              <div className="mb-2 flex w-full items-center justify-between">
+                <h3 className="font-display text-lg font-semibold text-[#14244B]">{t('report.comp.title')}</h3>
+                <span className="text-xs font-medium text-[#A0AEC0]">{t('report.comp.scale')}</span>
+              </div>
+              <div className="h-72 w-full">
+                {competencyScores.length > 2 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={competencyScores}>
+                      <PolarGrid stroke="#DCE4F3" strokeDasharray="3 3" />
+                      <PolarAngleAxis dataKey="competency" tick={{ fill: '#14244B', fontSize: 11, fontWeight: 500 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 10]} stroke="#A0AEC0" />
+                      <Radar name={t('report.comp.radarName')} dataKey="score" stroke="#204195" fill="#204195" fillOpacity={0.25} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center px-6 text-center text-xs text-[#A0AEC0]">
+                    {competencyScores.length === 0
+                      ? t('report.comp.none')
+                      : t('report.comp.tooFew')}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3.5 rounded-3xl border border-[#DCE4F3] bg-white p-6 print:shadow-none print:break-inside-avoid">
+              <h3 className="font-display text-lg font-semibold text-[#14244B]">{t('report.comp.scores')}</h3>
+              <div className="space-y-3">
+                {competencyScores.map((c, i) => (
+                  <div key={i} className="flex flex-col border-b border-[#EEF2FD] pb-2.5 last:border-0">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-semibold text-[#14244B]">{c.competency || '—'}</span>
+                      <span className="font-bold text-[#204195]">{c.score.toFixed(1)} / 10</span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[#EEF2FD]">
+                      <div
+                        className="h-full rounded-full bg-[#204195]"
+                        style={{ width: `${Math.min(100, Math.max(0, (c.score / 10) * 100))}%` }}
+                      />
+                    </div>
+                    {c.summary && <p className="mt-1 text-xs text-[#607096]">{c.summary}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+
+          {redFlags.length > 0 && (
+            <section className="rounded-3xl border border-amber-200 bg-amber-50 p-6 print:break-inside-avoid">
+              <h3 className="font-display text-lg font-semibold text-amber-950">{t('report.warnings.title')}</h3>
+              <p className="mt-1 text-xs text-amber-800">{t('report.warnings.note')}</p>
+              <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-amber-950">
+                {redFlags.map((warning, idx) => (
+                  <li key={idx}>{warning}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* 6. Per question */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-2xl font-semibold text-[#14244B]">{t('report.turns.title')}</h3>
+              <span className="text-xs font-medium text-[#607096]">
+                {fmt(t('report.questionsGraded'), { n: rawTurns.length })}
+              </span>
+            </div>
+            <p className="-mt-2 text-sm text-[#607096] print:hidden">{t('uxWs.report.turnsHint')}</p>
+
+            {rawTurns.map((turn: TurnEvaluation, idx: number) => {
+              const turnId = turnIdOf(turn);
+              const stage = turn.stage ?? null;
+              const stageLabel = getStageLabel(stage, t);
+              const score = typeof turn.score === 'number' ? turn.score : parseFloat(String(turn.score ?? ''));
+              const level = Number.isFinite(score) ? scoreToLevel(score) : null;
+              const star = turn.star_analysis ?? turn.starAnalysis ?? {};
+              const evidence = turn.evidence_quotes ?? turn.evidenceQuotes ?? [];
+              const questionText = turn.question_text ?? turn.questionText;
+              const lines = transcript.get(turnId) ?? [];
+              const seconds = turnDurationSeconds(lines);
+              const showStar = stage != null && STAR_STAGES.has(stage);
+              const strengths = turn.strengths ?? [];
+              const weaknesses = turn.weaknesses ?? [];
+
+              return (
+                <details
+                  key={turnId || idx}
+                  id={turnId ? `turn-${turnId}` : undefined}
+                  open={printing || isTurnOpen(turnId)}
+                  onToggle={(event) => {
+                    if (!printing) setTurnOpen(turnId, event.currentTarget.open);
+                  }}
+                  className="group scroll-mt-20 rounded-3xl border border-[#DCE4F3] bg-white print:shadow-none print:break-inside-avoid"
+                >
+                  <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 p-5 [&::-webkit-details-marker]:hidden">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-[#EEF2FD] px-2.5 py-0.5 text-xs font-semibold text-[#204195]">
+                        {fmt(t('report.questionN'), { n: idx + 1 })}
+                      </span>
+                      {stageLabel && <span className="text-xs font-semibold text-[#14244B]">{stageLabel}</span>}
+                      {turn.competency && <span className="text-xs text-[#607096]">· {turn.competency}</span>}
+                      {seconds != null && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-[#A0AEC0]">
+                          <Clock className="size-3" /> {formatDuration(t, seconds)}
+                        </span>
+                      )}
+                    </div>
+                    <span className="flex items-center gap-2">
+                      {level && <LevelChip level={level} />}
+                      <span className="text-sm font-extrabold text-[#204195]">
+                        {Number.isFinite(score) ? `${score.toFixed(1)} / 10` : t('report.turn.ungraded')}
+                      </span>
+                      <span aria-hidden="true" className="text-[#A0AEC0] transition-transform group-open:rotate-180 print:hidden">
+                        ▾
+                      </span>
+                    </span>
+                    {questionText && (
+                      <p className="line-clamp-1 basis-full text-sm text-[#607096] group-open:hidden">{questionText}</p>
+                    )}
+                  </summary>
+                  <div className="space-y-3 border-t border-[#EEF2FD] px-5 pb-5 pt-3">
+
+                  {lines.length > 0 ? (
+                    <TurnExchange lines={lines} quotes={evidence} />
+                  ) : (
+                    <>
+                      {questionText && (
+                        <p className="rounded-lg border border-[#EEF2FD] bg-[#F7F9FD] p-2.5 text-sm font-medium text-[#14244B]">
+                          {questionText}
+                        </p>
+                      )}
+                      {evidence.length > 0 && (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-900">
+                          <div className="font-bold">{t('report.turn.evidence')}</div>
+                          <ul className="mt-1.5 list-disc space-y-1 pl-4 italic text-amber-950">
+                            {evidence.map((q, qIdx) => (
+                              <li key={qIdx}>&ldquo;{q}&rdquo;</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {showStar && (
+                    <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
+                      {(
+                        [
+                          [t('report.star.s'), star.situation],
+                          [t('report.star.t'), star.task],
+                          [t('report.star.a'), star.action],
+                          [t('report.star.r'), star.result],
+                        ] as const
+                      ).map(([label, value]) => (
+                        <div
+                          key={label}
+                          className={`rounded-xl border p-2.5 ${
+                            value ? 'border-[#DCE4F3] bg-[#F7F9FD]/70' : 'border-dashed border-[#F5C2C2] bg-[#FDF2F2]/40'
+                          }`}
+                        >
+                          <strong className="block text-[#14244B]">{label}</strong>
+                          <span className="text-[#607096]">{value || t('report.star.missing')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {(strengths.length > 0 || weaknesses.length > 0) && (
+                    <div className="grid gap-2 text-xs sm:grid-cols-2">
+                      {strengths.length > 0 && (
+                        <div className="rounded-xl border border-[#BFDFCB] bg-[#EAF5EE]/60 p-3">
+                          <p className="font-bold text-[#1F5E3A]">{t('report.turn.strengths')}</p>
+                          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[#1F5E3A]">
+                            {strengths.map((item, i) => (
+                              <li key={i}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {weaknesses.length > 0 && (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+                          <p className="font-bold text-amber-800">{t('report.turn.weaknesses')}</p>
+                          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-amber-900">
+                            {weaknesses.map((item, i) => (
+                              <li key={i}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {turn.feedback && (
+                    <p className="rounded-xl border border-[#EEF2FD] bg-[#F7F9FD]/50 p-3 text-xs leading-5 text-[#607096]">
+                      <strong className="text-[#14244B]">{t('report.turn.feedback')}</strong>
+                      {turn.feedback}
+                    </p>
+                  )}
+                  </div>
+                </details>
+              );
+            })}
+          </div>
+
+          {/* 7. Closing: one takeaway, then a clear way out of the report. */}
+          <section className="rounded-3xl border border-[#DCE4F3] bg-white p-6 print:hidden">
+            <h3 className="font-display text-lg font-semibold text-[#14244B]">{t('uxWs.report.closingTitle')}</h3>
+            {onSaveReflection && (
+              <>
+                <label htmlFor="debrief-takeaway" className="mt-1 block text-sm text-[#607096]">
+                  {t('report.takeaway.label')}
+                </label>
+                <textarea
+                  id="debrief-takeaway"
+                  value={takeaway}
+                  onChange={(e) => {
+                    setTakeaway(e.target.value);
+                    setTakeawayState('idle');
+                  }}
+                  maxLength={1000}
+                  rows={3}
+                  placeholder={t('report.takeaway.placeholder')}
+                  className="mt-2 w-full rounded-xl border border-[#DCE4F3] bg-[#F7F9FD] p-3 text-sm text-[#14244B] focus:border-[#204195] focus:outline-none"
+                />
+                <div className="mt-2 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void saveTakeaway()}
+                    disabled={takeawayState === 'saving'}
+                    className="rounded-full bg-[#204195] px-4 py-2 text-xs font-semibold text-white hover:bg-[#183275] disabled:opacity-50"
+                  >
+                    {takeawayState === 'saving' ? t('report.saving') : t('report.save')}
+                  </button>
+                  {takeawayState === 'saved' && <span className="text-xs text-[#287A4B]">{t('report.saved')}</span>}
+                  {takeawayState === 'error' && <span className="text-xs text-[#C43B3B]">{t('report.saveError')}</span>}
+                </div>
+              </>
+            )}
+            <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#EEF2FD] pt-4 text-sm">
+              <Link href="/interview/select" className="font-semibold text-[#204195] underline-offset-4 hover:underline">
+                {t('uxInterview.report.next.practice')} →
+              </Link>
+              <Link href="/dashboard/history" className="font-semibold text-[#204195] underline-offset-4 hover:underline">
+                {t('uxInterview.report.next.history')} →
+              </Link>
+            </div>
+          </section>
+        </>
+      )}
+      <p className="hidden border-t border-[#DCE4F3] pt-3 text-[10px] text-[#607096] print:block">
+        INTERVIA · {new Date().toLocaleDateString(localeOf(lang))} · {t('report.printFooter')}
+      </p>
     </div>
   );
 };

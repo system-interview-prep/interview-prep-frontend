@@ -37,8 +37,9 @@ export interface BankConfig {
 
 export const PAYMENT_BANK_CONFIG: BankConfig = {
   bankName: "MB Bank",
-  accountNumber: "0888 2026 78",
-  accountHolder: "INTERVIA TECH",
+  // Payments are not open; no real account is published in the demo.
+  accountNumber: "",
+  accountHolder: "",
   getTransferNote: (planId: PlanId) => `INTERVIA ${planId.toUpperCase()} PASS`,
 };
 

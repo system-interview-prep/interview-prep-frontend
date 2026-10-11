@@ -19,15 +19,15 @@ export default function AdminEvaluationRegressionClient() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        title={t("admin.eval.regression.title") || "Kiểm thử hồi quy chất lượng (Regression Detection)"}
-        description={t("admin.eval.regression.subtitle") || "Nhận diện và rà soát các trường hợp cụ thể bị giảm điểm sau khi cập nhật mô hình, prompt hoặc rubric mới"}
+        title={t("admin.eval.regression.title")}
+        description={t("admin.eval.regression.subtitle")}
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
-          { label: t("admin.sidebar.evalOverview") || "Evaluation", href: "/admin/evaluation" },
-          { label: t("admin.sidebar.evalRegression") || "Kiểm thử hồi quy" },
+          { label: t("admin.sidebar.evalOverview"), href: "/admin/evaluation" },
+          { label: t("admin.sidebar.evalRegression") },
         ]}
         statusBadge={
-          <AdminStatusBadge status="pending" label={t("admin.common.backendPending") || "Backend Integration Pending"} />
+          <AdminStatusBadge status="pending" label={t("admin.common.backendPending")} />
         }
       />
 
@@ -35,35 +35,35 @@ export default function AdminEvaluationRegressionClient() {
       <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 text-xs text-[#14244B] flex items-center gap-3">
         <AlertTriangle className="size-4 text-rose-600 shrink-0" />
         <p>
-          <span className="font-bold">Mục tiêu phát hiện hồi quy (Rule 48):</span> Đảm bảo không có tính năng nào bị kém đi (made worse) khi nâng cấp. Bất kỳ ca nào có điểm số mới thấp hơn bản cũ phải được review nguyên nhân (prompt ambiguity, hallucination, rubric mismatch) trước khi release.
+          <span className="font-bold">{t("fixAdmin.eval.regression.bannerTitle")}</span> {t("fixAdmin.eval.regression.bannerBody")}
         </p>
       </div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <AdminMetricCard
-          title="Tổng ca bị hồi quy"
+          title={t("fixAdmin.eval.regression.total")}
           value={null}
-          subtitle="Điểm số sụt giảm sau update"
+          subtitle={t("fixAdmin.eval.regression.totalSub")}
           icon={AlertTriangle}
           isPending={true}
-          pendingText="Backend pending"
+          pendingText={t("fixAdmin.common.backendPending")}
         />
         <AdminMetricCard
-          title="Cần rà soát (Needs Review)"
+          title={t("fixAdmin.eval.regression.needsReview")}
           value={null}
-          subtitle="Chưa được chuyên gia duyệt"
+          subtitle={t("fixAdmin.eval.regression.needsReviewSub")}
           icon={GitCompare}
           isPending={true}
-          pendingText="Backend pending"
+          pendingText={t("fixAdmin.common.backendPending")}
         />
         <AdminMetricCard
-          title="Đã xử lý (Resolved)"
+          title={t("fixAdmin.eval.regression.resolved")}
           value={null}
-          subtitle="Đã fix prompt hoặc cập nhật test"
+          subtitle={t("fixAdmin.eval.regression.resolvedSub")}
           icon={ShieldCheck}
           isPending={true}
-          pendingText="Backend pending"
+          pendingText={t("fixAdmin.common.backendPending")}
         />
       </div>
 
@@ -75,7 +75,7 @@ export default function AdminEvaluationRegressionClient() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-9 pr-4 text-xs font-medium text-[#14244B] placeholder-[#8A98B8] focus:border-[#204195] focus:bg-white focus:outline-none transition-colors"
-            placeholder="Tìm theo ID ca kiểm thử hoặc lý do hồi quy..."
+            placeholder={t("fixAdmin.eval.regression.search")}
             type="text"
           />
         </div>
@@ -87,13 +87,13 @@ export default function AdminEvaluationRegressionClient() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
-                <th className="px-6 py-4">Ca kiểm thử (Case)</th>
-                <th className="px-6 py-4">Tính năng liên quan</th>
-                <th className="px-6 py-4 text-center">Điểm cũ</th>
-                <th className="px-6 py-4 text-center">Điểm mới</th>
-                <th className="px-6 py-4 text-center">Độ lệch (Delta)</th>
-                <th className="px-6 py-4">Lý do nhận định</th>
-                <th className="px-6 py-4 text-right">Trạng thái duyệt</th>
+                <th className="px-6 py-4">{t("fixAdmin.eval.regression.colCase")}</th>
+                <th className="px-6 py-4">{t("fixAdmin.eval.regression.colFeature")}</th>
+                <th className="px-6 py-4 text-center">{t("fixAdmin.eval.regression.colOld")}</th>
+                <th className="px-6 py-4 text-center">{t("fixAdmin.eval.regression.colNew")}</th>
+                <th className="px-6 py-4 text-center">{t("fixAdmin.eval.regression.colDelta")}</th>
+                <th className="px-6 py-4">{t("fixAdmin.eval.regression.colReason")}</th>
+                <th className="px-6 py-4 text-right">{t("fixAdmin.eval.regression.colReview")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EAEFF8] text-xs">
@@ -102,8 +102,8 @@ export default function AdminEvaluationRegressionClient() {
                   <td colSpan={7} className="p-8">
                     <AdminEmptyState
                       variant="pending"
-                      title="Chưa có dữ liệu hồi quy (Regression Pending)"
-                      description="Hệ thống sẽ tự động liệt kê các case sụt giảm điểm khi có thử nghiệm so sánh A/B được kích hoạt từ Core Backend."
+                      title={t("fixAdmin.eval.regression.emptyTitle")}
+                      description={t("fixAdmin.eval.regression.emptyDesc")}
                     />
                   </td>
                 </tr>

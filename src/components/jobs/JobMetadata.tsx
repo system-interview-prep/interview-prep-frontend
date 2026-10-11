@@ -115,7 +115,7 @@ export function JobMetadata({
       {/* Row 1: Location & Workplace Type */}
       {hasLocationRow && (
         <div className="flex items-center gap-1.5">
-          <MapPin className="size-3.5 shrink-0 text-[#94A3B8]" aria-hidden="true" />
+          <MapPin className="size-3.5 shrink-0 text-[#9AA6C2]" aria-hidden="true" />
           <span className="truncate">{locationParts.join(" · ")}</span>
         </div>
       )}
@@ -123,7 +123,7 @@ export function JobMetadata({
       {/* Row 2: Experience */}
       {hasExperienceRow && (
         <div className="flex items-center gap-1.5">
-          <Clock className="size-3.5 shrink-0 text-[#94A3B8]" aria-hidden="true" />
+          <Clock className="size-3.5 shrink-0 text-[#9AA6C2]" aria-hidden="true" />
           <span className="truncate">{experienceText}</span>
         </div>
       )}
@@ -131,7 +131,7 @@ export function JobMetadata({
       {/* Row 3: Employment Type & Seniority */}
       {hasJobTypeRow && (
         <div className="flex items-center gap-1.5">
-          <Briefcase className="size-3.5 shrink-0 text-[#94A3B8]" aria-hidden="true" />
+          <Briefcase className="size-3.5 shrink-0 text-[#9AA6C2]" aria-hidden="true" />
           <span className="truncate">{jobTypeParts.join(" · ")}</span>
         </div>
       )}

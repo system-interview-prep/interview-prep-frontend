@@ -145,6 +145,19 @@ export type MatchResult = {
   scoreProvenance?: ScoreProvenance;
   warnings: string[];
   failedMustHaveRequirements?: string[];
+  /** Every CV span this result cites, with char offsets into the CV's rawText. */
+  evidence?: MatchEvidenceSpan[];
+};
+
+export type MatchEvidenceSpan = {
+  evidenceId: string;
+  documentId?: string;
+  section?: string | null;
+  text: string;
+  charStart: number;
+  charEnd: number;
+  page?: number | null;
+  sourceBlockId?: string | null;
 };
 
 export type CvScoringCriterion = {

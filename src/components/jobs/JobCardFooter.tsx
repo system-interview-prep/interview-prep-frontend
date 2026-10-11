@@ -41,9 +41,10 @@ export function JobCardFooter({
   }
 
   return (
-    <div className="flex items-center justify-between gap-2 border-t border-[#EAEFF8] pt-3 text-xs">
-      {/* Left: Posted Date + Optional Source */}
-      <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[11px] text-[#94A3B8]">
+    <div className="space-y-2.5 border-t border-[#EAEFF8] pt-3 text-xs">
+      {/* Posted date + optional source, on its own line */}
+      {(postedText || sourceText) && (
+      <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-[#9AA6C2]">
         {postedText && <span className="truncate">{postedText}</span>}
         {postedText && sourceText && <span>·</span>}
         {sourceText && (
@@ -52,9 +53,10 @@ export function JobCardFooter({
           </span>
         )}
       </div>
+      )}
 
-      {/* Right: View Job or Interview CTA */}
-      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+      {/* Interview CTA + view job */}
+      <div className="flex items-center justify-between gap-2">
         {onInterview && (
           <button
             type="button"
@@ -64,7 +66,7 @@ export function JobCardFooter({
               onInterview();
             }}
             title={interviewCta || t("userDash.jobProfiles.interviewNow") || (lang === "vi" ? "Luyện phỏng vấn" : "Practice Interview")}
-            className="relative z-[3] inline-flex items-center gap-1 rounded-lg border border-[#204195]/20 bg-[#F0F4FC] px-2.5 py-1 text-[11px] font-bold text-[#204195] transition-all hover:border-[#204195] hover:bg-[#204195] hover:text-white active:scale-95"
+            className="relative z-[3] inline-flex items-center gap-1 rounded-full border border-[#204195]/20 bg-[#F0F4FC] px-3 py-1.5 text-[12px] font-bold text-[#204195] transition-all hover:border-[#204195] hover:bg-[#204195] hover:text-white active:scale-95"
           >
             <span>{interviewCta || t("userDash.jobProfiles.interviewNow") || (lang === "vi" ? "Luyện phỏng vấn" : "Practice Interview")}</span>
             <Play className="size-2.5 fill-current" aria-hidden="true" />
@@ -72,9 +74,7 @@ export function JobCardFooter({
         )}
 
         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#204195] transition-transform duration-150 group-hover:translate-x-0.5 sm:text-xs">
-          <span className={onInterview ? "hidden sm:inline" : "inline"}>
-            {t("jobs.card.viewJob") || "Xem chi tiết"}
-          </span>
+          <span>{t("jobs.card.viewJob") || "Xem chi tiết"}</span>
           <ArrowRight className="size-3.5" aria-hidden="true" />
         </span>
       </div>

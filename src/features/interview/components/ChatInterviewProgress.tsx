@@ -2,60 +2,76 @@
 
 import React, { useEffect, useState } from 'react';
 import { Check, Circle, Clock, Minus, TriangleAlert } from 'lucide-react';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import { fmt } from '@/i18n/format';
+import { roomVi } from '@/i18n/dicts/room.dict';
 import type {
   ChatRuntimeTurn,
   EndReason,
   InterviewStage,
 } from '../services/interviewChat.service';
 
+type Translate = (key: string) => string;
+
+const viT: Translate = (k) => roomVi[k] ?? k;
+
+/** Dictionary id of each stage: `room.stage.<id>.label|short|description|tip`. */
+const STAGE_ID: Record<InterviewStage, string> = {
+  WARM_UP: 'warmUp',
+  VALIDATE: 'validate',
+  DEEP_DIVE: 'deepDive',
+  CHALLENGE: 'challenge',
+  BEHAVIORAL: 'behavioral',
+  CLOSING: 'closing',
+  CLOSED: 'closed',
+};
+
+function stageLabels(key: InterviewStage, t: Translate = viT): { label: string; shortLabel: string } {
+  return {
+    label: t(`room.stage.${STAGE_ID[key]}.label`),
+    shortLabel: t(`room.stage.${STAGE_ID[key]}.short`),
+  };
+}
+
+const STAGE_ORDER: InterviewStage[] = [
+  'WARM_UP',
+  'VALIDATE',
+  'DEEP_DIVE',
+  'CHALLENGE',
+  'BEHAVIORAL',
+  'CLOSING',
+  'CLOSED',
+];
+
+/** Stage order with Vietnamese labels; use `deriveChatStageProgress({ t })` for the UI language. */
 export const CHAT_STAGE_DEFINITIONS: ReadonlyArray<{
   key: InterviewStage;
   label: string;
   shortLabel: string;
-}> = [
-  { key: 'WARM_UP', label: 'Mở đầu', shortLabel: 'Mở đầu' },
-  { key: 'VALIDATE', label: 'CV / kinh nghiệm', shortLabel: 'CV' },
-  { key: 'DEEP_DIVE', label: 'Chuyên môn', shortLabel: 'Chuyên môn' },
-  { key: 'CHALLENGE', label: 'Thử thách', shortLabel: 'Thử thách' },
-  { key: 'BEHAVIORAL', label: 'Hành vi', shortLabel: 'Hành vi' },
-  { key: 'CLOSING', label: 'Hỏi đáp', shortLabel: 'Hỏi đáp' },
-  { key: 'CLOSED', label: 'Hoàn tất', shortLabel: 'Xong' },
-];
+}> = STAGE_ORDER.map((key) => ({ key, ...stageLabels(key) }));
 
-/** What happens in each stage and how to answer it, shown next to the chat. */
-export const CHAT_STAGE_GUIDE: Record<
-  Exclude<InterviewStage, 'CLOSED'>,
-  { description: string; tip: string }
-> = {
-  WARM_UP: {
-    description: 'Làm quen và giới thiệu ngắn về bản thân.',
-    tip: '2–3 ý ngắn: bạn là ai, kinh nghiệm gần nhất, vì sao quan tâm vị trí này.',
-  },
-  VALIDATE: {
-    description: 'Xác thực một dự án hoặc kinh nghiệm có trong CV.',
-    tip: 'Liệt kê: phần bạn trực tiếp làm, quyết định khó nhất, kết quả đo được.',
-  },
-  DEEP_DIVE: {
-    description: 'Câu hỏi chuyên môn theo kỹ năng JD yêu cầu.',
-    tip: 'Gạch đầu dòng ý chính: khái niệm, ví dụ thực tế, đánh đổi (trade-off). Không cần viết thành đoạn.',
-  },
-  CHALLENGE: {
-    description: 'Câu hỏi khó hơn hoặc tình huống kỹ thuật.',
-    tip: 'Nêu giả định và hướng xử lý theo từng ý; chưa làm thực tế thì nói thật và nêu cách bạn sẽ làm.',
-  },
-  BEHAVIORAL: {
-    description: 'Tình huống thực tế trong công việc.',
-    tip: '3 ý là đủ: chuyện gì xảy ra → bạn đã làm gì → kết quả (theo STAR).',
-  },
-  CLOSING: {
-    description: 'Bạn đặt câu hỏi cho nhà tuyển dụng.',
-    tip: 'Hỏi tối đa 2 câu về công việc, đội ngũ hoặc công ty. Không có câu hỏi thì gửi "Tôi không có câu hỏi nào".',
-  },
+type GuidedStage = Exclude<InterviewStage, 'CLOSED'>;
+
+function stageGuide(stage: GuidedStage, t: Translate = viT): { description: string; tip: string } {
+  return {
+    description: t(`room.stage.${STAGE_ID[stage]}.description`),
+    tip: t(`room.stage.${STAGE_ID[stage]}.tip`),
+  };
+}
+
+/** What happens in each stage and how to answer it, shown next to the chat (Vietnamese). */
+export const CHAT_STAGE_GUIDE: Record<GuidedStage, { description: string; tip: string }> = {
+  WARM_UP: stageGuide('WARM_UP'),
+  VALIDATE: stageGuide('VALIDATE'),
+  DEEP_DIVE: stageGuide('DEEP_DIVE'),
+  CHALLENGE: stageGuide('CHALLENGE'),
+  BEHAVIORAL: stageGuide('BEHAVIORAL'),
+  CLOSING: stageGuide('CLOSING'),
 };
 
-export function getStageGuide(stage?: string | null) {
+export function getStageGuide(stage?: string | null, t?: Translate) {
   const normalized = normalizeInterviewStage(stage);
-  return normalized && normalized !== 'CLOSED' ? CHAT_STAGE_GUIDE[normalized] : null;
+  return normalized && normalized !== 'CLOSED' ? stageGuide(normalized, t ?? viT) : null;
 }
 
 export type ChatStageState = 'completed' | 'current' | 'upcoming' | 'skipped' | 'optional';
@@ -75,10 +91,13 @@ export function deriveChatStageProgress({
   currentStage,
   sessionStatus,
   turns = [],
+  t,
 }: {
   currentStage?: string | null;
   sessionStatus: 'OPEN' | 'CLOSED';
   turns?: ChatRuntimeTurn[];
+  /** Translator for stage labels; Vietnamese when omitted. */
+  t?: Translate;
 }): { stages: ChatStageProgress[]; currentStage: InterviewStage | null; unknownStage: string | null } {
   const normalizedStage = sessionStatus === 'CLOSED' ? 'CLOSED' : normalizeInterviewStage(currentStage);
   const presentStages = new Set<InterviewStage>();
@@ -109,7 +128,7 @@ export function deriveChatStageProgress({
     } else {
       state = 'optional';
     }
-    return { ...stage, state };
+    return { ...stage, ...(t ? stageLabels(stage.key, t) : null), state };
   });
 
   return {
@@ -122,27 +141,46 @@ export function deriveChatStageProgress({
   };
 }
 
-export function getStageLabel(stage?: string | null): string | null {
+export function getStageLabel(stage?: string | null, t?: Translate): string | null {
   const normalized = normalizeInterviewStage(stage);
-  return CHAT_STAGE_DEFINITIONS.find((item) => item.key === normalized)?.label ?? null;
+  return normalized ? stageLabels(normalized, t ?? viT).label : null;
 }
 
-export function getEndReasonLabel(reason?: EndReason | null): string {
+/** i18n key for an end reason; pair with `t()` from useLanguage. */
+export function endReasonKey(reason?: string | null): string {
   switch (reason) {
     case 'USER_ENDED':
     case 'CANDIDATE_ABORT':
-      return 'Đã dừng theo yêu cầu';
+      return 'endReason.userEnded';
     case 'HARD_TIMEOUT':
-      return 'Đã kết thúc do hết thời gian';
+      return 'endReason.timeout';
     case 'FAST_FAIL_TECH':
     case 'FAST_FAIL_VALIDATION':
-      return 'Phiên đã kết thúc sớm';
+      return 'endReason.early';
     case 'TECHNICAL_FAILURE':
-      return 'Đã dừng do lỗi hệ thống';
+      return 'endReason.technical';
+    default:
+      return 'endReason.completed';
+  }
+}
+
+export function getEndReasonLabel(reason?: EndReason | null, t?: Translate): string {
+  const tr = t ?? viT;
+  switch (reason) {
+    case 'USER_ENDED':
+    case 'CANDIDATE_ABORT':
+      return tr('room.endReason.userEnded');
+    case 'HARD_TIMEOUT':
+      return tr('room.endReason.timeout');
+    case 'FAST_FAIL_TECH':
+    case 'FAST_FAIL_VALIDATION':
+      return tr('room.endReason.early');
+    case 'TECHNICAL_FAILURE':
+      return tr('room.endReason.technical');
     case 'COMPLETED':
     case 'NORMAL_COMPLETION':
     default:
-      return 'Đã hoàn tất';
+      return tr('room.endReason.completed');
   }
 }
 
@@ -196,17 +234,18 @@ export function ChatStageStepper({
   sessionStatus: 'OPEN' | 'CLOSED';
   turns?: ChatRuntimeTurn[];
 }) {
-  const progress = deriveChatStageProgress({ currentStage, sessionStatus, turns });
+  const { t } = useLanguage();
+  const progress = deriveChatStageProgress({ currentStage, sessionStatus, turns, t });
 
   return (
-    <section aria-label="Tiến độ các giai đoạn phỏng vấn" className="border-b border-[#DCE4F3] bg-white">
+    <section aria-label={t('room.stage.progressAria')} className="border-b border-[#DCE4F3] bg-white">
       {progress.unknownStage && (
         <div
           role="status"
           className="mx-auto flex max-w-4xl items-center gap-2 px-4 pt-2 text-xs font-medium text-amber-700 sm:px-6"
         >
           <TriangleAlert className="size-3.5 shrink-0" />
-          <span>Giai đoạn hiện tại chưa được nhận diện; hội thoại vẫn được giữ nguyên.</span>
+          <span>{t('room.stage.unknown')}</span>
         </div>
       )}
       {/* relative: the sr-only labels are absolutely positioned; without a
@@ -236,7 +275,7 @@ export function ChatStageStepper({
                     isCurrent
                       ? 'border-[#204195] bg-[#204195] text-white shadow-sm ring-2 ring-[#204195]/15'
                       : isCompleted
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        ? 'border-[#BFDFCB] bg-[#EAF5EE] text-[#287A4B]'
                         : isSkipped
                           ? 'border-dashed border-[#DCE4F3] bg-white text-[#A0AEC0]'
                           : stage.state === 'optional'
@@ -245,9 +284,9 @@ export function ChatStageStepper({
                   }`}
                   title={
                     isSkipped
-                      ? `${stage.label}: không xuất hiện trong phiên này`
+                      ? fmt(t('room.stage.skippedTitle'), { label: stage.label })
                       : stage.state === 'optional'
-                        ? `${stage.label}: có thể được bỏ qua tùy diễn biến phiên`
+                        ? fmt(t('room.stage.optionalTitle'), { label: stage.label })
                         : stage.label
                   }
                 >
@@ -260,15 +299,18 @@ export function ChatStageStepper({
                   )}
                   <span>{stage.shortLabel}</span>
                   <span className="sr-only">
-                    {isCurrent
-                      ? ' — hiện tại'
-                      : isCompleted
-                        ? ' — đã qua'
-                        : isSkipped
-                          ? ' — không có trong phiên'
-                          : stage.state === 'optional'
-                            ? ' — có thể được bỏ qua'
-                            : ' — chưa tới'}
+                    {' — '}
+                    {t(
+                      isCurrent
+                        ? 'room.stage.sr.current'
+                        : isCompleted
+                          ? 'room.stage.sr.completed'
+                          : isSkipped
+                            ? 'room.stage.sr.skipped'
+                            : stage.state === 'optional'
+                              ? 'room.stage.sr.optional'
+                              : 'room.stage.sr.upcoming'
+                    )}
                   </span>
                 </li>
               </React.Fragment>
@@ -291,6 +333,7 @@ export function InterviewCountdownTimer({
   durationMinutes?: number;
   isClosed: boolean;
 }) {
+  const { t } = useLanguage();
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(
     Number.isFinite(serverRemainingSeconds) && (serverRemainingSeconds as number) >= 0
       ? Math.floor(serverRemainingSeconds as number)
@@ -321,9 +364,9 @@ export function InterviewCountdownTimer({
   if (secondsRemaining === null) return null;
   if (isClosed) {
     return (
-      <div className="inline-flex items-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-[#F7F9FD] px-2.5 py-1.5 text-xs font-semibold text-[#607096] sm:px-3">
+      <div className="inline-flex items-center gap-1.5 rounded-full border border-[#DCE4F3] bg-[#F7F9FD] px-2.5 py-1.5 text-xs font-semibold text-[#607096] sm:px-3">
         <Clock className="size-3.5" />
-        <span>Đồng hồ đã dừng</span>
+        <span>{t('room.timer.stopped')}</span>
       </div>
     );
   }
@@ -334,10 +377,10 @@ export function InterviewCountdownTimer({
     return (
       <div
         role="status"
-        className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800 sm:px-3"
+        className="inline-flex items-center gap-1.5 rounded-full border border-[#F6DFA3] bg-[#FFF8E6] px-2.5 py-1.5 text-xs font-semibold text-[#8A5A00] sm:px-3"
       >
         <Clock className="size-3.5" />
-        <span>Quá giờ dự kiến</span>
+        <span>{t('room.timer.overtime')}</span>
       </div>
     );
   }
@@ -351,18 +394,18 @@ export function InterviewCountdownTimer({
 
   return (
     <div
-      aria-label={`Thời gian dự kiến còn lại ${formatted}`}
-      className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold sm:px-3 ${
+      aria-label={fmt(t('room.timer.remainingAria'), { time: formatted })}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold sm:px-3 ${
         isCritical
-          ? 'border-rose-300 bg-rose-50 text-rose-700'
+          ? 'border-[#F5C2C2] bg-[#FDF2F2] text-[#C43B3B]'
           : isLow
-            ? 'border-amber-300 bg-amber-50 text-amber-800'
+            ? 'border-[#F6DFA3] bg-[#FFF8E6] text-[#8A5A00]'
             : 'border-[#DCE4F3] bg-[#F7F9FD] text-[#14244B]'
       }`}
     >
       <Clock className="size-3.5" />
       <span className="tabular-nums">{formatted}</span>
-      <span className="hidden font-normal opacity-80 md:inline">dự kiến còn lại</span>
+      <span className="hidden font-normal opacity-80 md:inline">{t('room.timer.remaining')}</span>
     </div>
   );
 }

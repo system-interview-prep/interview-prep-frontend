@@ -12,7 +12,7 @@ export function MatchingShowcase() {
   const selectedItem = MARKETING_EVIDENCE_MOCK[selectedIndex];
 
   return (
-    <section id="matching-showcase" className="relative px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-12 xl:py-20 bg-[#F7F9FD] border-b border-[#E7ECF5]">
+    <section id="matching-showcase" className="relative bg-white px-4 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-12">
       <motion.div
         initial="hidden"
         whileInView="visible"
@@ -21,19 +21,19 @@ export function MatchingShowcase() {
         className="mx-auto w-full max-w-[1320px]"
       >
         <div className="grid gap-12 lg:grid-cols-12 lg:items-center">
-          {/* VISUAL COLUMN LEFT (60% width = lg:col-span-7) */}
-          <div className="lg:col-span-7 order-2 lg:order-1 text-left">
-            <div className="rounded-3xl border border-[#DCE4F3] bg-white p-6 sm:p-8 shadow-xs">
-              <div className="flex items-center justify-between border-b border-[#DCE4F3] pb-4">
-                <span className="font-mono text-xs font-bold text-[#204195]">
-                  Nguyen_Van_A_Resume.pdf ↔ JD Requirements
+          {/* Product preview */}
+          <div className="order-2 text-left lg:order-1 lg:col-span-7">
+            <div className="rounded-3xl bg-white p-6 ring-1 ring-[#DCE4F3] sm:p-8">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#DCE4F3] pb-4">
+                <span className="min-w-0 break-words text-sm font-semibold text-[#14244B]">
+                  {t("fixm.matching.fileLabel")}
                 </span>
-                <span className="rounded-full bg-emerald-50 border border-emerald-200 px-3 py-0.5 font-mono text-[11px] font-bold text-emerald-800">
-                  {t("landing.matching.eyebrow")}
+                <span className="rounded-full bg-[#F0F4FC] px-2.5 py-0.5 text-[11px] font-semibold text-[#607096]">
+                  {t("fixm.common.example")}
                 </span>
               </div>
 
-              {/* Requirement Clickable List */}
+              {/* Requirement list */}
               <div className="mt-5 space-y-2">
                 {MARKETING_EVIDENCE_MOCK.map((item, idx) => {
                   const isSelected = idx === selectedIndex;
@@ -44,24 +44,25 @@ export function MatchingShowcase() {
                       key={item.requirement}
                       type="button"
                       onClick={() => setSelectedIndex(idx)}
-                      className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer ${
+                      aria-pressed={isSelected}
+                      className={`w-full rounded-2xl p-3.5 text-left transition-colors ${
                         isSelected
-                          ? "border-[#204195] bg-[#EEF3FC] shadow-xs"
-                          : "border-[#DCE4F3] bg-white hover:border-[#204195]/40"
+                          ? "bg-[#F7F9FD] ring-2 ring-[#204195]"
+                          : "bg-white ring-1 ring-[#DCE4F3] hover:bg-[#F7F9FD]"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <span className="font-sans text-xs font-bold text-[#14244B]">
+                        <span className="text-sm font-semibold text-[#14244B]">
                           {item.requirement}
                         </span>
                         <span
-                          className={`shrink-0 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-bold ${
+                          className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                             isMatched
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-amber-100 text-amber-800"
+                              ? "bg-[#287A4B]/10 text-[#287A4B]"
+                              : "bg-[#FCB625]/20 text-[#14244B]"
                           }`}
                         >
-                          {isMatched ? "Matched" : "Missing Evidence"}
+                          {isMatched ? t("uxm.match.matched") : t("uxm.match.missing")}
                         </span>
                       </div>
                     </button>
@@ -69,25 +70,25 @@ export function MatchingShowcase() {
                 })}
               </div>
 
-              {/* Highlighted Snippet Box */}
-              <div className="mt-5 rounded-2xl border border-[#DCE4F3] bg-[#F7F9FD] p-4 text-xs font-sans text-[#14244B]">
-                <span className="font-mono text-[10px] font-bold text-[#607096] uppercase">CV Snippet Highlight</span>
+              {/* Highlighted snippet */}
+              <div className="mt-5 rounded-2xl bg-[#F7F9FD] p-4 text-sm text-[#14244B]">
+                <span className="text-[12px] font-semibold text-[#204195]">{t("fixm.common.sampleSnippet")}</span>
                 {selectedItem.snippets.length > 0 ? (
-                  <p className="mt-2 font-medium bg-[#FCB625]/20 border border-[#FCB625]/40 p-3 rounded-xl">
+                  <p className="mt-2 rounded-2xl border border-[#FCB625]/40 bg-[#FCB625]/20 p-3 font-medium">
                     &quot;{selectedItem.snippets[0]}&quot;
                   </p>
                 ) : (
-                  <p className="mt-2 font-medium bg-amber-50 text-amber-900 border border-amber-200 p-3 rounded-xl">
-                    No evidence snippet located in CV for this requirement.
+                  <p className="mt-2 rounded-2xl bg-white p-3 font-medium text-[#607096]">
+                    {t("uxm.match.noSnippet")}
                   </p>
                 )}
               </div>
             </div>
           </div>
 
-          {/* TEXT COLUMN RIGHT (40% width = lg:col-span-5) */}
-          <div className="lg:col-span-5 order-1 lg:order-2 text-left">
-            <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[#14244B] sm:text-4xl md:text-5xl leading-tight">
+          {/* Copy */}
+          <div className="order-1 text-left lg:order-2 lg:col-span-5">
+            <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight text-[#14244B] sm:text-4xl md:text-[44px]">
               {t("landing.matching.title")}
             </h2>
 
@@ -102,4 +103,3 @@ export function MatchingShowcase() {
 }
 
 export default MatchingShowcase;
-

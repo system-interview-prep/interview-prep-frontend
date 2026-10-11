@@ -7,6 +7,7 @@ import JobCardHeader from "./JobCardHeader";
 import JobMetadata from "./JobMetadata";
 import JobSalary from "./JobSalary";
 import JobMatchSummary from "./JobMatchSummary";
+import JobFitBadge from "./JobFitBadge";
 import JobCardFooter from "./JobCardFooter";
 
 export function JobCard({
@@ -65,6 +66,9 @@ export function JobCard({
 
         {/* 4. AI Match Section: Clean compact panel or null */}
         <JobMatchSummary match={job.match} />
+
+        {/* 5. Last CV–JD analysis of this job, if the candidate ran one */}
+        <JobFitBadge jobId={job.id} fit={job.fit} />
       </div>
 
       {/* 5. Footer: Posted time, source, View Job */}

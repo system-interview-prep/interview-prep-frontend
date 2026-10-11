@@ -20,15 +20,15 @@ export default function AdminEvaluationExperimentsClient() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        title={t("admin.eval.experiments.title") || "Thử nghiệm so sánh đối đầu (A/B Experiments)"}
-        description={t("admin.eval.experiments.subtitle") || "So sánh hiệu năng giữa Variant A và Variant B (Model, Prompt, Rubric) trên cùng một bộ dữ liệu kiểm thử"}
+        title={t("admin.eval.experiments.title")}
+        description={t("admin.eval.experiments.subtitle")}
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
-          { label: t("admin.sidebar.evalOverview") || "Evaluation", href: "/admin/evaluation" },
-          { label: t("admin.sidebar.evalExperiments") || "Thử nghiệm so sánh" },
+          { label: t("admin.sidebar.evalOverview"), href: "/admin/evaluation" },
+          { label: t("admin.sidebar.evalExperiments") },
         ]}
         statusBadge={
-          <AdminStatusBadge status="pending" label={t("admin.common.backendPending") || "Backend Integration Pending"} />
+          <AdminStatusBadge status="pending" label={t("admin.common.backendPending")} />
         }
         primaryAction={
           <button
@@ -37,7 +37,7 @@ export default function AdminEvaluationExperimentsClient() {
             className="inline-flex items-center gap-2 rounded-xl bg-[#204195] px-3.5 py-2 text-xs font-semibold text-white shadow-2xs opacity-60 cursor-not-allowed"
           >
             <Plus className="size-3.5" />
-            <span>Tạo Thử nghiệm mới (Pending BE)</span>
+            <span>{t("fixAdmin.eval.experiments.create")}</span>
           </button>
         }
       />
@@ -46,36 +46,36 @@ export default function AdminEvaluationExperimentsClient() {
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] p-4 text-xs text-[#607096] flex items-center gap-3">
         <Scale className="size-4 text-[#204195] shrink-0" />
         <p>
-          <span className="font-bold text-[#14244B]">Nguyên tắc thẩm định khách quan (Rule 46):</span>{" "}
-          {t("admin.eval.experiments.objectiveRule") || "Giao diện tuyệt đối không tự ý gán nhãn \"Winner\" (Người chiến thắng) thiên kiến. INTERVIA hiển thị đầy đủ các chiều: Điểm chất lượng, Độ trễ p50/p95, Chi phí suy luận, Số ca hồi quy để Quản trị viên đưa ra quyết định toàn diện."}
+          <span className="font-bold text-[#14244B]">{t("fixAdmin.eval.experiments.ruleTitle")}</span>{" "}
+          {t("admin.eval.experiments.objectiveRule")}
         </p>
       </div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <AdminMetricCard
-          title="Tổng số thử nghiệm"
+          title={t("fixAdmin.eval.experiments.total")}
           value={null}
-          subtitle="Các đợt chạy A/B benchmark"
+          subtitle={t("fixAdmin.eval.experiments.totalSub")}
           icon={FlaskConical}
           isPending={true}
-          pendingText="Backend pending"
+          pendingText={t("fixAdmin.common.backendPending")}
         />
         <AdminMetricCard
-          title="Thử nghiệm hoàn tất"
+          title={t("fixAdmin.eval.experiments.completed")}
           value={null}
-          subtitle="Đã có kết quả đối chiếu"
+          subtitle={t("fixAdmin.eval.experiments.completedSub")}
           icon={FlaskConical}
           isPending={true}
-          pendingText="Backend pending"
+          pendingText={t("fixAdmin.common.backendPending")}
         />
         <AdminMetricCard
-          title="Tỷ lệ hồi quy trung bình"
+          title={t("fixAdmin.eval.experiments.regressionRate")}
           value={null}
-          subtitle="Tỷ lệ ca suy giảm chất lượng"
+          subtitle={t("fixAdmin.eval.experiments.regressionRateSub")}
           icon={GitCompare}
           isPending={true}
-          pendingText="Backend pending"
+          pendingText={t("fixAdmin.common.backendPending")}
         />
       </div>
 
@@ -87,7 +87,7 @@ export default function AdminEvaluationExperimentsClient() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-9 pr-4 text-xs font-medium text-[#14244B] placeholder-[#8A98B8] focus:border-[#204195] focus:bg-white focus:outline-none transition-colors"
-            placeholder="Tìm theo tên thử nghiệm hoặc dataset..."
+            placeholder={t("fixAdmin.eval.experiments.search")}
             type="text"
           />
         </div>
@@ -99,13 +99,13 @@ export default function AdminEvaluationExperimentsClient() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
-                <th className="px-6 py-4">Tên thử nghiệm</th>
-                <th className="px-6 py-4">Bộ Dataset đối chiếu</th>
-                <th className="px-6 py-4">Biến thể A (Baseline)</th>
-                <th className="px-6 py-4">Biến thể B (Candidate)</th>
-                <th className="px-6 py-4 text-center">Ca hồi quy</th>
-                <th className="px-6 py-4 text-center">Trạng thái</th>
-                <th className="px-6 py-4 text-right">Chi tiết</th>
+                <th className="px-6 py-4">{t("fixAdmin.eval.experiments.colName")}</th>
+                <th className="px-6 py-4">{t("fixAdmin.eval.experiments.colDataset")}</th>
+                <th className="px-6 py-4">{t("fixAdmin.eval.experiments.colVariantA")}</th>
+                <th className="px-6 py-4">{t("fixAdmin.eval.experiments.colVariantB")}</th>
+                <th className="px-6 py-4 text-center">{t("fixAdmin.eval.experiments.colRegressions")}</th>
+                <th className="px-6 py-4 text-center">{t("fixAdmin.common.status")}</th>
+                <th className="px-6 py-4 text-right">{t("fixAdmin.common.details")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EAEFF8] text-xs">
@@ -114,8 +114,8 @@ export default function AdminEvaluationExperimentsClient() {
                   <td colSpan={7} className="p-8">
                     <AdminEmptyState
                       variant="pending"
-                      title="Chưa kết nối API Thử nghiệm (Experiments)"
-                      description="Giao diện đối chiếu đa chiều A/B đã hoàn thiện. Core Backend cần triển khai endpoint GET /admin/eval/experiments để nạp dữ liệu chạy thử nghiệm."
+                      title={t("fixAdmin.eval.experiments.emptyTitle")}
+                      description={t("fixAdmin.eval.experiments.emptyDesc")}
                     />
                   </td>
                 </tr>
@@ -130,7 +130,7 @@ export default function AdminEvaluationExperimentsClient() {
                     <td className="px-6 py-4 text-center">{exp.status}</td>
                     <td className="px-6 py-4 text-right">
                       <Link href={`/admin/evaluation/experiments/${exp.id}`} className="text-[#204195] font-semibold hover:underline">
-                        Xem
+                        {t("fixAdmin.common.view")}
                       </Link>
                     </td>
                   </tr>

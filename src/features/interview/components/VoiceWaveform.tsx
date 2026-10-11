@@ -1,39 +1,23 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 export type VoiceOrbState = "idle" | "listening" | "thinking" | "speaking";
 const wave = [20, 38, 56, 32, 72, 48, 62, 34, 22];
 
 export function VoiceWaveform({ state }: { state: VoiceOrbState }) {
   const shouldReduceMotion = useReducedMotion();
+  const { t } = useLanguage();
   const active = state !== "idle";
   const yellow = state === "thinking" || state === "speaking";
 
   return (
     <div
       className="relative grid h-60 w-60 place-items-center sm:h-68 sm:w-68"
-      aria-label={`Trạng thái giọng nói: ${state}`}
+      aria-label={t(`room.wave.${state}`)}
       role="img"
     >
-      {/* Outer Glow Ring */}
-      <motion.div
-        className="absolute inset-2 rounded-full border-2 border-[#204195]/30 bg-gradient-to-br from-[#204195] via-[#183275] to-[#FCB625] opacity-20 blur-xl"
-        animate={
-          shouldReduceMotion
-            ? undefined
-            : {
-                scale: active ? [0.9, 1.1, 0.95] : [0.95, 1, 0.95],
-                rotate: [0, 180, 360],
-              }
-        }
-        transition={
-          shouldReduceMotion
-            ? undefined
-            : { duration: 6, repeat: Infinity, ease: "linear" }
-        }
-      />
-
       {/* Main Orb */}
       <motion.div
         className="absolute inset-6 border border-white/20 shadow-xl"
@@ -105,33 +89,23 @@ export function VoiceWaveform({ state }: { state: VoiceOrbState }) {
       </motion.div>
 
       {/* Ripple Rings when AI is speaking */}
-      {state === "speaking" && !shouldReduceMotion && (
+      {/* Rendered on server and client alike (no hydration mismatch); CSS hides them
+          under reduced motion, and they only animate when motion is allowed. */}
+      {state === "speaking" && (
         <>
           <motion.span
-            className="absolute inset-0 rounded-full border-2 border-[#FCB625]"
-            animate={{ scale: [0.8, 1.15], opacity: [0.8, 0] }}
-            transition={{ duration: 1.3, repeat: Infinity }}
+            className="absolute inset-0 rounded-full border-2 border-[#FCB625] motion-reduce:hidden"
+            animate={shouldReduceMotion ? undefined : { scale: [0.8, 1.15], opacity: [0.8, 0] }}
+            transition={shouldReduceMotion ? undefined : { duration: 1.3, repeat: Infinity }}
           />
           <motion.span
-            className="absolute inset-0 rounded-full border-2 border-[#204195]"
-            animate={{ scale: [0.75, 1.25], opacity: [0.6, 0] }}
-            transition={{ duration: 1.6, repeat: Infinity, delay: 0.3 }}
+            className="absolute inset-0 rounded-full border-2 border-[#204195] motion-reduce:hidden"
+            animate={shouldReduceMotion ? undefined : { scale: [0.75, 1.25], opacity: [0.6, 0] }}
+            transition={shouldReduceMotion ? undefined : { duration: 1.6, repeat: Infinity, delay: 0.3 }}
           />
         </>
       )}
 
-      <span className="rounded-full bg-white/95 border border-[#DCE4F3] px-3.5 py-1 text-xs font-extrabold text-[#204195] shadow-sm absolute -bottom-3">
-        {state === "idle"
-          ? "✦ Sẵn sàng"
-          : state === "listening"
-          ? "• Đang lắng nghe"
-          : state === "thinking"
-          ? "✦ Đang phân tích"
-          : "🔊 Cáo AI đang nói"}
-      </span>
     </div>
   );
 }
-
-
-

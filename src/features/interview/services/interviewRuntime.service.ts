@@ -143,7 +143,16 @@ export type InterviewRuntimeSession = {
   status: string;
   startedAt: string;
   endedAt: string | null;
+  /** COMPLETED · USER_ENDED · TECHNICAL_FAILURE · HARD_TIMEOUT · FAST_FAIL_TECH; null while open. */
+  endReason?: string | null;
   plan: InterviewRuntimePlanSummary | null;
+  /** List endpoint only: latest overall score (0–10), null when not evaluated. */
+  overallScore?: number | null;
+  evaluatedAt?: string | null;
+  /** List endpoint only: competency scores of that evaluation; absent on older backends. */
+  competencyScores?: Array<{ competency: string; score: number; weight?: number }>;
+  totalTurns?: number;
+  answeredTurns?: number;
 };
 
 export type CreateInterviewRuntimeSessionRequest = {

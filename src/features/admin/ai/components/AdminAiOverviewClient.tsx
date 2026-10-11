@@ -43,16 +43,16 @@ export default function AdminAiOverviewClient() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        title={t("admin.ai.overview.title") || "AI Operations Console"}
-        description={t("admin.ai.overview.subtitle") || "Bảng điều khiển vận hành trí tuệ nhân tạo: Giám sát độ ổn định, hiệu năng suy luận, độ trễ và chi phí token"}
+        title={t("admin.ai.overview.title")}
+        description={t("admin.ai.overview.subtitle")}
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
-          { label: t("admin.sidebar.aiOverview") || "AI Operations" },
+          { label: t("admin.sidebar.aiOverview") },
         ]}
         statusBadge={
           <AdminStatusBadge
             status={isConnected ? "healthy" : "warning"}
-            label={isConnected ? "Observability Connected" : (t("admin.dashboard.observabilitySub") || "Provider Not Connected")}
+            label={isConnected ? t("fixAdmin.ai.overview.connected") : t("admin.dashboard.observabilitySub")}
           />
         }
       />
@@ -68,11 +68,10 @@ export default function AdminAiOverviewClient() {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-bold text-[#14244B]">AI Observability</h3>
-                  <AdminStatusBadge status="warning" label="Not connected" size="sm" />
+                  <AdminStatusBadge status="warning" label={t("fixAdmin.common.notConnected")} size="sm" />
                 </div>
                 <p className="mt-1 max-w-2xl text-xs sm:text-sm text-[#607096] leading-relaxed">
-                  Kết nối nhà cung cấp Observability (Langfuse hoặc LangSmith) thông qua INTERVIA Backend
-                  để tự động thu thập Traces, đo đạc độ trễ p50/p95, số lượng token, chi phí và chất lượng đánh giá.
+                  {t("fixAdmin.ai.overview.bannerDesc")}
                 </p>
               </div>
             </div>
@@ -81,7 +80,7 @@ export default function AdminAiOverviewClient() {
               href="/admin/settings"
               className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#204195] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[#183275] transition-all"
             >
-              <span>Xem hướng dẫn kết nối</span>
+              <span>{t("fixAdmin.ai.overview.viewGuide")}</span>
               <ArrowUpRight className="size-4" />
             </Link>
           </div>
@@ -90,85 +89,85 @@ export default function AdminAiOverviewClient() {
 
       {/* AI Health & Operational Questions (Rule 24) */}
       <AdminSection
-        title={t("admin.ai.overview.checklistTitle") || "Tình trạng vận hành AI (AI Health Checklist)"}
-        description={t("admin.ai.overview.checklistDesc") || "Giải đáp các câu hỏi trọng tâm về độ sẵn sàng và chất lượng của hệ thống AI"}
+        title={t("admin.ai.overview.checklistTitle")}
+        description={t("admin.ai.overview.checklistDesc")}
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
-            <span className="text-xs font-bold text-[#607096] block mb-1">{t("admin.ai.overview.q1") || "1. AI có hoạt động bình thường?"}</span>
+            <span className="text-xs font-bold text-[#607096] block mb-1">{t("admin.ai.overview.q1")}</span>
             <div className="flex items-center justify-between mt-2">
-              <span className="text-sm font-black text-[#14244B]">{t("admin.ai.overview.q1Ans") || "Gateway Sẵn sàng"}</span>
-              <AdminStatusBadge status="healthy" label="Online" size="sm" />
+              <span className="text-sm font-black text-[#14244B]">{t("admin.ai.overview.q1Ans")}</span>
+              <AdminStatusBadge status="healthy" label={t("fixAdmin.common.online")} size="sm" />
             </div>
-            <p className="text-[11px] text-[#607096] mt-2">Gemini 2.5 active trên Core Backend</p>
+            <p className="text-[11px] text-[#607096] mt-2">{t("fixAdmin.ai.overview.q1Note")}</p>
           </div>
 
           <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
-            <span className="text-xs font-bold text-[#607096] block mb-1">{t("admin.ai.overview.q2") || "2. Chất lượng có suy giảm?"}</span>
+            <span className="text-xs font-bold text-[#607096] block mb-1">{t("admin.ai.overview.q2")}</span>
             <div className="flex items-center justify-between mt-2">
-              <span className="text-sm font-semibold italic text-[#8A98B8]">{t("admin.ai.overview.q2Ans") || "Chưa đo lường"}</span>
-              <AdminStatusBadge status="unknown" label="Unknown" size="sm" />
+              <span className="text-sm font-semibold italic text-[#8A98B8]">{t("admin.ai.overview.q2Ans")}</span>
+              <AdminStatusBadge status="unknown" label={t("fixAdmin.common.unknown")} size="sm" />
             </div>
-            <p className="text-[11px] text-[#607096] mt-2">Cần kết nối Evaluation Suite</p>
+            <p className="text-[11px] text-[#607096] mt-2">{t("fixAdmin.ai.overview.q2Note")}</p>
           </div>
 
           <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
-            <span className="text-xs font-bold text-[#607096] block mb-1">{t("admin.ai.overview.q3") || "3. Độ trễ có tăng cao?"}</span>
+            <span className="text-xs font-bold text-[#607096] block mb-1">{t("admin.ai.overview.q3")}</span>
             <div className="flex items-center justify-between mt-2">
-              <span className="text-sm font-semibold italic text-[#8A98B8]">{t("admin.ai.overview.q3Ans") || "Chưa có dữ liệu"}</span>
-              <AdminStatusBadge status="unknown" label="Unknown" size="sm" />
+              <span className="text-sm font-semibold italic text-[#8A98B8]">{t("admin.ai.overview.q3Ans")}</span>
+              <AdminStatusBadge status="unknown" label={t("fixAdmin.common.unknown")} size="sm" />
             </div>
-            <p className="text-[11px] text-[#607096] mt-2">Cần kết nối Tracing provider</p>
+            <p className="text-[11px] text-[#607096] mt-2">{t("fixAdmin.ai.overview.q3Note")}</p>
           </div>
 
           <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
-            <span className="text-xs font-bold text-[#607096] block mb-1">{t("admin.ai.overview.q4") || "4. Có request bị lỗi?"}</span>
+            <span className="text-xs font-bold text-[#607096] block mb-1">{t("admin.ai.overview.q4")}</span>
             <div className="flex items-center justify-between mt-2">
-              <span className="text-sm font-semibold italic text-[#8A98B8]">{t("admin.ai.overview.q4Ans") || "Chưa có log"}</span>
-              <AdminStatusBadge status="unknown" label="Unknown" size="sm" />
+              <span className="text-sm font-semibold italic text-[#8A98B8]">{t("admin.ai.overview.q4Ans")}</span>
+              <AdminStatusBadge status="unknown" label={t("fixAdmin.common.unknown")} size="sm" />
             </div>
-            <p className="text-[11px] text-[#607096] mt-2">Cần thu thập qua proxy endpoint</p>
+            <p className="text-[11px] text-[#607096] mt-2">{t("fixAdmin.ai.overview.q4Note")}</p>
           </div>
         </div>
       </AdminSection>
 
       {/* Overview Metrics (Rule 24 & Strict Rule 2 - No hardcoded zeroes or fake numbers) */}
       <AdminSection
-        title={t("admin.ai.overview.metricsTitle") || "Chỉ số hiệu năng & Chi phí (Observability Metrics)"}
-        description={t("admin.ai.overview.metricsDesc") || "Các số đo thực tế từ hạ tầng giám sát mô hình ngôn ngữ"}
+        title={t("admin.ai.overview.metricsTitle")}
+        description={t("admin.ai.overview.metricsDesc")}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <AdminMetricCard
-            title={t("admin.ai.overview.stat.runs") || "Số lượt chạy (AI Runs)"}
+            title={t("admin.ai.overview.stat.runs")}
             value={stats?.runs}
-            subtitle="Tổng số lượt gọi LLM"
+            subtitle={t("fixAdmin.ai.overview.runsSub")}
             icon={Activity}
             isPending={!isConnected}
-            pendingText={t("admin.common.backendPending") || "Chưa kết nối provider"}
+            pendingText={t("admin.common.backendPending")}
           />
           <AdminMetricCard
-            title={t("admin.ai.overview.stat.successRate") || "Tỷ lệ thành công"}
+            title={t("admin.ai.overview.stat.successRate")}
             value={stats?.successRate ? `${stats.successRate}%` : null}
-            subtitle="Tỷ lệ phản hồi hợp lệ"
+            subtitle={t("fixAdmin.ai.overview.successSub")}
             icon={ShieldCheck}
             isPending={!isConnected}
-            pendingText={t("admin.common.backendPending") || "Chưa kết nối provider"}
+            pendingText={t("admin.common.backendPending")}
           />
           <AdminMetricCard
-            title={t("admin.ai.overview.stat.latency") || "Độ trễ p50 / p95"}
+            title={t("admin.ai.overview.stat.latency")}
             value={stats?.p50LatencyMs ? `${stats.p50LatencyMs}ms / ${stats.p95LatencyMs}ms` : null}
-            subtitle="Thời gian phản hồi suy luận"
+            subtitle={t("fixAdmin.ai.overview.latencySub")}
             icon={Clock}
             isPending={!isConnected}
-            pendingText={t("admin.common.backendPending") || "Chưa kết nối provider"}
+            pendingText={t("admin.common.backendPending")}
           />
           <AdminMetricCard
-            title={t("admin.ai.overview.stat.tokensCost") || "Tổng Tokens & Chi phí"}
+            title={t("admin.ai.overview.stat.tokensCost")}
             value={stats?.totalTokens ? `${stats.totalTokens.toLocaleString()} tokens` : null}
-            subtitle={stats?.estimatedCostUsd ? `$${stats.estimatedCostUsd.toFixed(2)} USD` : "Ước tính tiêu thụ"}
+            subtitle={stats?.estimatedCostUsd ? `$${stats.estimatedCostUsd.toFixed(2)} USD` : t("fixAdmin.ai.overview.costSub")}
             icon={Coins}
             isPending={!isConnected}
-            pendingText={t("admin.common.backendPending") || "Chưa kết nối provider"}
+            pendingText={t("admin.common.backendPending")}
           />
         </div>
       </AdminSection>
@@ -185,9 +184,9 @@ export default function AdminAiOverviewClient() {
             </div>
             <ArrowUpRight className="size-4 text-[#607096] group-hover:text-[#204195]" />
           </div>
-          <h4 className="text-sm font-bold text-[#14244B]">{t("admin.sidebar.aiModels") || "Model Registry"}</h4>
+          <h4 className="text-sm font-bold text-[#14244B]">{t("admin.sidebar.aiModels")}</h4>
           <p className="text-xs text-[#607096] mt-1">
-            {t("admin.ai.models.subtitle") || "Cấu hình các mô hình AI cho từng tính năng: CV Parser, Matching, Phỏng vấn và Chấm điểm"}
+            {t("admin.ai.models.subtitle")}
           </p>
         </Link>
 
@@ -201,9 +200,9 @@ export default function AdminAiOverviewClient() {
             </div>
             <ArrowUpRight className="size-4 text-[#607096] group-hover:text-[#204195]" />
           </div>
-          <h4 className="text-sm font-bold text-[#14244B]">{t("admin.sidebar.aiPrompts") || "Quản lý Prompts"}</h4>
+          <h4 className="text-sm font-bold text-[#14244B]">{t("admin.sidebar.aiPrompts")}</h4>
           <p className="text-xs text-[#607096] mt-1">
-            {t("admin.ai.prompts.subtitle") || "Theo dõi phiên bản, template và quy trình promote prompt từ Staging lên Production"}
+            {t("admin.ai.prompts.subtitle")}
           </p>
         </Link>
 
@@ -217,9 +216,9 @@ export default function AdminAiOverviewClient() {
             </div>
             <ArrowUpRight className="size-4 text-[#607096] group-hover:text-[#204195]" />
           </div>
-          <h4 className="text-sm font-bold text-[#14244B]">{t("admin.sidebar.aiTraces") || "Traces & Sự cố (Errors)"}</h4>
+          <h4 className="text-sm font-bold text-[#14244B]">{t("admin.sidebar.aiTraces")}</h4>
           <p className="text-xs text-[#607096] mt-1">
-            {t("admin.ai.traces.subtitle") || "Tra cứu vết thực thi (Spans, Tokens, Latency) và phân tích các lỗi phát sinh trong quá trình gọi LLM"}
+            {t("admin.ai.traces.subtitle")}
           </p>
         </Link>
       </div>

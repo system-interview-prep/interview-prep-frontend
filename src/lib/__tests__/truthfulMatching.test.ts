@@ -331,8 +331,8 @@ describe("Truthful Matching UI Remediation — Phase 1 & 1.1 Hardening", () => {
       expect(resolveFitBandGaugeColor("not_eligible", true)).toBe("#DC2626");
       expect(resolveFitBandGaugeColor("strong_fit", true)).toBe("#16A34A");
       expect(resolveFitBandGaugeColor("partial_fit", true)).toBe("#2563EB");
-      expect(resolveFitBandGaugeColor("insufficient_evidence", true)).toBe("#94A3B8");
-      expect(resolveFitBandGaugeColor("strong_fit", false)).toBe("#94A3B8");
+      expect(resolveFitBandGaugeColor("insufficient_evidence", true)).toBe("#9AA6C2");
+      expect(resolveFitBandGaugeColor("strong_fit", false)).toBe("#9AA6C2");
     });
   });
 

@@ -1,8 +1,10 @@
 "use client";
 
+import { use } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
 import AdminPageHeader from "@features/admin/components/primitives/AdminPageHeader";
 import AdminStatusBadge from "@features/admin/components/primitives/AdminStatusBadge";
 import AdminEmptyState from "@features/admin/components/primitives/AdminEmptyState";
@@ -10,44 +12,39 @@ import AdminEmptyState from "@features/admin/components/primitives/AdminEmptySta
 export default function AdminUserDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  // Next 16: route params arrive as a Promise.
+  const { id } = use(params);
   const { t } = useLanguage();
-
-  const title = (t("admin.users.detail.title") || "Chi tiết người dùng: {id}").replace("{id}", params.id);
-  const emptyDesc = (t("admin.users.detail.emptyDesc") || "Core Backend cần bổ sung endpoint GET /admin/users/{id} để truy xuất hồ sơ, CV đính kèm và lịch sử phiên phỏng vấn của người dùng.").replace("{id}", params.id);
-
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        title={title}
-        description={t("admin.users.detail.subtitle") || "Thông tin chi tiết hồ sơ tài khoản, lịch sử phiên phỏng vấn và CV đính kèm"}
+        title={fmt(t("fixAdmin.detail.user.title"), { id })}
+        description={t("fixAdmin.detail.user.subtitle")}
         breadcrumbs={[
-          { label: "Admin", href: "/admin/dashboard" },
-          { label: t("admin.sidebar.users") || "Người dùng", href: "/admin/users" },
-          { label: params.id },
+          { label: t("fixAdmin.detail.breadcrumbAdmin"), href: "/admin/dashboard" },
+          { label: t("admin.sidebar.users"), href: "/admin/users" },
+          { label: id },
         ]}
         statusBadge={
-          <AdminStatusBadge
-            status="pending"
-            label={t("admin.common.backendPending") || "Backend Integration Pending"}
-          />
+          <AdminStatusBadge status="pending" label={t("admin.common.backendPending")} />
         }
         primaryAction={
           <Link
             href="/admin/users"
-            className="inline-flex items-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-2xs hover:bg-[#F8FAFC] transition-all"
+            className="inline-flex items-center gap-2 rounded-full border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-2xs hover:bg-[#F8FAFC] transition-all"
           >
             <ArrowLeft className="size-3.5" />
-            <span>{t("admin.users.detail.back") || "Quay lại danh sách"}</span>
+            <span>{t("fixAdmin.detail.back")}</span>
           </Link>
         }
       />
 
       <AdminEmptyState
         variant="pending"
-        title={t("admin.users.detail.emptyTitle") || "Chưa kết nối API Chi tiết Người dùng"}
-        description={emptyDesc}
+        title={t("fixAdmin.detail.user.emptyTitle")}
+        description={fmt(t("fixAdmin.detail.user.emptyDesc"), { id })}
       />
     </div>
   );

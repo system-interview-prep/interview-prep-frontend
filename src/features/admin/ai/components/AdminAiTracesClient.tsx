@@ -21,15 +21,15 @@ export default function AdminAiTracesClient() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        title={t("admin.ai.traces.title") || "Traces & Execution Logs"}
-        description={t("admin.ai.traces.subtitle") || "Theo dõi dòng thực thi chi tiết của từng request gọi mô hình AI: Spans, thời gian suy luận, token và chi phí"}
+        title={t("admin.ai.traces.title")}
+        description={t("admin.ai.traces.subtitle")}
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
-          { label: t("admin.sidebar.aiOverview") || "AI Operations", href: "/admin/ai" },
-          { label: t("admin.sidebar.aiTraces") || "Traces & Logs" },
+          { label: t("admin.sidebar.aiOverview"), href: "/admin/ai" },
+          { label: t("admin.sidebar.aiTraces") },
         ]}
         statusBadge={
-          <AdminStatusBadge status="warning" label={t("admin.dashboard.observabilitySub") || "Observability Not Connected"} />
+          <AdminStatusBadge status="warning" label={t("admin.dashboard.observabilitySub")} />
         }
       />
 
@@ -37,36 +37,36 @@ export default function AdminAiTracesClient() {
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] p-4 text-xs text-[#607096] flex items-center gap-3">
         <ShieldAlert className="size-4 text-[#204195] shrink-0" />
         <p>
-          <span className="font-bold text-[#14244B]">Bảo mật dữ liệu vết (Rule 37):</span>{" "}
-          {t("admin.ai.traces.privacyNotice") || "Dữ liệu trace tuyệt đối không lưu trữ hay hiển thị API key, bearer token hay cookies. Dữ liệu nhạy cảm của ứng viên luôn được ẩn danh/rút gọn theo chính sách bảo mật."}
+          <span className="font-bold text-[#14244B]">{t("fixAdmin.ai.traces.privacyTitle")}</span>{" "}
+          {t("admin.ai.traces.privacyNotice")}
         </p>
       </div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <AdminMetricCard
-          title="Tổng số Traces"
+          title={t("fixAdmin.ai.traces.total")}
           value={null}
-          subtitle="Ghi nhận qua Backend proxy"
+          subtitle={t("fixAdmin.ai.traces.totalSub")}
           icon={Activity}
           isPending={true}
-          pendingText={t("admin.common.backendPending") || "Chưa kết nối provider"}
+          pendingText={t("admin.common.backendPending")}
         />
         <AdminMetricCard
-          title="Độ trễ trung bình"
+          title={t("fixAdmin.ai.traces.avgLatency")}
           value={null}
-          subtitle="Thời gian phản hồi hoàn tất"
+          subtitle={t("fixAdmin.ai.traces.avgLatencySub")}
           icon={Activity}
           isPending={true}
-          pendingText={t("admin.common.backendPending") || "Chưa kết nối provider"}
+          pendingText={t("admin.common.backendPending")}
         />
         <AdminMetricCard
-          title={t("admin.ai.overview.stat.successRate") || "Tỷ lệ thành công"}
+          title={t("admin.ai.overview.stat.successRate")}
           value={null}
-          subtitle="Success / Total Traces"
+          subtitle={t("fixAdmin.ai.traces.successSub")}
           icon={Activity}
           isPending={true}
-          pendingText={t("admin.common.backendPending") || "Chưa kết nối provider"}
+          pendingText={t("admin.common.backendPending")}
         />
       </div>
 
@@ -78,7 +78,7 @@ export default function AdminAiTracesClient() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-9 pr-4 text-xs font-medium text-[#14244B] placeholder-[#8A98B8] focus:border-[#204195] focus:bg-white focus:outline-none transition-colors"
-            placeholder="Tìm theo Trace ID, Session ID hoặc Model..."
+            placeholder={t("fixAdmin.ai.traces.search")}
             type="text"
           />
         </div>
@@ -95,7 +95,7 @@ export default function AdminAiTracesClient() {
                   : "border border-[#DCE4F3] bg-white text-[#607096] hover:border-[#204195]/40 hover:text-[#204195]"
               }`}
             >
-              {st === "all" ? (t("admin.common.all") || "Tất cả trạng thái") : st}
+              {st === "all" ? t("admin.common.all") : st}
             </button>
           ))}
         </div>
@@ -107,14 +107,14 @@ export default function AdminAiTracesClient() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
-                <th className="px-6 py-4">{t("admin.ai.traces.table.id") || "Trace ID"}</th>
-                <th className="px-6 py-4">{t("admin.ai.traces.table.feature") || "Tính năng (Feature)"}</th>
-                <th className="px-6 py-4">{t("admin.ai.traces.table.model") || "Mô hình (Model)"}</th>
-                <th className="px-6 py-4 text-center">{t("admin.ai.traces.table.latency") || "Độ trễ (Latency)"}</th>
-                <th className="px-6 py-4 text-center">{t("admin.ai.traces.table.tokens") || "Tokens"}</th>
-                <th className="px-6 py-4 text-center">{t("admin.ai.traces.table.status") || "Trạng thái"}</th>
-                <th className="px-6 py-4">{t("admin.ai.traces.table.timestamp") || "Thời gian"}</th>
-                <th className="px-6 py-4 text-right">{t("admin.ai.traces.table.detail") || "Chi tiết"}</th>
+                <th className="px-6 py-4">{t("admin.ai.traces.table.id")}</th>
+                <th className="px-6 py-4">{t("admin.ai.traces.table.feature")}</th>
+                <th className="px-6 py-4">{t("admin.ai.traces.table.model")}</th>
+                <th className="px-6 py-4 text-center">{t("admin.ai.traces.table.latency")}</th>
+                <th className="px-6 py-4 text-center">{t("admin.ai.traces.table.tokens")}</th>
+                <th className="px-6 py-4 text-center">{t("admin.ai.traces.table.status")}</th>
+                <th className="px-6 py-4">{t("admin.ai.traces.table.timestamp")}</th>
+                <th className="px-6 py-4 text-right">{t("admin.ai.traces.table.detail")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EAEFF8] text-xs">
@@ -123,8 +123,8 @@ export default function AdminAiTracesClient() {
                   <td colSpan={8} className="p-8">
                     <AdminEmptyState
                       variant="pending"
-                      title={t("admin.ai.traces.emptyTitle") || "Chưa có dữ liệu Traces (Observability Not Connected)"}
-                      description={t("admin.ai.traces.emptyDesc") || "INTERVIA Backend cần được kết nối với nhà cung cấp Observability (như Langfuse hoặc LangSmith) để gửi dữ liệu traces về giao diện quản trị."}
+                      title={t("admin.ai.traces.emptyTitle")}
+                      description={t("admin.ai.traces.emptyDesc")}
                     />
                   </td>
                 </tr>
@@ -140,7 +140,7 @@ export default function AdminAiTracesClient() {
                     <td className="px-6 py-4">{tr.timestamp}</td>
                     <td className="px-6 py-4 text-right">
                       <Link href={`/admin/ai/traces/${tr.traceId}`} className="text-[#204195] font-semibold hover:underline">
-                        {t("admin.common.view") || "Chi tiết"}
+                        {t("admin.common.view")}
                       </Link>
                     </td>
                   </tr>

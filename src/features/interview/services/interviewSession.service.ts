@@ -1,3 +1,4 @@
+import { pickerVi } from "@/i18n/dicts/picker.dict";
 import { interviewRuntimeApi } from "./interviewRuntime.service";
 
 export type InterviewMode = "chat" | "voice" | "video";
@@ -28,24 +29,54 @@ export type StartInterviewParams = {
  * Every interview uses the grounded runtime contract. A CV and JD are required
  * so all modes share CREATE -> PLAN -> LOCK before entering a room.
  */
+type Translate = (key: string) => string;
+
+/** Vietnamese wording used when no UI translator is passed (keeps old callers unchanged). */
+const translateVi: Translate = (key) => pickerVi[key] ?? key;
+
+export const QUESTION_UNAVAILABLE_MESSAGE = translateVi("picker.startError.questionUnavailable");
+
+/** True when startInterviewSession failed because the question bank cannot cover this position. */
+export function isQuestionUnavailableError(error: unknown): boolean {
+  return (error as { code?: string } | null | undefined)?.code === "QUESTION_UNAVAILABLE";
+}
+
+/**
+ * A sentence the candidate can act on for any failure of startInterviewSession.
+ * Never surface raw backend codes or English developer messages.
+ */
+export function describeStartInterviewError(error: unknown, t: Translate = translateVi): string {
+  const code = (error as { code?: string })?.code;
+  const status = (error as { response?: { status?: number } })?.response?.status;
+  if (isQuestionUnavailableError(error)) return t("picker.startError.questionUnavailable");
+  if (code === "PLAN_NOT_READY") return t("picker.startError.planNotReady");
+  if (status === 401) return t("picker.startError.sessionExpired");
+  if (status === 404) return t("picker.startError.notFound");
+  if (status === 422) return t("picker.startError.notReady");
+  if (code === "MISSING_SELECTION") return t("picker.startError.missingSelection");
+  return t("picker.startError.generic");
+}
+
 export async function startInterviewSession({
   mode,
   experience,
-  lang,
   jobTitle,
   candidateId,
   jobId,
   durationMinutes = 25,
 }: StartInterviewParams): Promise<string> {
-  const languageParam = lang === "vi" ? "Vietnamese" : "English";
-  const locale = lang === "vi" ? "vi-VN" : "en-US";
+  // Interviews are Vietnamese-only; the backend enforces it as well.
+  const languageParam = "Vietnamese";
+  const locale = "vi-VN";
   const runtimeMode = mode === "chat" ? "text" : mode;
 
   const normalizedCandidateId = candidateId?.trim() || "";
   const normalizedJobId = jobId?.trim() || "";
 
   if (!normalizedCandidateId || !normalizedJobId) {
-    throw new Error("Vui lòng chọn đủ CV và vị trí tuyển dụng trước khi bắt đầu phỏng vấn.");
+    throw Object.assign(new Error(translateVi("picker.startError.missingSelection")), {
+      code: "MISSING_SELECTION",
+    });
   }
 
   const runtimeExperience =
@@ -68,11 +99,11 @@ export async function startInterviewSession({
   try {
     const plan = await interviewRuntimeApi.buildPlan(sessionId);
     if (plan.status !== "READY") {
-      throw new Error(`Interview plan is not READY: ${plan.status}`);
+      throw Object.assign(new Error(`Interview plan is not READY: ${plan.status}`), { code: "PLAN_NOT_READY" });
     }
     const selection = await interviewRuntimeApi.selectQuestions(sessionId);
     if (selection.status !== "LOCKED" || selection.turns.length === 0) {
-      throw new Error("Interview question selection did not produce locked turns");
+      throw Object.assign(new Error("Interview question selection did not produce locked turns"), { code: "QUESTION_UNAVAILABLE" });
     }
   } catch (error) {
     try {

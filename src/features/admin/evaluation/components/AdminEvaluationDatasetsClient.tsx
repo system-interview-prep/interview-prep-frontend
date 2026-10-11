@@ -20,15 +20,15 @@ export default function AdminEvaluationDatasetsClient() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        title={t("admin.eval.datasets.title") || "Quản lý Bộ dữ liệu kiểm thử (Evaluation Datasets)"}
-        description={t("admin.eval.datasets.subtitle") || "Quản lý các tập dữ liệu mẫu chuẩn (Golden Sets) dùng để benchmark độ chính xác của AI và phát hiện hồi quy"}
+        title={t("admin.eval.datasets.title")}
+        description={t("admin.eval.datasets.subtitle")}
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
-          { label: t("admin.sidebar.evalOverview") || "Evaluation", href: "/admin/evaluation" },
-          { label: t("admin.sidebar.evalDatasets") || "Datasets" },
+          { label: t("admin.sidebar.evalOverview"), href: "/admin/evaluation" },
+          { label: t("admin.sidebar.evalDatasets") },
         ]}
         statusBadge={
-          <AdminStatusBadge status="pending" label={t("admin.common.backendPending") || "Backend Integration Pending"} />
+          <AdminStatusBadge status="pending" label={t("admin.common.backendPending")} />
         }
         primaryAction={
           <button
@@ -37,7 +37,7 @@ export default function AdminEvaluationDatasetsClient() {
             className="inline-flex items-center gap-2 rounded-xl bg-[#204195] px-3.5 py-2 text-xs font-semibold text-white shadow-2xs opacity-60 cursor-not-allowed"
           >
             <Plus className="size-3.5" />
-            <span>Tạo Dataset mới (Pending BE)</span>
+            <span>{t("fixAdmin.eval.datasets.create")}</span>
           </button>
         }
       />
@@ -46,36 +46,36 @@ export default function AdminEvaluationDatasetsClient() {
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] p-4 text-xs text-[#607096] flex items-center gap-3">
         <Star className="size-4 text-amber-500 shrink-0" />
         <p>
-          <span className="font-bold text-[#14244B]">Chính sách Golden Dataset (Rule 44):</span>{" "}
-          {t("admin.eval.datasets.goldenPolicy") || "Dữ liệu người dùng trên môi trường production không bao giờ được tự động chuyển thành Golden Dataset. Mỗi tập dữ liệu vàng phải qua quy trình: Draft → Reviewed → Approved trước khi dùng làm tiêu chuẩn đánh giá."}
+          <span className="font-bold text-[#14244B]">{t("fixAdmin.eval.datasets.policyTitle")}</span>{" "}
+          {t("admin.eval.datasets.goldenPolicy")}
         </p>
       </div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <AdminMetricCard
-          title="Tổng số Datasets"
+          title={t("fixAdmin.eval.datasets.total")}
           value={null}
-          subtitle="Tất cả các tính năng"
+          subtitle={t("fixAdmin.common.allFeatures")}
           icon={Database}
           isPending={true}
-          pendingText="Backend pending"
+          pendingText={t("fixAdmin.common.backendPending")}
         />
         <AdminMetricCard
-          title="Golden Datasets"
+          title={t("fixAdmin.eval.datasets.goldenTitle")}
           value={null}
-          subtitle="Đã duyệt làm chuẩn benchmark"
+          subtitle={t("fixAdmin.eval.datasets.goldenSub")}
           icon={Star}
           isPending={true}
-          pendingText="Backend pending"
+          pendingText={t("fixAdmin.common.backendPending")}
         />
         <AdminMetricCard
-          title="Tổng số Test Cases"
+          title={t("fixAdmin.eval.datasets.testCases")}
           value={null}
-          subtitle="Mẫu đánh giá thực nghiệm"
+          subtitle={t("fixAdmin.eval.datasets.testCasesSub")}
           icon={ShieldCheck}
           isPending={true}
-          pendingText="Backend pending"
+          pendingText={t("fixAdmin.common.backendPending")}
         />
       </div>
 
@@ -87,7 +87,7 @@ export default function AdminEvaluationDatasetsClient() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-9 pr-4 text-xs font-medium text-[#14244B] placeholder-[#8A98B8] focus:border-[#204195] focus:bg-white focus:outline-none transition-colors"
-            placeholder="Tìm theo tên dataset hoặc tính năng..."
+            placeholder={t("fixAdmin.eval.datasets.search")}
             type="text"
           />
         </div>
@@ -99,13 +99,13 @@ export default function AdminEvaluationDatasetsClient() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
-                <th className="px-6 py-4">Tên Dataset</th>
-                <th className="px-6 py-4">Tính năng (Feature)</th>
-                <th className="px-6 py-4 text-center">Phiên bản</th>
-                <th className="px-6 py-4 text-center">Số Cases</th>
-                <th className="px-6 py-4 text-center">Golden Set</th>
-                <th className="px-6 py-4 text-center">Trạng thái</th>
-                <th className="px-6 py-4 text-right">Chi tiết</th>
+                <th className="px-6 py-4">{t("fixAdmin.eval.datasets.colName")}</th>
+                <th className="px-6 py-4">{t("fixAdmin.eval.datasets.colFeature")}</th>
+                <th className="px-6 py-4 text-center">{t("fixAdmin.eval.datasets.colVersion")}</th>
+                <th className="px-6 py-4 text-center">{t("fixAdmin.eval.datasets.colCases")}</th>
+                <th className="px-6 py-4 text-center">{t("fixAdmin.eval.datasets.goldenCol")}</th>
+                <th className="px-6 py-4 text-center">{t("fixAdmin.common.status")}</th>
+                <th className="px-6 py-4 text-right">{t("fixAdmin.common.details")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EAEFF8] text-xs">
@@ -114,8 +114,8 @@ export default function AdminEvaluationDatasetsClient() {
                   <td colSpan={7} className="p-8">
                     <AdminEmptyState
                       variant="pending"
-                      title="Chưa kết nối API Datasets"
-                      description="Giao diện quản lý bộ dữ liệu đánh giá đã sẵn sàng. Core Backend cần triển khai endpoint GET /admin/eval/datasets để hiển thị danh sách tập dữ liệu kiểm thử."
+                      title={t("fixAdmin.eval.datasets.emptyTitle")}
+                      description={t("fixAdmin.eval.datasets.emptyDesc")}
                     />
                   </td>
                 </tr>
@@ -126,11 +126,11 @@ export default function AdminEvaluationDatasetsClient() {
                     <td className="px-6 py-4">{ds.feature}</td>
                     <td className="px-6 py-4 text-center font-mono">{ds.version}</td>
                     <td className="px-6 py-4 text-center font-bold">{ds.caseCount}</td>
-                    <td className="px-6 py-4 text-center">{ds.isGolden ? "★ Golden" : "-"}</td>
+                    <td className="px-6 py-4 text-center">{ds.isGolden ? t("fixAdmin.eval.datasets.goldenBadge") : "-"}</td>
                     <td className="px-6 py-4 text-center">{ds.status}</td>
                     <td className="px-6 py-4 text-right">
                       <Link href={`/admin/evaluation/datasets/${ds.id}`} className="text-[#204195] font-semibold hover:underline">
-                        Xem
+                        {t("fixAdmin.common.view")}
                       </Link>
                     </td>
                   </tr>

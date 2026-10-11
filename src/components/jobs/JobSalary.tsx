@@ -25,7 +25,7 @@ export function JobSalary({ salary }: JobSalaryProps) {
 
   return (
     <div className="flex items-center gap-1.5 text-xs font-semibold text-[#14244B]">
-      <Coins className="size-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
+      <Coins className="size-3.5 shrink-0 text-[#287A4B]" aria-hidden="true" />
       <span>{formatted}</span>
     </div>
   );

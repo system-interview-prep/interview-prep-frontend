@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bot } from 'lucide-react';
+import InterviewerAvatar from './InterviewerAvatar';
 import {
   ChatMessage,
   ChatRuntimeResponse,
@@ -11,8 +11,11 @@ import {
 } from '../services/interviewChat.service';
 import InteractiveCodeSandbox from '@/components/interview/InteractiveCodeSandbox';
 import { AbortConfirmationModal } from '@/components/interview/AbortConfirmationModal';
+import { ConfirmDialog } from '@components/shared/ConfirmDialog';
 import { ChatStageStepper, getStageLabel } from './ChatInterviewProgress';
 import { ChatRoomErrorState, ChatRoomLoadingState } from './ChatRoomStates';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import { fmt } from '@/i18n/format';
 import {
   ChatClosedFooter,
   ChatComposer,
@@ -37,6 +40,7 @@ export default function InterviewChatRoom({
   backUrl = '/dashboard',
 }: InterviewChatRoomProps) {
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,10 +50,16 @@ export default function InterviewChatRoom({
   const [isSending, setIsSending] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const pendingRetryRef = useRef<{
+    clientMessageId: string;
+    content: string;
+    telemetry?: Record<string, unknown>;
+  } | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -66,9 +76,21 @@ export default function InterviewChatRoom({
     try {
       const data = await interviewChatApi.start(sessionId);
       setRuntime(data);
-      setMessages(data.messages || []);
+      const loadedMessages = data.messages || [];
+      setMessages(loadedMessages);
+      const lastMessage = loadedMessages[loadedMessages.length - 1];
+      if (lastMessage?.role === 'user' && lastMessage.clientMessageId) {
+        pendingRetryRef.current = {
+          clientMessageId: lastMessage.clientMessageId,
+          content: lastMessage.content,
+          telemetry: (lastMessage.metadata?.telemetry as Record<string, unknown> | undefined),
+        };
+        setInputValue(lastMessage.content);
+      } else {
+        pendingRetryRef.current = null;
+      }
     } catch (err: unknown) {
-      setError(chatErrorMessage(err, 'Không thể khởi động phòng phỏng vấn.'));
+      setError(chatErrorMessage(err, t('room.chat.startError')));
     } finally {
       setLoading(false);
     }
@@ -96,7 +118,15 @@ export default function InterviewChatRoom({
     const trimmed = rawContent.trim();
     if (!trimmed || isSending || runtime?.sessionStatus === 'CLOSED') return;
 
-    const clientMsgId = `cli-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const pendingRetry = pendingRetryRef.current;
+    if (pendingRetry && pendingRetry.content !== trimmed) {
+      setActionError(t('room.chat.pendingRetry'));
+      setInputValue(pendingRetry.content);
+      return;
+    }
+    const clientMsgId = pendingRetry?.clientMessageId
+      ?? `cli-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const requestTelemetry = pendingRetry?.telemetry ?? telemetry;
     const tempUserMsg: ChatMessage = {
       messageId: clientMsgId,
       sessionId,
@@ -108,7 +138,9 @@ export default function InterviewChatRoom({
       createdAt: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, tempUserMsg]);
+    if (!pendingRetry) {
+      setMessages((prev) => [...prev, tempUserMsg]);
+    }
     if (customContent === undefined) {
       setInputValue('');
       if (textareaRef.current) {
@@ -122,8 +154,9 @@ export default function InterviewChatRoom({
       const res = await interviewChatApi.sendMessage(sessionId, {
         clientMessageId: clientMsgId,
         content: trimmed,
-        telemetry,
+        telemetry: requestTelemetry,
       });
+      pendingRetryRef.current = null;
 
       setMessages((prev) => {
         // Replace temp msg and append assistant response
@@ -135,14 +168,7 @@ export default function InterviewChatRoom({
         return next;
       });
 
-      // TRIGGER 2 (Qua chat): AI nhận diện ý định dừng và trả về CONFIRM_ABORT
-      // Không tự động bật popup modal nữa mà để người dùng bấm trực tiếp vào nút trong khung chat
-      if (
-        res.action === 'CONFIRM_ABORT' ||
-        res.assistantResponse?.messageType === 'CONFIRM_ABORT'
-      ) {
-        // Nút bấm xác nhận dừng đã được hiển thị trực tiếp ngay dưới tin nhắn của AI
-      }
+      // A CONFIRM_ABORT reply renders its own stop/continue buttons in the bubble.
 
       if (res.sessionStatus === 'CLOSED') {
         setRuntime((prev) =>
@@ -177,7 +203,12 @@ export default function InterviewChatRoom({
         }
       }
     } catch (err: unknown) {
-      setActionError(chatErrorMessage(err, 'Chưa gửi được câu trả lời. Vui lòng thử lại.'));
+      pendingRetryRef.current = {
+        clientMessageId: clientMsgId,
+        content: trimmed,
+        telemetry: requestTelemetry,
+      };
+      setActionError(chatErrorMessage(err, t('room.chat.sendError')));
       // Remove optimistic message on hard failure
       setMessages((prev) => prev.filter((m) => m.messageId !== clientMsgId));
       if (customContent === undefined) {
@@ -192,9 +223,10 @@ export default function InterviewChatRoom({
   };
 
   const handleCodeSubmit = async (code: string, codeDiff: string, testPassed: boolean) => {
-    const formattedCodeMsg = `Tôi đã hoàn thành việc sửa lỗi code trên Editor.\n\nKết quả test cases: ${
-      testPassed ? '✅ VƯỢT QUA TẤT CẢ TEST CASES (PASSED)' : '❌ CHƯA VƯỢT QUA TEST CASES (FAILED)'
-    }\n\nGiải pháp của tôi:\n\`\`\`python\n${code}\n\`\`\``;
+    const formattedCodeMsg = fmt(t('room.chat.codeMessage'), {
+      result: t(testPassed ? 'room.chat.codePassed' : 'room.chat.codeFailed'),
+      code,
+    });
 
     await handleSendMessage(formattedCodeMsg, {
       isCodingTurn: true,
@@ -208,7 +240,8 @@ export default function InterviewChatRoom({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Vietnamese IMEs commit a word with Enter: never send mid-composition.
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -232,14 +265,14 @@ export default function InterviewChatRoom({
       // the candidate. Stay in the room so they can retry ending it.
       setShowEndModal(false);
       setActionError(
-        `Chưa kết thúc được buổi phỏng vấn: ${chatErrorMessage(err, 'vui lòng thử lại.')}`
+        fmt(t('room.common.endError'), { reason: chatErrorMessage(err, t('room.common.tryAgainLower')) })
       );
     } finally {
       setIsEnding(false);
     }
   };
 
-  const jobTitle = runtime?.jobTitle || initialJobTitle || 'Vị trí phỏng vấn';
+  const jobTitle = runtime?.jobTitle || initialJobTitle || t('room.chat.defaultJobTitle');
   const isClosed = runtime?.sessionStatus === 'CLOSED';
   const currentStage = runtime?.currentTurn?.stage ?? runtime?.workingMemory?.current_stage;
   const currentCompetency = runtime?.currentTurn?.competency;
@@ -257,10 +290,25 @@ export default function InterviewChatRoom({
     return map;
   }, [runtime?.turns]);
 
+  // Questions answered, not messages sent: a "repeat the question" request or
+  // the auto "continue" reply after an abort prompt is not an answer.
   const answeredCount = useMemo(
-    () => messages.filter((message) => message.role === 'user').length,
+    () =>
+      new Set(
+        messages
+          .filter((message) => message.role === 'user' && message.messageType === 'CANDIDATE_ANSWER' && message.turnId)
+          .map((message) => message.turnId)
+      ).size,
     [messages]
   );
+
+  // Screen readers hear only the newest interviewer message, not the whole transcript.
+  const latestAssistantText = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i].role === 'assistant') return messages[i].content;
+    }
+    return '';
+  }, [messages]);
 
   const isCodingQuestion = useMemo(() => {
     return (
@@ -277,12 +325,12 @@ export default function InterviewChatRoom({
           <MessageBubble
             key={msg.messageId || index}
             message={msg}
-            stageLabel={getStageLabel(turnStage)}
+            stageLabel={getStageLabel(turnStage, t)}
             isClosed={isClosed}
             isEnding={isEnding}
             isSending={isSending}
             onConfirmAbort={() => handleEndSession('USER_ENDED')}
-            onContinue={() => handleSendMessage('Tôi muốn tiếp tục buổi phỏng vấn')}
+            onContinue={() => handleSendMessage(t('room.chat.continueMessage'))}
           />
         );
       })}
@@ -320,7 +368,10 @@ export default function InterviewChatRoom({
   );
 
   return (
-    <div className="flex h-screen flex-col bg-[#F7F9FD] text-[#14244B]">
+    <div className="flex h-dvh flex-col bg-[#F7F9FD] text-[#14244B]">
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {latestAssistantText}
+      </div>
       <ChatRoomHeader
         jobTitle={jobTitle}
         durationMinutes={durationMinutes}
@@ -329,9 +380,11 @@ export default function InterviewChatRoom({
         serverRemainingSeconds={serverRemainingSeconds}
         startedAt={startedAt}
         isEnding={isEnding}
-        onBack={() => router.push(backUrl)}
+        onBack={() => (isClosed ? router.push(backUrl) : setShowLeaveConfirm(true))}
         onEnd={() => setShowEndModal(true)}
         onLeave={() => router.push(backUrl)}
+        questionNumber={runtime?.currentTurn ? (runtime.currentTurnIndex ?? 0) + 1 : null}
+        totalQuestions={runtime?.totalTurns}
       />
 
       {/* Below lg the side panel is hidden: keep a compact stepper + tip. */}
@@ -345,12 +398,12 @@ export default function InterviewChatRoom({
       </div>
 
       {isCodingQuestion && !isClosed ? (
-        <main className="min-h-0 flex-1 px-3 py-3 sm:px-6">
-          <div className="grid h-full grid-cols-12 gap-4">
-            <div className="col-span-12 flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs lg:col-span-5">
+        <main className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 lg:overflow-visible">
+          <div className="grid grid-cols-12 gap-4 lg:h-full">
+            <div className="col-span-12 flex max-h-[70dvh] min-h-[320px] flex-col overflow-hidden lg:h-full lg:max-h-none lg:min-h-0 rounded-3xl border border-[#DCE4F3] bg-white lg:col-span-5">
               <div className="flex items-center gap-2 border-b border-[#DCE4F3] bg-[#F7F9FD] px-4 py-2.5">
-                <Bot className="size-4 text-[#204195]" aria-hidden="true" />
-                <span className="text-xs font-bold text-[#14244B]">Hội thoại với AI Interviewer</span>
+                <InterviewerAvatar size={22} />
+                <span className="text-xs font-bold text-[#14244B]">{t('room.chat.codingPanelTitle')}</span>
               </div>
               <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">{renderMessageItems()}</div>
               <div className="border-t border-[#DCE4F3] bg-[#F7F9FD] p-3">
@@ -361,11 +414,11 @@ export default function InterviewChatRoom({
                 ) : null}
                 {composer(true)}
                 <p className="mt-1 px-1 text-[11px] font-medium text-[#204195]">
-                  Sửa code và bấm “Nộp bài” trong khung bên phải.
+                  {t('room.chat.codingHint')}
                 </p>
               </div>
             </div>
-            <div className="col-span-12 flex h-full min-h-[500px] flex-col lg:col-span-7">
+            <div className="col-span-12 flex h-[75dvh] min-h-[500px] flex-col lg:col-span-7 lg:h-full">
               <InteractiveCodeSandbox
                 starterCode={runtime?.currentTurn?.starterCode || ''}
                 language={runtime?.currentTurn?.language || 'python'}
@@ -379,10 +432,10 @@ export default function InterviewChatRoom({
       ) : (
         <div className="flex min-h-0 flex-1">
           <div className="flex min-w-0 flex-1 flex-col">
-            <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6" aria-live="polite">
+            <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
               <div className="mx-auto max-w-3xl space-y-5">{renderMessageItems()}</div>
             </main>
-            <footer className="border-t border-[#DCE4F3] bg-white/95 p-3 backdrop-blur-md sm:p-4">
+            <footer className="border-t border-[#DCE4F3] bg-white p-3 sm:p-4">
               <div className="mx-auto max-w-3xl space-y-2">
                 {actionError ? (
                   <ErrorBanner message={actionError} onDismiss={() => setActionError(null)} />
@@ -416,6 +469,19 @@ export default function InterviewChatRoom({
         onClose={() => setShowEndModal(false)}
         onConfirm={handleEndSession}
         isSubmitting={isEnding}
+      />
+
+      <ConfirmDialog
+        open={showLeaveConfirm}
+        title={t('room.common.leaveConfirmTitle')}
+        body={t('room.common.leaveConfirmBody')}
+        confirmLabel={t('room.common.leaveConfirm')}
+        cancelLabel={t('room.common.continueInterview')}
+        onConfirm={() => {
+          setShowLeaveConfirm(false);
+          router.push(backUrl);
+        }}
+        onCancel={() => setShowLeaveConfirm(false)}
       />
     </div>
   );

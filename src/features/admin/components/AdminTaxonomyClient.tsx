@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Search } from "lucide-react";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
 import {
   taxonomyApi,
   type ActiveTaxonomy,
@@ -32,6 +34,7 @@ function slugify(value: string): string {
 }
 
 export default function AdminTaxonomyClient() {
+  const { t } = useLanguage();
   const [taxonomy, setTaxonomy] = useState<ActiveTaxonomy | null>(null);
   const [versions, setVersions] = useState<TaxonomyVersion[]>([]);
   const [editingConcept, setEditingConcept] = useState<string | null>(null);
@@ -76,7 +79,7 @@ export default function AdminTaxonomyClient() {
     setMessage("");
     try {
       const version = form.version.trim() || taxonomy?.version;
-      if (!version) throw new Error("Nhập version trước khi thêm concept.");
+      if (!version) throw new Error(t("fixAdmin.taxonomy.versionRequired"));
       if (!taxonomy?.version || version !== taxonomy.version) {
         if (cloneFrom && isNewVersion) await taxonomyApi.cloneVersion(version, cloneFrom);
         else
@@ -87,7 +90,7 @@ export default function AdminTaxonomyClient() {
           });
       }
       const conceptId = slugify(form.label);
-      if (!conceptId) throw new Error("Nhập label hợp lệ để tạo Concept ID.");
+      if (!conceptId) throw new Error(t("fixAdmin.taxonomy.labelRequired"));
       const savedConceptId = editingConcept || conceptId;
       await taxonomyApi.upsertConcept(version, savedConceptId, {
         label: form.label.trim(),
@@ -101,7 +104,7 @@ export default function AdminTaxonomyClient() {
         isActive: form.isActive,
       });
       setMessage(
-        "Đã lưu concept. Hãy activate version sau khi đủ active skill.",
+        t("fixAdmin.taxonomy.conceptSaved"),
       );
       setEditingConcept(null);
       setCloneFrom("");
@@ -112,7 +115,7 @@ export default function AdminTaxonomyClient() {
         (error as { response?: { data?: { detail?: string } } }).response?.data
           ?.detail ||
           (error as Error).message ||
-          "Không thể lưu taxonomy.",
+          t("fixAdmin.taxonomy.saveFailed"),
       );
     }
   };
@@ -122,12 +125,12 @@ export default function AdminTaxonomyClient() {
     if (!targetVersion) return;
     try {
       await taxonomyApi.activate(targetVersion);
-      setMessage("Đã activate taxonomy.");
+      setMessage(t("fixAdmin.taxonomy.activated"));
       await load();
     } catch (error) {
       setMessage(
         (error as { response?: { data?: { detail?: string } } }).response?.data
-          ?.detail || "Không thể activate taxonomy.",
+          ?.detail || t("fixAdmin.taxonomy.activateFailed"),
       );
     }
   };
@@ -138,7 +141,7 @@ export default function AdminTaxonomyClient() {
     if (!version || !selectedVersion || selectedVersion.isActive) return;
     if (
       !window.confirm(
-        `Xóa taxonomy version \"${version}\"? Toàn bộ concepts và aliases của version này cũng sẽ bị xóa.`,
+        fmt(t("fixAdmin.taxonomy.confirmDeleteVersion"), { version }),
       )
     ) {
       return;
@@ -147,7 +150,7 @@ export default function AdminTaxonomyClient() {
     setMessage("");
     try {
       await taxonomyApi.deleteVersion(version);
-      setMessage(`Đã xóa taxonomy version ${version}.`);
+      setMessage(fmt(t("fixAdmin.taxonomy.versionDeleted"), { version }));
       setEditingConcept(null);
       setCloneFrom("");
       setForm({ ...initialForm, version: taxonomy?.version || "" });
@@ -155,7 +158,7 @@ export default function AdminTaxonomyClient() {
     } catch (error) {
       setMessage(
         (error as { response?: { data?: { detail?: string } } }).response?.data
-          ?.detail || "Không thể xóa taxonomy version.",
+          ?.detail || t("fixAdmin.taxonomy.deleteVersionFailed"),
       );
     } finally {
       setDeletingVersion(false);
@@ -167,7 +170,7 @@ export default function AdminTaxonomyClient() {
     if (!version || deletingConcept) return;
     if (
       !window.confirm(
-        `Xóa concept \"${label}\" (${conceptId}) khỏi version ${version}?`,
+        fmt(t("fixAdmin.taxonomy.confirmDeleteConcept"), { label, conceptId, version }),
       )
     ) {
       return;
@@ -180,12 +183,12 @@ export default function AdminTaxonomyClient() {
         setEditingConcept(null);
         setForm({ ...initialForm, version });
       }
-      setMessage(`Đã xóa concept ${conceptId}.`);
+      setMessage(fmt(t("fixAdmin.taxonomy.conceptDeleted"), { conceptId }));
       await load();
     } catch (error) {
       setMessage(
         (error as { response?: { data?: { detail?: string } } }).response?.data
-          ?.detail || "Không thể xóa concept.",
+          ?.detail || t("fixAdmin.taxonomy.deleteConceptFailed"),
       );
     } finally {
       setDeletingConcept(null);
@@ -219,12 +222,12 @@ export default function AdminTaxonomyClient() {
     if (!version) return;
     try {
       await taxonomyApi.importVersion(version, file);
-      setMessage(`Đã import taxonomy vào ${version}.`);
+      setMessage(fmt(t("fixAdmin.taxonomy.imported"), { version }));
       await load();
     } catch (error) {
       setMessage(
         (error as { response?: { data?: { detail?: string } } }).response?.data
-          ?.detail || "Không thể import taxonomy.",
+          ?.detail || t("fixAdmin.taxonomy.importFailed"),
       );
     }
   };
@@ -278,17 +281,17 @@ export default function AdminTaxonomyClient() {
           onClick={() => void downloadTemplate()}
           className="rounded-xl border border-[#DCE4F3] px-4 py-2 text-sm font-semibold text-[#204195]"
         >
-          Tải template
+          {t("fixAdmin.taxonomy.downloadTemplate")}
         </button>
         <button
           type="button"
           onClick={() => void exportVersion()}
           className="rounded-xl border border-[#DCE4F3] px-4 py-2 text-sm font-semibold text-[#204195]"
         >
-          Export
+          {t("fixAdmin.taxonomy.export")}
         </button>
         <label className="cursor-pointer rounded-xl border border-[#DCE4F3] px-4 py-2 text-sm font-semibold text-[#204195]">
-          Import
+          {t("fixAdmin.taxonomy.import")}
           <input
             type="file"
             accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -302,8 +305,8 @@ export default function AdminTaxonomyClient() {
         </label>
       </div>
       <AdminPageHeader
-        title="Taxonomy"
-        description="Quản lý version, concept và catalog dùng chung cho Question Bank."
+        title={t("fixAdmin.shell.taxonomy")}
+        description={t("fixAdmin.taxonomy.pageDesc")}
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
           { label: "Taxonomy" },
@@ -314,7 +317,7 @@ export default function AdminTaxonomyClient() {
             onClick={() => void load()}
             className="rounded-xl border border-[#DCE4F3] bg-white px-4 py-2 text-sm font-semibold text-[#14244B]"
           >
-            Làm mới
+            {t("fixAdmin.taxonomy.refresh")}
           </button>
         }
       />
@@ -329,8 +332,8 @@ export default function AdminTaxonomyClient() {
       {state === "error" ? (
         <AdminEmptyState
           variant="error"
-          title="Không tải được taxonomy"
-          description="Kiểm tra Core Backend và quyền ADMIN."
+          title={t("fixAdmin.taxonomy.loadErrorTitle")}
+          description={t("fixAdmin.taxonomy.loadErrorDesc")}
         />
       ) : (
         <>
@@ -338,15 +341,15 @@ export default function AdminTaxonomyClient() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase text-[#607096]">
-                  Version active (chỉ đọc)
+                  {t("fixAdmin.taxonomy.activeVersionLabel")}
                 </p>
                 <p className="mt-1 text-xl font-bold text-[#14244B]">
                   {state === "loading"
-                    ? "Đang tải…"
-                    : taxonomy?.version || "Chưa có"}
+                    ? t("fixAdmin.taxonomy.loading")
+                    : taxonomy?.version || t("fixAdmin.taxonomy.none")}
                 </p>
                 <label className="mt-2 block text-xs font-semibold text-[#607096]">
-                  Version thao tác
+                  {t("fixAdmin.taxonomy.workingVersion")}
                 </label>
                 <select
                   value={
@@ -360,11 +363,11 @@ export default function AdminTaxonomyClient() {
                   }}
                   className="mt-1 rounded-xl border border-[#DCE4F3] bg-white px-3 py-2 text-sm"
                 >
-                  <option value="">Tạo version mới…</option>
+                  <option value="">{t("fixAdmin.taxonomy.createVersionOption")}</option>
                   {versions.map((item) => (
                     <option key={item.version} value={item.version}>
                       {item.version}
-                      {item.isActive ? " (active)" : ""}
+                      {item.isActive ? t("fixAdmin.taxonomy.activeSuffix") : ""}
                     </option>
                   ))}
                 </select>
@@ -379,7 +382,7 @@ export default function AdminTaxonomyClient() {
                   }}
                   className="rounded-xl border border-[#DCE4F3] bg-white px-4 py-2 text-sm font-semibold text-[#204195]"
                 >
-                  Tạo version mới
+                  {t("fixAdmin.taxonomy.createVersion")}
                 </button>
                 <button
                   type="button"
@@ -387,7 +390,7 @@ export default function AdminTaxonomyClient() {
                   onClick={() => void activate()}
                   className="rounded-xl bg-[#204195] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
-                  Activate version
+                  {t("fixAdmin.taxonomy.activateVersion")}
                 </button>
                 <button
                   type="button"
@@ -399,9 +402,9 @@ export default function AdminTaxonomyClient() {
                   }
                   onClick={() => void deleteVersion()}
                   className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  title="Không thể xóa version đang active"
+                  title={t("fixAdmin.taxonomy.cannotDeleteActive")}
                 >
-                  {deletingVersion ? "Đang xóa..." : "Xóa version"}
+                  {deletingVersion ? t("fixAdmin.taxonomy.deleting") : t("fixAdmin.taxonomy.deleteVersion")}
                 </button>
               </div>
             </div>
@@ -411,28 +414,28 @@ export default function AdminTaxonomyClient() {
               <div>
                 <h2 className="text-base font-bold text-[#14244B]">
                   {editingConcept
-                    ? `Chỉnh sửa concept: ${editingConcept}`
-                    : "Thêm concept"}
+                    ? fmt(t("fixAdmin.taxonomy.editConceptTitle"), { id: editingConcept })
+                    : t("fixAdmin.taxonomy.addConcept")}
                 </h2>
                 <p className="mt-1 text-xs text-[#607096]">
                   {editingConcept
-                    ? "Concept ID được giữ nguyên để không làm hỏng dữ liệu tham chiếu."
-                    : "Concept ID được tự sinh từ label; version mặc định là version active."}
+                    ? t("fixAdmin.taxonomy.editHint")
+                    : t("fixAdmin.taxonomy.addHint")}
                 </p>
               </div>
               {isNewVersion && (
                 <label className="text-xs font-semibold text-[#607096]">
-                  Nguồn clone (tùy chọn)
+                  {t("fixAdmin.taxonomy.cloneSource")}
                   <select
                     value={cloneFrom}
                     onChange={(event) => setCloneFrom(event.target.value)}
                     className="mt-1 block rounded-xl border border-[#DCE4F3] bg-white px-3 py-2 text-sm font-normal text-[#14244B]"
                   >
-                    <option value="">Không sao chép — version trống</option>
+                    <option value="">{t("fixAdmin.taxonomy.noClone")}</option>
                     {versions.map((item) => (
                       <option key={item.version} value={item.version}>
                         {item.version}
-                        {item.isActive ? " (active)" : ""}
+                        {item.isActive ? t("fixAdmin.taxonomy.activeSuffix") : ""}
                       </option>
                     ))}
                   </select>
@@ -441,7 +444,7 @@ export default function AdminTaxonomyClient() {
             </div>
             <form onSubmit={submit} className="mt-4 grid gap-3 md:grid-cols-3">
               <label className="text-xs font-semibold text-[#607096]">
-                Version
+                {t("fixAdmin.taxonomy.version")}
                 <input
                   required
                   value={form.version}
@@ -452,7 +455,7 @@ export default function AdminTaxonomyClient() {
                 />
               </label>
               <label className="text-xs font-semibold text-[#607096]">
-                Nhãn
+                {t("fixAdmin.taxonomy.label")}
                 <input
                   required
                   value={form.label}
@@ -467,7 +470,7 @@ export default function AdminTaxonomyClient() {
                 />
               </label>
               <label className="text-xs font-semibold text-[#607096]">
-                Concept ID
+                {t("fixAdmin.taxonomy.conceptId")}
                 <input
                   value={editingConcept || slugify(form.label)}
                   readOnly
@@ -476,7 +479,7 @@ export default function AdminTaxonomyClient() {
                 />
               </label>
               <label className="text-xs font-semibold text-[#607096]">
-                Kind
+                {t("fixAdmin.taxonomy.kind")}
                 <select
                   value={form.kind}
                   onChange={(e) => setForm({ ...form, kind: e.target.value })}
@@ -490,7 +493,7 @@ export default function AdminTaxonomyClient() {
                 </select>
               </label>
               <label className="text-xs font-semibold text-[#607096] md:col-span-2">
-                Aliases (phân tách bằng dấu phẩy)
+                {t("fixAdmin.taxonomy.aliasesLabel")}
                 <input
                   value={form.aliases}
                   onChange={(e) =>
@@ -507,14 +510,14 @@ export default function AdminTaxonomyClient() {
                     setForm({ ...form, isActive: e.target.checked })
                   }
                 />{" "}
-                Active
+                {t("fixAdmin.taxonomy.statusActive")}
               </label>
               <div className="flex gap-2">
                 <button
                   type="submit"
                   className="rounded-xl bg-[#204195] px-4 py-2 text-sm font-semibold text-white"
                 >
-                  Lưu concept
+                  {t("fixAdmin.taxonomy.saveConcept")}
                 </button>
                 {editingConcept && (
                   <button
@@ -529,7 +532,7 @@ export default function AdminTaxonomyClient() {
                     }}
                     className="rounded-xl border border-[#DCE4F3] px-4 py-2 text-sm font-semibold text-[#204195]"
                   >
-                    Hủy
+                    {t("fixAdmin.taxonomy.cancel")}
                   </button>
                 )}
               </div>
@@ -539,7 +542,7 @@ export default function AdminTaxonomyClient() {
             <div className="border-b border-[#EAEFF8] p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-base font-bold text-[#14244B]">
-                  Concepts ({filteredConcepts.length}
+                  {t("fixAdmin.taxonomy.conceptsHeading")} ({filteredConcepts.length}
                   {filteredConcepts.length !== (taxonomy?.concepts.length || 0)
                     ? ` / ${taxonomy?.concepts.length || 0}`
                     : ""}
@@ -555,7 +558,7 @@ export default function AdminTaxonomyClient() {
                         setConceptSearch(e.target.value);
                         setConceptPage(1);
                       }}
-                      placeholder="Tìm ID, nhãn, mô tả..."
+                      placeholder={t("fixAdmin.taxonomy.searchPlaceholder")}
                       className="w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-1.5 pl-9 pr-3 text-xs text-[#14244B] placeholder:text-[#607096] focus:border-[#204195] focus:outline-none"
                     />
                   </div>
@@ -567,7 +570,7 @@ export default function AdminTaxonomyClient() {
                     }}
                     className="rounded-xl border border-[#DCE4F3] bg-white px-3 py-1.5 text-xs font-semibold text-[#14244B] focus:border-[#204195] focus:outline-none"
                   >
-                    <option value="all">Tất cả loại (Kind)</option>
+                    <option value="all">{t("fixAdmin.taxonomy.allKinds")}</option>
                     {availableKinds.map((k) => (
                       <option key={k} value={k}>
                         {k}
@@ -582,9 +585,9 @@ export default function AdminTaxonomyClient() {
                     }}
                     className="rounded-xl border border-[#DCE4F3] bg-white px-3 py-1.5 text-xs font-semibold text-[#14244B] focus:border-[#204195] focus:outline-none"
                   >
-                    <option value="all">Tất cả trạng thái</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
+                    <option value="all">{t("fixAdmin.taxonomy.allStatuses")}</option>
+                    <option value="active">{t("fixAdmin.taxonomy.statusActive")}</option>
+                    <option value="inactive">{t("fixAdmin.taxonomy.statusInactive")}</option>
                   </select>
                 </div>
               </div>
@@ -597,9 +600,9 @@ export default function AdminTaxonomyClient() {
                       <thead className="bg-[#F8FAFC] text-xs uppercase text-[#607096]">
                         <tr>
                           <th className="px-5 py-3">ID</th>
-                          <th className="px-5 py-3">Nhãn</th>
-                          <th className="px-5 py-3">Kind</th>
-                          <th className="px-5 py-3">Trạng thái</th>
+                          <th className="px-5 py-3">{t("fixAdmin.taxonomy.label")}</th>
+                          <th className="px-5 py-3">{t("fixAdmin.taxonomy.colKind")}</th>
+                          <th className="px-5 py-3">{t("fixAdmin.common.status")}</th>
                           <th className="px-5 py-3" />
                         </tr>
                       </thead>
@@ -623,7 +626,7 @@ export default function AdminTaxonomyClient() {
                                     : "bg-slate-100 text-slate-600"
                                 }`}
                               >
-                                {concept.is_active ? "Active" : "Inactive"}
+                                {concept.is_active ? t("fixAdmin.taxonomy.statusActive") : t("fixAdmin.taxonomy.statusInactive")}
                               </span>
                             </td>
                             <td className="px-5 py-3 text-right">
@@ -644,7 +647,7 @@ export default function AdminTaxonomyClient() {
                                 }}
                                 className="text-sm font-semibold text-[#204195]"
                               >
-                                Sửa
+                                {t("fixAdmin.taxonomy.edit")}
                               </button>
                               <button
                                 type="button"
@@ -658,8 +661,8 @@ export default function AdminTaxonomyClient() {
                                 className="ml-3 text-sm font-semibold text-red-700 disabled:opacity-50"
                               >
                                 {deletingConcept === concept.concept_id
-                                  ? "Đang xóa..."
-                                  : "Xóa"}
+                                  ? t("fixAdmin.taxonomy.deleting")
+                                  : t("fixAdmin.taxonomy.delete")}
                               </button>
                             </td>
                           </tr>
@@ -669,7 +672,7 @@ export default function AdminTaxonomyClient() {
                   </div>
                   <div className="flex items-center justify-between border-t border-[#EAEFF8] px-5 py-3 text-xs text-[#607096]">
                     <span>
-                      Trang {safeConceptPage} / {totalPages} ({filteredConcepts.length} kết quả)
+                      {fmt(t("fixAdmin.taxonomy.pageInfo"), { page: safeConceptPage, total: totalPages, count: filteredConcepts.length })}
                     </span>
                     <div className="flex gap-2">
                       <button
@@ -678,7 +681,7 @@ export default function AdminTaxonomyClient() {
                         onClick={() => setConceptPage((page) => page - 1)}
                         className="rounded-lg border border-[#DCE4F3] px-3 py-1.5 disabled:opacity-40"
                       >
-                        Trước
+                        {t("fixAdmin.taxonomy.prev")}
                       </button>
                       <button
                         type="button"
@@ -686,7 +689,7 @@ export default function AdminTaxonomyClient() {
                         onClick={() => setConceptPage((page) => page + 1)}
                         className="rounded-lg border border-[#DCE4F3] px-3 py-1.5 disabled:opacity-40"
                       >
-                        Sau
+                        {t("fixAdmin.taxonomy.next")}
                       </button>
                     </div>
                   </div>
@@ -694,16 +697,16 @@ export default function AdminTaxonomyClient() {
               ) : (
                 <div className="p-8">
                   <AdminEmptyState
-                    title="Không tìm thấy concept phù hợp"
-                    description="Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc loại / trạng thái."
+                    title={t("fixAdmin.taxonomy.noMatchTitle")}
+                    description={t("fixAdmin.taxonomy.noMatchDesc")}
                   />
                 </div>
               )
             ) : (
               <div className="p-6">
                 <AdminEmptyState
-                  title="Chưa có concept"
-                  description="Tạo concept đầu tiên cho version taxonomy."
+                  title={t("fixAdmin.taxonomy.emptyTitle")}
+                  description={t("fixAdmin.taxonomy.emptyDesc")}
                 />
               </div>
             )}

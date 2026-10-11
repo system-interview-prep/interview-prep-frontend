@@ -8,8 +8,8 @@ import { NavigationLoadingProvider } from "@components/shared/NavigationLoadingP
 import GlobalMascot from "@features/mascot/components/GlobalMascot";
 
 export const metadata: Metadata = {
-  title: "Career · Studio | CV–JD & Voice Interview",
-  description: "Phân tích CV–JD theo ngữ nghĩa và luyện phỏng vấn giọng nói bằng AI.",
+  title: "Intervia · Luyện phỏng vấn với AI",
+  description: "Intervia: đối chiếu CV với JD và luyện phỏng vấn chat, giọng nói, video cùng AI.",
   icons: { icon: "/logo.jpg" },
 };
 
@@ -27,8 +27,18 @@ export default async function RootLayout({
       className="h-full"
       suppressHydrationWarning
     >
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Root layout, so the font loads on every page (the lint rule targets pages/). */}
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Fraunces:opsz,wght,SOFT@9..144,500..800,0..100&display=swap&subset=vietnamese"
+        />
+      </head>
       <body
-        className="h-full bg-white font-body text-[#234196] antialiased"
+        className="h-full bg-white font-body text-[#14244B] antialiased"
         suppressHydrationWarning
       >
         <GoogleAuthProvider>

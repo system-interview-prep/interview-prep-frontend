@@ -13,6 +13,7 @@ import {
   type JobProfile,
 } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { ConfirmDialog } from "@components/shared/ConfirmDialog";
 
 import { Plus, Search, Briefcase, Edit, Trash2, Archive, ChevronLeft, ChevronRight, Terminal, Palette, Layers, BarChart2, Sliders, Megaphone } from "lucide-react";
 
@@ -69,15 +70,21 @@ function normalizeStatus(status: JobProfile["status"]): "ACTIVE" | "DRAFT" | "AR
   return "ACTIVE";
 }
 
+const STATUS_LABEL_KEY: Record<"ACTIVE" | "DRAFT" | "ARCHIVED", string> = {
+  ACTIVE: "fixAdmin.jp.status.active",
+  DRAFT: "fixAdmin.jp.status.draft",
+  ARCHIVED: "fixAdmin.jp.status.archived",
+};
+
 function statusBadgeClass(status: JobProfile["status"]): string {
   const normalized = normalizeStatus(status);
   if (normalized === "DRAFT") {
-    return "bg-amber-50 text-amber-800 border border-amber-200";
+    return "bg-[#FCB625]/15 text-[#7A5600] border border-[#FCB625]/40";
   }
   if (normalized === "ARCHIVED") {
-    return "bg-slate-50 text-slate-700 border border-slate-200";
+    return "bg-[#F0F4FC] text-[#607096] border border-[#DCE4F3]";
   }
-  return "bg-emerald-50 text-emerald-800 border border-emerald-200";
+  return "bg-[#287A4B]/10 text-[#287A4B] border border-[#287A4B]/25";
 }
 
 export default function AdminJobProfilesPanel() {
@@ -286,8 +293,18 @@ export default function AdminJobProfilesPanel() {
     };
   }, [listAggregate, profiles]);
 
-  const handleDelete = async (id: string) => {
-    if (typeof window !== "undefined" && !window.confirm(t("admin.jobProfile.card.confirmDelete"))) return;
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = (id: string) => {
+    if (!id?.trim()) return;
+    setPendingDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    const id = pendingDeleteId;
+    if (!id) return;
+    setDeleting(true);
     try {
       await jobProfileApi.delete(id);
       setPage(1);
@@ -296,6 +313,9 @@ export default function AdminJobProfilesPanel() {
       setAggregateTick((n) => n + 1);
     } catch {
       setError(t("admin.jobProfile.error.save"));
+    } finally {
+      setDeleting(false);
+      setPendingDeleteId(null);
     }
   };
 
@@ -317,20 +337,12 @@ export default function AdminJobProfilesPanel() {
     });
   };
 
-  const pagerText = useMemo(() => {
-    const vi = lang === "vi";
-    return {
-      prev: vi ? "Trước" : "Prev",
-      next: vi ? "Sau" : "Next",
-      page: vi ? "Trang" : "Page",
-      items: vi ? "mục" : "items", 
-    };
-  }, [lang]);
+  const isFiltered = Boolean(debouncedSearch.trim()) || taxonomyFilter !== "all";
 
   return (
     <div className="mx-auto min-w-0 max-w-[1440px] space-y-6">
       {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-xs" role="alert">
+        <div className="rounded-2xl border border-[#C43B3B]/30 bg-[#FDF2F2] px-4 py-3 text-sm text-[#C43B3B] shadow-xs" role="alert">
           {error}
         </div>
       )}
@@ -350,7 +362,7 @@ export default function AdminJobProfilesPanel() {
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/admin/job-descriptions/create"
-            className="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] hover:bg-[#183275] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99]"
+            className="flex min-h-10 items-center justify-center gap-2 rounded-full bg-[#204195] hover:bg-[#183275] px-5 py-2 text-xs font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99]"
           >
             <Plus className="size-4" aria-hidden="true" />
             {t("admin.sidebar.createProfile")}
@@ -434,7 +446,34 @@ export default function AdminJobProfilesPanel() {
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0F4FC] text-[#204195] mb-3">
             <Briefcase className="size-7" />
           </div>
-          <p className="text-sm font-medium text-[#607096]">{t("admin.jobProfile.empty")}</p>
+          {isFiltered ? (
+            <>
+              <p className="text-sm font-semibold text-[#14244B]">{t("fixAdmin.jp.emptyFiltered.title")}</p>
+              <p className="mt-1 text-xs text-[#607096]">{t("fixAdmin.jp.emptyFiltered.hint")}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setTaxonomyFilter("all");
+                }}
+                className="mt-4 inline-flex min-h-10 items-center justify-center rounded-full border border-[#DCE4F3] bg-white px-5 py-2 text-xs font-semibold text-[#14244B] shadow-xs transition-all hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195]"
+              >
+                {t("fixAdmin.jp.emptyFiltered.clear")}
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-[#14244B]">{t("fixAdmin.jp.emptyNone.title")}</p>
+              <p className="mt-1 text-xs text-[#607096]">{t("fixAdmin.jp.emptyNone.hint")}</p>
+              <Link
+                href="/admin/job-descriptions/create"
+                className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[#204195] px-5 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#183275]"
+              >
+                <Plus className="size-4" aria-hidden="true" />
+                {t("admin.sidebar.createProfile")}
+              </Link>
+            </>
+          )}
         </div>
       )}
 
@@ -451,11 +490,11 @@ export default function AdminJobProfilesPanel() {
                     <CategoryIcon name={resolveTaxonomyLabel(p)} className="size-5" />
                   </div>
                   <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide ${statusBadgeClass(
                       p.status
                     )}`}
                   >
-                    {normalizeStatus(p.status)}
+                    {t(STATUS_LABEL_KEY[normalizeStatus(p.status)])}
                   </span>
                 </div>
                 <h2 className="mb-2 line-clamp-2 font-headline text-lg font-bold text-[#14244B] leading-snug transition-colors group-hover:text-[#204195]">
@@ -510,7 +549,7 @@ export default function AdminJobProfilesPanel() {
                     <button
                       type="button"
                       onClick={() => handleDelete(p.id)}
-                      className="grid h-8 w-8 place-items-center rounded-lg text-red-500 transition hover:bg-red-50"
+                      className="grid h-8 w-8 place-items-center rounded-lg text-[#C43B3B] transition hover:bg-[#FDF2F2]"
                       aria-label={t("admin.jobProfile.card.delete")}
                     >
                       <Trash2 className="size-4" />
@@ -551,11 +590,11 @@ export default function AdminJobProfilesPanel() {
                   </td>
                   <td className="whitespace-nowrap px-5 py-3.5">
                     <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide ${statusBadgeClass(
                         p.status
                       )}`}
                     >
-                      {normalizeStatus(p.status)}
+                      {t(STATUS_LABEL_KEY[normalizeStatus(p.status)])}
                     </span>
                   </td>
                   <td className="max-w-md px-5 py-3.5">
@@ -590,7 +629,7 @@ export default function AdminJobProfilesPanel() {
                       <button
                         type="button"
                         onClick={() => handleDelete(p.id)}
-                        className="inline-flex shrink-0 items-center justify-center rounded-lg p-1.5 text-red-500 hover:bg-red-50"
+                        className="inline-flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[#C43B3B] hover:bg-[#FDF2F2]"
                         aria-label={t("admin.jobProfile.card.delete")}
                       >
                         <Trash2 className="size-4" />
@@ -605,6 +644,7 @@ export default function AdminJobProfilesPanel() {
       )}
 
       {/* Pagination */}
+      {!(!loading && profiles.length === 0) && (
       <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-3.5 sm:flex-row sm:items-center sm:justify-between shadow-xs">
         <p className="text-xs text-[#607096]">
           <span className="inline-flex items-center gap-1.5 px-1">
@@ -612,7 +652,7 @@ export default function AdminJobProfilesPanel() {
             <span className="font-bold text-[#14244B]">
               {aggregateLoading && listAggregate === null ? "…" : listAggregate?.total ?? profiles.length}
             </span>
-            <span>{pagerText.items}</span>
+            <span>{t("fixAdmin.jp.pager.items")}</span>
           </span>
         </p>
         <div className="flex items-center justify-between gap-2 sm:justify-end">
@@ -620,25 +660,38 @@ export default function AdminJobProfilesPanel() {
             type="button"
             onClick={() => goToPage(page - 1)}
             disabled={loading || page <= 1}
-            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-xl border border-[#DCE4F3] bg-white px-3 text-xs font-semibold text-[#14244B] shadow-xs transition-all hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-full border border-[#DCE4F3] bg-white px-3.5 text-xs font-semibold text-[#14244B] shadow-xs transition-all hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <ChevronLeft className="size-4" />
-            {pagerText.prev}
+            {t("fixAdmin.jp.pager.prev")}
           </button>
           <span className="inline-flex min-h-9 min-w-[5rem] items-center justify-center px-2 text-xs font-bold text-[#14244B]">
-            {pagerText.page} {page}
+            {t("fixAdmin.jp.pager.page")} {page}
           </span>
           <button
             type="button"
             onClick={() => goToPage(page + 1)}
             disabled={loading || !nextCursor}
-            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-xl bg-[#204195] px-3 text-xs font-semibold text-white shadow-xs transition-all hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-full bg-[#204195] px-3.5 text-xs font-semibold text-white shadow-xs transition-all hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {pagerText.next}
+            {t("fixAdmin.jp.pager.next")}
             <ChevronRight className="size-4" />
           </button>
         </div>
       </div>
+      )}
+
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title={t("fixAdmin.jp.deleteConfirm.title")}
+        body={t("admin.jobProfile.card.confirmDelete")}
+        confirmLabel={t("fixAdmin.jp.deleteConfirm.confirm")}
+        cancelLabel={t("fixAdmin.jp.cancel")}
+        tone="danger"
+        busy={deleting}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </div>
   );
 }

@@ -27,6 +27,8 @@ export type UserCvDto = {
   score?: number;
   parseSource?: string;
   parsedData?: ParsedCvData;
+  /** Normalized text the parser read; evidence char offsets point into it. */
+  rawText?: string | null;
 };
 
 export type CareerClassificationsResponse = {
@@ -133,13 +135,32 @@ export const userCvApi = {
     return { ...response, data: normalizeUserCvDto(response.data) };
   },
 
-  /** Lấy danh sách CV. Khớp BE: GET /users/me/cvs */
-  list: async (limit = 50, careerCode?: string) => {
-    const response = await api.get<{ items?: unknown[] }>("/users/me/cvs", {
-      params: { limit, ...(careerCode ? { careerCode } : {}) },
+  /** Lấy một trang CV (mới nhất trước). Khớp BE: GET /users/me/cvs?limit&offset → { items, total } */
+  list: async (limit = 50, careerCode?: string, offset = 0) => {
+    const response = await api.get<{ items?: unknown[]; total?: number }>("/users/me/cvs", {
+      params: { limit, ...(offset ? { offset } : {}), ...(careerCode ? { careerCode } : {}) },
     });
     const items = (response.data.items ?? []).map(normalizeUserCvDto);
-    return { ...response, data: { items } };
+    // Older backends don't send `total`; fall back to what came back.
+    const total = typeof response.data.total === "number" ? response.data.total : items.length;
+    return { ...response, data: { items, total } };
+  },
+
+  /**
+   * Every CV the user owns, fetched page by page (100 at a time, capped at
+   * `max`), so lists with client-side filters aren't limited to the newest 50.
+   */
+  listAll: async (careerCode?: string, max = 1000) => {
+    const pageSize = 100;
+    const first = await userCvApi.list(pageSize, careerCode, 0);
+    const items = [...first.data.items];
+    const total = first.data.total;
+    while (items.length < Math.min(total, max)) {
+      const next = await userCvApi.list(pageSize, careerCode, items.length);
+      if (!next.data.items.length) break;
+      items.push(...next.data.items);
+    }
+    return { data: { items: items.slice(0, max), total } };
   },
 
   /** Lấy một CV. Khớp BE: GET /users/me/cvs/{id} */

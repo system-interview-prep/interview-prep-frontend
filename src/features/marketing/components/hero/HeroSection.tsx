@@ -3,200 +3,116 @@
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Play, ArrowRight } from "lucide-react";
 
 import { useLanguage } from "@/i18n/LanguageProvider";
-import HeroBackground from "./HeroBackground";
-import CareerPipelineDemo from "./CareerPipelineDemo";
+import { MARKETING_EVIDENCE_MOCK } from "../../data/landing.data";
 import { fadeInReveal } from "../../motion/variants";
 
-interface HeroSectionProps {
-  onOpenVideo?: () => void;
+/** A compact, static CV ↔ JD preview built from the landing sample data (labelled as an example). */
+function HeroProductPreview() {
+  const { t } = useLanguage();
+  const matchedCount = MARKETING_EVIDENCE_MOCK.filter((item) => item.status === "matched").length;
+  const firstSnippet = MARKETING_EVIDENCE_MOCK.find((item) => item.snippets.length > 0)?.snippets[0];
+
+  return (
+    <div className="rounded-3xl border border-[#DCE4F3] bg-[#F0F4FC] p-4 sm:p-6">
+      <div className="rounded-2xl bg-white p-5 ring-1 ring-[#DCE4F3] sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#DCE4F3] pb-4">
+          <span className="text-sm font-semibold text-[#14244B]">{t("fixm.hero.previewTitle")}</span>
+          <span className="rounded-full bg-[#F0F4FC] px-2.5 py-0.5 text-[11px] font-semibold text-[#607096]">
+            {t("fixm.common.example")}
+          </span>
+        </div>
+
+        <p className="mt-4 text-[13px] text-[#607096]">
+          <span className="font-display text-2xl font-semibold text-[#204195]">
+            {matchedCount}/{MARKETING_EVIDENCE_MOCK.length}
+          </span>{" "}
+          {t("fixm.hero.previewMatched")}
+        </p>
+
+        <ul className="mt-4 space-y-2">
+          {MARKETING_EVIDENCE_MOCK.map((item) => {
+            const isMatched = item.status === "matched";
+            return (
+              <li
+                key={item.requirement}
+                className="flex items-start justify-between gap-3 rounded-2xl bg-[#F7F9FD] px-3.5 py-3"
+              >
+                <span className="text-[13px] font-medium leading-snug text-[#14244B]">{item.requirement}</span>
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                    isMatched ? "bg-[#287A4B]/10 text-[#287A4B]" : "bg-[#FCB625]/20 text-[#14244B]"
+                  }`}
+                >
+                  {isMatched ? t("uxm.match.matched") : t("uxm.match.missing")}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+
+        {firstSnippet ? (
+          <div className="mt-4 rounded-2xl border border-[#FCB625]/40 bg-[#FCB625]/10 p-3.5">
+            <span className="text-[12px] font-semibold text-[#204195]">{t("fixm.common.sampleSnippet")}</span>
+            <p className="mt-1 text-[13px] leading-relaxed text-[#14244B]">&quot;{firstSnippet}&quot;</p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
-export function HeroSection({ onOpenVideo }: HeroSectionProps) {
+export function HeroSection() {
   const { t } = useLanguage();
 
   return (
     <section
       id="hero"
-      className="
-        relative isolate overflow-hidden
-        border-b border-[#E7ECF5]/70
-        bg-white
-        px-5 pt-3 pb-12
-        sm:px-8 sm:pt-4 sm:pb-14
-        lg:px-10 lg:pt-5 lg:pb-14
-        xl:px-12 xl:pt-6 xl:pb-16
-      "
+      className="relative isolate overflow-hidden bg-white px-4 pb-14 pt-6 sm:px-8 sm:pb-16 sm:pt-10 lg:px-10 lg:pb-20 lg:pt-12 xl:px-12"
     >
-      <HeroBackground />
-
       <motion.div
         initial="hidden"
         animate="visible"
         variants={fadeInReveal}
-        className="relative z-10 mx-auto w-full max-w-[1320px]"
+        className="relative mx-auto grid w-full max-w-[1320px] items-center gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-14"
       >
-        <div
-          className="
-            grid w-full items-center
-            gap-10
-            lg:grid-cols-[minmax(0,0.98fr)_minmax(0,1.02fr)]
-            lg:gap-3
-            xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]
-            xl:gap-4
-          "
-        >
-          {/* LEFT — redesigned blended editorial copy */}
-          <div className="relative z-20 max-w-[590px] text-left">
-            {/* soft bridge to the right side */}
-            <div
-              aria-hidden="true"
-              className="
-                pointer-events-none absolute
-                -right-24 top-[-8%]
-                hidden h-[118%] w-[220px]
-                bg-gradient-to-r from-transparent via-white/78 to-white
-                blur-[26px]
-                lg:block
-              "
-            />
+        {/* Copy */}
+        <div className="max-w-[600px] text-left">
+          <h1 className="text-[clamp(2.4rem,5vw,4.4rem)] font-semibold leading-[1.04] tracking-tight text-[#14244B]">
+            <span className="block">{t("landing.hero.titleA")}</span>
+            <span className="mt-1 block font-normal italic text-[#204195]">
+              {t("landing.hero.titleB")}
+            </span>
+          </h1>
 
-            {/* ambient panel */}
-            <div
-              aria-hidden="true"
-              className="
-                pointer-events-none absolute
-                -left-10 top-[-4%]
-                h-[108%] w-[108%]
-                rounded-[40px]
-                bg-[linear-gradient(180deg,rgba(255,255,255,0.78)_0%,rgba(255,255,255,0.58)_100%)]
-                blur-[2px]
-              "
-            />
+          <p className="mt-6 max-w-[520px] text-[16px] leading-[1.75] text-[#607096] xl:text-[17px]">
+            {t("landing.hero.subtitle")}
+          </p>
 
-            <div className="relative">
-              {/* eyebrow */}
-              <div
-                className="
-                  inline-flex items-center gap-2 rounded-full
-                  border border-[#C9D7F1]
-                  bg-white/78
-                  px-4 py-2
-                  text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#204195]
-                  shadow-[0_8px_24px_rgba(32,65,149,0.05)]
-                  backdrop-blur-sm
-                  sm:text-[11px]
-                "
-              >
-                <span
-                  aria-hidden="true"
-                  className="h-1.5 w-1.5 rounded-full bg-[#FCB625]"
-                />
-                <span>{t("landing.badge")}</span>
-              </div>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Link
+              href="/signup"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#204195] px-7 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+            >
+              {t("landing.hero.ctaPrimary")}
+              <span aria-hidden="true">→</span>
+            </Link>
 
-              {/* headline */}
-              <h1
-                className="
-                  mt-5 max-w-[560px]
-                  font-sans font-extrabold
-                  text-[#14244B]
-                  tracking-[-0.05em]
-                  text-[clamp(2.7rem,3.95vw,4.45rem)]
-                  leading-[0.97]
-                "
-              >
-                <span className="block">{t("landing.hero.titleA")}</span>
-
-                <span className="relative mt-1.5 inline-block text-[#204195]">
-                  {t("landing.hero.titleB")}
-                  <span
-                    aria-hidden="true"
-                    className="
-                      absolute -bottom-1 left-0 -z-10
-                      h-[0.11em] w-[96%]
-                      rounded-full bg-[#FCB625]/34
-                    "
-                  />
-                </span>
-              </h1>
-
-              {/* description */}
-              <p
-                className="
-                  mt-5 max-w-[520px]
-                  text-[15px] leading-[1.8] text-[#607096]
-                  sm:text-[16px]
-                  xl:text-[17px]
-                "
-              >
-                {t("landing.hero.subtitle")}
-              </p>
-              {/* CTA */}
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Link
-                  href="/signup"
-                  className="
-                    inline-flex h-14 items-center justify-center gap-2.5
-                    rounded-[14px] bg-[#204195] px-7
-                    font-sans text-sm font-extrabold text-white
-                    shadow-[0_12px_28px_rgba(32,65,149,0.18)]
-                    transition-all duration-200
-                    hover:-translate-y-0.5 hover:bg-[#183275]
-                    hover:shadow-[0_16px_32px_rgba(32,65,149,0.22)]
-                    active:translate-y-0 active:scale-[0.98]
-                  "
-                >
-                  <span>{t("landing.hero.ctaPrimary")}</span>
-                  <ArrowRight className="size-4" aria-hidden="true" />
-                </Link>
-
-                <button
-                  type="button"
-                  onClick={onOpenVideo}
-                  className="
-                    inline-flex h-14 items-center justify-center gap-2.5
-                    rounded-[14px]
-                    border border-[#D1DBED]
-                    bg-white/82 px-6
-                    font-sans text-sm font-extrabold text-[#204195]
-                    shadow-[0_8px_22px_rgba(20,36,75,0.045)]
-                    backdrop-blur-sm
-                    transition-all duration-200
-                    hover:-translate-y-0.5 hover:border-[#204195]/30 hover:bg-[#F7F9FD]
-                    active:translate-y-0 active:scale-[0.98]
-                  "
-                >
-                  <span
-                    className="
-                      grid h-8 w-8 place-items-center rounded-full
-                      border border-[#DCE4F3] bg-[#EEF3FC]
-                    "
-                  >
-                    <Play
-                      className="ml-0.5 size-3.5 fill-[#204195] text-[#204195]"
-                      aria-hidden="true"
-                    />
-                  </span>
-                  <span>{t("landing.hero.ctaSecondary")}</span>
-                </button>
-              </div>
-            </div>
+            <a
+              href="#how-to-use"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-[#14244B] ring-1 ring-[#DCE4F3] transition-colors hover:bg-[#EEF3FC]"
+            >
+              {t("fixm.hero.ctaSecondary")}
+              <span aria-hidden="true" className="text-[#204195]">↓</span>
+            </a>
           </div>
 
-          {/* RIGHT — scene */}
-          <div
-            className="
-              relative min-w-0
-              lg:-ml-2
-              xl:-ml-4
-            "
-          >
-            <CareerPipelineDemo />
-          </div>
+          <p className="mt-4 text-[13px] leading-relaxed text-[#607096]">{t("uxm.hero.nextStep")}</p>
         </div>
+
+        {/* Product preview (sample data) */}
+        <HeroProductPreview />
       </motion.div>
     </section>
   );

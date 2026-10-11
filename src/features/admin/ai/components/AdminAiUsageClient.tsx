@@ -19,15 +19,15 @@ export default function AdminAiUsageClient() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        title={t("admin.ai.usage.title") || "Token & Chi phí suy luận AI (Usage & Cost)"}
-        description={t("admin.ai.usage.subtitle") || "Theo dõi chi tiết số lượng tokens tiêu thụ, phân bổ chi phí theo tính năng và độ trễ p50/p95"}
+        title={t("admin.ai.usage.title")}
+        description={t("admin.ai.usage.subtitle")}
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
-          { label: t("admin.sidebar.aiOverview") || "AI Operations", href: "/admin/ai" },
-          { label: t("admin.sidebar.aiUsage") || "Token & Chi phí" },
+          { label: t("admin.sidebar.aiOverview"), href: "/admin/ai" },
+          { label: t("admin.sidebar.aiUsage") },
         ]}
         statusBadge={
-          <AdminStatusBadge status="warning" label={t("admin.dashboard.observabilitySub") || "Observability Not Connected"} />
+          <AdminStatusBadge status="warning" label={t("admin.dashboard.observabilitySub")} />
         }
         primaryAction={
           <div className="flex items-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white p-1">
@@ -38,7 +38,7 @@ export default function AdminAiUsageClient() {
                 timeRange === "7d" ? "bg-[#204195] text-white" : "text-[#607096] hover:text-[#14244B]"
               }`}
             >
-              {t("admin.ai.usage.7d") || "7 ngày qua"}
+              {t("admin.ai.usage.7d")}
             </button>
             <button
               type="button"
@@ -47,7 +47,7 @@ export default function AdminAiUsageClient() {
                 timeRange === "30d" ? "bg-[#204195] text-white" : "text-[#607096] hover:text-[#14244B]"
               }`}
             >
-              {t("admin.ai.usage.30d") || "30 ngày qua"}
+              {t("admin.ai.usage.30d")}
             </button>
           </div>
         }
@@ -56,50 +56,50 @@ export default function AdminAiUsageClient() {
       {/* Metrics Row (Strict Rule 2 - No fake estimates) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <AdminMetricCard
-          title="Tổng Tokens tiêu thụ"
+          title={t("fixAdmin.ai.usage.tokens")}
           value={null}
-          subtitle="Prompt + Completion tokens"
+          subtitle={t("fixAdmin.ai.usage.tokensSub")}
           icon={Coins}
           isPending={!isConnected}
-          pendingText="Chưa kết nối provider"
+          pendingText={t("fixAdmin.ai.providerNotConnected")}
         />
         <AdminMetricCard
-          title="Chi phí ước tính (USD)"
+          title={t("fixAdmin.ai.usage.cost")}
           value={null}
-          subtitle="Tính theo bảng giá nhà cung cấp"
+          subtitle={t("fixAdmin.ai.usage.costSub")}
           icon={TrendingUp}
           isPending={!isConnected}
-          pendingText="Chưa kết nối provider"
+          pendingText={t("fixAdmin.ai.providerNotConnected")}
         />
         <AdminMetricCard
-          title="Độ trễ p50 (Trung vị)"
+          title={t("fixAdmin.ai.usage.p50")}
           value={null}
           unit="ms"
-          subtitle="50% request nhanh hơn mức này"
+          subtitle={t("fixAdmin.ai.usage.p50Sub")}
           icon={Clock}
           isPending={!isConnected}
-          pendingText="Chưa kết nối provider"
+          pendingText={t("fixAdmin.ai.providerNotConnected")}
         />
         <AdminMetricCard
-          title="Độ trễ p95 (Đỉnh trễ)"
+          title={t("fixAdmin.ai.usage.p95")}
           value={null}
           unit="ms"
-          subtitle="95% request hoàn thành trong mức này"
+          subtitle={t("fixAdmin.ai.usage.p95Sub")}
           icon={Clock}
           isPending={!isConnected}
-          pendingText="Chưa kết nối provider"
+          pendingText={t("fixAdmin.ai.providerNotConnected")}
         />
       </div>
 
       {/* Breakdown by Feature Section */}
       <AdminSection
-        title="Phân bổ chi phí & Token theo từng tính năng (Feature Breakdown)"
-        description="Đo lường mức tiêu hao tài nguyên AI của CV Parsing, Phỏng vấn trực tiếp và Đánh giá Rubrics"
+        title={t("fixAdmin.ai.usage.breakdownTitle")}
+        description={t("fixAdmin.ai.usage.breakdownDesc")}
       >
         <AdminEmptyState
           variant="pending"
-          title="Chưa có dữ liệu phân bổ mức tiêu thụ (Observability Required)"
-          description="Để theo dõi biểu đồ tiêu hao token theo từng tính năng sản phẩm (7 ngày hoặc 30 ngày), Core Backend cần tích hợp Langfuse/LangSmith proxy endpoint GET /admin/ai/usage."
+          title={t("fixAdmin.ai.usage.emptyTitle")}
+          description={t("fixAdmin.ai.usage.emptyDesc")}
         />
       </AdminSection>
     </div>

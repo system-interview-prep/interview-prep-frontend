@@ -3,6 +3,7 @@
 import React, { type ReactNode } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 export interface AdminBreadcrumbItem {
   label: string;
@@ -26,10 +27,11 @@ export default function AdminPageHeader({
   secondaryAction,
   statusBadge,
 }: AdminPageHeaderProps) {
+  const { t } = useLanguage();
   return (
     <div className="mb-6 pb-4 border-b border-[#DCE4F3]">
       {breadcrumbs && breadcrumbs.length > 0 && (
-        <nav aria-label="Breadcrumb" className="mb-2 flex items-center gap-1.5 text-xs text-[#607096]">
+        <nav aria-label={t("fixAdmin.common.breadcrumb")} className="mb-2 flex items-center gap-1.5 text-xs text-[#607096]">
           {breadcrumbs.map((item, idx) => {
             const isLast = idx === breadcrumbs.length - 1;
             return (

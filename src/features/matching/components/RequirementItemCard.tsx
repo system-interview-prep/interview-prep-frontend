@@ -31,12 +31,12 @@ export function RequirementItemCard({
 
   return (
     <div
-      className={`rounded-lg border transition-colors ${
+      className={`rounded-2xl border transition-colors ${
         isSelected
           ? "border-[#204195] bg-[#F0F4FC]"
           : isNestedChild
-          ? "border-slate-200/60 bg-white hover:border-slate-300 hover:bg-slate-50/50"
-          : "border-slate-200 bg-white shadow-2xs hover:border-slate-300 hover:bg-slate-50/40"
+          ? "border-[#DCE4F3] bg-white hover:border-[#C9D7F1] hover:bg-[#F8FAFC]"
+          : "border-[#DCE4F3] bg-white hover:border-[#C9D7F1] hover:bg-[#F8FAFC]"
       }`}
     >
       {/* Slim Row — target 56-68px */}
@@ -50,23 +50,23 @@ export function RequirementItemCard({
         <span
           className={`mt-0.5 size-2 shrink-0 rounded-full ${
             item.status === "met"
-              ? "bg-emerald-500"
+              ? "bg-[#287A4B]"
               : item.status === "not_met"
-              ? "bg-rose-500"
+              ? "bg-[#C43B3B]"
               : item.status === "not_applicable"
-              ? "bg-slate-300"
-              : "bg-amber-400"
+              ? "bg-[#C9D7F1]"
+              : "bg-[#FCB625]"
           }`}
           aria-hidden="true"
         />
 
         {/* Label + condition */}
         <div className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold leading-snug text-slate-900">
+          <span className="block truncate text-sm font-semibold leading-snug text-[#14244B]">
             {item.label}
           </span>
           {item.conditionText && (
-            <span className="block truncate text-xs text-slate-500 mt-0.5">
+            <span className="block truncate text-xs text-[#607096] mt-0.5">
               {item.conditionText}
             </span>
           )}
@@ -79,7 +79,7 @@ export function RequirementItemCard({
 
         {/* Chevron */}
         <ChevronRight
-          className={`size-4 shrink-0 text-slate-400 transition-transform ${
+          className={`size-4 shrink-0 text-[#9AA6C2] transition-transform ${
             mobileExpanded ? "rotate-90 lg:rotate-0" : ""
           } ${isSelected ? "text-[#204195]" : ""}`}
           aria-hidden="true"
@@ -89,7 +89,7 @@ export function RequirementItemCard({
       {/* Mobile inline evidence — only shown when no desktop panel handler */}
       {mobileExpanded && (
         <div className="px-4 pb-4 lg:hidden">
-          <div className="border-t border-slate-200 pt-4">
+          <div className="border-t border-[#EAEFF8] pt-4">
             <EvidenceInspector requirement={item} compact />
           </div>
         </div>

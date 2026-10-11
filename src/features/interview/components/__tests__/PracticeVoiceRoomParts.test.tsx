@@ -72,6 +72,17 @@ describe('Practice room parts', () => {
 });
 
 describe('Voice room parts', () => {
+  it('shows the agent answer window between speakers', () => {
+    expect(voiceStatus('connected', true, undefined, 'processing')).toEqual({
+      label: 'Đang xem câu trả lời của bạn...',
+      tone: 'wait',
+    });
+    expect(voiceStatus('connected', true, undefined, 'answering').label).toBe('Đang nghe — nói hết ý rồi bấm Trả lời xong');
+    expect(voiceStatus('connected', true, undefined, 'listening').label).toBe('Đến lượt bạn — hãy trả lời');
+    // Live speech wins over the window state.
+    expect(voiceStatus('agent-speaking', true, undefined, 'processing').tone).toBe('ai');
+  });
+
   it('maps LiveKit status to plain guidance without the vendor name', () => {
     expect(voiceStatus('agent-speaking', true)).toEqual({ label: 'AI đang nói — hãy lắng nghe', tone: 'ai' });
     expect(voiceStatus('connected', true).label).toBe('Đến lượt bạn — hãy trả lời');
@@ -109,7 +120,7 @@ describe('Voice room parts', () => {
       />
     );
     expect(html).toContain('data-speaker="ai"');
-    expect(html).toContain('AI Interviewer');
+    expect(html).toContain('Người phỏng vấn AI');
     expect(html).toContain('data-speaker="user"');
     expect(html).toContain('2 lượt');
   });

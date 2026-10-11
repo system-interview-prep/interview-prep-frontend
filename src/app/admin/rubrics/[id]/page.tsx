@@ -1,7 +1,10 @@
 "use client";
 
+import { use } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
 import AdminPageHeader from "@features/admin/components/primitives/AdminPageHeader";
 import AdminStatusBadge from "@features/admin/components/primitives/AdminStatusBadge";
 import AdminEmptyState from "@features/admin/components/primitives/AdminEmptyState";
@@ -9,36 +12,39 @@ import AdminEmptyState from "@features/admin/components/primitives/AdminEmptySta
 export default function AdminRubricDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  // Next 16: route params arrive as a Promise.
+  const { id } = use(params);
+  const { t } = useLanguage();
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        title={`Chi tiết Rubric: ${params.id}`}
-        description="Thông số tiêu chí, trọng số đánh giá và phiên bản rubric"
+        title={fmt(t("fixAdmin.detail.rubric.title"), { id })}
+        description={t("fixAdmin.detail.rubric.subtitle")}
         breadcrumbs={[
-          { label: "Admin", href: "/admin/dashboard" },
-          { label: "Tiêu chí chấm điểm", href: "/admin/rubrics" },
-          { label: params.id },
+          { label: t("fixAdmin.detail.breadcrumbAdmin"), href: "/admin/dashboard" },
+          { label: t("fixAdmin.ops.rubrics.title"), href: "/admin/rubrics" },
+          { label: id },
         ]}
         statusBadge={
-          <AdminStatusBadge status="pending" label="Backend Integration Pending" />
+          <AdminStatusBadge status="pending" label={t("admin.common.backendPending")} />
         }
         primaryAction={
           <Link
             href="/admin/rubrics"
-            className="inline-flex items-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-2xs hover:bg-[#F8FAFC] transition-all"
+            className="inline-flex items-center gap-2 rounded-full border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-2xs hover:bg-[#F8FAFC] transition-all"
           >
             <ArrowLeft className="size-3.5" />
-            <span>Quay lại danh sách</span>
+            <span>{t("fixAdmin.detail.back")}</span>
           </Link>
         }
       />
 
       <AdminEmptyState
         variant="pending"
-        title="Chưa kết nối API Chi tiết Rubric"
-        description={`Core Backend cần bổ sung endpoint GET /admin/rubrics/${params.id} để truy xuất danh sách tiêu chí chi tiết và lịch sử các phiên bản.`}
+        title={t("fixAdmin.detail.rubric.emptyTitle")}
+        description={fmt(t("fixAdmin.detail.rubric.emptyDesc"), { id })}
       />
     </div>
   );

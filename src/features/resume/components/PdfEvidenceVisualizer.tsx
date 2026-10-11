@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { downloadCvPdf } from "@/lib/aiService";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface HighlightBox {
   left: number;
@@ -17,9 +18,10 @@ interface PdfPageProps {
   matchedSnippets: string[];
   enableTextSelection: boolean;
   onPageRendered: (pageNum: number, textLayerElement: HTMLDivElement | null) => void;
+  onSnippetsFound?: (pageNum: number, found: string[]) => void;
 }
 
-const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRendered }: PdfPageProps) => {
+const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRendered, onSnippetsFound }: PdfPageProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -75,11 +77,13 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRen
 
         // Calculate highlights coordinates using viewport transformation matrix (1C & 2A)
         const foundHighlights: HighlightBox[] = [];
+        const foundSnippets: string[] = [];
         const items = textContent.items;
 
         for (const snippet of matchedSnippets) {
           const cleanSnippet = snippet.toLowerCase().trim();
           if (cleanSnippet.length < 2) continue;
+          const before = foundHighlights.length;
 
           for (const item of items) {
             if (!item.str) continue;
@@ -102,9 +106,11 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRen
               });
             }
           }
+          if (foundHighlights.length > before) foundSnippets.push(snippet);
         }
 
         setHighlights(foundHighlights);
+        onSnippetsFound?.(pageNum, foundSnippets);
 
         // Notify parent
         onPageRendered(pageNum, textLayerRef.current);
@@ -119,12 +125,13 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRen
     return () => {
       active = false;
     };
-  }, [pdf, pageNum, matchedSnippets, enableTextSelection, onPageRendered]);
+  }, [pdf, pageNum, matchedSnippets, enableTextSelection, onPageRendered, onSnippetsFound]);
 
   return (
     <div
       ref={containerRef}
-      className="relative mx-auto mb-6 shadow-lg border border-slate-200/60 bg-white rounded-xl overflow-hidden"
+      data-pdf-page={pageNum}
+      className="relative mx-auto mb-6 overflow-hidden rounded-2xl bg-white ring-1 ring-[#DCE4F3]"
       style={{
         width: dimensions.width || "auto",
         height: dimensions.height || "auto",
@@ -169,6 +176,14 @@ interface PdfEvidenceVisualizerProps {
   matchedSnippets: string[];
   scrollToSnippet?: string | null;
   onScrollToSnippetEnd?: () => void;
+  /**
+   * Reports which snippets were located on at least one page. Snippets are
+   * matched against single PDF text items, so a span that wraps lines or was
+   * normalized by the parser may not be found; callers should say so.
+   */
+  onLocatedChange?: (located: Set<string>) => void;
+  /** Scroll to the first page holding a highlight whenever the snippets change. */
+  autoScrollToFirstHit?: boolean;
 }
 
 export default function PdfEvidenceVisualizer({
@@ -176,7 +191,10 @@ export default function PdfEvidenceVisualizer({
   matchedSnippets,
   scrollToSnippet,
   onScrollToSnippetEnd,
+  onLocatedChange,
+  autoScrollToFirstHit = false,
 }: PdfEvidenceVisualizerProps) {
+  const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const [pdf, setPdf] = useState<any>(null);
   const [numPages, setNumPages] = useState<number>(0);
@@ -211,7 +229,8 @@ export default function PdfEvidenceVisualizer({
         setNumPages(pdfDoc.numPages);
       } catch (err: unknown) {
         console.error("Error rendering PDF:", err);
-        const errMsg = err instanceof Error ? err.message : "Failed to render PDF";
+        // An empty message falls back to a translated sentence at render time.
+        const errMsg = err instanceof Error ? err.message : "";
         if (isMounted) setError(errMsg);
       } finally {
         if (isMounted) setLoading(false);
@@ -265,12 +284,41 @@ export default function PdfEvidenceVisualizer({
     }
   }, [scrollToSnippet, onScrollToSnippetEnd]);
 
-  const handlePageRendered = (_pageNum: number, _el: HTMLDivElement | null) => {
+  const handlePageRendered = useCallback((_pageNum: number, _el: HTMLDivElement | null) => {
     // optional page logging
-  };
+  }, []);
+
+  // Which snippets each page located, reset whenever the snippet set changes.
+  const foundByPageRef = useRef<Map<number, string[]>>(new Map());
+  const scrolledForRef = useRef<string[] | null>(null);
+  useEffect(() => {
+    foundByPageRef.current = new Map();
+    scrolledForRef.current = null;
+    onLocatedChange?.(new Set());
+  }, [matchedSnippets, onLocatedChange]);
+
+  const handleSnippetsFound = useCallback(
+    (pageNum: number, found: string[]) => {
+      foundByPageRef.current.set(pageNum, found);
+      const located = new Set([...foundByPageRef.current.values()].flat());
+      onLocatedChange?.(located);
+      if (!autoScrollToFirstHit || scrolledForRef.current === matchedSnippets) return;
+      const pagesWithHits = [...foundByPageRef.current.entries()]
+        .filter(([, hits]) => hits.length > 0)
+        .map(([page]) => page);
+      if (pagesWithHits.length === 0) return;
+      const firstPage = Math.min(...pagesWithHits);
+      const target = containerRef.current?.querySelector(`[data-pdf-page="${firstPage}"]`);
+      if (target) {
+        scrolledForRef.current = matchedSnippets;
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    },
+    [autoScrollToFirstHit, matchedSnippets, onLocatedChange]
+  );
 
   return (
-    <div className="relative flex flex-col items-center w-full h-full min-h-[35rem] max-h-[45rem] overflow-y-auto bg-slate-100/70 p-4 rounded-3xl border border-slate-200/80">
+    <div className="relative flex flex-col items-center w-full h-full min-h-[35rem] max-h-[45rem] overflow-y-auto bg-[#F0F4FC] p-4 rounded-3xl border border-[#DCE4F3]">
       <style dangerouslySetInnerHTML={{
         __html: `
         .textLayer {
@@ -296,30 +344,29 @@ export default function PdfEvidenceVisualizer({
       `}} />
 
       {/* Toolbar */}
-      {!loading && !error && (
+      {!loading && error === null && (
         <div className="w-full flex justify-end mb-4 px-2">
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-white shadow-sm border border-slate-200/60 rounded-full px-3 py-1.5 cursor-pointer hover:bg-slate-50 transition-colors">
+          <label className="flex items-center gap-2 text-xs font-semibold text-[#607096] bg-white ring-1 ring-[#DCE4F3] rounded-full px-3 py-1.5 cursor-pointer hover:bg-[#F8FAFC] transition-colors">
             <input
               type="checkbox"
               checked={enableTextSelection}
               onChange={(e) => setEnableTextSelection(e.target.checked)}
-              className="accent-emerald-600"
+              className="accent-[#204195]"
             />
-            <span>Cho phép chọn văn bản (Copy Text)</span>
+            <span>{t("picker.pdf.textSelection")}</span>
           </label>
         </div>
       )}
 
       {loading ? (
         <div className="my-auto flex flex-col items-center">
-          <Loader2 className="size-9 animate-spin text-slate-400" />
-          <p className="mt-3 text-sm font-semibold text-slate-500">Đang tải và highlight CV...</p>
+          <Loader2 className="size-9 animate-spin text-[#9AA6C2]" aria-hidden="true" />
+          <p className="mt-3 text-sm font-semibold text-[#607096]">{t("picker.pdf.loading")}</p>
         </div>
-      ) : error ? (
-        <div className="my-auto text-center p-6">
-          <AlertTriangle className="mx-auto size-10 text-amber-500" />
-          <p className="mt-2 text-sm font-bold text-slate-700">Không thể kết xuất PDF của CV</p>
-          <p className="mt-1 text-xs text-slate-500">{error}</p>
+      ) : error !== null ? (
+        <div className="my-auto max-w-sm rounded-2xl bg-[#FDF2F2] p-5 text-center">
+          <p className="text-sm font-semibold text-[#C43B3B]">{t("picker.pdf.renderError")}</p>
+          <p className="mt-1 text-xs text-[#607096]">{error || t("picker.pdf.renderErrorFallback")}</p>
         </div>
       ) : (
         <div ref={containerRef} className="w-full">
@@ -331,6 +378,7 @@ export default function PdfEvidenceVisualizer({
               matchedSnippets={matchedSnippets}
               enableTextSelection={enableTextSelection}
               onPageRendered={handlePageRendered}
+              onSnippetsFound={handleSnippetsFound}
             />
           ))}
         </div>

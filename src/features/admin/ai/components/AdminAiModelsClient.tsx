@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Box, Lock, Info } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
 import AdminPageHeader from "@features/admin/components/primitives/AdminPageHeader";
 import AdminStatusBadge from "@features/admin/components/primitives/AdminStatusBadge";
 import AdminMetricCard from "@features/admin/components/primitives/AdminMetricCard";
@@ -24,15 +25,15 @@ export default function AdminAiModelsClient() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        title={t("admin.ai.models.title") || "Đăng ký & Cấu hình Mô hình AI (Model Registry)"}
-        description={t("admin.ai.models.subtitle") || "Quản lý mô hình LLM được gán cho từng năng lực cốt lõi trong hệ thống phỏng vấn và đánh giá INTERVIA"}
+        title={t("admin.ai.models.title")}
+        description={t("admin.ai.models.subtitle")}
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
-          { label: t("admin.sidebar.aiOverview") || "AI Operations", href: "/admin/ai" },
-          { label: t("admin.sidebar.aiModels") || "Model Registry" },
+          { label: t("admin.sidebar.aiOverview"), href: "/admin/ai" },
+          { label: t("admin.sidebar.aiModels") },
         ]}
         statusBadge={
-          <AdminStatusBadge status="info" label={t("admin.common.readOnly") || "Chế độ Read-Only"} />
+          <AdminStatusBadge status="info" label={t("admin.common.readOnly")} />
         }
       />
 
@@ -40,9 +41,9 @@ export default function AdminAiModelsClient() {
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#EEF2FD] p-4 flex items-start gap-3">
         <Info className="size-5 text-[#204195] shrink-0 mt-0.5" />
         <div className="text-xs text-[#14244B]">
-          <p className="font-bold">Quy tắc an toàn cấu hình mô hình (Rule 28):</p>
+          <p className="font-bold">{t("fixAdmin.ai.models.safetyTitle")}</p>
           <p className="mt-0.5 text-[#607096] leading-relaxed">
-            {t("admin.ai.models.safetyRule") || "Việc thay đổi mô hình trên Production đòi hỏi quy trình phê duyệt nghiêm ngặt, phiên bản hóa và kiểm toán (audit). Hiện tại Core Backend chưa cung cấp workflow cập nhật động qua API, do đó bảng cấu hình đang ở trạng thái READ-ONLY (BACKEND REQUIRED FOR EDITING)."}
+            {t("admin.ai.models.safetyRule")}
           </p>
         </div>
       </div>
@@ -50,24 +51,24 @@ export default function AdminAiModelsClient() {
       {/* Summary Metrics */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <AdminMetricCard
-          title="Năng lực AI đang kích hoạt"
+          title={t("fixAdmin.ai.models.activeCapabilities")}
           value={models.length}
-          unit="capabilities"
-          subtitle="Tất cả tính năng đã đăng ký"
+          unit={t("fixAdmin.ai.models.unitCapabilities")}
+          subtitle={t("fixAdmin.ai.models.activeCapabilitiesSub")}
           icon={Box}
           status="healthy"
         />
         <AdminMetricCard
-          title="Nhà cung cấp chính"
+          title={t("fixAdmin.ai.models.mainProvider")}
           value="Google Vertex"
           subtitle="Gemini 2.5 Flash & Pro"
           icon={Box}
           status="healthy"
         />
         <AdminMetricCard
-          title="Môi trường hoạt động"
+          title={t("fixAdmin.ai.models.environment")}
           value="PRODUCTION"
-          subtitle="Mặc định qua Backend Gateway"
+          subtitle={t("fixAdmin.ai.models.environmentSub")}
           icon={Lock}
           status="healthy"
         />
@@ -77,11 +78,11 @@ export default function AdminAiModelsClient() {
       <div className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
         <div className="px-6 py-4 border-b border-[#EAEFF8] flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-bold text-[#14244B]">Danh mục gán mô hình cho từng tính năng</h3>
-            <p className="text-xs text-[#607096] mt-0.5">Mô hình thực tế đã được tích hợp trong mã nguồn backend</p>
+            <h3 className="text-sm font-bold text-[#14244B]">{t("fixAdmin.ai.models.assignmentTitle")}</h3>
+            <p className="text-xs text-[#607096] mt-0.5">{t("fixAdmin.ai.models.assignmentDesc")}</p>
           </div>
           <span className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">
-            6 Năng lực
+            {fmt(t("fixAdmin.ai.models.capabilityCount"), { n: 6 })}
           </span>
         </div>
 
@@ -89,13 +90,13 @@ export default function AdminAiModelsClient() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
-                <th className="px-6 py-4">{t("admin.ai.models.table.capability") || "Năng lực (Capability)"}</th>
-                <th className="px-6 py-4">{t("admin.ai.models.table.provider") || "Nhà cung cấp"}</th>
-                <th className="px-6 py-4">{t("admin.ai.models.table.model") || "Mô hình LLM"}</th>
-                <th className="px-6 py-4 text-center">{t("admin.ai.models.table.env") || "Môi trường"}</th>
-                <th className="px-6 py-4 text-center">{t("admin.ai.models.table.version") || "Phiên bản"}</th>
-                <th className="px-6 py-4 text-center">{t("admin.ai.models.table.status") || "Trạng thái"}</th>
-                <th className="px-6 py-4 text-right">{t("admin.ai.models.table.edit") || "Quyền sửa"}</th>
+                <th className="px-6 py-4">{t("admin.ai.models.table.capability")}</th>
+                <th className="px-6 py-4">{t("admin.ai.models.table.provider")}</th>
+                <th className="px-6 py-4">{t("admin.ai.models.table.model")}</th>
+                <th className="px-6 py-4 text-center">{t("admin.ai.models.table.env")}</th>
+                <th className="px-6 py-4 text-center">{t("admin.ai.models.table.version")}</th>
+                <th className="px-6 py-4 text-center">{t("admin.ai.models.table.status")}</th>
+                <th className="px-6 py-4 text-right">{t("admin.ai.models.table.edit")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EAEFF8] text-xs">
@@ -123,9 +124,9 @@ export default function AdminAiModelsClient() {
                     <AdminStatusBadge status="active" label={m.status} size="sm" />
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <span className="inline-flex items-center gap-1 text-[11px] text-[#8A98B8] font-medium" title="Backend required for editing">
+                    <span className="inline-flex items-center gap-1 text-[11px] text-[#8A98B8] font-medium" title={t("fixAdmin.ai.models.readOnlyHint")}>
                       <Lock className="size-3" />
-                      Read-only
+                      {t("fixAdmin.ai.models.readOnly")}
                     </span>
                   </td>
                 </tr>

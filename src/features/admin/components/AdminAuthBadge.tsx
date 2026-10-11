@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 function initialsFromName(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -20,13 +21,14 @@ export default function AdminAuthBadge({
   size?: "sm" | "lg";
 }) {
   const { profile, displayName } = useAuthProfile();
+  const { t } = useLanguage();
   const initials = useMemo(() => (displayName ? initialsFromName(displayName) : "?"), [displayName]);
 
   const box = size === "lg" ? "h-24 w-24" : "h-10 w-10";
   const textName = size === "lg" ? "text-base" : "text-sm";
 
   return (
-    <Link href={href} className="flex items-center gap-3" aria-label="Admin profile">
+    <Link href={href} className="flex items-center gap-3" aria-label={t("fixAdmin.shell.profile")}>
       <div
         className={`${box} flex shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-[#234196] bg-[#FCB625] text-[#234196]`}
       >
