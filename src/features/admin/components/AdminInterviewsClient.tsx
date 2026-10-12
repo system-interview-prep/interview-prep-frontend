@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import {
   Video,
@@ -306,6 +307,12 @@ export default function AdminInterviewsClient({
                       </td>
                       <td className="px-6 py-4">
                         <span className={pill.className}>{pill.label}</span>
+                        <Link
+                          href={`/admin/interviews/${encodeURIComponent(row.id)}`}
+                          className="mt-1 block text-[11px] font-semibold text-[#204195] hover:underline"
+                        >
+                          {t("adminPlan.view")}
+                        </Link>
                       </td>
                     </tr>
                   );
