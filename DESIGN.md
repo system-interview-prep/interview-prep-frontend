@@ -56,7 +56,7 @@ should not look AI-generated or icon-heavy. The fox is the app's
 - `@components/shared/PageHero`: the page intro card: `h1`, body, actions (children), optional `aside` and `steps`.
 - `@components/shared/ProcessSteps`
   - `ProcessSteps`: where the user is in the journey (done / current / todo, plus a hint).
-  - `JourneySteps`: `ProcessSteps` for the one shared journey (`JOURNEY_STEPS`). Used on the dashboard overview only. CV–JD matching counts as part of "Chọn vị trí", not as a step of its own.
+  - `JourneySteps`: `ProcessSteps` for the one shared journey (`JOURNEY_STEPS`). Used on the dashboard overview only, and only until the journey is done (first report); after that the hero's next step is the weakest skill of the latest report. CV–JD matching counts as part of "Chọn vị trí", not as a step of its own.
   - `ProcessStatus`: what the system is doing now (running / done / error, plus a message).
 - `@components/shared/StatusNote`: one-line status next to what just happened (info / success / error), coloured edge + words.
 - `@components/shared/Pagination`: "Hiển thị 11–20 / 37" plus page buttons. Any list that can grow past ~10–20 items is paginated.
@@ -72,3 +72,14 @@ The desktop sidebar collapses to an icon rail (the panel button next to the logo
 There is no separate "Luyện tập" section, because practice *is* the chat, voice or video interview.
 - `/practice` redirects to `/interview/select`.
 - `/practice/room/[id]` still serves question-practice sessions.
+
+## Candidate home (dashboard overview)
+
+Built for long-term practice, from real data only (sessions, CV count, roles, saved roles, the weekly goal):
+
+1. **Today** (`PageHero`): one next step and one primary action. An open session appears here once (an old one can also be closed here). The aside is `WeekGoal`: the weekly goal the candidate chose leads, and the streak is a plain fact under it, never loss-pressure copy.
+2. **Progress**: `ScoreTrend` + `CompetencyFocus` (or `RecentActivity` before there are competency scores).
+3. **Consistency**: `PracticeCalendar` (12 weeks, one brand-blue scale) + `Milestones` (computed from finished sessions, fixed order, the first unreached one is "Tiếp theo"; nothing is stored or awarded).
+4. `RecentActivity`, then `SuggestedJobs`.
+
+No XP, levels, leaderboards, badges or daily challenges: the backend has none of them.
