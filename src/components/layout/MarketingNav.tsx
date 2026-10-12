@@ -6,7 +6,6 @@ import { Menu, X } from "lucide-react";
 
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
-import FoxAvatar from "@features/mascot/components/FoxAvatar";
 
 import {
   useEffect,
@@ -99,13 +98,13 @@ export default function MarketingNav({
         {/* Brand */}
         <Link
           href="/"
-          className="inline-flex shrink-0 items-center gap-2 transition-opacity hover:opacity-90"
+          className="inline-flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-90"
         >
-          <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-white ring-1 ring-[#DCE4F3]">
-            <FoxAvatar size={38} />
-          </span>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#DCE4F3] bg-white shadow-2xs">
+            <img src="/logo.jpg" alt="Intervia" className="h-full w-full object-cover" />
+          </div>
           <span className="font-display text-[22px] font-semibold leading-none tracking-tight text-[#14244B]">
-            Intervia
+            INTERVIA
           </span>
         </Link>
 
