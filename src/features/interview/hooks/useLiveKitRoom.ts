@@ -42,7 +42,7 @@ export type LiveKitRoomStatus =
 export type LiveKitTurnState = 'answering' | 'processing' | 'listening';
 
 /** Commands the room sends to the agent on the `intervia.answer` topic. */
-export type LiveKitAnswerCommand = 'answer.commit' | 'question.repeat';
+export type LiveKitAnswerCommand = 'question.repeat';
 
 const TURN_STATES: readonly LiveKitTurnState[] = ['answering', 'processing', 'listening'];
 
@@ -96,10 +96,13 @@ export function useLiveKitRoom({
   sessionId,
   locale,
   cameraOnStart = false,
+  onAbortRequested,
 }: {
   sessionId: string;
   locale: string;
   cameraOnStart?: boolean;
+  /** The candidate asked to stop; the room shows the end-interview dialog. */
+  onAbortRequested?: () => void;
 }) {
   const roomRef = useRef<Room | null>(null);
   const localMicTrackSidRef = useRef<string | null>(null);
@@ -125,8 +128,14 @@ export function useLiveKitRoom({
   const [interimTranscript, setInterimTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [transportError, setTransportError] = useState<string | null>(null);
+  const [speechOutputError, setSpeechOutputError] = useState<string | null>(null);
   const [terminalEvent, setTerminalEvent] = useState<LiveKitTerminalEvent | null>(null);
   const [turnState, setTurnState] = useState<LiveKitTurnState | null>(null);
+  // The room handler outlives renders; read the latest callback through a ref.
+  const onAbortRequestedRef = useRef(onAbortRequested);
+  useEffect(() => {
+    onAbortRequestedRef.current = onAbortRequested;
+  }, [onAbortRequested]);
 
   const clearRemoteAudio = useCallback(() => {
     for (const element of remoteAudioElementsRef.current) {
@@ -151,6 +160,7 @@ export function useLiveKitRoom({
     setLocalVideoTrack(null);
     setInterimTranscript('');
     setTransportError(null);
+    setSpeechOutputError(null);
     setTurnState(null);
     setStatus('ended');
   }, [clearRemoteAudio]);
@@ -160,6 +170,7 @@ export function useLiveKitRoom({
 
     setError(null);
     setTransportError(null);
+    setSpeechOutputError(null);
     setTerminalEvent(null);
     setTurnState(null);
     setStatus('connecting');
@@ -272,12 +283,25 @@ export function useLiveKitRoom({
         const trackId = rawSegment.transcribedTrackId || rawSegment.trackId || publication?.trackSid || '';
         const id = `${trackId}:${segment.id}`;
 
-        const isUserTrack = Boolean(localMicTrackSidRef.current && trackId === localMicTrackSidRef.current);
-        const isLocalParticipant = participant?.identity === room.localParticipant.identity;
-        const speaker: LiveKitTranscriptLine['speaker'] =
-          isUserTrack || isLocalParticipant || (userSpeakingRef.current && !agentSpeakingRef.current)
+        // Attribute a line only from its publisher or audio track. Active
+        // speaker state is timing data, not transcript ownership: it can lag
+        // during turn changes and place an interviewer line in the user's
+        // bubbles (or vice versa).
+        const localIdentity = room.localParticipant.identity;
+        const localMicTrackSid = localMicTrackSidRef.current;
+        const speaker: LiveKitTranscriptLine['speaker'] | null =
+          localMicTrackSid && trackId === localMicTrackSid
             ? 'user'
-            : 'ai';
+            : participant
+              ? participant.identity === localIdentity
+                ? 'user'
+                : 'ai'
+              : trackId
+                ? 'ai'
+                : null;
+        // Missing publisher and track metadata: don't guess and show a
+        // potentially incorrect transcript line under the wrong person.
+        if (!speaker) continue;
 
         const text = normalizeVoiceTranscript(segment.text, locale, speaker);
         if (!segment.final) {
@@ -314,7 +338,21 @@ export function useLiveKitRoom({
         }
         if (topic === 'intervia.health') {
           const message = voiceTransportHealthMessage(event, locale);
-          if (message !== undefined) setTransportError(message);
+          if (message !== undefined) {
+            if (event.type === 'voice.transport.recovered') {
+              setTransportError(null);
+              setSpeechOutputError(null);
+            } else if (event.component === 'stt') {
+              setTransportError(message);
+            } else {
+              setSpeechOutputError(message);
+            }
+          }
+          return;
+        }
+        if (event.type === 'interview.abort.requested') {
+          // Core's CONFIRM_ABORT ("dừng", "kết thúc"), relayed by the agent.
+          onAbortRequestedRef.current?.();
           return;
         }
         if (event.type !== 'interview.session.closed' || event.sessionStatus !== 'CLOSED') return;
@@ -484,6 +522,9 @@ export function useLiveKitRoom({
     micEnabled,
     cameraEnabled,
     error: transportError || error,
+    // The speech service is degraded while the room itself stays connected.
+    transportError,
+    speechOutputError,
     terminalEvent,
     turnState,
   };
