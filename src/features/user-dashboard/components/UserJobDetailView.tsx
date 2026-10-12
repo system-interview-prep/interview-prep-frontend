@@ -4,8 +4,7 @@ import axios from "axios";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
-import WorkspacePageHeader from "@features/resume/components/WorkspacePageHeader";
+import { ArrowLeft, CheckCircle2, ExternalLink } from "lucide-react";
 import { JobInterviewCvModal } from "@features/user-dashboard/components/JobInterviewCvModal";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
@@ -158,20 +157,66 @@ export default function UserJobDetailView() {
     <div className="min-w-0 space-y-6 text-[#14244B]">
       <Link
         href="/dashboard/jobs"
-        className="inline-flex min-h-8 w-fit items-center gap-1.5 text-sm font-semibold text-[#204195] underline-offset-4 hover:underline"
+        className="inline-flex min-h-9 w-fit items-center gap-2 rounded-full px-1 text-sm font-semibold text-[#204195] transition-colors hover:text-[#14244B]"
       >
-        <span aria-hidden="true">←</span>
+        <ArrowLeft className="size-4" aria-hidden="true" />
         <span>{t("userDash.jobProfiles.detailBack")}</span>
       </Link>
 
-      <WorkspacePageHeader
-        title={profile.title}
-        subtitle={t("uxWs.jobDetail.heroBody")}
-        aside={
-          <div className="rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs sm:p-6">
+      <header className="anim-rise overflow-hidden rounded-3xl border border-[#DCE4F3] bg-white shadow-[0_18px_50px_-36px_rgba(20,36,75,0.32)]">
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0 p-6 sm:p-8 lg:p-10">
+            <h1 className="max-w-4xl break-words text-3xl font-extrabold tracking-tight text-[#14244B] sm:text-4xl lg:text-[42px] lg:leading-[1.12]">
+              {profile.title}
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-[#607096] sm:text-base">
+              {t("uxWs.jobDetail.heroBody")}
+            </p>
+
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setCvModalOpen(true)}
+                className="inline-flex h-11 items-center justify-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#183275]"
+              >
+                {t("userDash.jobProfiles.interviewNow")}
+              </button>
+              {profile.source?.applyUrl && (
+                <a
+                  href={profile.source.applyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#DCE4F3] bg-white px-5 text-sm font-semibold text-[#204195] transition-colors hover:border-[#B9C8E5] hover:bg-[#F8FAFC]"
+                >
+                  {t("uxWs.jobDetail.applySource")}
+                  <ExternalLink className="size-4" aria-hidden="true" />
+                </a>
+              )}
+            </div>
+
+            {keywords.length > 0 && (
+              <div className="mt-8 border-t border-[#EAEFF8] pt-5">
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-[#607096]">
+                  {t("userDash.jobProfiles.detailKeywords")}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {keywords.map((keyword) => (
+                    <span
+                      key={keyword}
+                      className="rounded-full border border-[#DCE4F3] bg-[#F8FAFC] px-3 py-1.5 text-xs font-semibold text-[#29436F]"
+                    >
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <aside className="border-t border-[#EAEFF8] bg-[#F8FAFC] p-6 sm:p-8 lg:border-l lg:border-t-0 lg:p-8">
             <div className="flex items-center gap-3">
               {/* Company Logo / Avatar */}
-              <div className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-2xl bg-[#F8FAFC] border border-[#DCE4F3]">
+              <div className="relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-sm">
                 {profile.company?.logoUrl && !logoError ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
@@ -201,7 +246,7 @@ export default function UserJobDetailView() {
                     )}
                   </p>
                 )}
-                <p className="mt-0.5 text-xs font-semibold text-[#204195]">{categoryName}</p>
+                <p className="mt-1 text-xs font-semibold text-[#607096]">{categoryName}</p>
               </div>
             </div>
 
@@ -212,7 +257,7 @@ export default function UserJobDetailView() {
             )}
 
             {/* Metadata */}
-            <dl className="mt-4 space-y-1.5 border-t border-[#EAEFF8] pt-4 text-[13px] text-[#607096]">
+            <dl className="mt-6 space-y-2.5 border-t border-[#DCE4F3] pt-5 text-[13px] leading-5 text-[#607096]">
               {profile.location && <div className="break-words"><dt className="sr-only">{t("fixApp.jobs.location")}</dt><dd>{profile.location}</dd></div>}
               {(profile.workMode || profile.employmentType || profile.seniority) && (
                 <div>
@@ -237,48 +282,9 @@ export default function UserJobDetailView() {
                 </div>
               )}
             </dl>
-          </div>
-        }
-      >
-        <button
-          type="button"
-          onClick={() => setCvModalOpen(true)}
-          className="inline-flex h-11 items-center justify-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
-        >
-          {t("userDash.jobProfiles.interviewNow")}
-        </button>
-        <p className="basis-full text-[13px] leading-5 text-[#607096]">{t("uxWs.jobDetail.flowHint")}</p>
-        {profile.source?.applyUrl && (
-          <a
-            href={profile.source.applyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-11 items-center justify-center rounded-full bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F0F4FC]"
-          >
-            {t("uxWs.jobDetail.applySource")}
-            <span aria-hidden="true" className="ml-1.5">↗</span>
-          </a>
-        )}
-      </WorkspacePageHeader>
-
-
-      {keywords.length > 0 && (
-        <section className="rounded-3xl bg-white p-5 border border-[#DCE4F3] sm:p-8">
-          <h2 className="mb-4 text-xl font-semibold text-[#14244B]">
-            {t("userDash.jobProfiles.detailKeywords")}
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {keywords.map((k) => (
-              <span
-                key={k}
-                className="rounded-full bg-[#F8FAFC] px-3 py-1 text-xs font-medium text-[#14244B] border border-[#DCE4F3]"
-              >
-                {k}
-              </span>
-            ))}
-          </div>
-        </section>
-      )}
+          </aside>
+        </div>
+      </header>
 
       {keywords.length === 0 && !String(profile.description || "").trim() && (
         <p className="rounded-3xl bg-white p-6 text-sm text-[#607096] border border-[#DCE4F3]">
