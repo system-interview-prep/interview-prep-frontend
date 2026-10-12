@@ -2,19 +2,15 @@
 
 import React from "react";
 import { motion } from "framer-motion";
+import { CheckCircle2, Info, ArrowRight } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { fadeInReveal } from "../../motion/variants";
-
-const EVIDENCE = [
-  { textKey: "fixm.classification.ev1", sourceKey: "fixm.classification.ev1Source" },
-  { textKey: "fixm.classification.ev2", sourceKey: "fixm.classification.ev2Source" },
-];
 
 export function MarketingCareerClassification() {
   const { t } = useLanguage();
 
   return (
-    <section id="career-classification" className="relative bg-white px-4 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-12">
+    <section id="career-classification" className="relative px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-12 xl:py-20 bg-[#F7F9FD] border-b border-[#E7ECF5]">
       <motion.div
         initial="hidden"
         whileInView="visible"
@@ -23,44 +19,53 @@ export function MarketingCareerClassification() {
         className="mx-auto w-full max-w-[1320px]"
       >
         <div className="grid gap-12 lg:grid-cols-12 lg:items-center">
-          {/* Product preview */}
-          <div className="order-2 lg:order-1 lg:col-span-7">
-            <div className="rounded-3xl bg-white p-6 text-left ring-1 ring-[#DCE4F3] sm:p-8">
-              <div className="border-b border-[#DCE4F3] pb-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-[12px] font-semibold text-[#204195]">{t("uxm.classification.label")}</span>
-                  <span className="rounded-full bg-[#F0F4FC] px-2.5 py-0.5 text-[11px] font-semibold text-[#607096]">
-                    {t("fixm.common.example")}
-                  </span>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-[#204195] px-3.5 py-1 text-xs font-semibold text-white">
-                    {t("fixm.classification.primary")}
-                  </span>
-                  <span className="rounded-full bg-[#F7F9FD] px-3.5 py-1 text-xs font-semibold text-[#14244B]">
-                    {t("fixm.classification.secondary")}
-                  </span>
+          {/* VISUAL COLUMN LEFT (55-60% width = lg:col-span-7) */}
+          <div className="lg:col-span-7 order-2 lg:order-1">
+            <div className="rounded-3xl border border-[#DCE4F3] bg-white p-6 sm:p-8 shadow-xs text-left">
+              <div className="flex items-center justify-between border-b border-[#DCE4F3] pb-4">
+                <div>
+                  <span className="font-mono text-[10px] font-bold text-[#607096] uppercase tracking-wider">Inferred Specialization</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-flex items-center gap-1.5 rounded-xl bg-[#204195] px-3 py-1 text-xs font-extrabold text-white">
+                      Backend Engineering
+                    </span>
+                    <span className="rounded-xl bg-[#EEF3FC] border border-[#DCE4F3] px-3 py-1 font-mono text-xs font-bold text-[#204195]">
+                      Platform / Microservices
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <ul className="mt-5 space-y-3">
-                {EVIDENCE.map((item) => (
-                  <li key={item.textKey} className="rounded-2xl bg-[#F7F9FD] p-4 text-sm">
-                    <p className="font-semibold text-[#14244B]">{t(item.textKey)}</p>
-                    <p className="mt-1 text-xs text-[#607096]">{t(item.sourceKey)}</p>
-                  </li>
-                ))}
-              </ul>
+              {/* Core Evidence Items */}
+              <div className="mt-5 space-y-3">
+                <div className="p-3.5 rounded-xl bg-[#F7F9FD] border border-[#DCE4F3] text-xs space-y-1">
+                  <div className="flex items-center gap-2 font-bold text-[#14244B]">
+                    <CheckCircle2 className="size-4 text-[#204195] shrink-0" />
+                    <span>Designed & operated 14 RESTful APIs with Spring Boot microservices</span>
+                  </div>
+                  <p className="font-mono text-[10px] text-[#607096] pl-6">Direct CV Evidence · Enterprise Projects</p>
+                </div>
 
-              <p className="mt-5 border-t border-[#DCE4F3] pt-3 text-xs leading-relaxed text-[#607096]">
-                {t("landing.classification.disclaimer")}
-              </p>
+                <div className="p-3.5 rounded-xl bg-[#F7F9FD] border border-[#DCE4F3] text-xs space-y-1">
+                  <div className="flex items-center gap-2 font-bold text-[#14244B]">
+                    <CheckCircle2 className="size-4 text-[#204195] shrink-0" />
+                    <span>Optimized PostgreSQL indexing handling 100k queries/min</span>
+                  </div>
+                  <p className="font-mono text-[10px] text-[#607096] pl-6">Database Evidence · Page 2</p>
+                </div>
+              </div>
+
+              {/* Subtle Disclaimer Microcopy */}
+              <div className="mt-5 pt-3 border-t border-[#DCE4F3] flex items-center gap-2 text-[11px] text-[#607096]">
+                <Info className="size-3.5 text-[#204195] shrink-0" />
+                <span>{t("landing.classification.disclaimer")}</span>
+              </div>
             </div>
           </div>
 
-          {/* Copy */}
-          <div className="order-1 text-left lg:order-2 lg:col-span-5">
-            <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight text-[#14244B] sm:text-4xl md:text-[44px]">
+          {/* TEXT COLUMN RIGHT (40-45% width = lg:col-span-5) */}
+          <div className="lg:col-span-5 text-left order-1 lg:order-2">
+            <h2 className="font-sans text-3xl font-extrabold tracking-tight text-[#14244B] sm:text-4xl md:text-5xl leading-tight">
               {t("landing.classification.title")}
             </h2>
 
@@ -68,12 +73,15 @@ export function MarketingCareerClassification() {
               {t("landing.classification.desc")}
             </p>
 
-            <a
-              href="#target-job"
-              className="mt-6 inline-block text-sm font-semibold text-[#204195] underline-offset-4 hover:underline"
-            >
-              {t("landing.targetJob.title")} →
-            </a>
+            <div className="mt-6">
+              <a
+                href="#target-job"
+                className="inline-flex items-center gap-2 font-sans text-sm font-bold text-[#204195] hover:text-[#183275] cursor-pointer"
+              >
+                <span>{t("landing.targetJob.title")}</span>
+                <ArrowRight className="size-4" />
+              </a>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -82,3 +90,4 @@ export function MarketingCareerClassification() {
 }
 
 export default MarketingCareerClassification;
+
