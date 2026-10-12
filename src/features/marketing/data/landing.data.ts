@@ -258,6 +258,6 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Dữ liệu CV của tôi có được bảo mật không?",
-    a: "CV và nội dung bạn tải lên chỉ được dùng để tạo các phiên luyện tập của chính bạn. Bạn có thể xoá CV của mình bất cứ lúc nào trong mục CV của tôi.",
+    a: "Dữ liệu của bạn được mã hóa an toàn và chỉ phục vụ cho quá trình luyện tập của riêng bạn.",
   },
 ];
