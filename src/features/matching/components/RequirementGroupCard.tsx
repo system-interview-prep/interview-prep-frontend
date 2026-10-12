@@ -21,25 +21,16 @@ export function RequirementGroupCard({ group, selectedId, onSelect }: Requiremen
   return (
     <div className="space-y-3 rounded-2xl bg-[#F8FAFC] p-3.5 ring-1 ring-[#DCE4F3]">
       {/* Group Header */}
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-full bg-[#F0F4FC] px-2 py-0.5 text-[11px] font-semibold text-[#607096]">
-              <span>{group.operator === "any_of" ? t("fit.group.alternative") : t("fit.group.combined")}</span>
-            </span>
-
-            <h4 className="font-semibold text-sm text-[#14244B] leading-snug">
-              {group.title}
-            </h4>
-          </div>
-
-          <div className="mt-1 text-xs text-[#607096] font-normal">
-            {group.subtext}
-          </div>
+      <div className="space-y-3">
+        <div className="min-w-0">
+          <span className="inline-flex items-center rounded-full bg-[#F0F4FC] px-2 py-0.5 text-[11px] font-semibold text-[#607096]">
+            {group.operator === "any_of" ? t("fit.group.alternative") : t("fit.group.combined")}
+          </span>
+          <h4 className="mt-2 text-[13px] font-semibold leading-5 text-[#14244B]">{group.title}</h4>
+          <p className="mt-1 text-[11px] leading-4 text-[#8A99B8]">{group.subtext}</p>
         </div>
 
-        {/* Group Parent Status & Toggle Children */}
-        <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+        <div className="flex items-center justify-between gap-3 border-t border-[#E3E8F2] pt-3">
           {/* Only render group-level badge when backend has provided a result */}
           {group.status != null ? (
             <MatchStatusBadge status={group.status} labelOverride={group.statusLabel ?? undefined} />
