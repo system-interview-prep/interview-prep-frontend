@@ -13,6 +13,7 @@ import InteractiveCodeSandbox from '@/components/interview/InteractiveCodeSandbo
 import { AbortConfirmationModal } from '@/components/interview/AbortConfirmationModal';
 import { ConfirmDialog } from '@components/shared/ConfirmDialog';
 import { ChatStageStepper, getStageLabel } from './ChatInterviewProgress';
+import { currentQuestionFromRuntime } from '../hooks/useRuntimeProgress';
 import { ChatRoomErrorState, ChatRoomLoadingState } from './ChatRoomStates';
 import { useLanguage } from '@/i18n/LanguageProvider';
 import { fmt } from '@/i18n/format';
@@ -275,7 +276,6 @@ export default function InterviewChatRoom({
   const jobTitle = runtime?.jobTitle || initialJobTitle || t('room.chat.defaultJobTitle');
   const isClosed = runtime?.sessionStatus === 'CLOSED';
   const currentStage = runtime?.currentTurn?.stage ?? runtime?.workingMemory?.current_stage;
-  const currentCompetency = runtime?.currentTurn?.competency;
 
   const durationMinutes = runtime?.durationMinutes;
   const startedAt = runtime?.startedAt;
@@ -387,15 +387,13 @@ export default function InterviewChatRoom({
         totalQuestions={runtime?.totalTurns}
       />
 
-      {/* Below lg the side panel is hidden: keep a compact stepper + tip. */}
-      <div className="lg:hidden">
-        <ChatStageStepper
-          currentStage={currentStage}
-          sessionStatus={runtime?.sessionStatus ?? 'OPEN'}
-          turns={runtime?.turns}
-        />
-        {!isClosed ? <StageTipBar currentStage={currentStage} /> : null}
-      </div>
+      {/* One stepper for all three rooms; below lg the tip shows inline. */}
+      <ChatStageStepper
+        currentStage={currentStage}
+        sessionStatus={runtime?.sessionStatus ?? 'OPEN'}
+        turns={runtime?.turns}
+      />
+      {!isClosed ? <StageTipBar currentStage={currentStage} /> : null}
 
       {isCodingQuestion && !isClosed ? (
         <main className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 lg:overflow-visible">
@@ -455,10 +453,9 @@ export default function InterviewChatRoom({
           </div>
           <InterviewGuidePanel
             currentStage={currentStage}
-            competency={currentCompetency}
             sessionStatus={runtime?.sessionStatus ?? 'OPEN'}
-            turns={runtime?.turns}
             answeredCount={answeredCount}
+            question={runtime ? currentQuestionFromRuntime(runtime) : null}
           />
         </div>
       )}
