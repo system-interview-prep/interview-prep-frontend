@@ -1,14 +1,24 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
+import {
+  ArrowRight,
+  Award,
+  CheckCircle2,
+  Clock,
+  Flame,
+  MessageSquare,
+  Mic,
+  Sparkles,
+  Video,
+} from "lucide-react";
 import { endReasonKey } from "@/features/interview/components/ChatInterviewProgress";
-import { fmt, localeOf } from "@/i18n/format";
+import { localeOf } from "@/i18n/format";
 import { JobCard, mapJobToJobCard } from "@/components/jobs";
 import type { JobProfile } from "@features/admin/services/jobProfile.service";
 import type { CachedFit } from "@features/matching/utils/fitCache";
 import { cn } from "@/utils";
 import CountUp from "@components/shared/CountUp";
-import { WEEKLY_GOAL_OPTIONS } from "@features/user-dashboard/hooks/useWeeklyGoal";
 
 export type CompetencyScore = { competency: string; score: number; weight?: number };
 
@@ -51,13 +61,13 @@ function modeLabel(mode: StoredDashboardSession["mode"], t: Translate) {
   return t("userDash.mode.video.short");
 }
 
-function hasScore(session: StoredDashboardSession): session is StoredDashboardSession & { overallScore: number } {
+export function hasScore(session: StoredDashboardSession): session is StoredDashboardSession & { overallScore: number } {
   return typeof session.overallScore === "number" && Number.isFinite(session.overallScore);
 }
 
-const CARD = "rounded-3xl border border-[#DCE4F3] bg-white";
+const CARD = "rounded-2xl border border-[#DCE4F3] bg-white";
 
-/** Plain section title: no eyebrow pill, no icon. */
+/** Plain section title: clean typography, clear hierarchy. */
 export function SectionHeading({
   id,
   title,
@@ -70,12 +80,12 @@ export function SectionHeading({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h2 id={id} className="font-display text-[22px] font-semibold leading-tight tracking-tight text-[#14244B] sm:text-[26px]">
+        <h2 id={id} className="font-display text-xl font-bold tracking-tight text-[#14244B] sm:text-2xl">
           {title}
         </h2>
-        {subtitle ? <p className="mt-1 max-w-2xl text-sm leading-6 text-[#607096]">{subtitle}</p> : null}
+        {subtitle ? <p className="mt-0.5 text-xs text-[#607096]">{subtitle}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
@@ -86,7 +96,7 @@ export function SectionHeading({
 function CardTitle({ id, title, action }: { id: string; title: string; action?: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <h2 id={id} className="text-base font-semibold text-[#14244B]">{title}</h2>
+      <h3 id={id} className="text-base font-bold text-[#14244B]">{title}</h3>
       {action}
     </div>
   );
@@ -94,232 +104,379 @@ function CardTitle({ id, title, action }: { id: string; title: string; action?: 
 
 function LinkButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className="shrink-0 text-[13px] font-semibold text-[#204195] underline-offset-4 hover:underline">
+    <button type="button" onClick={onClick} className="shrink-0 text-xs font-semibold text-[#204195] underline-offset-4 hover:underline">
       {children}
     </button>
   );
 }
 
-/** This week's practice, honest about zero, with the action that changes it. */
-export function WeekStats({
-  sessions,
+/** Local calendar day, e.g. "2026-9-12" (month is 0-based); compares days, not instants. */
+export function dayKey(date: Date) {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+/** Monday 00:00 of the week that contains `date`. */
+export function weekStart(date: Date) {
+  const monday = new Date(date);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  return monday;
+}
+
+/** Practice days (local) of these sessions. */
+export function practiceDays(sessions: StoredDashboardSession[]) {
+  return new Set(
+    sessions
+      .map((item) => new Date(item.startedAt))
+      .filter((date) => !Number.isNaN(date.getTime()))
+      .map(dayKey),
+  );
+}
+
+/** Days in a row with practice, ending today (or yesterday, if today is still open). */
+export function practiceStreak(days: Set<string>, now: number) {
+  if (!days.size) return 0;
+  const cursor = new Date(now);
+  cursor.setHours(0, 0, 0, 0);
+  if (!days.has(dayKey(cursor))) cursor.setDate(cursor.getDate() - 1);
+  let count = 0;
+  while (days.has(dayKey(cursor))) {
+    count += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return count;
+}
+
+/**
+ * 4 Key Metrics Cards:
+ * 1. Latest / Average score
+ * 2. Weekly & Total sessions
+ * 3. Daily practice streak
+ * 4. Weekly practice time
+ */
+export function OverviewMetrics({
+  latestScore,
+  prevScore,
+  weekSessions,
+  totalSessions,
   streak,
   minutes,
-  goal,
-  onGoalChange,
-  onStart,
   t,
 }: {
-  sessions: number;
+  latestScore: number | null;
+  prevScore?: number | null;
+  weekSessions: number;
+  totalSessions: number;
   streak: number;
   minutes: number;
-  /** Sessions per week the candidate chose; a goal, never a streak penalty. */
-  goal: number;
-  onGoalChange: (goal: number) => void;
-  onStart: () => void;
   t: Translate;
 }) {
-  const reached = Math.min(sessions, goal);
-  const stats = [
-    { value: sessions, label: t("userDash.overview.weekSessions") },
-    { value: streak, label: t("userDash.overview.streak") },
-    { value: minutes, label: t("uxWs.dash.week.minutes") },
-  ];
+  const scoreDiff =
+    latestScore !== null && prevScore !== null && prevScore !== undefined
+      ? latestScore - prevScore
+      : null;
+
   return (
-    <section aria-labelledby="week-title" className="flex h-full flex-col rounded-3xl bg-white/90 p-5 ring-1 ring-[#DCE4F3] sm:p-6">
-      <CardTitle id="week-title" title={t("uxWs.dash.week.title")} />
-      <dl className="mt-4 grid grid-cols-3 divide-x divide-[#EAEFF8]">
-        {stats.map((stat, index) => (
-          <div key={stat.label} className={cn("flex min-w-0 flex-col-reverse justify-end", index > 0 && "pl-3 sm:pl-4")}>
-            <dt className="mt-1.5 text-[12px] leading-snug text-[#607096]">{stat.label}</dt>
-            <dd className="font-display text-[28px] font-semibold leading-none text-[#14244B] tabular-nums"><CountUp value={stat.value} /></dd>
-          </div>
-        ))}
-      </dl>
-      <div className="mt-auto border-t border-[#EAEFF8] pt-4">
-        <div className="flex items-center justify-between gap-2 text-[12px]">
-          <label className="flex items-center gap-1.5 font-semibold text-[#14244B]">
-            {t("uxWs.dash.week.goalLabel")}
-            <select
-              value={goal}
-              onChange={(event) => onGoalChange(Number(event.target.value))}
-              aria-label={t("uxWs.dash.week.goalAria")}
-              className="h-7 rounded-full border-0 bg-[#F0F4FC] px-2.5 text-[12px] font-semibold text-[#204195] outline-none ring-1 ring-[#DCE4F3] focus:ring-2 focus:ring-[#204195]"
-            >
-              {WEEKLY_GOAL_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {fmt(t("uxWs.dash.week.goalOption"), { n: option })}
-                </option>
-              ))}
-            </select>
-          </label>
-          <span className="tabular-nums text-[#607096]">
-            {reached}/{goal}
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* 1. Điểm đánh giá gần nhất */}
+      <article className="group relative overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#607096]">
+            {t("userDash.overview.readiness")}
+          </span>
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/10 text-amber-500 transition-colors group-hover:bg-amber-500 group-hover:text-white">
+            <Award className="size-5" />
           </span>
         </div>
-        <div
-          className="mt-2 h-2 overflow-hidden rounded-full bg-[#EAEFF8]"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={goal}
-          aria-valuenow={reached}
-          aria-label={t("uxWs.dash.week.goalLabel")}
-        >
-          <div
-            className={cn("anim-grow-x h-full rounded-full", sessions >= goal ? "bg-[#287A4B]" : "bg-[#FCB625]")}
-            style={{ width: `${(reached / goal) * 100}%` }}
-            key={goal}
-          />
-        </div>
-        <p className="mt-2.5 text-[12px] leading-5 text-[#607096]">
-          {sessions >= goal ? (
-            t("uxWs.dash.week.goalMet")
-          ) : sessions === 0 ? (
+        <div className="mt-3 flex items-baseline gap-2">
+          {latestScore !== null ? (
             <>
-              {t("uxWs.dash.week.zero")} <LinkButton onClick={onStart}>{t("uxWs.dash.week.start")} →</LinkButton>
+              <span className="font-display text-3xl font-extrabold text-[#14244B]">
+                <CountUp value={latestScore} decimals={1} />
+              </span>
+              <span className="text-sm font-semibold text-[#8B98B5]">/10</span>
+              {scoreDiff !== null && Math.abs(scoreDiff) >= 0.1 && (
+                <span
+                  className={cn(
+                    "ml-auto inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-bold",
+                    scoreDiff > 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600",
+                  )}
+                >
+                  {scoreDiff > 0 ? `+${scoreDiff.toFixed(1)}` : scoreDiff.toFixed(1)}
+                </span>
+              )}
             </>
           ) : (
-            fmt(t("uxWs.dash.week.goalLeft"), { n: goal - sessions })
+            <span className="font-display text-3xl font-extrabold text-[#14244B]">—</span>
           )}
+        </div>
+        <p className="mt-1.5 text-xs text-[#607096]">
+          {latestScore !== null ? "Dựa trên buổi phỏng vấn đã chấm" : t("userDash.overview.readinessEmpty")}
         </p>
+      </article>
+
+      {/* 2. Buổi luyện tập */}
+      <article className="group relative overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#607096]">
+            {t("userDash.overview.weekSessions")}
+          </span>
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-500/10 text-emerald-600 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
+            <CheckCircle2 className="size-5" />
+          </span>
+        </div>
+        <div className="mt-3 flex items-baseline gap-1.5">
+          <span className="font-display text-3xl font-extrabold text-[#14244B]">
+            <CountUp value={weekSessions} />
+          </span>
+          <span className="text-sm font-semibold text-[#8B98B5]">buổi tuần này</span>
+          {totalSessions > 0 && (
+            <span className="ml-auto text-xs text-[#8B98B5]">Tổng {totalSessions}</span>
+          )}
+        </div>
+        <p className="mt-1.5 text-xs text-[#607096]">
+          {weekSessions > 0 ? "Đang duy trì nhịp độ rất tốt" : t("userDash.overview.weekSessionsHelp")}
+        </p>
+      </article>
+
+      {/* 3. Chuỗi ngày liên tiếp */}
+      <article className="group relative overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#607096]">
+            {t("userDash.overview.streak")}
+          </span>
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-orange-500/10 text-orange-500 transition-colors group-hover:bg-orange-500 group-hover:text-white">
+            <Flame className="size-5 fill-current" />
+          </span>
+        </div>
+        <div className="mt-3 flex items-baseline gap-1.5">
+          <span className="font-display text-3xl font-extrabold text-[#14244B]">
+            <CountUp value={streak} />
+          </span>
+          <span className="text-sm font-semibold text-[#8B98B5]">ngày</span>
+        </div>
+        <p className="mt-1.5 text-xs text-[#607096]">
+          {streak > 0 ? "Giữ vững phong độ luyện tập!" : "Bắt đầu chuỗi ngày mới ngay hôm nay!"}
+        </p>
+      </article>
+
+      {/* 4. Thời lượng luyện tập */}
+      <article className="group relative overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#607096]">
+            {t("userDash.overview.time")}
+          </span>
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#204195]/10 text-[#204195] transition-colors group-hover:bg-[#204195] group-hover:text-white">
+            <Clock className="size-5" />
+          </span>
+        </div>
+        <div className="mt-3 flex items-baseline gap-1.5">
+          <span className="font-display text-3xl font-extrabold text-[#14244B]">
+            <CountUp value={minutes} />
+          </span>
+          <span className="text-sm font-semibold text-[#8B98B5]">phút</span>
+        </div>
+        <p className="mt-1.5 text-xs text-[#607096]">
+          {minutes > 0 ? "Thời gian rèn luyện với AI tuần này" : t("userDash.overview.timeUnavailable")}
+        </p>
+      </article>
+    </div>
+  );
+}
+
+/** The default bucket for turns without a planned competency; never named as a weak skill. */
+const DEFAULT_COMPETENCY = "Chuyên môn";
+
+function scoredCompetencies(session: StoredDashboardSession) {
+  return (session.competencyScores ?? []).filter((item) => (item.weight ?? 1) > 0 && Number.isFinite(item.score));
+}
+
+/**
+ * The latest graded session with competency scores,
+ * its competencies weakest first, and the weakest named one.
+ */
+export function weakestCompetency(sessions: StoredDashboardSession[]) {
+  const latest = sessions.find((session) => hasScore(session) && scoredCompetencies(session).length > 0);
+  if (!latest) return null;
+  const items = scoredCompetencies(latest).slice().sort((a, b) => a.score - b.score);
+  const named = items.filter((item) => item.competency !== DEFAULT_COMPETENCY);
+  return { latest, items, weakest: (named.length ? named : items)[0] };
+}
+
+/**
+ * Compact AI Insight Card: displays the weakest competency from the latest session
+ * with a direct action to re-practice that role.
+ */
+export function ImprovementFocus({
+  focus,
+  onPractice,
+}: {
+  focus: NonNullable<ReturnType<typeof weakestCompetency>>;
+  onPractice: (job: { id: string; title: string }) => void;
+}) {
+  const { latest, weakest } = focus;
+  const roleTitle = latest.jobTitle || "Vị trí gần nhất";
+
+  return (
+    <section className="relative overflow-hidden rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50/80 via-white to-blue-50/40 p-5 shadow-xs transition-all hover:shadow-sm sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3.5">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-500/15 text-amber-600">
+            <Sparkles className="size-5" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100/90 px-2.5 py-0.5 text-xs font-bold text-amber-800">
+                Gợi ý cải thiện từ AI
+              </span>
+              <span className="text-xs font-medium text-[#607096]">Từ buổi gần nhất: {roleTitle}</span>
+            </div>
+            <h3 className="mt-1.5 text-base font-bold text-[#14244B]">
+              Năng lực cần rèn luyện: <span className="text-[#204195]">{weakest.competency}</span>
+              <span className="ml-2 inline-block rounded-md border border-amber-200 bg-white px-2 py-0.5 text-xs font-extrabold text-amber-700 shadow-xs">
+                {weakest.score.toFixed(1)}/10
+              </span>
+            </h3>
+            <p className="mt-1 text-xs leading-relaxed text-[#607096]">
+              Buổi phỏng vấn tiếp theo sẽ tăng cường các câu hỏi tình huống thực tế xoay quanh năng lực này để giúp bạn bứt phá điểm số.
+            </p>
+          </div>
+        </div>
+        {latest.jobId && (
+          <button
+            type="button"
+            onClick={() => onPractice({ id: latest.jobId!, title: roleTitle })}
+            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#183275] active:scale-[0.98]"
+          >
+            <span>Luyện lại vị trí này</span>
+            <ArrowRight className="size-3.5" />
+          </button>
+        )}
       </div>
     </section>
   );
 }
 
 /**
- * Overall score (0–10) of the latest graded sessions, oldest → newest. One
- * series in brand blue; the newest column is yellow and named in text.
+ * 3 Practice Mode Cards (Video AI, Voice AI, Chat)
  */
-export function ScoreTrend({
-  sessions,
-  lang,
-  onNavigate,
+export function PracticeModes({
+  onSelectMode,
+  onStartVideo,
   t,
 }: {
-  sessions: StoredDashboardSession[];
-  lang: string;
-  onNavigate: (href: string) => void;
+  onSelectMode: (mode: "video" | "voice" | "chat") => void;
+  onStartVideo: () => void;
   t: Translate;
 }) {
-  const [hovered, setHovered] = useState<string | null>(null);
-  const graded = sessions
-    .filter(hasScore)
-    .slice()
-    .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())
-    .slice(-8);
-  const latest = graded[graded.length - 1];
-  const previous = graded[graded.length - 2];
-  const best = graded.reduce<number | null>((max, s) => (max == null || s.overallScore > max ? s.overallScore : max), null);
-  const average = graded.length ? graded.reduce((sum, s) => sum + s.overallScore, 0) / graded.length : null;
-  const delta = latest && previous ? latest.overallScore - previous.overallScore : null;
-  const dateOf = (iso: string) => new Date(iso).toLocaleDateString(localeOf(lang), { day: "2-digit", month: "2-digit" });
+  const modes = [
+    {
+      key: "video" as const,
+      title: "Phỏng vấn Video AI",
+      desc: "Mô phỏng chân thực qua Webcam & AI Avatar. Đánh giá đa chiều về phong thái, giọng nói và độ tự tin.",
+      duration: "15–20 phút",
+      highlight: "Khuyên dùng",
+      isFeatured: true,
+      Icon: Video,
+      color: "bg-gradient-to-br from-[#204195] to-[#14244B] text-white",
+      badgeColor: "bg-[#FCB625] text-[#14244B]",
+      actionLabel: "Luyện Video ngay",
+      action: onStartVideo,
+    },
+    {
+      key: "voice" as const,
+      title: "Phỏng vấn Giọng nói",
+      desc: "Luyện phản xạ giao tiếp tự nhiên và diễn đạt mạch lạc qua giọng nói, không áp lực về camera.",
+      duration: "10–15 phút",
+      highlight: "Nhanh gọn",
+      isFeatured: false,
+      Icon: Mic,
+      color: "bg-blue-50 text-[#204195] border border-blue-200",
+      badgeColor: "bg-blue-100 text-[#204195]",
+      actionLabel: "Luyện Voice ngay",
+      action: () => onSelectMode("voice"),
+    },
+    {
+      key: "chat" as const,
+      title: "Phỏng vấn Chat",
+      desc: "Tập trung trau chuốt cấu trúc câu trả lời STAR và tư duy logic bằng văn bản trước khi nói.",
+      duration: "10–15 phút",
+      highlight: "Rèn cấu trúc",
+      isFeatured: false,
+      Icon: MessageSquare,
+      color: "bg-emerald-50 text-emerald-600 border border-emerald-200",
+      badgeColor: "bg-emerald-100 text-emerald-800",
+      actionLabel: "Luyện Chat ngay",
+      action: () => onSelectMode("chat"),
+    },
+  ];
 
   return (
-    <section aria-labelledby="score-title" className={cn(CARD, "anim-rise flex h-full flex-col p-5 sm:p-6")} style={{ ["--i" as string]: 2 }}>
-      <CardTitle
-        id="score-title"
-        title={t("uxWs.dash.progress.title")}
-        action={graded.length ? <LinkButton onClick={() => onNavigate("/dashboard/history")}>{t("userDash.activity.viewAll")} →</LinkButton> : null}
+    <section aria-labelledby="modes-title" className="space-y-4">
+      <SectionHeading
+        id="modes-title"
+        title={t("userDash.modes.title")}
+        subtitle="Chọn hình thức phù hợp với thời gian và mục tiêu rèn luyện hôm nay của bạn."
       />
-      <p className="mt-0.5 text-[13px] text-[#607096]">{t("uxWs.dash.progress.subtitle")}</p>
 
-      {graded.length === 0 ? (
-        <div className="mt-5 flex flex-1 flex-col justify-center rounded-2xl border border-dashed border-[#DCE4F3] bg-[#F8FAFC] px-5 py-8 text-center">
-          <p className="font-display text-3xl font-semibold text-[#9AA6C2]">— / 10</p>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#607096]">{t("uxWs.dash.progress.empty")}</p>
-        </div>
-      ) : (
-        <>
-          <dl className="mt-5 grid grid-cols-3 gap-3">
-            <div>
-              <dt className="text-[12px] text-[#607096]">{t("uxWs.dash.progress.latest")}</dt>
-              <dd className="mt-1 font-display text-[28px] font-semibold leading-none text-[#14244B] tabular-nums">
-                <CountUp value={latest.overallScore} decimals={1} />
-                <span className="ml-1 text-sm font-normal text-[#9AA6C2]">/10</span>
-              </dd>
-              {delta != null ? (
-                <dd className={cn("mt-1 text-[12px] font-semibold", delta > 0 ? "text-[#287A4B]" : delta < 0 ? "text-[#C43B3B]" : "text-[#607096]")}>
-                  {fmt(t("uxWs.dash.progress.delta"), { n: `${delta > 0 ? "+" : ""}${delta.toFixed(1)}` })}
-                </dd>
-              ) : null}
-            </div>
-            <div>
-              <dt className="text-[12px] text-[#607096]">{t("uxWs.dash.progress.best")}</dt>
-              <dd className="mt-1 font-display text-[28px] font-semibold leading-none text-[#14244B] tabular-nums">{best != null ? <CountUp value={best} decimals={1} /> : null}</dd>
-            </div>
-            <div>
-              <dt className="text-[12px] text-[#607096]">{t("uxWs.dash.progress.average")}</dt>
-              <dd className="mt-1 font-display text-[28px] font-semibold leading-none text-[#14244B] tabular-nums">{average != null ? <CountUp value={average} decimals={1} /> : null}</dd>
-            </div>
-          </dl>
+      <div className="grid gap-5 md:grid-cols-3">
+        {modes.map((mode) => (
+          <article
+            key={mode.key}
+            className={cn(
+              "relative flex flex-col justify-between rounded-2xl border p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg",
+              mode.isFeatured
+                ? "border-[#204195] bg-gradient-to-b from-[#F0F4FC]/90 via-white to-white shadow-md ring-1 ring-[#204195]/20"
+                : "border-[#DCE4F3] bg-white shadow-xs hover:border-[#204195]/40",
+            )}
+          >
+            {mode.highlight && (
+              <span
+                className={cn(
+                  "absolute -top-2.5 right-4 rounded-full px-2.5 py-0.5 text-[11px] font-bold shadow-xs",
+                  mode.badgeColor,
+                )}
+              >
+                {mode.highlight}
+              </span>
+            )}
 
-          <div className="relative mt-6 flex-1">
-            {/* Recessive guides at 5 and 10. */}
-            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-40">
-              {[10, 5].map((mark) => (
-                <div key={mark} className="absolute inset-x-0 flex items-center gap-2" style={{ top: `${(1 - mark / 10) * 100}%` }}>
-                  <span className="w-5 text-right text-[10px] tabular-nums text-[#9AA6C2]">{mark}</span>
-                  <span className="h-px flex-1 bg-[#EAEFF8]" />
+            <div>
+              <div className="flex items-center gap-3">
+                <div className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", mode.color)}>
+                  <mode.Icon className="size-5" />
                 </div>
-              ))}
+                <div>
+                  <h3 className="font-display text-base font-bold text-[#14244B]">{mode.title}</h3>
+                  <span className="text-[11px] font-medium text-[#8B98B5]">{mode.duration}</span>
+                </div>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-[#607096]">{mode.desc}</p>
             </div>
-            <ol aria-label={t("uxWs.dash.progress.chartAria")} className="relative ml-7 flex h-40 items-end gap-2 border-b border-[#DCE4F3] sm:gap-3">
-              {graded.map((session) => {
-                const isLatest = session === latest;
-                const label = `${dateOf(session.startedAt)} · ${session.jobTitle ?? t("userDash.activity.eyebrow")} · ${session.overallScore.toFixed(1)}/10`;
-                return (
-                  <li key={session.sessionId} className="relative flex h-full flex-1 items-end justify-center">
-                    <button
-                      type="button"
-                      onClick={() => onNavigate(sessionHref(session))}
-                      onMouseEnter={() => setHovered(session.sessionId)}
-                      onMouseLeave={() => setHovered(null)}
-                      onFocus={() => setHovered(session.sessionId)}
-                      onBlur={() => setHovered(null)}
-                      aria-label={label}
-                      className="group flex h-full w-full max-w-10 items-end justify-center rounded-t-md outline-offset-2"
-                    >
-                      <span
-                        className={cn(
-                          "anim-grow-y w-full max-w-7 rounded-t-[4px] transition-opacity",
-                          isLatest ? "bg-[#FCB625]" : "bg-[#204195]",
-                          hovered && hovered !== session.sessionId && "opacity-40",
-                        )}
-                        style={{ height: `${Math.max(2, (session.overallScore / 10) * 100)}%`, ["--i" as string]: graded.indexOf(session) }}
-                      />
-                    </button>
-                    {hovered === session.sessionId ? (
-                      <span
-                        role="tooltip"
-                        className="pointer-events-none absolute bottom-full z-10 mb-2 whitespace-nowrap rounded-lg bg-[#14244B] px-2.5 py-1.5 text-[11px] font-medium text-white shadow-lg"
-                      >
-                        {label}
-                      </span>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ol>
-            <div aria-hidden="true" className="ml-7 mt-1.5 flex gap-2 sm:gap-3">
-              {graded.map((session) => (
-                <span key={session.sessionId} className="flex-1 text-center text-[10px] tabular-nums text-[#9AA6C2]">
-                  {dateOf(session.startedAt)}
-                </span>
-              ))}
+
+            <div className="mt-5 border-t border-[#EAEFF8] pt-4">
+              <button
+                type="button"
+                onClick={mode.action}
+                className={cn(
+                  "flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all active:scale-[0.98]",
+                  mode.isFeatured
+                    ? "bg-[#204195] text-white shadow-xs hover:bg-[#183275]"
+                    : "border border-[#DCE4F3] bg-white text-[#14244B] hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195]",
+                )}
+              >
+                <span>{mode.actionLabel}</span>
+                <ArrowRight className="size-3.5" />
+              </button>
             </div>
-            <p className="mt-3 flex items-center gap-1.5 text-[12px] text-[#607096]">
-              <span aria-hidden="true" className="inline-block size-2.5 rounded-sm bg-[#FCB625]" />
-              {t("uxWs.dash.progress.latestLegend")}
-            </p>
-          </div>
-        </>
-      )}
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
 
-/** The three newest sessions, each with its state, score and one action. */
+/** The recent sessions, each with its state, score and action. */
 export function RecentActivity({
   sessions,
   lang,
@@ -331,64 +488,79 @@ export function RecentActivity({
   onNavigate: (href: string) => void;
   t: Translate;
 }) {
+  const displaySessions = sessions.slice(0, 4);
+
   return (
-    <section aria-labelledby="activity-title" className={cn(CARD, "anim-rise flex h-full flex-col p-5 sm:p-6")} style={{ ["--i" as string]: 3 }}>
+    <section aria-labelledby="activity-title" className={cn(CARD, "flex flex-col p-5 sm:p-6 shadow-xs")}>
       <CardTitle
         id="activity-title"
         title={t("userDash.activity.title")}
-        action={<LinkButton onClick={() => onNavigate("/dashboard/history")}>{t("userDash.activity.viewAll")} →</LinkButton>}
+        action={
+          <LinkButton onClick={() => onNavigate("/dashboard/history")}>
+            {t("userDash.activity.viewAll")} →
+          </LinkButton>
+        }
       />
-      <ol className="mt-3 flex-1 divide-y divide-[#EAEFF8]">
-        {sessions.slice(0, 4).map((session) => {
-          const failed = isFailedStart(session);
-          const closed = session.status === "CLOSED";
-          const state = failed
-            ? t("userDash.activity.failedStart")
-            : closed
-              ? t(endReasonKey(session.endReason))
-              : t("userDash.activity.inProgress");
-          return (
-            <li key={session.sessionId}>
-              <button
-                type="button"
-                onClick={() => onNavigate(sessionHref(session))}
-                className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-2xl px-2 py-3 text-left transition-colors hover:bg-[#F8FAFC]"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-[#14244B]">{session.jobTitle || t("userDash.activity.eyebrow")}</span>
-                  <span className="mt-0.5 block truncate text-xs text-[#607096]">
-                    {new Date(session.startedAt).toLocaleDateString(localeOf(lang), { day: "2-digit", month: "2-digit", year: "numeric" })}
-                    {" · "}
-                    {modeLabel(session.mode, t)}
-                    {" · "}
-                    <span className={cn(!closed && !failed && "font-semibold text-[#8A5A00]")}>{state}</span>
+      {displaySessions.length > 0 ? (
+        <ol className="mt-3 flex-1 divide-y divide-[#EAEFF8]">
+          {displaySessions.map((session) => {
+            const failed = isFailedStart(session);
+            const closed = session.status === "CLOSED";
+            const state = failed
+              ? t("userDash.activity.failedStart")
+              : closed
+                ? t(endReasonKey(session.endReason))
+                : t("userDash.activity.inProgress");
+            return (
+              <li key={session.sessionId}>
+                <button
+                  type="button"
+                  onClick={() => onNavigate(sessionHref(session))}
+                  className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-2xl px-2 py-3 text-left transition-colors hover:bg-[#F8FAFC]"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-[#14244B]">
+                      {session.jobTitle || t("userDash.activity.eyebrow")}
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs text-[#607096]">
+                      {new Date(session.startedAt).toLocaleDateString(localeOf(lang), {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
+                      {" · "}
+                      {modeLabel(session.mode, t)}
+                      {" · "}
+                      <span className={cn(!closed && !failed && "font-semibold text-[#8A5A00]")}>{state}</span>
+                    </span>
                   </span>
-                </span>
-                <span className="shrink-0 text-right">
-                  {hasScore(session) ? (
-                    <span className="font-display text-lg font-semibold tabular-nums text-[#14244B]">
-                      {session.overallScore.toFixed(1)}
-                      <span className="text-xs font-normal text-[#9AA6C2]">/10</span>
-                    </span>
-                  ) : (
-                    <span className="text-[12px] font-semibold text-[#204195]">
-                      {failed ? t("userDash.activity.startNew") : closed ? t("userDash.activity.viewReport") : t("userDash.activity.resume")} →
-                    </span>
-                  )}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+                  <span className="shrink-0 text-right">
+                    {hasScore(session) ? (
+                      <span className="font-display text-lg font-bold tabular-nums text-[#14244B]">
+                        {session.overallScore.toFixed(1)}
+                        <span className="text-xs font-normal text-[#9AA6C2]">/10</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold text-[#204195]">
+                        {failed ? t("userDash.activity.startNew") : closed ? t("userDash.activity.viewReport") : t("userDash.activity.resume")} →
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <div className="py-8 text-center">
+          <p className="text-xs text-[#607096]">Chưa có buổi phỏng vấn nào. Hãy bắt đầu buổi luyện tập đầu tiên của bạn!</p>
+        </div>
+      )}
     </section>
   );
 }
 
-/**
- * Open roles, rendered with the same `JobCard` as the jobs page (saved jobs
- * first) so the overview and the jobs page always look and behave alike.
- */
+/** Suggested target jobs */
 export function SuggestedJobs({
   profiles,
   savedJobIds,
@@ -408,7 +580,7 @@ export function SuggestedJobs({
 }) {
   const ordered = [...profiles].sort((a, b) => Number(savedJobIds.has(b.id)) - Number(savedJobIds.has(a.id)));
   return (
-    <section aria-labelledby="jobs-title" className="anim-rise" style={{ ["--i" as string]: 4 }}>
+    <section aria-labelledby="jobs-title" className="space-y-4">
       <SectionHeading
         id="jobs-title"
         title={t("uxWs.dash.jobs.title")}
@@ -436,204 +608,5 @@ export function SuggestedJobs({
         </div>
       )}
     </section>
-  );
-}
-
-export type OverviewTile = {
-  key: string;
-  /** The nav section this tile summarises. */
-  section: string;
-  value: string;
-  /** When set, the value counts up once (it is then rendered from these numbers). */
-  count?: { value: number; decimals?: number; suffix?: string };
-  caption: string;
-  /** One short line: the state or what to do next. */
-  note: string;
-  noteTone?: "neutral" | "good" | "bad" | "attention";
-  href: string;
-};
-
-/** One tile per nav section, so the top of the page sums up the whole workspace. */
-export function OverviewTiles({ tiles, onNavigate, label }: { tiles: OverviewTile[]; onNavigate: (href: string) => void; label: string }) {
-  return (
-    <section aria-label={label}>
-      <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        {tiles.map((tile, index) => (
-          <li key={tile.key} className="anim-rise" style={{ ["--i" as string]: index + 1 }}>
-            <button
-              type="button"
-              onClick={() => onNavigate(tile.href)}
-              className="group flex h-full w-full flex-col rounded-3xl border border-[#DCE4F3] bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-[#204195]/40 hover:shadow-[0_18px_40px_-28px_rgba(20,36,75,0.5)] sm:p-5"
-            >
-              <span className="flex items-center justify-between gap-2 text-[12px] font-semibold text-[#204195]">
-                {tile.section}
-                <span aria-hidden="true" className="text-[#9AA6C2] transition-transform group-hover:translate-x-0.5 group-hover:text-[#204195]">→</span>
-              </span>
-              <span className="mt-3 font-display text-[30px] font-semibold leading-none text-[#14244B] tabular-nums">
-                {tile.count ? <CountUp value={tile.count.value} decimals={tile.count.decimals} suffix={tile.count.suffix} /> : tile.value}
-              </span>
-              <span className="mt-1.5 text-[13px] text-[#607096]">{tile.caption}</span>
-              <span
-                className={cn(
-                  "mt-3 border-t border-[#EAEFF8] pt-2.5 text-[12px] font-medium leading-snug",
-                  tile.noteTone === "good" && "text-[#287A4B]",
-                  tile.noteTone === "bad" && "text-[#C43B3B]",
-                  tile.noteTone === "attention" && "text-[#8A5A00]",
-                  (!tile.noteTone || tile.noteTone === "neutral") && "text-[#607096]",
-                )}
-              >
-                {tile.note}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-/** The default bucket for turns without a planned competency; never named as a weak skill. */
-const DEFAULT_COMPETENCY = "Chuyên môn";
-
-/**
- * Competencies of the latest graded session, weakest first, with the change
- * since the previous graded session for the same job. Names come from each
- * job's requirements, so they are only compared within one job.
- */
-export function CompetencyFocus({
-  sessions,
-  onPractice,
-  t,
-}: {
-  /** Newest first. */
-  sessions: StoredDashboardSession[];
-  onPractice: (job: { id: string; title: string }) => void;
-  t: Translate;
-}) {
-  const scored = (session: StoredDashboardSession) =>
-    (session.competencyScores ?? []).filter((item) => (item.weight ?? 1) > 0 && Number.isFinite(item.score));
-  const latest = sessions.find((session) => hasScore(session) && scored(session).length > 0);
-  if (!latest) return null;
-
-  const items = scored(latest).slice().sort((a, b) => a.score - b.score);
-  const named = items.filter((item) => item.competency !== DEFAULT_COMPETENCY);
-  const weakest = (named.length ? named : items)[0];
-  const previous = latest.jobId
-    ? sessions.find(
-        (session) =>
-          session !== latest &&
-          session.jobId === latest.jobId &&
-          new Date(session.startedAt) < new Date(latest.startedAt) &&
-          scored(session).length > 0,
-      )
-    : undefined;
-  const before = new Map((previous ? scored(previous) : []).map((item) => [item.competency, item.score]));
-
-  return (
-    <section aria-labelledby="competency-title" className={cn(CARD, "anim-rise flex h-full flex-col p-5 sm:p-6")} style={{ ["--i" as string]: 3 }}>
-      <CardTitle id="competency-title" title={t("uxWs.dash.comp.title")} />
-      <p className="mt-0.5 truncate text-[13px] text-[#607096]">
-        {fmt(t("uxWs.dash.comp.subtitle"), { role: latest.jobTitle || t("userDash.activity.eyebrow") })}
-      </p>
-
-      <div className="mt-4 rounded-2xl bg-[#FFF8E6] p-4 ring-1 ring-[#FCB625]/40">
-        <p className="text-[12px] font-semibold text-[#204195]">{t("uxWs.dash.comp.weakest")}</p>
-        <p className="mt-1 flex items-baseline justify-between gap-3">
-          <span className="min-w-0 truncate text-[17px] font-semibold text-[#14244B]">{weakest.competency}</span>
-          <span className="shrink-0 font-display text-xl font-semibold tabular-nums text-[#14244B]">
-            {weakest.score.toFixed(1)}
-            <span className="text-xs font-normal text-[#9AA6C2]">/10</span>
-          </span>
-        </p>
-        {latest.jobId ? (
-          <button
-            type="button"
-            onClick={() => onPractice({ id: latest.jobId as string, title: latest.jobTitle || t("userDash.activity.eyebrow") })}
-            className="mt-3 inline-flex h-9 items-center rounded-full bg-[#204195] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#183275]"
-          >
-            {t("uxWs.dash.comp.practice")}
-          </button>
-        ) : null}
-        <p className="mt-2 text-[12px] leading-5 text-[#607096]">{t("uxWs.dash.comp.practiceNote")}</p>
-      </div>
-
-      <ul className="mt-4 flex-1 space-y-3">
-        {items.slice(0, 5).map((item) => {
-          const prev = before.get(item.competency);
-          const delta = prev != null ? item.score - prev : null;
-          return (
-            <li key={item.competency}>
-              <div className="flex items-baseline justify-between gap-2 text-[13px]">
-                <span className="min-w-0 truncate font-medium text-[#14244B]">{item.competency}</span>
-                <span className="flex shrink-0 items-baseline gap-2 tabular-nums">
-                  {delta != null && delta !== 0 ? (
-                    <span className={cn("text-[11px] font-semibold", delta > 0 ? "text-[#287A4B]" : "text-[#C43B3B]")}>
-                      {delta > 0 ? "+" : ""}
-                      {delta.toFixed(1)}
-                    </span>
-                  ) : null}
-                  <span className="font-semibold text-[#14244B]">{item.score.toFixed(1)}</span>
-                </span>
-              </div>
-              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#EAEFF8]">
-                <div
-                  className={cn("anim-grow-x h-full rounded-[4px]", item === weakest ? "bg-[#FCB625]" : "bg-[#204195]")}
-                  style={{ width: `${Math.max(2, (item.score / 10) * 100)}%`, ["--i" as string]: items.indexOf(item) }}
-                />
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-      {previous ? <p className="mt-3 text-[12px] text-[#607096]">{t("uxWs.dash.comp.deltaNote")}</p> : null}
-    </section>
-  );
-}
-
-/** An open session older than a day: resume it, or close it (with a confirmation). */
-export function StaleSessionNotice({
-  session,
-  lang,
-  onResume,
-  onClose,
-  t,
-}: {
-  session: StoredDashboardSession;
-  lang: string;
-  onResume: () => void;
-  onClose: () => void;
-  t: Translate;
-}) {
-  const answered = session.answeredTurns ?? 0;
-  const started = new Date(session.startedAt).toLocaleString(localeOf(lang), { dateStyle: "medium", timeStyle: "short" });
-  return (
-    <div role="status" className="anim-rise flex flex-col gap-3 rounded-3xl border border-[#FCB625]/50 bg-[#FFF8E6] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-[#14244B]">
-          {fmt(t("uxWs.dash.stale.title"), { role: session.jobTitle || t("userDash.activity.eyebrow"), date: started })}
-        </p>
-        <p className="mt-0.5 text-[13px] text-[#607096]">
-          {answered > 0
-            ? fmt(t("uxWs.dash.stale.bodyAnswered"), { n: answered, total: session.totalTurns ?? answered })
-            : t("uxWs.dash.stale.bodyEmpty")}
-        </p>
-      </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onResume}
-          className="inline-flex h-9 items-center rounded-full bg-[#204195] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#183275]"
-        >
-          {t("uxWs.dash.stale.resume")}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-9 items-center rounded-full bg-white px-4 text-[13px] font-semibold text-[#14244B] ring-1 ring-[#DCE4F3] transition-colors hover:bg-[#F8FAFC]"
-        >
-          {answered > 0 ? t("uxWs.dash.stale.closeReport") : t("uxWs.dash.stale.close")}
-        </button>
-      </div>
-    </div>
   );
 }
