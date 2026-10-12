@@ -10,6 +10,7 @@ import { fixInterviewEn, fixInterviewVi } from "./dicts/fix-interview.dict";
 import { fixAppEn, fixAppVi } from "./dicts/fix-app.dict";
 import { settingsHelpEn, settingsHelpVi } from "./dicts/settings-help.dict";
 import { fixAdminEn, fixAdminVi } from "./dicts/fix-admin.dict";
+import { adminPlanEn, adminPlanVi } from "./dicts/admin-plan.dict";
 import { fixMarketingEn, fixMarketingVi } from "./dicts/fix-marketing.dict";
 
 export type Lang = "en" | "vi";
@@ -109,6 +110,7 @@ const en: Dict = {
   ...fixAppEn,
   ...settingsHelpEn,
   ...fixAdminEn,
+  ...adminPlanEn,
   ...fixMarketingEn,
   ...uxInterviewEn,
   ...pickerEn,
@@ -2344,6 +2346,7 @@ const vi: Dict = {
   ...fixAppVi,
   ...settingsHelpVi,
   ...fixAdminVi,
+  ...adminPlanVi,
   ...fixMarketingVi,
   ...uxInterviewVi,
   ...pickerVi,
