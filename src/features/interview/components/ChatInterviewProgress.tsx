@@ -371,13 +371,14 @@ export function InterviewCountdownTimer({
     );
   }
 
-  // A demo session keeps going past its nominal time to finish its stages
-  // (Core demo_mode); a frozen red 00:00 next to a live interviewer misleads.
+  // A session keeps going past its nominal time to finish its stages (Core
+  // demo_mode); a frozen 00:00 or a warning colour next to a live interviewer
+  // only adds pressure, so say calmly that it is wrapping up.
   if (secondsRemaining === 0) {
     return (
       <div
         role="status"
-        className="inline-flex items-center gap-1.5 rounded-full border border-[#F6DFA3] bg-[#FFF8E6] px-2.5 py-1.5 text-xs font-semibold text-[#8A5A00] sm:px-3"
+        className="inline-flex items-center gap-1.5 rounded-full border border-[#DCE4F3] bg-[#F7F9FD] px-2.5 py-1.5 text-xs font-semibold text-[#607096] sm:px-3"
       >
         <Clock className="size-3.5" />
         <span>{t('room.timer.overtime')}</span>
