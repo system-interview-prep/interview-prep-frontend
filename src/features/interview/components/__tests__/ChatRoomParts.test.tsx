@@ -34,28 +34,37 @@ const message = (overrides: Partial<ChatMessage>): ChatMessage => ({
 const noop = () => undefined;
 
 describe('Chat room guide panel', () => {
-  it('explains the current stage, how to answer it, and every stage of the session', () => {
+  it('pins the question being answered with its stage, skill, time box and how to answer it', () => {
     const html = renderToStaticMarkup(
-      <InterviewGuidePanel currentStage="DEEP_DIVE" competency="Node.js" sessionStatus="OPEN" turns={turns} answeredCount={2} />
+      <InterviewGuidePanel
+        currentStage="DEEP_DIVE"
+        sessionStatus="OPEN"
+        answeredCount={2}
+        question={{
+          text: 'N+1 query là gì và sửa thế nào?',
+          followUpText: null,
+          competency: 'SQL',
+          startedAt: '2026-10-09T10:00:00+07:00',
+          softAnswerSeconds: 150,
+          hardAnswerSeconds: 180,
+        }}
+      />
     );
 
+    expect(html).toContain('N+1 query là gì và sửa thế nào?');
+    expect(html).toContain('Chuyên môn · SQL');
+    expect(html).toContain('gợi ý 2:30');
     expect(html).toContain('Bây giờ');
-    expect(html).toContain('Chuyên môn');
-    expect(html).toContain('Node.js');
     expect(html).toContain('trade-off');
-    expect(html).toContain('data-stage="DEEP_DIVE" data-state="current"');
     expect(html).toContain('Đã trả lời 2 câu hỏi');
     // Total turn count changes when the closing turn is inserted: no X/N counter.
     expect(html).not.toMatch(/(?:Lượt|Câu)\s*\d+\s*\/\s*\d+/i);
   });
 
   it('says an unplanned stage may still happen instead of claiming it is absent', () => {
-    const html = renderToStaticMarkup(
-      <InterviewGuidePanel currentStage="WARM_UP" sessionStatus="OPEN" turns={turns.slice(0, 1)} answeredCount={0} />
-    );
+    const html = renderToStaticMarkup(<ChatStageStepper currentStage="WARM_UP" sessionStatus="OPEN" turns={turns.slice(0, 1)} />);
     // CLOSING is inserted by the backend later, so it is optional, not absent.
     expect(html).toContain('data-stage="CLOSING" data-state="optional"');
-    expect(html).toContain('Tùy diễn biến phiên');
   });
 
   it('keeps the mobile stepper scroller positioned so sr-only labels cannot widen the page', () => {
@@ -89,9 +98,9 @@ describe('Chat messages', () => {
     const closed = renderToStaticMarkup(
       <MessageBubble message={abort} isClosed isEnding={false} isSending={false} onConfirmAbort={noop} onContinue={noop} />
     );
-    expect(open).toContain('Dừng và nhận báo cáo');
+    expect(open).toContain('Kết thúc &amp; xem báo cáo');
     expect(open).toContain('Tiếp tục phỏng vấn');
-    expect(closed).not.toContain('Dừng và nhận báo cáo');
+    expect(closed).not.toContain('Kết thúc &amp; xem báo cáo');
     expect(closed).toContain('Phiên phỏng vấn đã kết thúc');
   });
 });
@@ -148,7 +157,7 @@ describe('Chat room terminal state and helpers', () => {
     const html = renderToStaticMarkup(
       <InterviewCountdownTimer serverRemainingSeconds={0} durationMinutes={3} isClosed={false} />
     );
-    expect(html).toContain('Quá giờ dự kiến');
+    expect(html).toContain('Đang hoàn tất buổi');
     expect(html).not.toContain('00:00');
   });
 
