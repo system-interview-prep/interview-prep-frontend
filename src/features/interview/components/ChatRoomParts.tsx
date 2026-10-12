@@ -19,9 +19,10 @@ import {
   X,
 } from 'lucide-react';
 import InterviewerAvatar from './InterviewerAvatar';
-import type { ChatMessage, ChatRuntimeTurn } from '../services/interviewChat.service';
+import { CurrentQuestionCard, QuestionTimer } from './CurrentQuestionCard';
+import type { CurrentQuestion } from '../hooks/useRuntimeProgress';
+import type { ChatMessage } from '../services/interviewChat.service';
 import {
-  deriveChatStageProgress,
   getEndReasonLabel,
   getStageGuide,
   getStageLabel,
@@ -155,93 +156,49 @@ export function ChatRoomHeader({
 
 export function InterviewGuidePanel({
   currentStage,
-  competency,
   sessionStatus,
-  turns,
   answeredCount,
+  question,
 }: {
   currentStage?: string | null;
-  competency?: string | null;
   sessionStatus: 'OPEN' | 'CLOSED';
-  turns?: ChatRuntimeTurn[];
   answeredCount: number;
+  question: CurrentQuestion | null;
 }) {
   const { t } = useLanguage();
-  const progress = deriveChatStageProgress({ currentStage, sessionStatus, turns, t });
   const guide = sessionStatus === 'OPEN' ? getStageGuide(currentStage, t) : null;
   const stageLabel = getStageLabel(currentStage, t);
-  const visibleStages = progress.stages.filter((stage) => stage.key !== 'CLOSED');
 
+  // The stage list moved to the stepper above, shared with the voice and video
+  // rooms; this panel keeps what matters now: the question and its time box.
   return (
-    <aside className="hidden w-80 shrink-0 flex-col gap-4 overflow-y-auto border-l border-[#DCE4F3] bg-white p-5 lg:flex" aria-label={t('room.chat.guideAria')}>
-      {guide && stageLabel ? (
-        <section className="rounded-3xl bg-[#F7F9FD] p-4 ring-1 ring-[#DCE4F3]">
-          <p className="text-[12px] font-semibold text-[#204195]">{t('room.chat.now')}</p>
-          <h2 className="mt-1 font-display text-lg font-semibold text-[#14244B]">
-            {stageLabel}
-            {competency && competency !== DEFAULT_COMPETENCY ? (
-              <span className="font-semibold text-[#204195]"> · {competency}</span>
-            ) : null}
-          </h2>
-          <p className="mt-1 text-sm text-[#607096]">{guide.description}</p>
-          <div className="mt-3 rounded-2xl border-l-4 border-[#FCB625] bg-white p-3 text-xs leading-relaxed text-[#607096]">
-            <span>{guide.tip}</span>
-          </div>
-        </section>
+    <aside className="hidden w-[22rem] shrink-0 flex-col gap-4 overflow-y-auto border-l border-[#DCE4F3] bg-[#F7F9FD] p-5 lg:flex" aria-label={t('room.chat.guideAria')}>
+      {sessionStatus === 'OPEN' ? (
+        <CurrentQuestionCard
+          size="compact"
+          stageLabel={stageLabel}
+          competency={question?.competency && question.competency !== DEFAULT_COMPETENCY ? question.competency : null}
+          text={question?.text ?? null}
+          followUpText={question?.followUpText}
+          timer={
+            question ? (
+              <QuestionTimer
+                startedAt={question.startedAt}
+                softSeconds={question.softAnswerSeconds}
+                hardSeconds={question.hardAnswerSeconds}
+              />
+            ) : null
+          }
+        />
       ) : null}
 
-      <section>
-        <h2 className="mb-3 text-[12px] font-semibold text-[#204195]">{t('room.chat.stages')}</h2>
-        <ol className="space-y-1" role="list">
-          {visibleStages.map((stage) => {
-            const isCurrent = stage.state === 'current';
-            const isDone = stage.state === 'completed';
-            const isSkipped = stage.state === 'skipped';
-            // optional = not planned yet but may still happen (CLOSING is inserted later).
-            const isOptional = stage.state === 'optional';
-            return (
-              <li
-                key={stage.key}
-                data-stage={stage.key}
-                data-state={stage.state}
-                aria-current={isCurrent ? 'step' : undefined}
-                className={`flex items-start gap-3 rounded-2xl px-3 py-2 ${isCurrent ? 'bg-[#F7F9FD]' : ''}`}
-              >
-                <span
-                  className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                    isDone
-                      ? 'bg-[#287A4B] text-white'
-                      : isCurrent
-                        ? 'bg-[#204195] text-white ring-4 ring-[#204195]/15'
-                        : 'bg-white text-[#A0AEC0] ring-1 ring-[#DCE4F3]'
-                  }`}
-                  aria-hidden="true"
-                >
-                  {isDone ? <CheckCircle2 className="size-3.5" /> : null}
-                </span>
-                <span className="min-w-0">
-                  <span
-                    className={`block text-sm font-semibold ${
-                      isCurrent ? 'text-[#204195]' : isSkipped || isOptional ? 'text-[#A0AEC0]' : 'text-[#14244B]'
-                    }`}
-                  >
-                    {stage.label}
-                  </span>
-                  <span className={`block text-xs ${isSkipped || isOptional ? 'text-[#A0AEC0]' : 'text-[#607096]'}`}>
-                    {isSkipped
-                      ? sessionStatus === 'CLOSED'
-                        ? t('room.chat.notHeld')
-                        : t('room.chat.notInSession')
-                      : isOptional
-                        ? t('room.chat.optional')
-                        : getStageGuide(stage.key, t)?.description}
-                  </span>
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      </section>
+      {guide ? (
+        <section className="rounded-3xl border-l-4 border-[#FCB625] bg-white p-4 text-xs leading-relaxed text-[#607096] ring-1 ring-[#DCE4F3]">
+          <p className="text-[12px] font-semibold text-[#204195]">{t('room.chat.now')}</p>
+          <p className="mt-1 text-sm text-[#14244B]">{guide.description}</p>
+          <p className="mt-2">{guide.tip}</p>
+        </section>
+      ) : null}
 
       <section className="mt-auto rounded-3xl bg-[#EEF2FD] p-4 text-xs text-[#607096]">
         <p className="font-semibold text-[#14244B]">
@@ -409,6 +366,8 @@ export function ErrorBanner({ message, onDismiss }: { message: string; onDismiss
  *  against interview_engine patterns: CLARIFY, and the CLOSING farewell). */
 function quickRepliesFor(stage: string | null | undefined, t: (key: string) => string): string[] {
   if (stage === 'CLOSING') return [t('room.chat.quick.closing')];
+  // Swapping the warm-up has nothing to swap to; every other stage asks a real question.
+  if (stage && stage !== 'WARM_UP') return [t('room.chat.quick.repeat'), t('room.chat.quick.skip')];
   return [t('room.chat.quick.repeat')];
 }
 
