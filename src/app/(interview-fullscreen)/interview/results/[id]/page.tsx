@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import FoxAvatar from "@features/mascot/components/FoxAvatar";
 import { ProcessStatus } from "@components/shared/ProcessSteps";
 import {
   interviewReportApi,
@@ -178,20 +177,20 @@ export default function InterviewResultsPage() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F7F9FD] font-sans text-[#14244B] print:min-h-0 print:bg-white">
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[#DCE4F3] bg-[#F7F9FD] px-4 sm:px-8 print:hidden">
+    <div className="flex min-h-screen flex-col bg-[#F5F7FB] font-sans text-[#14244B] print:min-h-0 print:bg-white">
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[#E3E8F2] bg-white/95 px-4 backdrop-blur-md sm:px-8 print:hidden">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
-            className="flex size-9 items-center justify-center rounded-full bg-white text-[#607096] ring-1 ring-[#DCE4F3] transition hover:bg-[#EEF2FD] hover:text-[#14244B]"
+            className="flex size-9 items-center justify-center rounded-full bg-[#F5F7FB] text-[#607096] ring-1 ring-[#DCE4F3] transition hover:bg-[#EAF0FD] hover:text-[#14244B]"
             title={t("report.page.backAria")}
             aria-label={t("report.page.backAria")}
           >
             <ArrowLeft className="size-4" />
           </Link>
-          <span className="flex items-center gap-2">
-            <FoxAvatar size={30} className="rounded-full bg-[#F0F4FC]" />
-            <span className="font-display text-lg font-semibold text-[#14244B]">Intervia</span>
+          <span className="flex items-center gap-2.5">
+            <span className="grid size-9 place-items-center overflow-hidden rounded-xl border border-[#DCE4F3] bg-white"><img src="/logo.jpg" alt="Intervia" className="h-full w-full object-cover" /></span>
+            <span className="font-display text-lg font-semibold tracking-tight text-[#14244B]">Intervia</span>
           </span>
           <span className="hidden text-sm text-[#607096] sm:inline">· {t("report.page.badge")}</span>
         </div>
@@ -216,7 +215,7 @@ export default function InterviewResultsPage() {
         </div>
       </header>
 
-      <main className="flex-1 py-8 print:py-0">
+      <main className="flex-1 py-5 sm:py-8 print:py-0">
         {state.kind === "loading" || state.kind === "evaluating" ? (
           <div className="mx-auto max-w-md px-4 py-24 text-center" role="status" aria-live="polite">
             <h2 className="mt-5 font-display text-2xl font-semibold text-[#14244B]">
