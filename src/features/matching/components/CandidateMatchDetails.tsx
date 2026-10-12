@@ -269,7 +269,6 @@ export function CandidateMatchDetails({
 
   const renderSection = (
     label: string,
-    subtext: string,
     section: { standalone: HumanizedRequirement[]; groups: RequirementGroup[] },
     summary?: { met: number; total: number }
   ) => {
@@ -277,11 +276,8 @@ export function CandidateMatchDetails({
 
     return (
       <section className="space-y-2" aria-label={label}>
-        <div className="flex items-start justify-between gap-4 border-b border-[#EAEFF8] pb-3">
-          <div>
-            <h2 className="text-base font-semibold text-[#14244B]">{label}</h2>
-            <p className="mt-0.5 text-xs leading-5 text-[#607096]">{subtext}</p>
-          </div>
+        <div className="flex items-center justify-between gap-4 border-b border-[#EAEFF8] pb-3">
+          <h2 className="text-base font-semibold text-[#14244B]">{label}</h2>
           {summary && (
             <span className="shrink-0 pt-0.5 text-xs font-medium text-[#607096]">
               {fmt(t("fit.details.sectionMatched"), { met: summary.met, total: summary.total })}
@@ -290,12 +286,21 @@ export function CandidateMatchDetails({
         </div>
         <div className="space-y-2">
           {section.groups.map((group) => (
-            <RequirementGroupCard
-              key={group.groupId}
-              group={group}
-              selectedId={selectedRequirementId ?? undefined}
-              onSelect={setSelectedRequirementId}
-            />
+            group.items.length === 1 ? (
+              <RequirementItemCard
+                key={group.groupId}
+                item={group.items[0]}
+                selectedId={selectedRequirementId ?? undefined}
+                onSelect={setSelectedRequirementId}
+              />
+            ) : (
+              <RequirementGroupCard
+                key={group.groupId}
+                group={group}
+                selectedId={selectedRequirementId ?? undefined}
+                onSelect={setSelectedRequirementId}
+              />
+            )
           ))}
           {section.standalone.map((item) => (
             <RequirementItemCard
@@ -354,13 +359,33 @@ export function CandidateMatchDetails({
       </div>
 
       <div
-        className={`grid min-h-[520px] lg:divide-x lg:divide-[#EAEFF8] ${
+        className={`grid min-h-[640px] lg:divide-x lg:divide-[#EAEFF8] ${
           showCvPane
-            ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]"
+            ? "lg:grid-cols-[minmax(420px,0.95fr)_minmax(0,1.25fr)]"
             : "lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]"
         }`}
       >
         <div className="min-w-0 space-y-5 p-4 sm:p-5">
+          {hasVisibleCriteria ? (
+            <>
+              {renderSection(
+                t("fit.details.mustHave"),
+                mustHave,
+                mustHaveSummary
+              )}
+              {renderSection(
+                t("fit.details.preferred"),
+                preferred,
+                preferredSummary
+              )}
+              {renderSection(t("fit.details.other"), other)}
+            </>
+          ) : (
+            <div className="flex items-center justify-center py-16 text-xs text-[#9AA6C2]">
+              {t("fit.details.noFilterMatch")}
+            </div>
+          )}
+
           {summaryCounts.unknown > 0 && clarificationPhase !== "idle" && (
             <ClarificationPanel
               requests={clarificationRequests}
@@ -381,35 +406,13 @@ export function CandidateMatchDetails({
               }
             />
           )}
-
-          {hasVisibleCriteria ? (
-            <>
-              {renderSection(
-                t("fit.details.mustHave"),
-                t("fit.details.mustHaveSub"),
-                mustHave,
-                mustHaveSummary
-              )}
-              {renderSection(
-                t("fit.details.preferred"),
-                t("fit.details.preferredSub"),
-                preferred,
-                preferredSummary
-              )}
-              {renderSection(t("fit.details.other"), t("fit.details.otherSub"), other)}
-            </>
-          ) : (
-            <div className="flex items-center justify-center py-16 text-xs text-[#9AA6C2]">
-              {t("fit.details.noFilterMatch")}
-            </div>
-          )}
         </div>
 
         <aside className="hidden min-w-0 lg:block" aria-label={t("fit.details.evidenceAria")}>
           {cvPane ? (
-            isDesktop ? <div className="sticky top-4 h-[calc(100vh-2rem)]">{cvPane}</div> : null
+            isDesktop ? <div className="min-h-[720px]">{cvPane}</div> : null
           ) : (
-            <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto p-5">
+            <div className="p-5">
               <EvidenceInspector requirement={selectedRequirement} />
             </div>
           )}
@@ -417,7 +420,7 @@ export function CandidateMatchDetails({
 
         {/* Narrow screens: the CV pane stacks under the criteria. */}
         {cvPane && !isDesktop && (
-          <div className="h-[75vh] border-t border-[#EAEFF8] lg:hidden" aria-label={t("fit.details.cvAria")}>
+          <div className="min-h-[680px] border-t border-[#EAEFF8] lg:hidden" aria-label={t("fit.details.cvAria")}>
             {cvPane}
           </div>
         )}
