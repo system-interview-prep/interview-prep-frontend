@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
+import { Sparkles, CheckCircle2, Volume2, UserCheck } from "lucide-react";
 import { VoiceWaveform, type VoiceOrbState } from "@features/interview/components/VoiceWaveform";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { INTERVIEW_SHOWCASE_DATA } from "../../data/landing.data";
@@ -12,21 +13,17 @@ export function InterviewExperience() {
   const [orbState, setOrbState] = useState<VoiceOrbState>("speaking");
 
   const evidenceDetected = [
-    { label: t("fixm.interview.chip1"), status: "verified" },
-    { label: t("fixm.interview.chip2"), status: "verified" },
-    { label: t("fixm.interview.chip3"), status: "verified" },
-    { label: t("fixm.interview.chip4"), status: "gap" },
+    { label: "RESTful Architecture", status: "verified" },
+    { label: "Spring Boot Microservices", status: "verified" },
+    { label: "AWS EC2 / S3 Cloud", status: "verified" },
+    { label: "PostgreSQL Query Tuning", status: "gap" },
   ];
 
-  const stateLabel: Record<VoiceOrbState, string> = {
-    speaking: t("uxm.interview.state.speaking"),
-    listening: t("uxm.interview.state.listening"),
-    thinking: t("uxm.interview.state.thinking"),
-    idle: t("uxm.interview.state.idle"),
-  };
-
   return (
-    <section id="interview-experience" className="relative overflow-hidden bg-[#204195] px-4 py-14 text-white sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-12">
+    <section id="interview-experience" className="relative px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-12 xl:py-20 bg-[#204195] text-white overflow-hidden border-b border-white/10">
+      {/* Subtle Ambient Glow */}
+      <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 h-[500px] w-[700px] rounded-full bg-[#FCB625]/15 blur-[150px]" />
+
       <motion.div
         initial="hidden"
         whileInView="visible"
@@ -35,91 +32,103 @@ export function InterviewExperience() {
         className="relative z-10 mx-auto w-full max-w-[1320px]"
       >
         <div className="grid gap-12 lg:grid-cols-12 lg:items-center">
-          {/* Copy */}
-          <div className="space-y-6 text-left lg:col-span-5">
-            <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl md:text-[44px]">
+          {/* TEXT COLUMN LEFT (42% width = lg:col-span-5) */}
+          <div className="lg:col-span-5 text-left space-y-6">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-3.5 py-1 font-mono text-xs font-bold text-[#FCB625]">
+              <Sparkles className="size-3.5" /> {t("landing.interviewExp.eyebrow")}
+            </span>
+
+            <h2 className="font-sans text-3xl font-extrabold tracking-tight text-white sm:text-4xl md:text-5xl leading-tight">
               {t("landing.interviewExp.title")}
             </h2>
 
-            <p className="text-base leading-relaxed text-white/75 sm:text-lg">
+            <p className="text-base leading-relaxed text-white/80 sm:text-lg">
               {t("landing.interviewExp.desc")}
             </p>
 
-            {/* Evidence picked up while answering */}
-            <div className="space-y-2.5 pt-2">
-              <p className="text-[12px] font-semibold text-[#FCB625]">
-                {t("uxm.interview.evidenceLabel")}
-              </p>
+            {/* Evidence Detected Chips */}
+            <div className="pt-2 space-y-2">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#FCB625]">
+                Real-Time Evidence Extraction
+              </span>
               <div className="flex flex-wrap gap-2">
                 {evidenceDetected.map((ev) => (
                   <span
                     key={ev.label}
-                    className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold ${
+                    className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1 text-xs font-bold ${
                       ev.status === "verified"
-                        ? "bg-white/10 text-white"
-                        : "bg-[#FCB625]/20 text-[#FCB625]"
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-400/30"
+                        : "bg-amber-500/20 text-amber-300 border border-amber-400/30"
                     }`}
                   >
-                    <span
-                      aria-hidden="true"
-                      className={`h-1.5 w-1.5 rounded-full ${ev.status === "verified" ? "bg-[#287A4B]" : "bg-[#FCB625]"}`}
-                    />
+                    <CheckCircle2 className="size-3.5" />
                     {ev.label}
                   </span>
                 ))}
               </div>
             </div>
 
-            {/* Voice state selector */}
-            <div className="flex flex-wrap items-center gap-2 pt-2">
+            {/* Voice state selector pills */}
+            <div className="pt-4 flex flex-wrap items-center gap-2">
               {(["speaking", "listening", "thinking", "idle"] as const).map((st) => (
                 <button
                   key={st}
                   type="button"
                   onClick={() => setOrbState(st)}
-                  aria-pressed={orbState === st}
-                  className={`rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
+                  className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
                     orbState === st
-                      ? "bg-[#FCB625] text-[#14244B]"
+                      ? "bg-[#FCB625] text-[#204195] shadow-md"
                       : "bg-white/10 text-white/80 hover:bg-white/20"
                   }`}
                 >
-                  {stateLabel[st]}
+                  {st === "speaking" ? "AI Coach Speaking" : st === "listening" ? "Candidate Answering" : st === "thinking" ? "AI Analyzing" : "Idle"}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Room preview */}
+          {/* INTERVIEW CINEMATIC VISUAL RIGHT (58% width = lg:col-span-7) */}
           <div className="lg:col-span-7">
-            <div className="space-y-6 rounded-3xl bg-white/[0.06] p-6 ring-1 ring-white/10 sm:p-8">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
-                <div className="text-left">
-                  <p className="text-[12px] text-white/60">{t("uxm.interview.session")}</p>
-                  <p className="text-sm font-semibold text-white">{t("fixm.interview.sessionRole")}</p>
+            <div className="rounded-3xl border border-white/20 bg-white/10 p-6 sm:p-8 backdrop-blur-xl shadow-2xl space-y-6">
+              {/* Header Bar: Candidate vs AI Avatar */}
+              <div className="flex items-center justify-between border-b border-white/15 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-white/20 border border-white/30 flex items-center justify-center font-bold text-white text-xs">
+                    <UserCheck className="size-5 text-[#FCB625]" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-mono text-[10px] text-white/60 uppercase block">Candidate Session</span>
+                    <h4 className="text-xs font-bold text-white">Nguyen Van A · Senior Backend Role</h4>
+                  </div>
                 </div>
 
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80">
-                  {t("fixm.common.example")}
+                <div className="flex items-center gap-2 bg-[#FCB625] text-[#204195] px-3 py-1 rounded-full font-mono text-xs font-extrabold">
+                  <Volume2 className="size-3.5 animate-pulse" /> LIVE WEBRTC
+                </div>
+              </div>
+
+              {/* Central Waveform Component */}
+              <div className="flex flex-col items-center justify-center py-4 bg-black/20 rounded-2xl border border-white/10">
+                <VoiceWaveform state={orbState} />
+                <span className="mt-3 font-mono text-[11px] text-[#FCB625] tracking-widest uppercase">
+                  ▁▂▃▅▇▆▃▂▅▇▅▃▁
                 </span>
               </div>
 
-              <div className="flex flex-col items-center justify-center rounded-2xl bg-black/20 py-6">
-                <VoiceWaveform state={orbState} />
-                <p className="mt-3 text-[12px] font-semibold text-[#FCB625]">{stateLabel[orbState]}</p>
-              </div>
-
-              <div className="space-y-3 rounded-2xl bg-black/25 p-4 text-left">
-                <p className="text-[12px] font-semibold text-[#FCB625]">
-                  {t("uxm.interview.question")} {INTERVIEW_SHOWCASE_DATA.questionNumber}
-                </p>
-                <p className="text-sm font-semibold leading-relaxed text-white">
+              {/* Target Question & Live Transcript */}
+              <div className="rounded-2xl bg-black/30 border border-white/15 p-4 text-left space-y-3">
+                <div className="flex items-center justify-between font-mono text-[10px] text-[#FCB625] font-bold">
+                  <span>AI QUESTION #{INTERVIEW_SHOWCASE_DATA.questionNumber}</span>
+                  <span>STAR TRANSCRIPT REVEAL</span>
+                </div>
+                <p className="font-sans text-sm font-bold text-white leading-relaxed">
                   &quot;{INTERVIEW_SHOWCASE_DATA.questionText}&quot;
                 </p>
 
-                <div className="mt-2 rounded-2xl bg-white/5 p-3 text-xs leading-relaxed text-white/80">
-                  <span className="mr-2 font-semibold text-[#FCB625]">{t("uxm.interview.answerLabel")}</span>
-                  &quot;{t("fixm.interview.sampleAnswer")}&quot;
+                {/* Candidate Response Transcript */}
+                <div className="mt-2 pt-2 border-t border-white/10 text-xs font-mono text-white/80 leading-relaxed bg-white/5 p-3 rounded-xl">
+                  <span className="text-[#FCB625] font-bold mr-2">Candidate Response:</span>
+                  &quot;Trong dự án gần nhất, tôi đã tối ưu hóa truy vấn SQL bằng cách thêm compound index và triển khai Redis caching layer...&quot;
                 </div>
               </div>
             </div>
@@ -131,3 +140,5 @@ export function InterviewExperience() {
 }
 
 export default InterviewExperience;
+
+
