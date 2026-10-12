@@ -28,21 +28,27 @@ export function PageHero({
   return (
     <section
       className={cn(
-        "anim-rise relative overflow-hidden rounded-[28px] border border-[#DCE4F3] bg-gradient-to-br from-[#F0F4FC] to-white px-5 py-6 sm:px-8 sm:py-8",
+        "anim-rise relative overflow-hidden rounded-[28px] border border-[#DCE4F3] bg-gradient-to-br from-[#F0F4FC] via-[#F8FAFC] to-white p-5 sm:p-7 md:p-8",
         className,
       )}
     >
       <div className={cn("relative grid items-stretch gap-6", aside ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]" : "")}>
-        <div className="relative min-w-0 rounded-3xl bg-white px-5 py-5 shadow-[0_18px_40px_-24px_rgba(20,36,75,0.35)] ring-1 ring-[#DCE4F3] sm:px-7 sm:py-6">
-          <h1 className="text-[clamp(1.6rem,2.6vw,2.3rem)] font-semibold leading-[1.12] text-[#14244B]">{title}</h1>
-          {body ? <p className="mt-2.5 max-w-2xl text-[15px] leading-relaxed text-[#607096]">{body}</p> : null}
-          {children ? <div className="mt-5 flex flex-wrap items-center gap-3">{children}</div> : null}
+        <div className="relative flex flex-col justify-between min-w-0 rounded-3xl bg-white p-6 sm:p-7 shadow-[0_18px_40px_-24px_rgba(20,36,75,0.2)] ring-1 ring-[#DCE4F3]">
+          <div>
+            <h1 className="text-[clamp(1.5rem,2.4vw,2.2rem)] font-bold tracking-tight leading-[1.2] text-[#14244B]">{title}</h1>
+            {body ? <p className="mt-3 max-w-2xl text-[14.5px] leading-relaxed text-[#607096]">{body}</p> : null}
+          </div>
+          {children ? <div className="mt-6 flex flex-wrap items-center gap-3.5">{children}</div> : null}
         </div>
 
         {aside ? <div className="relative">{aside}</div> : null}
       </div>
 
-      {steps ? <div className="relative mt-7 border-t border-[#DCE4F3] pt-6">{steps}</div> : null}
+      {steps ? (
+        <div className="relative mt-6 rounded-2xl border border-[#DCE4F3]/80 bg-white/85 p-4 sm:p-5 shadow-xs backdrop-blur-xs">
+          {steps}
+        </div>
+      ) : null}
     </section>
   );
 }
