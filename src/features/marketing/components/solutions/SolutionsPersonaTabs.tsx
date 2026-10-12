@@ -3,6 +3,7 @@
 import React, { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { CheckCircle2, ArrowRight, UserCheck, Target, Award, Sparkles } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useAuthProfile } from "@/features/auth/hooks/useAuthProfile";
 import { SOLUTIONS_PERSONAS, PersonaId } from "@/features/marketing/data/solutions.data";
@@ -64,13 +65,24 @@ export function SolutionsPersonaTabs() {
     }
   };
 
+  const getPersonaIcon = (id: PersonaId) => {
+    switch (id) {
+      case "student":
+        return <UserCheck className="w-5 h-5 text-[#204195]" />;
+      case "seeker":
+        return <Target className="w-5 h-5 text-[#204195]" />;
+      case "professional":
+        return <Award className="w-5 h-5 text-[#204195]" />;
+    }
+  };
+
   return (
     <div className="w-full">
-      {/* Accessible tab navigation */}
+      {/* Accessible Tab Navigation Header */}
       <div
         role="tablist"
         aria-label={t("solutions.persona.title")}
-        className="mx-auto mb-10 flex max-w-2xl flex-wrap justify-center gap-1.5 rounded-full bg-[#F7F9FD] p-1.5 max-sm:rounded-3xl"
+        className="flex flex-wrap justify-center gap-2 md:gap-3 p-1.5 bg-[#F7F9FD] border border-[#DCE4F3] rounded-[20px] max-w-2xl mx-auto mb-10"
       >
         {SOLUTIONS_PERSONAS.map((persona) => {
           const isSelected = selectedId === persona.id;
@@ -87,19 +99,20 @@ export function SolutionsPersonaTabs() {
               tabIndex={isSelected ? 0 : -1}
               onClick={() => setSelectedId(persona.id)}
               onKeyDown={(e) => handleKeyDown(e, persona.id)}
-              className={`min-w-[140px] flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#204195] md:text-[15px] ${
+              className={`flex-1 min-w-[140px] px-4 py-3 rounded-[14px] text-sm md:text-base font-semibold transition-all duration-200 flex items-center justify-center gap-2 focus-visible:outline-2 focus-visible:outline-[#204195] focus-visible:outline-offset-2 ${
                 isSelected
-                  ? "bg-white text-[#14244B] shadow-[0_4px_14px_-10px_rgba(20,36,75,0.5)]"
-                  : "text-[#607096] hover:bg-white/60 hover:text-[#14244B]"
+                  ? "bg-white text-[#14244B] shadow-sm border border-[#DCE4F3]"
+                  : "text-[#607096] hover:text-[#14244B] hover:bg-white/50"
               }`}
             >
-              {t(persona.labelKey)}
+              {getPersonaIcon(persona.id)}
+              <span>{t(persona.labelKey)}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Tab panel */}
+      {/* Tab Panel Content */}
       <AnimatePresence mode="wait">
         <motion.div
           key={activeConfig.id}
@@ -113,74 +126,79 @@ export function SolutionsPersonaTabs() {
           tabIndex={0}
           className="focus-visible:outline-none"
         >
-          <div className="grid grid-cols-1 items-start gap-8 rounded-3xl bg-white p-6 ring-1 ring-[#DCE4F3] md:p-10 lg:grid-cols-12">
-            {/* Situation & workflow */}
-            <div className="space-y-6 lg:col-span-7">
-              <p className="text-[12px] font-semibold text-[#204195]">
-                {t(activeConfig.badgeKey)}
-              </p>
+          <div className="bg-white border border-[#DCE4F3] rounded-[26px] p-6 md:p-10 shadow-[0_10px_34px_rgba(32,65,149,0.045)] grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left Column: Situation & Workflow */}
+            <div className="lg:col-span-7 space-y-6">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-[#EEF3FC] text-[#204195] text-xs font-bold rounded-full uppercase tracking-wider">
+                  {t(activeConfig.badgeKey)}
+                </span>
+              </div>
 
-              <h3 className="-mt-3 font-display text-2xl font-semibold tracking-tight text-[#14244B] md:text-3xl">
+              <h3 className="text-2xl md:text-3xl font-bold text-[#14244B] tracking-tight">
                 {t(activeConfig.titleKey)}
               </h3>
 
-              <div className="space-y-2 rounded-2xl bg-[#F7F9FD] p-5">
-                <p className="text-sm font-medium text-[#14244B] md:text-base">
+              <div className="space-y-3 bg-[#F7F9FD] p-5 rounded-[18px] border border-[#DCE4F3]">
+                <p className="text-sm md:text-base text-[#14244B] font-medium">
                   {t(activeConfig.situationKey)}
                 </p>
-                <p className="text-sm text-[#607096] md:text-base">
+                <p className="text-sm md:text-base text-[#506085]">
                   {t(activeConfig.problemKey)}
                 </p>
               </div>
 
-              <div className="space-y-3 pt-1">
-                <h4 className="text-sm font-semibold text-[#14244B]">
-                  {t("uxm.solutions.workflowLabel")}
+              {/* Recommended 3-Step Workflow */}
+              <div className="space-y-3 pt-2">
+                <h4 className="text-xs font-bold text-[#607096] uppercase tracking-wider">
+                  Recommended Workflow
                 </h4>
-                <ol className="space-y-2.5">
+                <div className="space-y-3">
                   {activeConfig.stepKeys.map((stepKey, idx) => (
-                    <li
+                    <div
                       key={stepKey}
-                      className="flex items-start gap-3 rounded-2xl p-3.5 ring-1 ring-[#DCE4F3]"
+                      className="flex items-start gap-3 bg-white p-3.5 rounded-[14px] border border-[#DCE4F3] shadow-xs"
                     >
-                      <span className="w-6 shrink-0 font-display text-lg font-semibold leading-6 text-[#204195]">
-                        {idx + 1}
+                      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-[#204195] text-white text-xs font-bold flex items-center justify-center">
+                        0{idx + 1}
                       </span>
-                      <p className="text-sm font-medium leading-6 text-[#14244B]">
+                      <p className="text-sm text-[#14244B] pt-0.5 font-medium leading-snug">
                         {t(stepKey)}
                       </p>
-                    </li>
+                    </div>
                   ))}
-                </ol>
+                </div>
               </div>
             </div>
 
-            {/* Capabilities & CTA */}
-            <div className="flex h-full flex-col justify-between space-y-6 rounded-3xl bg-[#F7F9FD] p-6 lg:col-span-5">
+            {/* Right Column: Capabilities & CTA */}
+            <div className="lg:col-span-5 bg-[#F7F9FD] border border-[#DCE4F3] rounded-[22px] p-6 space-y-6 flex flex-col justify-between h-full">
               <div className="space-y-4">
-                <h4 className="text-sm font-semibold text-[#14244B]">
-                  {t("uxm.solutions.capabilitiesLabel")}
-                </h4>
+                <div className="flex items-center gap-2 text-[#204195] font-semibold text-sm">
+                  <Sparkles className="w-4 h-4 text-[#FCB625]" />
+                  <span>Key Verified Capabilities</span>
+                </div>
 
-                <ul className="space-y-3">
+                <div className="space-y-3">
                   {activeConfig.capabilityKeys.map((capKey) => (
-                    <li key={capKey} className="flex items-start gap-2.5">
-                      <span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#204195]" />
-                      <span className="text-sm font-medium text-[#14244B]">
+                    <div key={capKey} className="flex items-start gap-3">
+                      <CheckCircle2 className="w-5 h-5 text-[#204195] flex-shrink-0 mt-0.5" />
+                      <span className="text-sm text-[#14244B] font-medium">
                         {t(capKey)}
                       </span>
-                    </li>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
 
-              <div className="border-t border-[#DCE4F3] pt-5">
+              {/* Action Button */}
+              <div className="pt-4 border-t border-[#DCE4F3]">
                 <Link
                   href={getCtaHref(activeConfig.action)}
-                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#204195]"
+                  className="w-full inline-flex items-center justify-center gap-2 bg-[#204195] hover:bg-[#14244B] text-white font-semibold px-6 py-3.5 rounded-[14px] transition-colors shadow-sm focus-visible:outline-2 focus-visible:outline-[#204195] focus-visible:outline-offset-2"
                 >
-                  {t(activeConfig.ctaKey)}
-                  <span aria-hidden="true">→</span>
+                  <span>{t(activeConfig.ctaKey)}</span>
+                  <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
             </div>
