@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import FoxAvatar from "@features/mascot/components/FoxAvatar";
 
 const linkClass = "transition-colors hover:text-[#14244B]";
 const headingClass = "text-[13px] font-semibold text-[#14244B]";
@@ -18,11 +17,11 @@ export default function Footer() {
         {/* Brand */}
         <div className="space-y-4 text-left lg:col-span-4">
           <Link href="/" className="inline-flex items-center gap-2.5">
-            <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-white ring-1 ring-[#DCE4F3]">
-              <FoxAvatar size={38} />
-            </span>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#DCE4F3] bg-white shadow-2xs">
+              <img src="/logo.jpg" alt="Intervia" className="h-full w-full object-cover" />
+            </div>
             <span className="font-display text-[22px] font-semibold leading-none tracking-tight text-[#14244B]">
-              Intervia
+              INTERVIA
             </span>
           </Link>
 
@@ -99,7 +98,7 @@ export default function Footer() {
       {/* Bottom legal */}
       <div className="mx-auto w-full max-w-[1320px] border-t border-[#DCE4F3] py-5">
         <p className="text-xs text-[#607096]">
-          © 2026 Intervia. {t("footer.rights")}
+          © 2026 INTERVIA. {t("footer.rights")}
         </p>
       </div>
     </footer>
