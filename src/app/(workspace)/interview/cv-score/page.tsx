@@ -371,42 +371,48 @@ export function CompactMatchSummary({
       : t("fit.summary.scoreReference");
 
   return (
-    <section className="rounded-3xl bg-white px-5 py-5 ring-1 ring-[#DCE4F3] sm:px-6 md:min-h-[156px]">
-      <div className="grid gap-5 md:grid-cols-[minmax(180px,0.8fr)_minmax(0,1.5fr)] md:items-center md:gap-8">
-        <div>
+    <section className="overflow-hidden rounded-[28px] border border-[#DCE4F3] bg-white shadow-[0_18px_50px_-42px_rgba(20,36,75,.45)]">
+      <div className="grid md:grid-cols-[280px_minmax(0,1fr)]">
+        <div className={displayPercentage ? "bg-gradient-to-br from-[#183A88] to-[#315FC8] p-6 text-white sm:p-7" : "bg-[#F0F4FC] p-6 sm:p-7"}>
           {displayPercentage ? (
             <>
-              <div className="flex items-start font-semibold leading-none text-[#14244B]">
-                <span className="text-[40px] sm:text-[44px] md:text-[54px]">{percentage}</span>
-                <span className="mt-1 text-xl sm:text-2xl md:mt-1.5 md:text-[28px]">%</span>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-100">{scoreLabel}</p>
+              <div className="mt-3 flex items-start font-semibold leading-none">
+                <span className="font-display text-[68px] tracking-[-0.06em] sm:text-[76px]">{percentage}</span>
+                <span className="mt-2 text-[28px] text-blue-100">%</span>
               </div>
-              <p className="mt-1.5 text-sm font-medium text-[#607096]">{scoreLabel}</p>
-              <div className="mt-3 h-1.5 max-w-56 overflow-hidden rounded-full bg-[#DCE4F3]">
-                <div className="h-full rounded-full bg-[#204195]" style={{ width: `${percentage}%` }} />
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/20">
+                <div className="h-full rounded-full bg-white" style={{ width: `${percentage}%` }} />
               </div>
-              <p className="mt-2 text-xs text-[#607096]">
-                {eligible
-                  ? t("fit.summary.finalNote")
-                  : t("fit.summary.referenceNote")}
-              </p>
             </>
           ) : (
             <div>
               <span className="text-4xl font-semibold leading-none text-[#9AA6C2]">—</span>
               <p className="mt-2 text-sm font-medium text-[#607096]">{scoreLabel}</p>
-              <p className="mt-2 text-xs text-[#607096]">{t("fit.summary.noScore")}</p>
             </div>
           )}
         </div>
 
-        <div className="md:border-l md:border-[#EAEFF8] md:pl-8">
+        <div className="p-6 sm:p-7">
           <div className="flex items-center gap-2.5">
             <span className={`size-2.5 shrink-0 rounded-full ${stateDot}`} aria-hidden="true" />
-            <h2 className="text-xl font-semibold text-[#14244B] md:text-[22px]">
+            <h2 className="text-xl font-semibold text-[#14244B] sm:text-2xl">
               {stateLabel}
             </h2>
           </div>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-[#607096]">{stateDescription}</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#607096]">{stateDescription}</p>
+          <div className="mt-5 grid grid-cols-3 gap-2.5">
+            {[
+              { value: counts.met, label: t("fit.status.met"), dot: "bg-[#287A4B]" },
+              { value: counts.unknown, label: t("fit.status.needsVerification"), dot: "bg-[#D99A19]" },
+              { value: counts.notMet, label: t("fit.status.notMet"), dot: "bg-[#C43B3B]" },
+            ].map((item) => (
+              <div key={item.label} className="rounded-2xl border border-[#E3E8F2] bg-[#F8FAFC] px-3 py-3 text-[#14244B]">
+                <p className="text-xl font-bold leading-none sm:text-2xl">{item.value}</p>
+                <p className="mt-1.5 flex items-center gap-1.5 truncate text-[11px] font-semibold text-[#607096]" title={item.label}><span className={`size-1.5 shrink-0 rounded-full ${item.dot}`} />{item.label}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -778,7 +784,7 @@ function ScorePageContent() {
 
   return (
     <UserDashboardShell>
-      <main className="min-h-screen px-4 pb-16 pt-4 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
+      <main className="min-h-screen min-w-0 overflow-x-clip px-4 pb-16 pt-4 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
         <div className="mx-auto max-w-[1280px]">
           {/* Top Bar / Navigation */}
           <div className="mb-6">
@@ -1188,6 +1194,16 @@ export function ReportContent({
     return Array.isArray(result.factorResults) ? result.factorResults : [];
   }, [result.factorResults]);
 
+  // Unknown / not-applicable compatibility rows do not help the candidate make
+  // a decision. Only surface a concrete match or conflict.
+  const informativeCompatibility = useMemo(
+    () =>
+      (result.compatibilityResults ?? []).filter(
+        (item) => item.status === "compatible" || item.status === "incompatible"
+      ),
+    [result.compatibilityResults]
+  );
+
   const nextAction = useMemo(() => {
     const statuses = result.requirementResults?.map((item) => item.status) ?? [];
     if (statuses.includes("not_met")) {
@@ -1227,7 +1243,7 @@ export function ReportContent({
           scoreIsDiagnostic={result.diagnosticScore != null}
         />
         {nextAction && (
-          <section className="rounded-3xl bg-[#FFF8E6] p-5 ring-1 ring-[#FCB625]/50 sm:p-6">
+          <section className="rounded-3xl border border-[#DCE4F3] border-l-4 border-l-[#D99A19] bg-white p-5 sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-semibold text-[#204195]">{t("fit.next.eyebrow")}</p>
@@ -1363,13 +1379,13 @@ export function ReportContent({
       {/* Insight cards removed — data is surfaced in criteria list */}
 
       {/* ── Section: Workplace Compatibility ── */}
-      {result.compatibilityResults && result.compatibilityResults.length > 0 && (
+      {informativeCompatibility.length > 0 && (
         <section className="rounded-3xl bg-white p-5 ring-1 ring-[#DCE4F3] sm:p-6">
           <h3 className="text-lg font-semibold text-[#14244B]">{t("fit.compat.title")}</h3>
           <p className="mt-0.5 text-xs text-[#607096]">{t("fit.compat.subtitle")}</p>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {result.compatibilityResults.map((c: CompatibilityResult, idx: number) => {
+            {informativeCompatibility.map((c: CompatibilityResult, idx: number) => {
               const compatInfo = resolveCompatibilityInfo(c.status, c.criterion, t);
               const title = c.criterion === "work_mode" ? t("fit.compat.workMode") : t("fit.compat.location");
               return (
