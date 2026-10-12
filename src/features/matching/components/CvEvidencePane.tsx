@@ -5,10 +5,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { HumanizedRequirement, RequirementStatus } from "../types/match-details.types";
 import { buildCvSegments, collectEvidenceMarks } from "../utils/cv-highlight";
-import { nextStepHint } from "../utils/evidence-hints";
 import { MatchStatusBadge } from "./MatchStatusBadge";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { fmt, localeOf } from "@/i18n/format";
+import { fmt } from "@/i18n/format";
 
 const PdfEvidenceVisualizer = dynamic(
   () => import("@features/resume/components/PdfEvidenceVisualizer"),
@@ -64,7 +63,7 @@ export function CvEvidencePane({
   contentType,
   fileName,
 }: CvEvidencePaneProps) {
-  const { t, lang } = useLanguage();
+  const { t } = useLanguage();
   const isPdf = (contentType || "").includes("pdf") || /\.pdf$/i.test(fileName || "");
   const hasText = Boolean(rawText && rawText.trim());
   const [tab, setTab] = useState<PaneTab>(hasText ? "text" : "original");
@@ -92,9 +91,6 @@ export function CvEvidencePane({
     () => selectedEvidence.filter((item) => placedIds.has(item.evidenceId)),
     [selectedEvidence, placedIds]
   );
-  const foundAtMatchTime = marks.filter((mark) => mark.foundAtMatchTime).length;
-  const coveredRequirements = new Set(marks.flatMap((mark) => mark.requirementIds)).size;
-  const hint = selected ? nextStepHint(selected, t) : null;
 
   const cursor = cursorState.id === selectedRequirementId ? cursorState.index : 0;
   const setCursor = (next: (value: number) => number) =>
@@ -127,12 +123,12 @@ export function CvEvidencePane({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* What the system did — real counts from this match */}
-      <div className="border-b border-[#EAEFF8] px-4 py-3">
+      <div className="border-b border-[#EAEFF8] px-4 py-3.5 sm:px-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-[#14244B]">
-            {t("fit.pane.title")}
-          </h3>
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold text-[#14244B]">{t("fit.evidence.cv")}</h3>
+            {fileName && <p className="mt-0.5 truncate text-xs text-[#8A99B8]">{fileName}</p>}
+          </div>
           <div className="flex rounded-full bg-[#F8FAFC] p-0.5 text-xs ring-1 ring-[#DCE4F3]" role="group" aria-label={t("fit.pane.viewAria")}>
             <button
               type="button"
@@ -155,42 +151,20 @@ export function CvEvidencePane({
             </button>
           </div>
         </div>
-        <p className="mt-2 text-xs leading-5 text-[#607096]">
-          {hasText
-            ? fmt(t("fit.pane.charsRead"), { count: rawText!.length.toLocaleString(localeOf(lang)) })
-            : ""}
-          {fmt(t("fit.pane.spansUsed"), {
-            marks: marks.length,
-            covered: coveredRequirements,
-            total: requirements.length,
-          })}
-          {foundAtMatchTime > 0 ? fmt(t("fit.pane.foundAtMatch"), { count: foundAtMatchTime }) : ""}.
-        </p>
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#607096]" aria-label={t("fit.pane.legendAria")}>
-          <span className="flex items-center gap-1"><i className="inline-block size-2.5 rounded-sm bg-[#287A4B]/35" />{t("fit.status.met")}</span>
-          <span className="flex items-center gap-1"><i className="inline-block size-2.5 rounded-sm bg-[#FCB625]/50" />{t("fit.status.needsVerification")}</span>
-          <span className="flex items-center gap-1"><i className="inline-block size-2.5 rounded-sm bg-[#C43B3B]/35" />{t("fit.status.notMet")}</span>
-          <span className="flex items-center gap-1"><i className="inline-block size-2.5 rounded-sm ring-2 ring-[#607096]" />{t("fit.pane.current")}</span>
-        </div>
       </div>
 
       {/* Selected criterion */}
       {selected && (
-        <div className="border-b border-[#EAEFF8] bg-[#F8FAFC] px-4 py-3">
-          <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="border-b border-[#EAEFF8] bg-[#F8FAFC] px-4 py-3 sm:px-5 lg:hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-[#607096]">{t("fit.pane.current")}</p>
-              <p className="mt-0.5 text-sm font-semibold leading-snug text-[#14244B]">{selected.label}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A99B8]">{t("fit.pane.current")}</p>
+              <p className="mt-1 text-sm font-semibold leading-5 text-[#14244B]">{selected.label}</p>
             </div>
             <MatchStatusBadge status={selected.status} labelOverride={selected.statusLabel} />
           </div>
-          {selected.jdEvidenceText?.trim() && (
-            <p className="mt-1.5 text-xs leading-5 text-[#607096]">
-              <span className="font-semibold text-[#607096]">{t("fit.pane.jdSays")}</span>“{selected.jdEvidenceText.trim()}”
-            </p>
-          )}
           {selectedEvidence.length > 0 ? (
-            <div className="mt-2 flex items-center justify-between gap-2 text-xs text-[#607096]">
+            <div className="mt-2 flex items-center justify-between gap-2 border-t border-[#E3E8F2] pt-2 text-xs text-[#607096]">
               <span>
                 {selectedPlaced.length > 0
                   ? fmt(t("fit.pane.evidenceCount"), {
@@ -220,32 +194,17 @@ export function CvEvidencePane({
                 </span>
               )}
             </div>
-          ) : (
-            <p className="mt-2 text-xs leading-5 text-[#607096]">
-              {t("fit.pane.noEvidence")}
-            </p>
-          )}
-          {selected.reasonText && (
-            <p className="mt-1.5 text-xs leading-5 text-[#607096]">
-              <span className="font-semibold text-[#607096]">{t("fit.pane.why")}</span>
-              {selected.reasonText}
-            </p>
-          )}
-          {hint && (
-            <p className="mt-1.5 text-xs leading-5 text-[#204195]">
-              <span>{hint}</span>
-            </p>
-          )}
+          ) : null}
         </div>
       )}
 
       {/* Body */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-[560px] flex-1">
         {tab === "text" ? (
           hasText ? (
             <div
               ref={textRef}
-              className="whitespace-pre-wrap break-words px-4 py-4 font-mono text-[12.5px] leading-6 text-[#607096]"
+              className="whitespace-pre-wrap break-words px-5 py-5 text-[13px] leading-6 text-[#455676]"
             >
               {segments.map((segment) => {
                 if (segment.evidenceIds.length === 0 || !segment.status) {
@@ -283,8 +242,8 @@ export function CvEvidencePane({
         ) : cvId && isPdf ? (
           <div className="p-3">
             {notOnPdf.length > 0 && (
-              <p className="mb-2 rounded-2xl bg-[#FFF8E6] px-3 py-2 text-xs leading-5 text-[#8A5A00]">
-                {fmt(t("fit.pane.notOnPdf"), { count: notOnPdf.length })}
+              <p className="mb-3 rounded-xl border border-[#F1D99A] bg-[#FFFBF0] px-3 py-2 text-xs leading-5 text-[#7A570D]">
+                {fmt(t("fit.pane.notOnPdfShort"), { count: notOnPdf.length })}
               </p>
             )}
             <PdfEvidenceVisualizer
