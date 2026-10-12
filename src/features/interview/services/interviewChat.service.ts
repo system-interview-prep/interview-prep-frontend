@@ -45,6 +45,14 @@ export type CurrentTurnInfo = {
   language?: string;
   starterCode?: string;
   testCasesCode?: string;
+  /** Clean wording of the question being answered (no acknowledgement prefix). */
+  questionText?: string | null;
+  /** The open follow-up (probe) on this question, if any. */
+  followUpText?: string | null;
+  /** When this question was asked, for the per-question timer. */
+  startedAt?: string | null;
+  softAnswerSeconds?: number | null;
+  hardAnswerSeconds?: number | null;
 };
 
 export type EndReason =
