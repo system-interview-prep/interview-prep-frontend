@@ -46,7 +46,7 @@ export function ClarificationPanel({
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-[#FCB625]/40 bg-[#FFF8E6]/60 px-4 py-3 text-sm text-[#8A5A00]" role="status">
+      <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] px-4 py-3 text-sm text-[#607096]" role="status">
         {t("fit.clar.loading")}
       </div>
     );
@@ -92,14 +92,12 @@ export function ClarificationPanel({
 
   return (
     <section
-      className="space-y-4 rounded-3xl border border-[#FCB625]/40 bg-[#FFF8E6]/50 p-4 sm:p-5"
+      className="space-y-4 rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] p-4"
       aria-label={t("fit.clar.aria")}
     >
       <div>
-        <h3 className="text-sm font-semibold text-[#8A5A00]">{t("fit.clar.title")}</h3>
-        <p className="mt-1 text-xs leading-5 text-[#8A5A00]">
-          {t("fit.clar.intro")}
-        </p>
+        <h3 className="text-sm font-semibold text-[#14244B]">{t("fit.clar.title")}</h3>
+        <p className="mt-1 text-[11px] text-[#8A99B8]">{t("fit.clar.selfReported")}</p>
       </div>
 
       {submissionError && (
@@ -115,11 +113,11 @@ export function ClarificationPanel({
           return (
             <div
               key={request.requirementId}
-              className="rounded-2xl bg-white p-3 ring-1 ring-[#FCB625]/40"
+              className="rounded-xl border border-[#DCE4F3] bg-white p-3"
             >
               <label
                 htmlFor={`clarification-answer-${request.requirementId}`}
-                className="block text-xs font-medium text-[#607096]"
+                className="block text-xs font-semibold text-[#607096]"
               >
                 {requirement?.label || request.requirementId}
               </label>
@@ -139,7 +137,7 @@ export function ClarificationPanel({
                 maxLength={5000}
                 placeholder={t("fit.clar.placeholder")}
                 disabled={submitting}
-                className="mt-2 w-full resize-y rounded-2xl border-0 bg-[#F8FAFC] px-3 py-2 text-sm text-[#14244B] outline-none ring-1 ring-[#DCE4F3] transition focus:bg-white focus:ring-2 focus:ring-[#204195] disabled:opacity-60"
+                className="mt-2 w-full resize-y rounded-xl border border-[#DCE4F3] bg-white px-3 py-2 text-sm text-[#14244B] outline-none transition focus:border-[#204195] focus:ring-2 focus:ring-[#204195]/10 disabled:opacity-60"
               />
               {outcome && (
                 <p className="mt-2 text-xs text-[#607096]" role="status">
@@ -150,10 +148,7 @@ export function ClarificationPanel({
           );
         })}
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs leading-5 text-[#607096]">
-            {t("fit.clar.note")}
-          </p>
+        <div className="flex justify-end">
           <button
             type="submit"
             disabled={submitting || readyAnswers.length === 0}
