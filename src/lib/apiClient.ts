@@ -178,7 +178,62 @@ export type AdminSessionStats = {
   avgScore: number | null;
 };
 
+/** Who wrote a follow-up: the model, or a fixed fallback line. Null on sessions before labelling. */
+export type AdminFollowupProvenance = 'llm' | 'fixed_fallback' | null;
+
+export type AdminPlanTurn = {
+  turnId: string;
+  turnIndex: number;
+  status: string;
+  stage: string;
+  /** question_bank, broader_skill, role, generated_unreviewed, *_template, behavioral_star_preset; "~" = inferred for old sessions. */
+  source: string;
+  difficulty: string | null;
+  questionVersionId: string | null;
+  questionText: string | null;
+  objective: string | null;
+  target: string | null;
+  expectedPoints: string[];
+  rubricCriteria: string[];
+  softAnswerSeconds: number | null;
+  hardAnswerSeconds: number | null;
+  answerSeconds: number | null;
+  score: number | null;
+  languageOk: boolean;
+  followups: { type: string; content: string; generatedBy: AdminFollowupProvenance; missingAspect: string | null }[];
+};
+
+export type AdminSessionPlan = {
+  session: {
+    id: string;
+    status: string;
+    mode: string;
+    durationMinutes: number | null;
+    locale: string | null;
+    startedAt: string | null;
+    endReason: string | null;
+    jobTitle: string | null;
+    companyName: string | null;
+    candidateEmail: string | null;
+    candidateName: string | null;
+  };
+  plan: {
+    status: string | null;
+    policyVersion: string | null;
+    questionBudget: number | null;
+    difficulty: { level: string; source: string; seniority?: string | null } | null;
+    sections: { sectionId: string; label: string; durationMinutes: number }[];
+    targets: { label: string; importance: number; questionCount: number; matchStatuses: string[]; priorities: string[] }[];
+    questionSources: Record<string, number>;
+    generatedQuestionCount: number | null;
+    uncoveredTargets: unknown[];
+  };
+  turns: AdminPlanTurn[];
+};
+
 export const adminApi = {
+  getSessionPlan: (sessionId: string) =>
+    apiClient.get<{ success: boolean } & AdminSessionPlan>(`/admin/sessions/${encodeURIComponent(sessionId)}/plan`),
   getOverview: () =>
     apiClient.get<{ success: boolean; overview: AdminOverviewData }>('/admin/overview'),
   getSessions: (params?: { mode?: string; search?: string; limit?: number; offset?: number }) =>
