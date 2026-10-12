@@ -10,7 +10,7 @@ export function HumanMomentSection() {
   const { t } = useLanguage();
 
   return (
-    <section id="human-moment" className="relative overflow-hidden bg-[#F7F9FD] px-4 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-12">
+    <section id="human-moment" className="relative px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-12 xl:py-20 bg-white overflow-hidden border-b border-[#E7ECF5]">
       <motion.div
         initial="hidden"
         whileInView="visible"
@@ -19,39 +19,46 @@ export function HumanMomentSection() {
         className="mx-auto w-full max-w-[1320px]"
       >
         <div className="grid gap-12 lg:grid-cols-12 lg:items-center">
-          {/* Candidate photograph */}
-          <div className="order-2 lg:order-1 lg:col-span-5">
-            <div className="group relative aspect-[4/5] w-full overflow-hidden rounded-3xl bg-[#EEF3FC]">
-              <div className="absolute inset-0 z-10 bg-gradient-to-t from-[#14244B]/55 via-transparent to-transparent" />
+          {/* Candidate Photograph Visual Column (5 col) */}
+          <div className="lg:col-span-5 order-2 lg:order-1">
+            <div className="relative aspect-[4/5] w-full overflow-hidden rounded-3xl border border-[#DCE4F3] bg-[#F7F9FD] shadow-md group">
+              <div className="absolute inset-0 bg-gradient-to-t from-[#14244B]/40 via-transparent to-transparent z-10" />
               <Image
                 src="/landing/human/candidate-preparing.jpg"
-                alt={t("fixm.human.imageAlt")}
+                alt="Candidate preparing for interview"
                 fill
-                className="object-cover object-center transition-transform duration-500 group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none"
+                className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
               />
-              <div className="absolute bottom-6 left-6 right-6 z-20 text-left text-white">
-                <span className="mb-1 block text-[12px] font-semibold text-[#FCB625]">
+              <div className="absolute bottom-6 left-6 right-6 z-20 text-white text-left">
+                <span className="font-mono text-[11px] font-bold text-[#FCB625] uppercase tracking-wider block mb-1">
                   {t("landing.human.cardLabel")}
                 </span>
-                <p className="text-sm font-medium text-white/95">
+                <p className="font-sans text-sm font-semibold text-white/95">
                   {t("landing.human.cardDesc")}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Editorial text */}
-          <div className="order-1 space-y-6 text-left lg:order-2 lg:col-span-7">
-            <h2 className="font-display text-3xl font-normal italic leading-tight text-[#14244B] sm:text-4xl md:text-5xl">
+          {/* Editorial Text Column (7 col) */}
+          <div className="lg:col-span-7 order-1 lg:order-2 text-left space-y-6">
+            <span className="inline-flex items-center gap-2 rounded-full bg-[#EEF3FC] border border-[#DCE4F3] px-3.5 py-1 font-mono text-xs font-bold text-[#204195]">
+              {t("landing.human.eyebrow")}
+            </span>
+
+            <h2 className="font-serif text-3xl italic font-normal text-[#14244B] sm:text-4xl md:text-5xl leading-tight">
               {t("landing.human.quote")}
             </h2>
 
-            <p className="text-base leading-relaxed text-[#607096] sm:text-lg">
+            <p className="text-base font-normal leading-relaxed text-[#607096] sm:text-lg">
               {t("landing.human.body")}
             </p>
 
-            <div className="border-t border-[#DCE4F3] pt-4">
-              <span className="text-sm font-semibold text-[#204195]">
+            <div className="pt-2 border-t border-[#DCE4F3] flex items-center gap-3">
+              <div className="h-8 w-8 rounded-full bg-[#204195] text-white flex items-center justify-center font-mono text-xs font-bold">
+                IV
+              </div>
+              <span className="font-mono text-xs font-bold text-[#204195]">
                 {t("landing.human.philosophy")}
               </span>
             </div>
@@ -63,3 +70,5 @@ export function HumanMomentSection() {
 }
 
 export default HumanMomentSection;
+
+
