@@ -2,10 +2,10 @@
 
 import React from "react";
 import Link from "next/link";
+import { ArrowRight, Sparkles } from "lucide-react";
 
 interface MarketingCTAProps {
-  /** Kept for older callers; not rendered. */
-  eyebrow?: string;
+  eyebrow: string;
   title: string;
   titleAccent?: string;
   description: string;
@@ -15,42 +15,50 @@ interface MarketingCTAProps {
   secondaryCtaHref?: string;
 }
 
-/** Closing call to action: the featured brand card with a yellow button. */
 export default function MarketingCTA({
+  eyebrow,
   title,
   titleAccent,
   description,
   primaryCtaText,
-  primaryCtaHref = "/signup",
+  primaryCtaHref = "/app",
   secondaryCtaText,
   secondaryCtaHref = "/pricing",
 }: MarketingCTAProps) {
   return (
-    <section className="relative w-full overflow-hidden rounded-[28px] bg-[#204195] px-6 py-12 text-center text-white sm:px-12 sm:py-16">
+    <section className="relative w-full overflow-hidden rounded-[26px] border border-[#DCE4F3] bg-gradient-to-b from-[#F7F9FD] to-[#EEF3FC] px-6 py-12 text-center shadow-sm sm:px-12 sm:py-16">
       <div className="mx-auto flex max-w-3xl flex-col items-center">
+        <span className="mb-4 inline-flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-widest text-[#204195]">
+          <Sparkles className="size-3.5" />
+          {eyebrow}
+        </span>
 
-        <h2 className="font-display text-[30px] font-semibold leading-[1.1] tracking-tight text-white sm:text-[36px] lg:text-[42px]">
+        <h2 className="font-sans text-[30px] font-extrabold leading-[1.08] tracking-[-0.035em] text-[#14244B] sm:text-[34px] lg:text-[42px]">
           {title}{" "}
-          {titleAccent && <span className="text-[#FCB625]">{titleAccent}</span>}
+          {titleAccent && (
+            <span className="text-[#204195]">
+              {titleAccent}
+            </span>
+          )}
         </h2>
 
-        <p className="mt-4 max-w-xl text-[15px] leading-7 text-white/75 sm:text-base">
+        <p className="mt-4 max-w-xl text-[15px] font-medium leading-7 text-[#607096] sm:text-base">
           {description}
         </p>
 
-        <div className="mt-8 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
+        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
             href={primaryCtaHref}
-            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#FCB625] px-7 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#E5A21D] sm:w-auto"
+            className="inline-flex h-[52px] items-center justify-center gap-2 rounded-[14px] bg-[#204195] px-7 text-sm font-extrabold text-white shadow-md transition-all hover:bg-[#183275] hover:shadow-lg active:scale-[0.98]"
           >
             {primaryCtaText}
-            <span aria-hidden="true">→</span>
+            <ArrowRight className="size-4" />
           </Link>
 
           {secondaryCtaText && (
             <Link
               href={secondaryCtaHref}
-              className="inline-flex h-12 w-full items-center justify-center rounded-full bg-white/10 px-7 text-sm font-semibold text-white transition-colors hover:bg-white/20 sm:w-auto"
+              className="inline-flex h-[52px] items-center justify-center rounded-[14px] border border-[#DCE4F3] bg-white px-7 text-sm font-extrabold text-[#14244B] transition-colors hover:bg-[#F7F9FD]"
             >
               {secondaryCtaText}
             </Link>
