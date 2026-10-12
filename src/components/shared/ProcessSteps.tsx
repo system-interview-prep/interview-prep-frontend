@@ -34,58 +34,82 @@ export function ProcessSteps({
 }) {
   return (
     <div className={className}>
-      <ol aria-label={label} className="flex items-start gap-1 overflow-x-auto pb-1 sm:gap-0">
+      <div className="mb-2.5 flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#204195]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#204195]" />
+          {label}
+        </span>
+        <span className="text-xs text-[#607096]">Lộ trình 4 bước chuẩn bị bài bản</span>
+      </div>
+
+      <ol aria-label={label} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-2.5">
         {steps.map((step, index) => {
-          const body = (
-            <>
-              <span
-                className={cn(
-                  "relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full text-[13px] font-bold transition-colors",
-                  step.state === "done" && "bg-[#204195] text-white",
-                  step.state === "current" && "bg-[#FCB625] text-[#14244B] ring-4 ring-[#FCB625]/25",
-                  step.state === "todo" && "bg-white text-[#607096] ring-1 ring-[#DCE4F3]",
-                )}
-              >
-                {step.state === "done" ? <Check className="size-4" strokeWidth={3} aria-hidden="true" /> : index + 1}
-              </span>
-              <span
-                className={cn(
-                  "mt-2 block text-center text-[12px] leading-tight",
-                  step.state === "todo" ? "font-medium text-[#607096]" : "font-semibold text-[#14244B]",
-                )}
-              >
-                {step.label}
-              </span>
-            </>
-          );
-          return (
-            <li
-              key={step.key}
-              aria-current={step.state === "current" ? "step" : undefined}
-              className="relative flex min-w-[76px] flex-1 flex-col items-center"
-            >
-              {index > 0 && (
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "absolute right-1/2 top-4 h-0.5 w-full -translate-y-1/2",
-                    steps[index - 1].state === "done" ? "bg-[#204195]" : "bg-[#DCE4F3]",
-                  )}
-                />
+          const isDone = step.state === "done";
+          const isCurrent = step.state === "current";
+          const isTodo = step.state === "todo";
+
+          const pillContent = (
+            <div
+              className={cn(
+                "group flex items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-all",
+                isDone && "bg-emerald-50/70 text-emerald-950 ring-1 ring-emerald-200/70 hover:bg-emerald-50",
+                isCurrent && "bg-amber-50/90 text-[#14244B] ring-2 ring-amber-400 shadow-2xs",
+                isTodo && "bg-slate-50/80 text-slate-500 ring-1 ring-slate-200/60",
+                step.href && !isTodo && "cursor-pointer hover:shadow-2xs",
               )}
-              {step.href && step.state !== "todo" ? (
-                <Link href={step.href} className="flex flex-col items-center rounded-xl px-1 outline-offset-2 hover:opacity-85">
-                  {body}
+            >
+              <span
+                className={cn(
+                  "grid h-6 w-6 shrink-0 place-items-center rounded-lg text-xs font-bold transition-all",
+                  isDone && "bg-emerald-600 text-white shadow-2xs",
+                  isCurrent && "bg-amber-500 text-white shadow-2xs animate-pulse",
+                  isTodo && "bg-slate-200/70 text-slate-500",
+                )}
+              >
+                {isDone ? <Check className="size-3.5" strokeWidth={3} aria-hidden="true" /> : index + 1}
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <span
+                  className={cn(
+                    "block truncate text-xs font-semibold leading-tight",
+                    isDone && "text-[#14244B] group-hover:text-[#204195]",
+                    isCurrent && "font-bold text-[#14244B]",
+                    isTodo && "text-slate-500",
+                  )}
+                >
+                  {step.label}
+                </span>
+                <span
+                  className={cn(
+                    "block text-[10.5px] leading-tight",
+                    isDone && "font-medium text-emerald-700",
+                    isCurrent && "font-semibold text-amber-800",
+                    isTodo && "text-slate-400",
+                  )}
+                >
+                  {isDone ? "Đã xong" : isCurrent ? "Đang làm" : "Chưa làm"}
+                </span>
+              </div>
+            </div>
+          );
+
+          return (
+            <li key={step.key} aria-current={isCurrent ? "step" : undefined}>
+              {step.href && !isTodo ? (
+                <Link href={step.href} className="block outline-offset-2">
+                  {pillContent}
                 </Link>
               ) : (
-                <span className="flex flex-col items-center px-1">{body}</span>
+                pillContent
               )}
             </li>
           );
         })}
       </ol>
+
       {hint ? (
-        <div className="mt-3 rounded-xl bg-[#FFF8E6] px-3.5 py-2 text-[13px] leading-relaxed text-[#14244B]" role="status">
+        <div className="mt-2.5 rounded-xl border border-amber-200 bg-amber-50/70 px-3.5 py-2 text-xs leading-relaxed text-[#14244B]" role="status">
           {hint}
         </div>
       ) : null}
