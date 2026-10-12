@@ -3,15 +3,29 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  LabelList,
   ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 import Link from 'next/link';
-import { Clock } from 'lucide-react';
+import {
+  ArrowRight,
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  Flag,
+  MessageSquareText,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  TrendingUp,
+} from 'lucide-react';
 import type { EvaluationReport, TurnEvaluation } from '../services/interviewReport.service';
 import type { ChatMessage } from '../services/interviewChat.service';
 import type { InterviewRuntimeSession } from '../services/interviewRuntime.service';
@@ -88,7 +102,7 @@ function formatDuration(t: Translate, seconds: number): string {
 function LevelChip({ level, prefix }: { level: DebriefLevel; prefix?: string }) {
   const { t } = useLanguage();
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${LEVEL_TONE[level]}`}>
+    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-bold tracking-wide ${LEVEL_TONE[level]}`}>
       {prefix}
       {t(LEVEL_LABEL_KEY[level])}
     </span>
@@ -298,77 +312,84 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
       : t('uxInterview.report.heroDone');
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6 lg:p-8 font-sans print:max-w-none print:space-y-4 print:p-0">
-      <section className="anim-rise rounded-3xl bg-[#F0F4FC] p-5 sm:p-7 print:hidden">
-        <div className="relative min-w-0 rounded-3xl bg-white p-5 ring-1 ring-[#DCE4F3] sm:p-6">
-          <h1 className="font-display text-[clamp(1.5rem,2.4vw,2.1rem)] font-semibold leading-tight text-[#14244B]">{t('report.title')}</h1>
-          <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-[#607096]">{heroBody}</p>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-          <Link
-            href="/interview/select"
-            className="inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275]"
-          >
-            {t('report.page.continue')}
-          </Link>
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="inline-flex h-11 items-center rounded-full bg-[#F7F9FD] px-5 text-sm font-semibold text-[#14244B] transition hover:bg-[#EEF2FD]"
-            >
-              {t('report.page.backAria')}
-            </button>
-          )}
-          </div>
-        </div>
-      </section>
-
-      {/* 1. Session context + overall score (the page title prints from here). */}
-      <div className="rounded-3xl border border-[#DCE4F3] bg-white p-6 print:break-inside-avoid">
-        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+    <div className="mx-auto max-w-[1240px] space-y-8 p-4 font-sans sm:p-6 lg:px-8 lg:py-10 print:max-w-none print:space-y-4 print:p-0">
+      {/* 1. Summary first: score, meaning and session facts are visible in one scan. */}
+      <section className="anim-rise overflow-hidden rounded-[28px] border border-[#DCE4F3] bg-white shadow-[0_16px_45px_-38px_rgba(20,36,75,0.35)] print:hidden">
+        <div className={`grid gap-6 p-6 sm:p-8 ${!gateOpen ? 'lg:grid-cols-[minmax(0,1fr)_260px] lg:items-center' : ''}`}>
           <div className="min-w-0">
-            <h1 className="hidden font-display text-2xl font-semibold tracking-tight text-[#14244B] print:block">{t('report.title')}</h1>
-            <dl className="flex print:mt-3 flex-wrap gap-x-5 gap-y-1.5 text-xs text-[#607096]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#EEF2FD] px-3 py-1.5 text-xs font-bold text-[#3156AA]">
+                <span className="size-1.5 rounded-full bg-[#3D73E6]" />
+                {t('report.page.badge')}
+              </div>
+              {onBack && (
+                <button type="button" onClick={onBack} className="text-xs font-semibold text-[#607096] underline-offset-4 hover:text-[#204195] hover:underline">
+                  {t('report.page.backAria')}
+                </button>
+              )}
+            </div>
+            <h1 className="mt-5 max-w-3xl font-display text-[clamp(1.8rem,3vw,2.6rem)] font-semibold leading-tight tracking-[-0.025em] text-[#14244B]">
+              {t('report.title')}
+            </h1>
+            <p className="mt-3 max-w-3xl text-[15px] leading-7 text-[#607096]">{heroBody}</p>
+
+            <dl className="mt-6 grid grid-cols-2 gap-x-5 gap-y-4 border-t border-[#E8EDF7] pt-5 sm:grid-cols-3">
               {contextItems.map(([label, value]) => (
-                <div key={label} className="flex gap-1">
-                  <dt className="text-[#A0AEC0]">{label}:</dt>
-                  <dd className="font-semibold text-[#14244B]">{value}</dd>
+                <div key={label} className="min-w-0">
+                  <dt className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A99B8]">{label}</dt>
+                  <dd className="mt-1 truncate text-sm font-semibold text-[#26395F]" title={value}>{value}</dd>
                 </div>
               ))}
             </dl>
           </div>
 
           {!gateOpen && (
-            <div className="shrink-0 text-left md:text-right">
+            <div className="rounded-3xl border border-[#D8E2F6] bg-[#F6F8FE] p-5 text-center">
               {overallScore != null && overallLevel ? (
                 <>
-                  <div className="font-display text-4xl sm:text-5xl font-semibold tracking-tight text-[#204195]">
-                    {overallScore.toFixed(1)} <span className="text-base font-normal text-[#A0AEC0]">/ 10</span>
+                  <div
+                    className="mx-auto grid size-36 place-items-center rounded-full p-2"
+                    style={{ background: `conic-gradient(#315BC0 ${Math.min(100, Math.max(0, overallScore * 10))}%, #DCE4F3 0)` }}
+                  >
+                    <div className="grid size-full place-items-center rounded-full bg-white">
+                      <div><div className="font-display text-4xl font-semibold tracking-tight text-[#204195]">{overallScore.toFixed(1)}</div><div className="text-xs font-semibold text-[#8A99B8]">/ 10</div></div>
+                    </div>
                   </div>
-                  <div className="mt-1.5">
-                    <LevelChip level={overallLevel} prefix={t('report.levelPrefix')} />
-                  </div>
-                  <p className="mt-1.5 max-w-xs text-xs leading-5 text-[#607096]">{t(LEVEL_MEANING_KEY[overallLevel])}</p>
+                  <div className="mt-4"><LevelChip level={overallLevel} prefix={t('report.levelPrefix')} /></div>
                 </>
               ) : (
-                <p className="text-sm font-semibold text-[#607096]">{t('report.noOverall')}</p>
+                <p className="py-8 text-sm font-semibold text-[#607096]">{t('report.noOverall')}</p>
               )}
             </div>
           )}
         </div>
-        <p className="mt-4 border-t border-[#EEF2FD] pt-3 text-[11px] leading-5 text-[#A0AEC0]">
-          {t('report.disclaimer')}
-        </p>
+      </section>
+
+      <div className="hidden rounded-3xl border border-[#DCE4F3] bg-white p-6 print:block print:break-inside-avoid">
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-[#14244B]">{t('report.title')}</h1>
+        <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-[#607096]">
+          {contextItems.map(([label, value]) => (
+            <div key={label} className="flex gap-1"><dt>{label}:</dt><dd className="font-semibold text-[#14244B]">{value}</dd></div>
+          ))}
+        </dl>
+        {overallScore != null && <p className="mt-4 font-display text-3xl font-semibold text-[#204195]">{overallScore.toFixed(1)} / 10</p>}
       </div>
+
+      <p className="-mt-4 flex items-start gap-2 px-2 text-[11px] leading-5 text-[#7C8BAA] print:mt-0 print:px-0"><ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-[#4B70C6]" />{t('report.disclaimer')}</p>
 
       {/* 2. Reflection gate */}
       {gateOpen ? (
-        <section className="rounded-3xl border border-[#204195]/30 bg-white p-6 print:break-inside-avoid">
-          <h2 className="font-display text-xl font-semibold text-[#14244B]">{t('report.gate.title')}</h2>
-          <p className="mt-1 text-sm leading-6 text-[#607096]">{t('report.gate.body')}</p>
-          <ol className="mt-4 space-y-3">
+        <section className="rounded-[28px] border border-[#C9D5F2] bg-white p-5 shadow-[0_18px_50px_-38px_rgba(32,65,149,0.45)] sm:p-8 print:break-inside-avoid">
+          <div className="flex gap-4">
+            <div className="hidden size-12 shrink-0 items-center justify-center rounded-2xl bg-[#EEF2FD] text-[#204195] sm:flex"><Target className="size-6" /></div>
+            <div>
+              <h2 className="font-display text-2xl font-semibold text-[#14244B]">{t('report.gate.title')}</h2>
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-[#607096]">{t('report.gate.body')}</p>
+            </div>
+          </div>
+          <ol className="mt-6 grid gap-3 lg:grid-cols-2">
             {ratableTurns.map((turn, index) => (
-              <li key={turn.turnId} className="rounded-xl border border-[#DCE4F3] p-3">
+              <li key={turn.turnId} className="rounded-2xl border border-[#DCE4F3] bg-[#FBFCFF] p-4 transition hover:border-[#B9C9EE]">
                 <p className="text-sm text-[#14244B]">
                   <span className="font-semibold">{fmt(t('report.questionN'), { n: index + 1 })}.</span>{' '}
                   {turn.question || t('report.questionEmpty')}
@@ -397,7 +418,7 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
               </li>
             ))}
           </ol>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-[#EEF2FD] pt-5">
             <button
               type="button"
               onClick={() => void reveal()}
@@ -425,19 +446,26 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
           )}
 
           {/* 3. Overall feedback + what to study next */}
-          <section className="grid gap-6 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-            <div className="rounded-3xl border border-[#DCE4F3] bg-white p-6 print:shadow-none print:break-inside-avoid">
-              <h3 className="font-display text-lg font-semibold text-[#14244B]">{t('report.feedback.title')}</h3>
-              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-[#14244B]">
+          <section className="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
+            <div className="relative overflow-hidden rounded-[28px] border border-[#DCE4F3] bg-white p-6 shadow-[0_18px_45px_-38px_rgba(20,36,75,0.35)] sm:p-8 print:shadow-none print:break-inside-avoid">
+              <div className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-[#204195] to-[#7190DC]" />
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-2xl bg-[#EEF2FD] text-[#204195]"><MessageSquareText className="size-5" /></span>
+                <h3 className="font-display text-xl font-semibold text-[#14244B]">{t('report.feedback.title')}</h3>
+              </div>
+              <p className="mt-5 whitespace-pre-line text-[15px] leading-7 text-[#334468]">
                 {candidateFeedback || t('report.feedback.empty')}
               </p>
             </div>
-            <div className="rounded-3xl border border-[#DCE4F3] bg-white p-6 print:shadow-none print:break-inside-avoid">
-              <h3 className="font-display text-lg font-semibold text-[#14244B]">{t('report.next.title')}</h3>
+            <div className="rounded-[28px] border border-[#CFE5D7] bg-gradient-to-br from-white to-[#F0F8F3] p-6 sm:p-7 print:shadow-none print:break-inside-avoid">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-2xl bg-[#DDF1E4] text-[#287A4B]"><BookOpen className="size-5" /></span>
+                <h3 className="font-display text-xl font-semibold text-[#14244B]">{t('report.next.title')}</h3>
+              </div>
               {nextRoundTopics.length > 0 ? (
-                <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-[#14244B]">
+                <ul className="mt-5 space-y-3 text-sm leading-6 text-[#334468]">
                   {nextRoundTopics.map((topic, idx) => (
-                    <li key={idx}>{topic}</li>
+                    <li key={idx} className="flex gap-2.5"><CheckCircle2 className="mt-1 size-4 shrink-0 text-[#3D9661]" /><span>{topic}</span></li>
                   ))}
                 </ul>
               ) : (
@@ -448,9 +476,9 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
 
           {/* 4. Self vs system calibration */}
           {calibration.length > 0 && (
-            <section className="rounded-3xl border border-[#DCE4F3] bg-white p-6 print:shadow-none print:break-inside-avoid">
-              <h2 className="font-display text-lg font-semibold text-[#14244B]">{t('report.calib.title')}</h2>
-              <ul className="mt-3 space-y-1.5">
+            <section className="rounded-[28px] border border-[#DCE4F3] bg-white p-6 sm:p-8 print:shadow-none print:break-inside-avoid">
+              <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-2xl bg-[#FFF3D6] text-[#9A6500]"><TrendingUp className="size-5" /></span><h2 className="font-display text-xl font-semibold text-[#14244B]">{t('report.calib.title')}</h2></div>
+              <ul className="mt-5 grid gap-2.5 md:grid-cols-2">
                 {calibration.map((row) => {
                   const index = ratableTurns.findIndex((turn) => turn.turnId === row.turnId);
                   const note =
@@ -462,8 +490,8 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
                   return (
                     <li
                       key={row.turnId}
-                      className={`flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${
-                        Math.abs(row.gap) >= 2 ? 'bg-amber-50' : 'bg-[#F7F9FD]'
+                      className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm ${
+                        Math.abs(row.gap) >= 2 ? 'border-amber-200 bg-amber-50' : 'border-[#E5EBF7] bg-[#F8FAFE]'
                       }`}
                     >
                       <a href={`#turn-${row.turnId}`} onClick={() => setTurnOpen(row.turnId, true)} className="font-medium text-[#14244B] hover:underline">
@@ -482,76 +510,107 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
           )}
 
           {/* 5. Competencies */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <div className="flex flex-col rounded-3xl border border-[#DCE4F3] bg-white p-6 print:shadow-none print:break-inside-avoid">
-              <div className="mb-2 flex w-full items-center justify-between">
-                <h3 className="font-display text-lg font-semibold text-[#14244B]">{t('report.comp.title')}</h3>
-                <span className="text-xs font-medium text-[#A0AEC0]">{t('report.comp.scale')}</span>
+          <section className="overflow-hidden rounded-[30px] border border-[#DCE4F3] bg-white shadow-[0_20px_55px_-45px_rgba(20,36,75,0.4)] print:shadow-none print:break-inside-avoid">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E8EDF7] px-6 py-5 sm:px-8">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-2xl bg-[#EEF2FD] text-[#204195]"><Target className="size-5" /></span>
+                <h3 className="font-display text-xl font-semibold text-[#14244B]">{t('report.comp.title')}</h3>
               </div>
-              <div className="h-72 w-full">
-                {competencyScores.length > 2 ? (
+              <span className="rounded-full bg-[#F4F6FB] px-3 py-1.5 text-xs font-semibold text-[#7180A0]">{t('report.comp.scale')}</span>
+            </div>
+            <div className="p-5 sm:p-7">
+              <div className="mb-2">
+                <h3 className="font-display text-lg font-semibold text-[#14244B]">{t('report.comp.scores')}</h3>
+                <p className="mt-1 text-sm leading-6 text-[#607096]">{t('report.comp.description')}</p>
+              </div>
+              {competencyScores.length ? (
+                <div style={{ height: Math.max(250, competencyScores.length * 58 + 56) }} className="w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={competencyScores}>
-                      <PolarGrid stroke="#DCE4F3" strokeDasharray="3 3" />
-                      <PolarAngleAxis dataKey="competency" tick={{ fill: '#14244B', fontSize: 11, fontWeight: 500 }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 10]} stroke="#A0AEC0" />
-                      <Radar name={t('report.comp.radarName')} dataKey="score" stroke="#204195" fill="#204195" fillOpacity={0.25} />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex h-full items-center justify-center px-6 text-center text-xs text-[#A0AEC0]">
-                    {competencyScores.length === 0
-                      ? t('report.comp.none')
-                      : t('report.comp.tooFew')}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-3.5 rounded-3xl border border-[#DCE4F3] bg-white p-6 print:shadow-none print:break-inside-avoid">
-              <h3 className="font-display text-lg font-semibold text-[#14244B]">{t('report.comp.scores')}</h3>
-              <div className="space-y-3">
-                {competencyScores.map((c, i) => (
-                  <div key={i} className="flex flex-col border-b border-[#EEF2FD] pb-2.5 last:border-0">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-semibold text-[#14244B]">{c.competency || '—'}</span>
-                      <span className="font-bold text-[#204195]">{c.score.toFixed(1)} / 10</span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[#EEF2FD]">
-                      <div
-                        className="h-full rounded-full bg-[#204195]"
-                        style={{ width: `${Math.min(100, Math.max(0, (c.score / 10) * 100))}%` }}
+                    <BarChart
+                      data={competencyScores}
+                      layout="vertical"
+                      margin={{ top: 12, right: 42, bottom: 8, left: 8 }}
+                      barCategoryGap="34%"
+                    >
+                      <CartesianGrid horizontal={false} stroke="#E8EDF7" strokeDasharray="3 3" />
+                      <XAxis
+                        type="number"
+                        domain={[0, 10]}
+                        ticks={[0, 2, 4, 6, 8, 10]}
+                        tick={{ fill: '#7180A0', fontSize: 12 }}
+                        axisLine={false}
+                        tickLine={false}
                       />
-                    </div>
-                    {c.summary && <p className="mt-1 text-xs text-[#607096]">{c.summary}</p>}
-                  </div>
-                ))}
-              </div>
+                      <YAxis
+                        type="category"
+                        dataKey="competency"
+                        width={170}
+                        tick={{ fill: '#14244B', fontSize: 12, fontWeight: 600 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        formatter={(value) => [`${Number(value).toFixed(1)} / 10`, t('report.comp.radarName')]}
+                        cursor={{ fill: '#F4F6FB' }}
+                      />
+                      <Bar dataKey="score" fill="#4169C8" radius={[0, 8, 8, 0]} maxBarSize={28}>
+                        <LabelList
+                          dataKey="score"
+                          position="right"
+                          formatter={(value) => Number(value).toFixed(1)}
+                          fill="#204195"
+                          fontSize={12}
+                          fontWeight={700}
+                        />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="flex min-h-56 items-center justify-center px-6 text-center text-sm text-[#7180A0]">
+                  {t('report.comp.none')}
+                </div>
+              )}
+              {competencyScores.some((item) => item.summary) ? (
+                <ul className="mt-5 grid gap-3 border-t border-[#E8EDF7] pt-4 md:grid-cols-2">
+                  {competencyScores.filter((item) => item.summary).map((item, index) => (
+                    <li key={`${item.competency}-${index}`} className="text-sm leading-6 text-[#607096]">
+                      <span className="font-semibold text-[#14244B]">{item.competency}: </span>{item.summary}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
-          </div>
+          </section>
 
 
           {redFlags.length > 0 && (
-            <section className="rounded-3xl border border-amber-200 bg-amber-50 p-6 print:break-inside-avoid">
-              <h3 className="font-display text-lg font-semibold text-amber-950">{t('report.warnings.title')}</h3>
-              <p className="mt-1 text-xs text-amber-800">{t('report.warnings.note')}</p>
-              <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-amber-950">
+            <section className="rounded-[28px] border border-amber-200 bg-gradient-to-r from-[#FFF9EA] to-[#FFFDF8] p-6 sm:p-7 print:break-inside-avoid">
+              <div className="flex gap-4">
+                <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-700"><Flag className="size-5" /></span>
+                <div><h3 className="font-display text-lg font-semibold text-amber-950">{t('report.warnings.title')}</h3>
+                <p className="mt-1 text-xs leading-5 text-amber-800">{t('report.warnings.note')}</p></div>
+              </div>
+              <ul className="mt-4 grid gap-2 pl-14 text-sm text-amber-950 md:grid-cols-2">
                 {redFlags.map((warning, idx) => (
-                  <li key={idx}>{warning}</li>
+                  <li key={idx} className="rounded-xl border border-amber-200/70 bg-white/60 px-3 py-2.5">{warning}</li>
                 ))}
               </ul>
             </section>
           )}
 
           {/* 6. Per question */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-display text-2xl font-semibold text-[#14244B]">{t('report.turns.title')}</h3>
-              <span className="text-xs font-medium text-[#607096]">
+          <div className="space-y-4 pt-2">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[#5671B4]"><Sparkles className="size-4" /> {t('report.page.badge')}</div>
+                <h3 className="font-display text-2xl font-semibold tracking-tight text-[#14244B] sm:text-3xl">{t('report.turns.title')}</h3>
+              </div>
+              <span className="rounded-full border border-[#DCE4F3] bg-white px-3 py-1.5 text-xs font-semibold text-[#607096]">
                 {fmt(t('report.questionsGraded'), { n: rawTurns.length })}
               </span>
             </div>
-            <p className="-mt-2 text-sm text-[#607096] print:hidden">{t('uxWs.report.turnsHint')}</p>
+            <p className="text-sm text-[#607096] print:hidden">{t('uxWs.report.turnsHint')}</p>
 
             {rawTurns.map((turn: TurnEvaluation, idx: number) => {
               const turnId = turnIdOf(turn);
@@ -576,11 +635,11 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
                   onToggle={(event) => {
                     if (!printing) setTurnOpen(turnId, event.currentTarget.open);
                   }}
-                  className="group scroll-mt-20 rounded-3xl border border-[#DCE4F3] bg-white print:shadow-none print:break-inside-avoid"
+                  className="group scroll-mt-20 overflow-hidden rounded-[24px] border border-[#DCE4F3] bg-white shadow-[0_14px_35px_-32px_rgba(20,36,75,0.5)] transition hover:border-[#C6D3EE] print:shadow-none print:break-inside-avoid"
                 >
-                  <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 p-5 [&::-webkit-details-marker]:hidden">
+                  <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-5 transition hover:bg-[#FAFBFE] sm:px-6 sm:py-5 [&::-webkit-details-marker]:hidden">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-[#EEF2FD] px-2.5 py-0.5 text-xs font-semibold text-[#204195]">
+                      <span className="rounded-full bg-[#204195] px-3 py-1 text-xs font-bold text-white">
                         {fmt(t('report.questionN'), { n: idx + 1 })}
                       </span>
                       {stageLabel && <span className="text-xs font-semibold text-[#14244B]">{stageLabel}</span>}
@@ -596,15 +655,13 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
                       <span className="text-sm font-extrabold text-[#204195]">
                         {Number.isFinite(score) ? `${score.toFixed(1)} / 10` : t('report.turn.ungraded')}
                       </span>
-                      <span aria-hidden="true" className="text-[#A0AEC0] transition-transform group-open:rotate-180 print:hidden">
-                        ▾
-                      </span>
+                      <span aria-hidden="true" className="grid size-8 place-items-center rounded-full bg-[#F4F6FB] text-[#7180A0] transition-transform group-open:rotate-180 print:hidden"><ChevronDown className="size-4" /></span>
                     </span>
                     {questionText && (
                       <p className="line-clamp-1 basis-full text-sm text-[#607096] group-open:hidden">{questionText}</p>
                     )}
                   </summary>
-                  <div className="space-y-3 border-t border-[#EEF2FD] px-5 pb-5 pt-3">
+                  <div className="space-y-4 border-t border-[#EEF2FD] bg-[#FCFDFF] px-5 pb-6 pt-5 sm:px-6">
 
                   {lines.length > 0 ? (
                     <TurnExchange lines={lines} quotes={evidence} />
@@ -689,10 +746,11 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
           </div>
 
           {/* 7. Closing: one takeaway, then a clear way out of the report. */}
-          <section className="rounded-3xl border border-[#DCE4F3] bg-white p-6 print:hidden">
-            <h3 className="font-display text-lg font-semibold text-[#14244B]">{t('uxWs.report.closingTitle')}</h3>
+          <section className="relative overflow-hidden rounded-[30px] border border-[#C9D5F2] bg-gradient-to-br from-white to-[#F2F5FC] p-6 sm:p-8 print:hidden">
+            <div className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-[#DCE6FF]/70 blur-2xl" />
+            <div className="relative flex items-center gap-3"><span className="grid size-11 place-items-center rounded-2xl bg-[#204195] text-white"><CheckCircle2 className="size-5" /></span><h3 className="font-display text-xl font-semibold text-[#14244B]">{t('uxWs.report.closingTitle')}</h3></div>
             {onSaveReflection && (
-              <>
+              <div className="relative mt-5">
                 <label htmlFor="debrief-takeaway" className="mt-1 block text-sm text-[#607096]">
                   {t('report.takeaway.label')}
                 </label>
@@ -706,7 +764,7 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
                   maxLength={1000}
                   rows={3}
                   placeholder={t('report.takeaway.placeholder')}
-                  className="mt-2 w-full rounded-xl border border-[#DCE4F3] bg-[#F7F9FD] p-3 text-sm text-[#14244B] focus:border-[#204195] focus:outline-none"
+                  className="mt-2 w-full rounded-2xl border border-[#D3DDF0] bg-white p-4 text-sm leading-6 text-[#14244B] shadow-sm transition focus:border-[#204195] focus:outline-none focus:ring-4 focus:ring-[#204195]/10"
                 />
                 <div className="mt-2 flex items-center gap-3">
                   <button
@@ -720,14 +778,14 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
                   {takeawayState === 'saved' && <span className="text-xs text-[#287A4B]">{t('report.saved')}</span>}
                   {takeawayState === 'error' && <span className="text-xs text-[#C43B3B]">{t('report.saveError')}</span>}
                 </div>
-              </>
+              </div>
             )}
-            <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#EEF2FD] pt-4 text-sm">
-              <Link href="/interview/select" className="font-semibold text-[#204195] underline-offset-4 hover:underline">
-                {t('uxInterview.report.next.practice')} →
+            <div className="relative mt-6 flex flex-wrap items-center gap-3 border-t border-[#DCE4F3] pt-5 text-sm">
+              <Link href="/interview/select" className="inline-flex items-center gap-2 rounded-full bg-[#204195] px-5 py-2.5 font-semibold text-white transition hover:bg-[#183275]">
+                {t('uxInterview.report.next.practice')} <ArrowRight className="size-4" />
               </Link>
-              <Link href="/dashboard/history" className="font-semibold text-[#204195] underline-offset-4 hover:underline">
-                {t('uxInterview.report.next.history')} →
+              <Link href="/dashboard/history" className="inline-flex items-center gap-2 rounded-full border border-[#C9D5F2] bg-white px-5 py-2.5 font-semibold text-[#204195] transition hover:bg-[#EEF2FD]">
+                {t('uxInterview.report.next.history')} <ArrowRight className="size-4" />
               </Link>
             </div>
           </section>
