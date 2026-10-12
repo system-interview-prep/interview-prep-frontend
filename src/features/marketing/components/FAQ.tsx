@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ChevronDown, HelpCircle } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { FAQ_ITEMS } from "../data/landing.data";
 import { fadeInReveal, EASE_CUSTOM } from "../motion/variants";
@@ -15,7 +16,7 @@ export function FAQ() {
   };
 
   return (
-    <section id="faq" className="relative bg-[#F7F9FD] px-4 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-12">
+    <section id="faq" className="relative px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-12 xl:py-20 bg-[#F7F9FD] border-t border-[#DCE4F3]">
       <motion.div
         initial="hidden"
         whileInView="visible"
@@ -23,39 +24,43 @@ export function FAQ() {
         variants={fadeInReveal}
         className="mx-auto w-full max-w-[1320px] text-center"
       >
-        <h2 className="font-display text-3xl font-semibold tracking-tight text-[#14244B] sm:text-4xl md:text-[44px]">
+        <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#204195]">
+          {t("landing.faq.eyebrow")}
+        </span>
+
+        <h2 className="mt-2 font-sans text-3xl font-extrabold tracking-tight text-[#14244B] sm:text-4xl md:text-5xl">
           {t("landing.faq.title")}
         </h2>
 
-        <p className="mx-auto mt-3 max-w-xl text-base text-[#607096] sm:text-lg">
+        <p className="mt-3 text-base text-[#607096] max-w-xl mx-auto sm:text-lg">
           {t("landing.faq.subtitle")}
         </p>
 
-        {/* Accordion */}
-        <div className="mx-auto mt-10 max-w-[840px] space-y-3 text-left">
+        {/* Accordion List centered within container */}
+        <div className="mt-10 mx-auto max-w-[840px] space-y-3 text-left">
           {FAQ_ITEMS.map((item, idx) => {
             const isOpen = openIndex === idx;
 
             return (
               <div
                 key={idx}
-                className="rounded-3xl bg-white ring-1 ring-[#DCE4F3]"
+                className="rounded-2xl border border-[#DCE4F3] bg-white transition-all shadow-xs"
               >
                 <button
                   type="button"
                   onClick={() => toggle(idx)}
                   aria-expanded={isOpen}
-                  className="flex w-full items-center justify-between gap-4 p-5 text-left text-[15px] font-semibold text-[#14244B] transition-colors hover:text-[#204195] sm:text-base"
+                  className="flex w-full items-center justify-between gap-4 p-5 font-sans text-base font-bold text-[#14244B] text-left hover:text-[#204195] cursor-pointer"
                 >
-                  <span>{item.q}</span>
-                  <span
-                    aria-hidden="true"
-                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#F7F9FD] text-lg leading-none text-[#607096] transition-transform duration-200 ${
-                      isOpen ? "rotate-45 text-[#204195]" : ""
-                    }`}
-                  >
-                    +
+                  <span className="flex items-center gap-3">
+                    <HelpCircle className="size-5 text-[#204195] shrink-0" />
+                    {item.q}
                   </span>
+                  <ChevronDown
+                    className={`size-5 text-[#607096] shrink-0 transition-transform duration-200 ${
+                      isOpen ? "rotate-180 text-[#204195]" : ""
+                    }`}
+                  />
                 </button>
 
                 <AnimatePresence>
@@ -67,7 +72,7 @@ export function FAQ() {
                       transition={{ duration: 0.2, ease: EASE_CUSTOM }}
                       className="overflow-hidden"
                     >
-                      <div className="px-5 pb-5 text-sm leading-relaxed text-[#607096]">
+                      <div className="border-t border-[#DCE4F3] p-5 pt-3 text-sm leading-relaxed text-[#607096]">
                         {item.a}
                       </div>
                     </motion.div>
