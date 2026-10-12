@@ -9,19 +9,20 @@ import {
   FileText,
   History,
   House,
+  LogIn,
   LogOut,
   MessagesSquare,
   PanelLeftClose,
   PanelLeftOpen,
-  Plus,
   Settings,
+  Sparkles,
+  User,
 } from "lucide-react";
 import { useLocalStorageValue } from "@/hooks/useLocalStorageValue";
 import { cn } from "@/utils";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { formatUserRole } from "@/i18n/roles";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
-import FoxAvatar from "@features/mascot/components/FoxAvatar";
 import { useDialogA11y } from "@components/shared/useDialogA11y";
 
 const subscribeNothing = () => () => {};
@@ -178,12 +179,23 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
         {/* Mobile top bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between bg-[#F8FAFC]/90 px-4 py-2.5 backdrop-blur md:hidden">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <FoxAvatar size={32} />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#DCE4F3] bg-white">
+              <img src="/logo.jpg" alt="Intervia" className="h-full w-full object-cover" />
+            </div>
             <span className="font-display text-lg font-semibold tracking-tight text-[#14244B]">Intervia</span>
           </Link>
-          <Link href="/dashboard/profile" aria-label={t("userDash.nav.profile")} suppressHydrationWarning>
-            {avatar("h-8 w-8")}
-          </Link>
+          {navReady && !profile ? (
+            <Link
+              href="/login"
+              className="inline-flex h-8 items-center justify-center rounded-xl bg-[#204195] px-3.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#183275]"
+            >
+              Đăng nhập
+            </Link>
+          ) : (
+            <Link href="/dashboard/profile" aria-label={t("userDash.nav.profile")} suppressHydrationWarning>
+              {avatar("h-8 w-8")}
+            </Link>
+          )}
         </header>
 
         {/* Desktop sidebar: full width with words, or a collapsed icon rail */}
@@ -200,9 +212,9 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
                 className="flex min-w-0 items-center gap-2.5 rounded-2xl px-1 py-1 transition-opacity hover:opacity-90"
                 aria-label={t("interview.select.backDashboard")}
               >
-                <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-[0_6px_16px_-8px_rgba(252,182,37,0.6)]">
-                  <FoxAvatar size={42} />
-                </span>
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#DCE4F3] bg-white shadow-2xs">
+                  <img src="/logo.jpg" alt="Intervia" className="h-full w-full object-cover" />
+                </div>
                 {!collapsed ? (
                   <span className="min-w-0">
                     <span className="block font-display text-[22px] font-semibold leading-none tracking-tight text-[#14244B]">
@@ -224,27 +236,15 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
               </button>
             </div>
 
-            <Link
-              href="/interview/select"
-              title={collapsed ? t("userDash.nav.newInterview") : undefined}
-              aria-label={collapsed ? t("userDash.nav.newInterview") : undefined}
-              className={cn(
-                "mt-7 flex h-11 items-center justify-center rounded-full bg-[#204195] text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(32,65,149,0.8)] transition-all hover:-translate-y-px hover:bg-[#183275]",
-                collapsed ? "mx-auto w-11" : "w-full px-4",
-              )}
-            >
-              {collapsed ? <Plus className="size-5" aria-hidden="true" /> : t("userDash.nav.newInterview")}
-            </Link>
-
-            <nav className="mt-7" aria-label={t("userDash.nav.groupMain")}>
-              <ul className="space-y-0.5">
+            <nav className="mt-6" aria-label={t("userDash.nav.groupMain")}>
+              <ul className="space-y-1">
                 {mainNav.map((item) => (
                   <li key={item.href}>
                     <SidebarLink item={item} collapsed={collapsed} />
                   </li>
                 ))}
               </ul>
-              <ul className="mt-6 space-y-0.5 border-t border-[#DCE4F3] pt-5">
+              <ul className="mt-6 space-y-1 border-t border-[#DCE4F3] pt-5">
                 {secondaryNav.map((item) => (
                   <li key={item.href}>
                     <SidebarLink item={item} quiet collapsed={collapsed} />
@@ -255,7 +255,36 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className={cn("shrink-0 pb-5", collapsed ? "px-3" : "px-4")}>
-            {collapsed ? (
+            {navReady && !profile ? (
+              collapsed ? (
+                <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/80 p-2">
+                  <Link
+                    href="/login"
+                    aria-label="Đăng nhập"
+                    title="Đăng nhập"
+                    className="grid h-9 w-9 place-items-center rounded-xl bg-[#204195] text-white shadow-xs transition hover:bg-[#183275]"
+                  >
+                    <LogIn className="size-4" aria-hidden="true" />
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 rounded-2xl border border-[#204195]/20 bg-gradient-to-br from-[#EEF2FD] to-white p-3 shadow-xs">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#204195]">
+                    <Sparkles className="size-3.5 text-[#FCB625]" />
+                    <span>Chế độ xem trước</span>
+                  </div>
+                  <p className="text-[11px] leading-snug text-[#607096]">
+                    Đăng nhập để lưu tiến độ và mở khóa trọn bộ tính năng.
+                  </p>
+                  <Link
+                    href="/login"
+                    className="mt-1 inline-flex h-8 items-center justify-center rounded-xl bg-[#204195] text-xs font-semibold text-white shadow-xs transition hover:bg-[#183275]"
+                  >
+                    Đăng nhập ngay
+                  </Link>
+                </div>
+              )
+            ) : collapsed ? (
               <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/80 p-2">
                 <Link href="/dashboard/profile" aria-label={t("userDash.nav.profile")} title={displayName} suppressHydrationWarning>
                   {avatar("h-9 w-9")}
@@ -271,7 +300,7 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
                 </button>
               </div>
             ) : (
-            <div className="flex items-center gap-2.5 rounded-2xl bg-white/80 p-2 pr-3">
+            <div className="flex items-center gap-2 rounded-2xl border border-[#DCE4F3]/70 bg-white/90 p-2 pr-2.5 shadow-sm">
               <Link
                 href="/dashboard/profile"
                 className="group flex min-w-0 flex-1 items-center gap-2.5"
@@ -279,7 +308,7 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
                 title={displayName}
                 suppressHydrationWarning
               >
-                {avatar("h-9 w-9")}
+                {avatar("h-9 w-9 ring-2 ring-[#F0F4FC]")}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13px] font-semibold text-[#14244B] group-hover:text-[#204195]">
                     {displayName || t("userDash.profile.guest")}
@@ -290,9 +319,11 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => setShowLogoutModal(true)}
-                className="shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold text-[#607096] transition-colors hover:bg-[#F0F4FC] hover:text-[#C43B3B]"
+                title={t("userDash.nav.logout")}
+                aria-label={t("userDash.nav.logout")}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[#7B8BA7] transition-colors hover:bg-[#FDF2F2] hover:text-[#C43B3B]"
               >
-                {t("userDash.nav.logout")}
+                <LogOut className="size-4" aria-hidden="true" />
               </button>
             </div>
             )}
@@ -408,7 +439,7 @@ function SidebarLink({ item, quiet = false, collapsed = false }: { item: NavItem
         aria-label={item.label}
         title={item.label}
         className={cn(
-          "relative mx-auto grid h-11 w-11 place-items-center rounded-xl transition-colors",
+          "relative mx-auto grid h-10 w-10 place-items-center rounded-xl transition-colors",
           item.active
             ? "bg-white text-[#204195] shadow-[0_4px_14px_-10px_rgba(20,36,75,0.5)]"
             : "text-[#607096] hover:bg-white/60 hover:text-[#14244B]",
@@ -423,21 +454,30 @@ function SidebarLink({ item, quiet = false, collapsed = false }: { item: NavItem
     <Link
       href={item.href}
       aria-current={item.active ? "page" : undefined}
-      className={`group relative flex items-center rounded-xl px-3 py-2.5 transition-colors ${
-        quiet ? "text-[13px]" : "text-[14.5px]"
-      } ${
+      className={cn(
+        "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all",
+        quiet ? "text-[13px]" : "text-[14px]",
         item.active
-          ? "bg-white font-semibold text-[#14244B] shadow-[0_4px_14px_-10px_rgba(20,36,75,0.5)]"
-          : "font-medium text-[#607096] hover:bg-white/60 hover:text-[#14244B]"
-      }`}
+          ? "bg-white font-semibold text-[#14244B] shadow-[0_4px_16px_-8px_rgba(20,36,75,0.25)] ring-1 ring-[#DCE4F3]/60"
+          : "font-medium text-[#607096] hover:bg-white/70 hover:text-[#14244B]",
+      )}
     >
-      <span
-        aria-hidden="true"
-        className={`mr-3 h-1.5 w-1.5 rounded-full transition-colors ${
-          item.active ? "bg-[#FCB625]" : "bg-transparent group-hover:bg-[#FCB625]/40"
-        }`}
-      />
-      {item.label}
+      {item.active && (
+        <span
+          aria-hidden="true"
+          className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-[#FCB625]"
+        />
+      )}
+      {Icon && (
+        <Icon
+          className={cn(
+            "size-[18px] shrink-0 transition-colors",
+            item.active ? "text-[#204195]" : "text-[#7B8BA7] group-hover:text-[#14244B]",
+          )}
+          aria-hidden="true"
+        />
+      )}
+      <span className="truncate">{item.label}</span>
     </Link>
   );
 }
