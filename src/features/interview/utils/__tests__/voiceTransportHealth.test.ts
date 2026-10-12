@@ -20,6 +20,16 @@ describe('voiceTransportHealthMessage', () => {
     ).toContain('unavailable');
   });
 
+  it('asks to wait, not to reconnect, when the connection cap is hit', () => {
+    const message = voiceTransportHealthMessage(
+      { type: 'voice.transport.degraded', component: 'stt', recoverable: false, reason: 'rate_limited' },
+      'vi-VN',
+    );
+    expect(message).toContain('tạm hết hạn mức');
+    expect(message).toContain('chế độ chat');
+    expect(message).not.toContain('Hãy kết nối lại');
+  });
+
   it('clears the warning on recovery and ignores unrelated packets', () => {
     expect(voiceTransportHealthMessage({ type: 'voice.transport.recovered' }, 'vi-VN')).toBeNull();
     expect(voiceTransportHealthMessage({ type: 'other' }, 'vi-VN')).toBeUndefined();
