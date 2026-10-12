@@ -171,6 +171,19 @@
   .press:active { transform: none; }
 }
 
+/* Interviewer presence (voice/video): the aura mirrors the real turn state.
+   Slow breathing while it listens, a livelier glow while it speaks, a turning
+   sheen while it reviews an answer. Transform/opacity only. */
+@keyframes presence-breathe { 0%, 100% { transform: scale(1); opacity: .55; } 50% { transform: scale(1.06); opacity: .8; } }
+@keyframes presence-speak { 0%, 100% { transform: scale(1.02); opacity: .75; } 50% { transform: scale(1.14); opacity: 1; } }
+@keyframes presence-turn { to { transform: rotate(360deg); } }
+.presence-aura { animation: presence-breathe 4.2s ease-in-out infinite; }
+.presence-aura[data-state="speaking"] { animation: presence-speak 1.4s ease-in-out infinite; }
+.presence-sheen { animation: presence-turn 3.2s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .presence-aura, .presence-aura[data-state="speaking"], .presence-sheen { animation: none; }
+}
+
 @keyframes float-star { 0%, 100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-7px) rotate(4deg); } }
 .float-star { animation: float-star 2.8s ease-in-out infinite; }
 
