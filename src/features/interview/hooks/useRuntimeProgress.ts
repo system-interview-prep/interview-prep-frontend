@@ -12,6 +12,30 @@ export interface RuntimeProgress {
   durationMinutes: number | null;
   isClosed: boolean;
   turns: ChatRuntimeResponse["turns"];
+  /** The question being answered, pinned on the voice/video stage. */
+  question: CurrentQuestion | null;
+}
+
+export interface CurrentQuestion {
+  text: string | null;
+  followUpText: string | null;
+  competency: string | null;
+  startedAt: string | null;
+  softAnswerSeconds: number | null;
+  hardAnswerSeconds: number | null;
+}
+
+export function currentQuestionFromRuntime(runtime: ChatRuntimeResponse): CurrentQuestion | null {
+  const turn = runtime.currentTurn;
+  if (!turn || runtime.sessionStatus === "CLOSED") return null;
+  return {
+    text: turn.questionText ?? null,
+    followUpText: turn.followUpText ?? null,
+    competency: turn.competency ?? null,
+    startedAt: turn.startedAt ?? null,
+    softAnswerSeconds: turn.softAnswerSeconds ?? null,
+    hardAnswerSeconds: turn.hardAnswerSeconds ?? null,
+  };
 }
 
 export function progressFromRuntime(runtime: ChatRuntimeResponse): RuntimeProgress {
@@ -28,6 +52,7 @@ export function progressFromRuntime(runtime: ChatRuntimeResponse): RuntimeProgre
     durationMinutes: runtime.durationMinutes ?? null,
     isClosed,
     turns: runtime.turns,
+    question: currentQuestionFromRuntime(runtime),
   };
 }
 
