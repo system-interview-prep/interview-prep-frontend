@@ -5,6 +5,9 @@ import { Loader2 } from "lucide-react";
 import { downloadCvPdf } from "@/lib/aiService";
 import { useLanguage } from "@/i18n/LanguageProvider";
 
+// Canvas pixels per PDF point; the displayed page is then scaled to fit with CSS.
+const RENDER_SCALE = 1.35;
+
 interface HighlightBox {
   left: number;
   top: number;
@@ -36,7 +39,7 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRen
         const page = await pdf.getPage(pageNum);
         if (!active) return;
 
-        const viewport = page.getViewport({ scale: 1.35 });
+        const viewport = page.getViewport({ scale: RENDER_SCALE });
         const canvas = canvasRef.current;
         if (!canvas) return;
 
@@ -59,8 +62,14 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRen
         if (textLayer) {
           textLayer.innerHTML = "";
           if (enableTextSelection) {
-            textLayer.style.height = `${viewport.height}px`;
-            textLayer.style.width = `${viewport.width}px`;
+            // pdf.js sizes and positions the layer from --total-scale-factor
+            // (CSS pixels per PDF point); the resize effect below keeps it equal
+            // to the canvas's displayed scale, so the layer never needs a
+            // transform of its own.
+            textLayer.style.setProperty(
+              "--total-scale-factor",
+              String((containerRef.current?.clientWidth || viewport.width) / viewport.rawDims.pageWidth),
+            );
 
             const pdfJS = await import("pdfjs-dist");
 
@@ -127,23 +136,45 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRen
     };
   }, [pdf, pageNum, matchedSnippets, enableTextSelection, onPageRendered, onSnippetsFound]);
 
+  useEffect(() => {
+    const container = containerRef.current;
+    const textLayer = textLayerRef.current;
+    if (!container || !textLayer || !enableTextSelection || dimensions.width === 0) return;
+
+    // Scaling the layer with a transform on top of pdf.js's own sizing scaled
+    // it twice: the selectable text sat squeezed into the top-left corner,
+    // overlapping itself, so copying picked up jumbled words.
+    const pageWidthPoints = dimensions.width / RENDER_SCALE;
+    const syncTextLayerScale = () => {
+      textLayer.style.setProperty("--total-scale-factor", String(container.clientWidth / pageWidthPoints));
+    };
+    syncTextLayerScale();
+    const observer = new ResizeObserver(syncTextLayerScale);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [dimensions.width, enableTextSelection]);
+
   return (
     <div
       ref={containerRef}
       data-pdf-page={pageNum}
       className="relative mx-auto mb-6 overflow-hidden rounded-2xl bg-white ring-1 ring-[#DCE4F3]"
       style={{
-        width: dimensions.width || "auto",
-        height: dimensions.height || "auto",
-        maxWidth: "max-content",
+        width: "100%",
+        maxWidth: dimensions.width || "100%",
+        aspectRatio: dimensions.width && dimensions.height ? `${dimensions.width} / ${dimensions.height}` : undefined,
       }}
     >
       {/* Canvas Layer */}
-      <canvas ref={canvasRef} className="block" />
+      <canvas ref={canvasRef} className="block h-auto w-full" />
 
       {/* SVG Highlight Overlay (1C & 2A) */}
       {dimensions.width > 0 && (
-        <svg className="absolute inset-0 pointer-events-none w-full h-full z-10">
+        <svg
+          className="pointer-events-none absolute inset-0 z-10 h-full w-full"
+          viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+          preserveAspectRatio="none"
+        >
           {highlights.map((h, idx) => (
             <rect
               key={idx}
@@ -151,9 +182,8 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRen
               y={h.top}
               width={h.width}
               height={h.height}
-              fill="rgba(16, 185, 129, 0.28)" // Soft Translucent Green
-              stroke="#10b981" // Green Border
-              strokeWidth="1.5"
+              fill="rgba(74, 222, 128, 0.28)"
+              stroke="none"
               rx="2"
             />
           ))}
@@ -200,7 +230,7 @@ export default function PdfEvidenceVisualizer({
   const [numPages, setNumPages] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [enableTextSelection, setEnableTextSelection] = useState(false);
+  const enableTextSelection = true;
 
   useEffect(() => {
     if (!candidateId) return;
@@ -318,45 +348,72 @@ export default function PdfEvidenceVisualizer({
   );
 
   return (
-    <div className="relative flex flex-col items-center w-full h-full min-h-[35rem] max-h-[45rem] overflow-y-auto bg-[#F0F4FC] p-4 rounded-3xl border border-[#DCE4F3]">
+    <div className="relative flex min-h-[35rem] w-full flex-col items-center rounded-2xl border border-[#DCE4F3] bg-[#F0F4FC] p-4">
       <style dangerouslySetInnerHTML={{
         __html: `
         .textLayer {
           position: absolute;
-          left: 0;
-          top: 0;
-          right: 0;
-          bottom: 0;
-          overflow: hidden;
-          opacity: 0.28;
-          line-height: 1.0;
+          inset: 0;
+          overflow: clip;
+          opacity: 1;
+          line-height: 1;
+          letter-spacing: normal;
+          word-spacing: normal;
+          text-align: initial;
+          text-size-adjust: none;
+          transform-origin: 0 0;
+          caret-color: currentColor;
+          /* Used by pdf.js 6 setLayerDimensions: without them the layer's
+             width/height were invalid and collapsed. */
+          --scale-round-x: 1px;
+          --scale-round-y: 1px;
+          --min-font-size: 1;
+          --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+          --min-font-size-inv: calc(1 / var(--min-font-size));
         }
-        .textLayer span {
+        .textLayer :is(span, br) {
           color: transparent;
           position: absolute;
           white-space: pre;
           cursor: text;
           transform-origin: 0% 0%;
+          user-select: text;
+        }
+        .textLayer > :not(.markedContent),
+        .textLayer .markedContent span:not(.markedContent) {
+          z-index: 1;
+          --font-height: 0;
+          font-size: calc(var(--text-scale-factor) * var(--font-height));
+          --scale-x: 1;
+          --rotate: 0deg;
+          transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+        }
+        .textLayer .markedContent {
+          display: contents;
         }
         .textLayer mark {
           color: transparent;
         }
+        .textLayer ::selection {
+          background: rgba(32, 65, 149, 0.28);
+          color: transparent;
+        }
+        .textLayer br::selection {
+          background: transparent;
+        }
+        /* Keeps a drag-selection from jumping to the end of the page. */
+        .textLayer .endOfContent {
+          display: block;
+          position: absolute;
+          inset: 100% 0 0;
+          z-index: 0;
+          cursor: default;
+          user-select: none;
+        }
+        .textLayer.selecting .endOfContent {
+          top: 0;
+        }
       `}} />
-
-      {/* Toolbar */}
-      {!loading && error === null && (
-        <div className="w-full flex justify-end mb-4 px-2">
-          <label className="flex items-center gap-2 text-xs font-semibold text-[#607096] bg-white ring-1 ring-[#DCE4F3] rounded-full px-3 py-1.5 cursor-pointer hover:bg-[#F8FAFC] transition-colors">
-            <input
-              type="checkbox"
-              checked={enableTextSelection}
-              onChange={(e) => setEnableTextSelection(e.target.checked)}
-              className="accent-[#204195]"
-            />
-            <span>{t("picker.pdf.textSelection")}</span>
-          </label>
-        </div>
-      )}
 
       {loading ? (
         <div className="my-auto flex flex-col items-center">
