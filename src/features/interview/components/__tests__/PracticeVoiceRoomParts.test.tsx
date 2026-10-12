@@ -9,7 +9,15 @@ import {
   PracticeTurnStepper,
   practiceTurnState,
 } from '../PracticeRoomParts';
-import { ControlButton, PreJoinCard, TranscriptPanel, VoiceRoomHeader, voiceStatus } from '../VoiceRoomParts';
+import {
+  ControlButton,
+  PreJoinCard,
+  SpeakerCard,
+  StageAlert,
+  TranscriptPanel,
+  VoiceRoomHeader,
+  voiceStatus,
+} from '../VoiceRoomParts';
 
 const turn = (index: number, status: string, overrides: Partial<InterviewFrozenTurn['question']> = {}): InterviewFrozenTurn => ({
   turnId: `t${index}`,
@@ -77,7 +85,9 @@ describe('Voice room parts', () => {
       label: 'Đang xem câu trả lời của bạn...',
       tone: 'wait',
     });
-    expect(voiceStatus('connected', true, undefined, 'answering').label).toBe('Đang nghe — nói hết ý rồi bấm Trả lời xong');
+    expect(voiceStatus('connected', true, undefined, 'answering').label).toBe(
+      'Đang nghe câu trả lời của bạn',
+    );
     expect(voiceStatus('connected', true, undefined, 'listening').label).toBe('Đến lượt bạn — hãy trả lời');
     // Live speech wins over the window state.
     expect(voiceStatus('agent-speaking', true, undefined, 'processing').tone).toBe('ai');
@@ -87,7 +97,7 @@ describe('Voice room parts', () => {
     expect(voiceStatus('agent-speaking', true)).toEqual({ label: 'AI đang nói — hãy lắng nghe', tone: 'ai' });
     expect(voiceStatus('connected', true).label).toBe('Đến lượt bạn — hãy trả lời');
     const header = renderToStaticMarkup(
-      <VoiceRoomHeader mode="video" jobTitle="Data Engineer" status={voiceStatus('idle', false)} isEnding={false} onBack={noop} onEnd={noop} />
+      <VoiceRoomHeader mode="video" jobTitle="Data Engineer" status={voiceStatus('idle', false)} onBack={noop} />
     );
     expect(header).toContain('Phỏng vấn giọng nói + camera');
     expect(header).not.toContain('LiveKit');
@@ -109,6 +119,30 @@ describe('Voice room parts', () => {
     expect(html).toContain('aria-pressed="false"');
   });
 
+  it('treats labelled actions such as "Trả lời xong" as buttons, not toggles', () => {
+    const html = renderToStaticMarkup(
+      <ControlButton label="Tôi đã trả lời xong" text="Trả lời xong" onClick={noop} active primary icon={null} />
+    );
+    expect(html).not.toContain('aria-pressed');
+    expect(html).toContain('Trả lời xong');
+  });
+
+  it('puts a speech outage on the stage with a way out', () => {
+    const html = renderToStaticMarkup(
+      <StageAlert
+        title="Người phỏng vấn tạm không nghe được bạn"
+        message="Dịch vụ nhận giọng nói đang tạm hết hạn mức."
+        action={{ label: 'Rời phòng', onClick: noop }}
+      />
+    );
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('Rời phòng');
+    const card = renderToStaticMarkup(
+      <SpeakerCard name="Bạn" tone="user" active={false} alert note="Chưa nghe được bạn" icon={null} />
+    );
+    expect(card).toContain('Chưa nghe được bạn');
+  });
+
   it('renders transcript lines as AI / candidate bubbles', () => {
     const html = renderToStaticMarkup(
       <TranscriptPanel
@@ -122,6 +156,13 @@ describe('Voice room parts', () => {
     expect(html).toContain('data-speaker="ai"');
     expect(html).toContain('Người phỏng vấn AI');
     expect(html).toContain('data-speaker="user"');
-    expect(html).toContain('2 lượt');
+    expect(html).not.toContain('lượt');
+  });
+
+  it('shows the answer in progress as the last transcript bubble instead of the empty state', () => {
+    const html = renderToStaticMarkup(<TranscriptPanel agentConnected lines={[]} liveText="Em đang làm backend" />);
+    expect(html).toContain('data-live="true"');
+    expect(html).toContain('Em đang làm backend');
+    expect(html).not.toContain('Lời thoại sẽ hiện');
   });
 });
