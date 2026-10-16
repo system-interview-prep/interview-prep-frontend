@@ -184,18 +184,6 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
       ? t("auth.passwordStrengthGood") || "Tốt"
       : t("auth.passwordStrengthStrong") || "Mạnh";
 
-  // A short intro line beside the form; it changes with what is happening.
-  const hasErrors = Object.keys(formErrors).length > 0;
-  const foxLine = redirecting
-    ? mode === "signup"
-      ? t("mascot.speech.signupSuccess")
-      : t("mascot.speech.loginWelcome")
-    : hasErrors
-    ? t("mascot.speech.loginError")
-    : mode === "login"
-    ? t("mascot.speech.loginWelcome")
-    : t("mascot.speech.signupWelcome");
-
   // Plain words for what is happening right now, shown under the submit button.
   const statusText = redirecting
     ? mode === "signup"
@@ -217,9 +205,9 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
   const fieldErrorClass = "mt-1.5 text-xs font-medium text-[#C43B3B]";
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col bg-[#F7F9FD] px-4 py-5 font-body text-[#14244B] sm:px-6 sm:py-7 lg:px-10">
+    <div className="relative flex min-h-screen w-full flex-col justify-between bg-[#F7F9FD] px-4 py-6 font-body text-[#14244B] sm:px-6 sm:py-8">
       {/* Top bar: brand + way back home */}
-      <header className="relative z-20 mx-auto flex w-full max-w-[1120px] items-center justify-between gap-4">
+      <header className="relative z-20 mx-auto flex w-full max-w-[480px] items-center justify-between gap-4 pb-2">
         <Link
           href="/"
           className="inline-flex items-center gap-2 transition-opacity hover:opacity-90"
@@ -239,29 +227,8 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
         </Link>
       </header>
 
-      <div className="relative z-10 mx-auto my-auto grid w-full max-w-[1120px] items-center gap-5 py-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)] lg:gap-16 lg:py-10">
-        {/* Intro copy beside the form (the fox appears only in the logo here) */}
-        <div className="anim-rise flex flex-col gap-4 lg:items-start lg:gap-6">
-          <h2 className="hidden font-display text-[clamp(2rem,3.4vw,2.9rem)] font-semibold leading-[1.1] tracking-tight text-[#14244B] lg:block lg:max-w-md">
-            {t("authSide.title")}
-          </h2>
-          <div
-            className="min-w-0 rounded-3xl border border-[#DCE4F3] bg-white px-4 py-3.5 sm:px-5 lg:max-w-md lg:px-6 lg:py-5"
-            aria-live="polite"
-          >
-            <p className="text-[15px] leading-relaxed text-[#14244B] lg:text-[17px]">{foxLine}</p>
-          </div>
-          <ul className="hidden space-y-3 lg:block lg:max-w-md">
-            {["authSide.point1", "authSide.point2", "authSide.point3"].map((key, index) => (
-              <li key={key} className="anim-rise flex items-start gap-3 text-[15px] leading-6 text-[#607096]" style={{ ["--i" as string]: index + 1 }}>
-                <span aria-hidden="true" className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#FCB625]" />
-                {t(key)}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Auth card */}
+      {/* Main auth card */}
+      <main className="relative z-10 mx-auto my-auto w-full max-w-[480px] py-4">
         <div className="w-full rounded-3xl bg-white p-6 shadow-[0_24px_60px_-36px_rgba(20,36,75,0.45)] ring-1 ring-[#DCE4F3] sm:p-8">
           {/* Segmented tab control */}
           <div
@@ -567,7 +534,10 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
             {t("auth.encryptedSession")}
           </p>
         </div>
-      </div>
+      </main>
+
+      {/* Footer spacer */}
+      <footer className="mx-auto w-full max-w-[480px] text-center" />
     </div>
   );
 }
