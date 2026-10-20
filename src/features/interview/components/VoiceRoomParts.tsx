@@ -142,8 +142,9 @@ export function PreJoinCard({
   // The room dropped without the interview closing (left, reloaded): offer to rejoin.
   const dropped = status === 'ended';
   return (
-    <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#14244B]/80 p-4">
-      <section className="w-full max-w-md rounded-3xl bg-white p-6 text-[#14244B] shadow-[0_28px_60px_-30px_rgba(0,0,0,0.7)]">
+    // Below lg the stage is shorter than this card: cover the screen (scrollable) instead of clipping it.
+    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-[#14244B]/80 p-4 sm:items-center lg:absolute lg:z-10">
+      <section className="my-auto w-full max-w-md rounded-3xl bg-white p-6 text-[#14244B] shadow-[0_28px_60px_-30px_rgba(0,0,0,0.7)]">
         <div className="flex items-center gap-3.5 border-b border-[#EAEFF8] pb-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-2xs">
             <img src="/logo.jpg" alt="Intervia" className="h-full w-full object-cover" />
@@ -383,7 +384,7 @@ export function SpeakerCard({
   return (
     <div
       data-active={active}
-      className={`flex min-w-0 items-center gap-3 rounded-2xl border-2 px-3 py-2.5 transition-colors duration-200 sm:px-4 ${
+      className={`flex min-w-0 items-center gap-2 rounded-2xl border-2 px-2.5 py-2 transition-colors duration-200 sm:gap-3 sm:px-4 sm:py-2.5 ${
         alert ? 'border-[#F5C2C2] bg-[#FDF2F2]' : active ? `${ACTIVE_BORDER[tone]} bg-white` : 'border-transparent bg-[#F3F6FB]'
       }`}
     >
@@ -395,11 +396,11 @@ export function SpeakerCard({
         )}
       </Avatar>
       <div className="min-w-0">
-        <p className="flex items-center gap-2 truncate text-sm font-semibold text-[#14244B]">
+        <p className="flex items-center gap-2 text-[13px] font-semibold leading-tight text-[#14244B] sm:truncate sm:text-sm">
           {name}
           {active ? <SpeakingBars tone={tone} /> : null}
         </p>
-        {note ? <p className={`truncate text-xs ${alert ? 'text-[#C43B3B]' : 'text-[#607096]'}`}>{note}</p> : null}
+        {note ? <p className={`hidden truncate text-xs sm:block ${alert ? 'text-[#C43B3B]' : 'text-[#607096]'}`}>{note}</p> : null}
       </div>
     </div>
   );
@@ -535,14 +536,15 @@ export function TranscriptPanel({
   }
 
   return (
-    <aside className="flex h-[34vh] w-full shrink-0 flex-col overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white lg:h-auto lg:w-[380px]">
-      <div className="border-b border-[#DCE4F3] px-5 py-3.5">
+    // Below lg the stage (question, speakers, controls) needs the height: the transcript gets a short strip.
+    <aside className="flex h-[24dvh] min-h-[8.5rem] w-full shrink-0 flex-col overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white lg:h-auto lg:min-h-0 lg:w-[380px]">
+      <div className="border-b border-[#DCE4F3] px-4 py-2 sm:px-5 lg:py-3.5">
         <h2 className="text-sm font-bold text-[#14244B]">{t('room.voice.transcriptTitle')}</h2>
         <p className="mt-0.5 text-[11px] text-[#607096]">
           {agentConnected ? t('room.voice.agentIn') : t('room.voice.agentWaiting')}
         </p>
       </div>
-      <div ref={listRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#F7F9FD] p-4" aria-live="polite">
+      <div ref={listRef} className="min-h-0 flex-1 space-y-2.5 overflow-y-auto bg-[#F7F9FD] p-3 lg:space-y-3 lg:p-4" aria-live="polite">
         {bubbles}
       </div>
       {footer}
