@@ -20,3 +20,12 @@ describe('Chat room presence', () => {
     expect(getEndReasonLabel('CANDIDATE_LEFT')).toBe('Kết thúc do bạn rời phòng');
   });
 });
+
+describe('Interview clock before the first question', () => {
+  it('shows the full budget standing still', async () => {
+    const { InterviewCountdownTimer } = await import('../ChatInterviewProgress');
+    const html = renderToStaticMarkup(<InterviewCountdownTimer startedAt={null} durationMinutes={25} isClosed={false} />);
+    expect(html).toContain('25:00');
+    expect(html).toContain('bắt đầu tính khi có câu hỏi đầu tiên');
+  });
+});
