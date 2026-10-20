@@ -159,6 +159,8 @@ export function endReasonKey(reason?: string | null): string {
       return 'endReason.early';
     case 'TECHNICAL_FAILURE':
       return 'endReason.technical';
+    case 'CANDIDATE_LEFT':
+      return 'endReason.candidateLeft';
     default:
       return 'endReason.completed';
   }
@@ -177,6 +179,8 @@ export function getEndReasonLabel(reason?: EndReason | null, t?: Translate): str
       return tr('room.endReason.early');
     case 'TECHNICAL_FAILURE':
       return tr('room.endReason.technical');
+    case 'CANDIDATE_LEFT':
+      return tr('room.endReason.candidateLeft');
     case 'COMPLETED':
     case 'NORMAL_COMPLETION':
     default:
