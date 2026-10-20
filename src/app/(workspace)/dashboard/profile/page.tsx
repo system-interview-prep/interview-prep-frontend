@@ -344,7 +344,7 @@ export default function UserProfilePage() {
           {/* Main content area */}
           {loading ? (
             <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]" role="status" aria-label={t("profile.loading")}>
-              <div className="animate-pulse rounded-3xl bg-white p-6 border border-[#DCE4F3]">
+              <div className="animate-pulse rounded-2xl bg-white p-6 border border-[#DCE4F3]">
                 <div className="mx-auto h-24 w-24 rounded-full bg-[#F0F4FC]" />
                 <div className="mx-auto mt-4 h-6 w-36 rounded-lg bg-[#F0F4FC]" />
                 <div className="mx-auto mt-2 h-4 w-24 rounded-lg bg-[#F0F4FC]" />
@@ -354,26 +354,26 @@ export default function UserProfilePage() {
                   <div className="h-8 rounded-lg bg-[#F8FAFC]" />
                 </div>
               </div>
-              <div className="animate-pulse rounded-3xl bg-white p-6 border border-[#DCE4F3]">
+              <div className="animate-pulse rounded-2xl bg-white p-6 border border-[#DCE4F3]">
                 <div className="h-7 w-40 rounded-lg bg-[#F0F4FC]" />
                 <div className="mt-2 h-4 w-64 max-w-full rounded-lg bg-[#F0F4FC]" />
                 <div className="mt-8 space-y-6">
                   <div className="h-10 rounded-2xl bg-[#F8FAFC]" />
                   <div className="h-10 rounded-2xl bg-[#F8FAFC]" />
                   <div className="h-10 rounded-2xl bg-[#F8FAFC]" />
-                  <div className="h-10 w-32 rounded-full bg-[#F0F4FC]" />
+                  <div className="h-10 w-32 rounded-xl bg-[#F0F4FC]" />
                 </div>
               </div>
             </section>
           ) : !profile ? (
             <section
-              className="flex flex-col items-center rounded-3xl bg-white p-8 text-center border border-[#DCE4F3]"
+              className="flex flex-col items-center rounded-2xl bg-white p-8 text-center border border-[#DCE4F3]"
               role="alert">
               <h2 className="mt-3 text-xl font-semibold text-[#14244B]">{t("profile.loadError")}</h2>
               <button
                 type="button"
                 onClick={loadProfile}
-                className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+                className="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
               >
                 {t("profile.retry")}
               </button>
@@ -381,7 +381,7 @@ export default function UserProfilePage() {
           ) : (
             <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[0.9fr_1.1fr]">
               {/* Cột trái: Identity & Avatar Card */}
-              <section className="min-w-0 overflow-hidden rounded-3xl bg-white border border-[#DCE4F3]">
+              <section className="min-w-0 overflow-hidden rounded-2xl bg-white border border-[#DCE4F3]">
                 <div className="border-b border-[#EAEFF8] bg-[#F8FAFC] p-6 text-center sm:p-7">
                   <div className="relative mx-auto inline-block">
                     {/* Avatar Container 24x24 (96px) */}
@@ -437,7 +437,7 @@ export default function UserProfilePage() {
                     />
                   </div>
 
-                  <h2 className="mt-4 truncate text-xl font-semibold text-[#14244B]">
+                  <h2 className="mt-4 line-clamp-2 break-words text-lg font-bold text-[#14244B]" title={currentDisplayName}>
                     {currentDisplayName}
                   </h2>
                   <div className="mt-1 flex items-center justify-center gap-2">
@@ -456,11 +456,11 @@ export default function UserProfilePage() {
                     {t("profile.accountDetails")}
                   </h3>
                   <div className="divide-y divide-[#EAEFF8] rounded-2xl bg-[#F8FAFC] border border-[#DCE4F3]">
-                    <div className="flex items-center justify-between gap-4 p-3.5 text-sm">
+                    <div className="flex flex-col gap-1 p-3.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                       <span className="shrink-0 font-medium text-[#607096]">
                         {t("profile.field.email")}
                       </span>
-                      <span className="min-w-0 text-right font-semibold text-[#14244B] break-all">
+                      <span className="min-w-0 font-semibold text-[#14244B] [overflow-wrap:anywhere] sm:text-right">
                         {profile.email || "—"}
                       </span>
                     </div>
@@ -496,9 +496,9 @@ export default function UserProfilePage() {
               </section>
 
               {/* Cột phải: Form cập nhật thông tin (Edit Profile Card) */}
-              <section className="min-w-0 rounded-3xl bg-white p-6 border border-[#DCE4F3] sm:p-7">
+              <section className="min-w-0 rounded-2xl bg-white p-5 border border-[#DCE4F3] sm:p-6">
                 <div className="mb-6 border-b border-[#EAEFF8] pb-4">
-                  <h2 className="text-2xl font-semibold text-[#14244B]">
+                  <h2 className="text-lg font-bold text-[#14244B]">
                     {t("profile.editTitle")}
                   </h2>
                   <p className="mt-1 text-sm text-[#607096]">
@@ -565,7 +565,7 @@ export default function UserProfilePage() {
                     <button
                       type="submit"
                       disabled={saving || !isDirty}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {saving ? (
                         <>
@@ -581,7 +581,7 @@ export default function UserProfilePage() {
                       type="button"
                       onClick={resetForm}
                       disabled={saving || !isDirty}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F0F4FC] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F0F4FC] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <span>{t("profile.reset")}</span>
                     </button>
