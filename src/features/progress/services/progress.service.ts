@@ -66,6 +66,24 @@ export type SkillProgress = {
   /** 0 Bắt đầu · 1 Cơ bản · 2 Đạt yêu cầu · 3 Vững · 4 Xuất sắc */
   level?: number;
   levelEvents?: LevelEvent[];
+  /** Area the skill belongs to (application/skill_display.py); `label` is already the candidate-facing name. */
+  area?: SkillArea;
+  taxonomyLabel?: string | null;
+  /** Newest first: what was asked, the score and the key points the answer missed. */
+  recentQuestions?: SkillQuestion[];
+  /** JSON, XML, Git…: listed in job posts, no longer asked as a topic of their own. */
+  minor?: boolean;
+};
+export type SkillArea = "project" | "language" | "framework" | "data" | "api" | "infra" | "ai" | "teamwork" | "general" | "other";
+export const SKILL_AREAS: SkillArea[] = ["project", "language", "framework", "data", "api", "infra", "ai", "teamwork", "general", "other"];
+export type SkillQuestion = {
+  sessionId: string;
+  date: string;
+  question: string;
+  score: number;
+  missing: { point: string; status: "MISSING" | "PARTIAL" | "INCORRECT" }[];
+  /** The grader recorded what the answer covered; false: no list to compare with. */
+  checked?: boolean;
 };
 
 export type JobPoint = { sessionId: string; date: string; score: number; tier: PracticeTier };
@@ -110,6 +128,45 @@ export type ProgressCalibration = {
   tierAdjusted: boolean;
 };
 
+/** A key point followed across sessions (backend progress.gap_notebook). */
+export type GapItem = {
+  skill: string;
+  skillKey: string;
+  area: SkillArea;
+  point: string;
+  /** Latest status: COVERED for a fixed point. */
+  status: "MISSING" | "PARTIAL" | "INCORRECT" | "COVERED";
+  timesAsked: number;
+  timesMissed: number;
+  lastSeen: { sessionId: string; date: string; question: string; jobId: string | null; resumeId: string | null };
+};
+export type RoundStatus = "ready" | "almost" | "practice" | "thin" | "unseen";
+export type RoundReadiness = {
+  area: SkillArea;
+  status: RoundStatus;
+  estimate: number | null;
+  sessions: number;
+  skills: { conceptId: string; label: string; estimate: number }[];
+  topGap: { point: string; skill: string; timesMissed: number } | null;
+};
+export type JobReadiness = { jobId: string; jobTitle: string | null; sessions: number; rounds: RoundReadiness[] };
+
+export type RealInterviewStage = "screening" | "technical" | "final" | "other";
+export type RealInterviewResult = "passed" | "failed" | "waiting";
+export type RealInterviewReport = {
+  id: string;
+  jobId: string | null;
+  company: string | null;
+  date: string;
+  stage: RealInterviewStage;
+  result: RealInterviewResult;
+  askedAreas: SkillArea[];
+  hardParts: string | null;
+  /** Readiness rounds the page showed when the report was made. */
+  readiness: { jobId?: string; sessions?: number; rounds?: Partial<Record<SkillArea, { status: RoundStatus; estimate: number | null }>> };
+};
+export type RealInterviewInput = Omit<RealInterviewReport, "id" | "readiness">;
+
 export type PracticeProgress = {
   generatedAt: string;
   weeklyGoal: number;
@@ -134,6 +191,10 @@ export type PracticeProgress = {
     processSd?: number;
   };
   calibration?: ProgressCalibration;
+  /** Points still missing, and points fixed (absent on older backends). */
+  gaps?: { open: GapItem[]; fixed: GapItem[] };
+  /** Readiness per position, by interview round (absent on older backends). */
+  readiness?: JobReadiness[];
 };
 
 export type SkillDelta = { skill: string; before?: number; now: number; delta?: number };
@@ -172,6 +233,20 @@ export const progressApi = {
       weeklyGoal,
     });
     return response.data.weeklyGoal;
+  },
+  realInterviews: async (): Promise<RealInterviewReport[]> => {
+    const response = await apiClient.get<{ reports: RealInterviewReport[] }>("/api/v1/interviews/progress/real-interviews");
+    return response.data.reports;
+  },
+  saveRealInterview: async (input: RealInterviewInput, id?: string): Promise<RealInterviewReport> => {
+    const url = "/api/v1/interviews/progress/real-interviews";
+    const response = id
+      ? await apiClient.put<{ report: RealInterviewReport }>(`${url}/${encodeURIComponent(id)}`, input)
+      : await apiClient.post<{ report: RealInterviewReport }>(url, input);
+    return response.data.report;
+  },
+  deleteRealInterview: async (id: string): Promise<void> => {
+    await apiClient.delete(`/api/v1/interviews/progress/real-interviews/${encodeURIComponent(id)}`);
   },
   compare: async (sessionId: string): Promise<ProgressComparison | null> => {
     const response = await apiClient.get<{ comparison: ProgressComparison | null }>(
