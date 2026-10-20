@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import MDEditor from "@uiw/react-md-editor";
-import { taxonomyApi, type TaxonomyConcept } from "@/lib/api/taxonomyApi";
+import { taxonomyApi, type TaxonomyConcept } from "@features/admin/services/taxonomy.service";
 import {
   emptyJobProfileForm,
   jobProfileApi,
@@ -24,6 +24,7 @@ import { ArrowLeft, UploadCloud, FileText, Building2, MapPin, Briefcase, Clock, 
 import { getCompanyInitials } from "@/components/jobs/job-card.utils";
 import { humanizeKey } from "@/utils";
 import CanonicalJdReview from "./job-description/CanonicalJdReview";
+import AdminPageHeader from "./primitives/AdminPageHeader";
 import { ConfirmDialog } from "@components/shared/ConfirmDialog";
 
 export { type CanonicalFinalizeFormState, initialFinalizeForm };
@@ -603,6 +604,17 @@ function LabeledJsonForm(props: {
 
 export default function AdminJobProfileCreateView() {
   const { t } = useLanguage();
+  /** Vietnamese name of a taxonomy concept kind ("Kỹ năng", not "skill"). */
+  const kindName = (kind: string) => {
+    const key = `fixAdmin.taxonomy.kind.${kind}`;
+    const text = t(key);
+    return text && text !== key ? text : kind;
+  };
+  const uploadStatusLabel = (status: string) => {
+    const key = `adminUiJd.uploadStatus.${status}`;
+    const label = t(key);
+    return label === key ? status : label;
+  };
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = String(searchParams.get("id") || "").trim();
@@ -766,7 +778,7 @@ export default function AdminJobProfileCreateView() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await taxonomyApi.getActive();
+        const { data } = await taxonomyApi.active();
         if (cancelled) return;
         const allConcepts = data.concepts ?? [];
         const filtered = allConcepts.filter((concept) =>
@@ -1128,26 +1140,16 @@ export default function AdminJobProfileCreateView() {
   };
 
   return (
-    <div className="mx-auto min-w-0 max-w-[1400px] space-y-6">
-      <header className="flex min-w-0 flex-col gap-3 border-b border-[#EAEFF8] pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <Link
-            href="/admin/job-descriptions"
-            className="mb-2.5 inline-flex items-center gap-1.5 rounded-full bg-[#204195]/8 border border-[#204195]/15 px-3 py-1 text-xs font-semibold text-[#204195] transition-colors hover:bg-[#204195]/15"
-          >
-            <ArrowLeft className="size-3.5" />
-            {isEditMode ? t("admin.jobProfile.detail.back") : t("admin.jobProfile.createPage.back")}
-          </Link>
-          <h1 className="font-headline text-2xl font-bold tracking-tight text-[#14244B] md:text-3xl">
-            {isEditMode ? t("fixAdmin.jp.editTitle") : t("admin.jobProfile.createPage.title")}
-          </h1>
-          <p className="mt-1 max-w-2xl text-xs sm:text-sm text-[#607096]">
-            {isEditMode
-              ? t("fixAdmin.jp.editSubtitle")
-              : t("admin.jobProfile.createPage.subtitle")}
-          </p>
-        </div>
-      </header>
+    <div className="min-w-0 space-y-6">
+      <AdminPageHeader
+        title={isEditMode ? t("adminUiJd.edit.title") : t("adminUiJd.create.title")}
+        description={isEditMode ? t("fixAdmin.jp.editSubtitle") : t("admin.jobProfile.createPage.subtitle")}
+        breadcrumbs={[
+          { label: t("adminUiJd.breadcrumb.admin"), href: "/admin/dashboard" },
+          { label: t("adminUiJd.list.title"), href: "/admin/job-descriptions" },
+          { label: isEditMode ? t("adminUiJd.edit.title") : t("adminUiJd.create.title") },
+        ]}
+      />
 
       {error && (
         <div className="rounded-2xl border border-[#C43B3B]/30 bg-[#FDF2F2] px-4 py-3 text-sm text-[#C43B3B] shadow-xs" role="alert">
@@ -1166,9 +1168,9 @@ export default function AdminJobProfileCreateView() {
                   <section className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
                     <div className="border-b border-[#DCE4F3] bg-gradient-to-r from-[#EEF2FD] to-white p-5 md:p-6">
                       <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div className="flex gap-3">
-                          <div>
-                            <h2 className="font-headline text-lg font-bold text-[#14244B]">{t("fixAdmin.jp.versions.title")}</h2>
+                        <div className="flex min-w-0 gap-3">
+                          <div className="min-w-0">
+                            <h2 className="text-base font-bold text-[#14244B]">{t("fixAdmin.jp.versions.title")}</h2>
                             <p className="mt-1 max-w-xl text-sm text-[#607096]">{t("fixAdmin.jp.versions.hint")}</p>
                           </div>
                         </div>
@@ -1208,10 +1210,10 @@ export default function AdminJobProfileCreateView() {
                                     <span className="rounded-md bg-[#14244B] px-2 py-1 text-[11px] font-bold text-white">v{version.versionNumber}</span>
                                     <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${version.status === "ACTIVE" ? "bg-[#EAF5EE] text-[#287A4B]" : version.status === "DRAFT" ? "bg-[#FCB625]/15 text-[#7A5600]" : "bg-[#F0F4FC] text-[#607096]"}`}>{version.status === "ACTIVE" ? t("fixAdmin.jp.status.active") : version.status === "DRAFT" ? t("fixAdmin.jp.status.draft") : t("fixAdmin.jp.status.superseded")}</span>
                                   </div>
-                                  <div className="mt-2 truncate text-xs font-semibold text-[#14244B]">{version.filename || t("fixAdmin.jp.versions.noFilename")}</div>
+                                  <div className="mt-2 truncate text-xs font-semibold text-[#14244B]" title={version.filename || undefined}>{version.filename || t("fixAdmin.jp.versions.noFilename")}</div>
                                   <div className="mt-1 flex items-center gap-1.5 text-[11px] text-[#607096]">
                                     {parsing ? <LoaderCircle className="size-3 animate-spin text-[#204195]" /> : <CheckCircle2 className="size-3 text-[#287A4B]" />}
-                                    {fmt(t("fixAdmin.jp.versions.parser"), { status: version.processingStatus })}
+                                    {fmt(t("fixAdmin.jp.versions.parser"), { status: uploadStatusLabel(version.processingStatus) })}
                                   </div>
                                 </div>
                                 <Eye className="mt-1 size-4 shrink-0 text-[#607096]" />
@@ -1260,11 +1262,11 @@ export default function AdminJobProfileCreateView() {
                 )}
                 {!isEditMode && uploadId && (
                   <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-4 py-3 shadow-2xs">
-                    <div className="text-sm font-semibold text-[#14244B]">
-                      {t("fixAdmin.jp.uploadId")} <span className="font-mono text-[#607096]">{uploadId}</span>
+                    <div className="min-w-0 text-sm font-semibold text-[#14244B]">
+                      {t("fixAdmin.jp.uploadId")} <span className="font-mono text-xs text-[#607096] [overflow-wrap:anywhere]">{uploadId}</span>
                     </div>
-                    <div className="text-xs font-bold uppercase tracking-widest text-[#607096]">
-                      {t("fixAdmin.jp.statusLabel")}: <span className="text-[#204195]">{jpStatus ?? "—"}</span>
+                    <div className="text-xs font-bold text-[#607096]">
+                      {t("fixAdmin.jp.statusLabel")}: <span className="text-[#204195]">{jpStatus ? uploadStatusLabel(jpStatus) : "—"}</span>
                     </div>
                   </div>
                 )}
@@ -1419,7 +1421,8 @@ export default function AdminJobProfileCreateView() {
               <option value="">{t("fixAdmin.jp.opt.noTaxonomy")}</option>
               {taxonomyConcepts.map((concept) => (
                 <option key={concept.concept_id} value={concept.concept_id}>
-                  {concept.label} {concept.kind ? `(${concept.kind})` : ""}
+                  {concept.label}
+                  {concept.kind ? ` · ${kindName(concept.kind)}` : ""}
                 </option>
               ))}
             </select>
