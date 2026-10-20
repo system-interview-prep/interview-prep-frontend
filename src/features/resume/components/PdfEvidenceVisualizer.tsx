@@ -348,7 +348,7 @@ export default function PdfEvidenceVisualizer({
   );
 
   return (
-    <div className="relative flex min-h-[35rem] w-full flex-col items-center rounded-2xl border border-[#DCE4F3] bg-[#F0F4FC] p-4">
+    <div className="relative flex min-h-[35rem] w-full min-w-0 flex-col items-center rounded-2xl border border-[#DCE4F3] bg-[#F0F4FC] p-2 sm:p-4">
       <style dangerouslySetInnerHTML={{
         __html: `
         .textLayer {
@@ -423,7 +423,7 @@ export default function PdfEvidenceVisualizer({
       ) : error !== null ? (
         <div className="my-auto max-w-sm rounded-2xl bg-[#FDF2F2] p-5 text-center">
           <p className="text-sm font-semibold text-[#C43B3B]">{t("picker.pdf.renderError")}</p>
-          <p className="mt-1 text-xs text-[#607096]">{error || t("picker.pdf.renderErrorFallback")}</p>
+          <p className="mt-1 text-xs text-[#607096] [overflow-wrap:anywhere]">{error || t("picker.pdf.renderErrorFallback")}</p>
         </div>
       ) : (
         <div ref={containerRef} className="w-full">
