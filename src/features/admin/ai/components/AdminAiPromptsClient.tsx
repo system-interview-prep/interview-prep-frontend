@@ -19,12 +19,12 @@ export default function AdminAiPromptsClient() {
   const prompts: AIPromptItem[] = [];
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <AdminPageHeader
         title={t("admin.ai.prompts.title")}
         description={t("admin.ai.prompts.subtitle")}
         breadcrumbs={[
-          { label: "Admin", href: "/admin/dashboard" },
+          { label: t("fixAdmin.detail.breadcrumbAdmin"), href: "/admin/dashboard" },
           { label: t("admin.sidebar.aiOverview"), href: "/admin/ai" },
           { label: t("admin.sidebar.aiPrompts") },
         ]}
@@ -46,7 +46,7 @@ export default function AdminAiPromptsClient() {
       {/* Safety Notice (Rule 31) */}
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] p-4 text-xs text-[#607096] flex items-start gap-3">
         <Lock className="size-4 text-[#204195] shrink-0 mt-0.5" />
-        <div>
+        <div className="min-w-0">
           <p className="font-bold text-[#14244B]">{t("fixAdmin.ai.prompts.processTitle")}</p>
           <p className="mt-0.5 leading-relaxed">
             {t("admin.ai.prompts.safetyNotice")}
@@ -84,7 +84,7 @@ export default function AdminAiPromptsClient() {
 
       {/* Search Bar */}
       <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
+        <div className="relative min-w-0 flex-1 sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#607096]" />
           <input
             value={searchQuery}
@@ -97,9 +97,16 @@ export default function AdminAiPromptsClient() {
       </div>
 
       {/* Prompts Table / Empty State */}
+      {prompts.length === 0 ? (
+        <AdminEmptyState
+          variant="pending"
+          title={t("admin.ai.prompts.emptyTitle")}
+          description={t("admin.ai.prompts.emptyDesc")}
+        />
+      ) : (
       <div className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[820px] text-left border-collapse">
             <thead>
               <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
                 <th className="px-6 py-4">{t("admin.ai.prompts.table.name")}</th>
@@ -112,18 +119,7 @@ export default function AdminAiPromptsClient() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EAEFF8] text-xs">
-              {prompts.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-8">
-                    <AdminEmptyState
-                      variant="pending"
-                      title={t("admin.ai.prompts.emptyTitle")}
-                      description={t("admin.ai.prompts.emptyDesc")}
-                    />
-                  </td>
-                </tr>
-              ) : (
-                prompts.map((p) => (
+              {prompts.map((p) => (
                   <tr key={p.id} className="transition-colors hover:bg-[#F8FAFC]">
                     <td className="px-6 py-4 font-bold text-[#14244B]">
                       {p.name}
@@ -140,12 +136,12 @@ export default function AdminAiPromptsClient() {
                       </Link>
                     </td>
                   </tr>
-                ))
-              )}
+                ))}
             </tbody>
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 }
