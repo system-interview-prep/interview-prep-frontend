@@ -107,6 +107,7 @@ describe('Voice room parts', () => {
     const idle = renderToStaticMarkup(<PreJoinCard mode="voice" status="idle" onConnect={noop} />);
     expect(idle).toContain('Bắt đầu phỏng vấn');
     expect(idle).not.toContain('LiveKit');
+    expect(idle).toContain('có thể được quản trị viên Intervia theo dõi trực tiếp');
     const failed = renderToStaticMarkup(
       <PreJoinCard mode="voice" status="error" error="Không lấy được token" onConnect={noop} />
     );
