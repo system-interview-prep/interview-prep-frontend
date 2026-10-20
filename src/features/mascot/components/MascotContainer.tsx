@@ -91,7 +91,7 @@ export function MascotContainer({
   const pose = POSE_BY_MOOD[mood] ?? "front";
 
   return (
-    <div className={cn("fixed bottom-24 right-4 z-40 flex flex-col items-end gap-3 md:bottom-6 md:right-6", className)}>
+    <div className={cn("fixed bottom-4 right-4 z-40 flex flex-col items-end gap-3 md:bottom-6 md:right-6", className)}>
       {open ? (
         <section
           id={panelId}
@@ -162,7 +162,7 @@ export function MascotContainer({
         <div
           role="status"
           aria-live="polite"
-          className="anim-pop relative max-w-[280px] origin-bottom-right rounded-2xl rounded-br-md bg-white px-4 py-3 pr-8 text-[13.5px] leading-relaxed text-[#14244B] shadow-[0_12px_32px_-12px_rgba(20,36,75,0.35)] ring-1 ring-[#DCE4F3]"
+          className="anim-pop relative hidden max-w-[280px] origin-bottom-right rounded-2xl md:block rounded-br-md bg-white px-4 py-3 pr-8 text-[13.5px] leading-relaxed text-[#14244B] shadow-[0_12px_32px_-12px_rgba(20,36,75,0.35)] ring-1 ring-[#DCE4F3]"
         >
           {bubble.text}
           <button
