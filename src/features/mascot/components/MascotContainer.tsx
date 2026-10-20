@@ -2,19 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import FoxAvatar, { type FoxAvatarPose } from "./FoxAvatar";
+import { ViEventBubble, ViHandoffBubble, ViJourneyPanel, ViTipsPanel } from "./ViPanels";
 import type { MascotMood } from "../types";
 import type { MascotLine } from "../hooks/useMascotMood";
 import { resolveRouteScene } from "../hooks/useMascotMood";
+import { fillLine, type ViEvent, type ViJourney, type ViStatus } from "../utils/viJourney";
 import { useLocalStorageValue } from "@/hooks/useLocalStorageValue";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { cn } from "@/utils";
 
-// A tip bubble fades after a while so it never sits on top of content.
+// A bubble fades after a while so it never sits on top of content.
 const BUBBLE_LINGER_MS = 8000;
+const EVENT_LINGER_MS = 12000;
 const SEEN_KEY = "assistant.seen_routes";
+const ANNOUNCED_KEY = "vi.announced";
 
 const POSE_BY_MOOD: Partial<Record<MascotMood, FoxAvatarPose>> = {
   happy: "sparkle",
@@ -23,12 +27,20 @@ const POSE_BY_MOOD: Partial<Record<MascotMood, FoxAvatarPose>> = {
   coaching: "wink",
 };
 
-/** True the first time this route is visited in this browser session. */
-function firstVisitThisSession(path: string): boolean {
+const POSE_BY_STATUS: Record<ViStatus, FoxAvatarPose> = {
+  error: "dizzy",
+  open: "surprised",
+  busy: "think",
+  todo: "sparkle",
+  done: "heart",
+};
+
+/** True the first time this key is seen in this browser session. */
+function firstVisitThisSession(key: string): boolean {
   try {
     const seen = new Set<string>(JSON.parse(sessionStorage.getItem(SEEN_KEY) ?? "[]"));
-    if (seen.has(path)) return false;
-    seen.add(path);
+    if (seen.has(key)) return false;
+    seen.add(key);
     sessionStorage.setItem(SEEN_KEY, JSON.stringify([...seen]));
     return true;
   } catch {
@@ -36,18 +48,36 @@ function firstVisitThisSession(path: string): boolean {
   }
 }
 
+function parseIds(raw: string | null): Set<string> {
+  try {
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+type Bubble =
+  | { kind: "line"; line: MascotLine }
+  | { kind: "event"; event: ViEvent }
+  | { kind: "handoff" };
+
 /**
- * The fox as the app's assistant: a launcher in the corner that opens a small
- * panel of tips for the current page. It speaks up on its own at most once per
- * page per session (or when the app triggers it), and can be muted.
+ * Vi, the fox in the corner: a guide, not a chatbot. The launcher says what
+ * is going on (reading a CV, a session still open, what to do next); the
+ * panel shows the candidate's journey and what the system just did. Vi speaks
+ * up only for real events, once each, and can be muted. Signed-out visitors
+ * and marketing pages get the page tips instead of the journey.
  */
 export function MascotContainer({
   mood = "idle",
   line,
+  journey = null,
   className,
 }: {
   mood?: MascotMood;
   line: MascotLine | null;
+  journey?: ViJourney | null;
   onPoke?: () => void;
   className?: string;
 }) {
@@ -58,19 +88,51 @@ export function MascotContainer({
   const [open, setOpen] = useState(false);
   const [mutedRaw, setMutedRaw] = useLocalStorageValue("assistant.muted");
   const muted = mutedRaw === "1";
-  const [bubble, setBubble] = useState<MascotLine | null>(null);
+  const [announcedRaw, setAnnouncedRaw] = useLocalStorageValue(ANNOUNCED_KEY);
+  const announced = useMemo(() => parseIds(announcedRaw), [announcedRaw]);
+  const [bubble, setBubble] = useState<Bubble | null>(null);
 
-  // Route lines: once per page per session. App-triggered lines always show.
+  // A new event from the journey: announce it once, one bubble at a time.
+  const nextEvent = journey?.events.find((event) => !announced.has(event.id)) ?? null;
+  const showingEvent = bubble?.kind === "event";
+  useEffect(() => {
+    if (!nextEvent || muted || open || showingEvent) return;
+    const event = nextEvent;
+    setAnnouncedRaw(JSON.stringify([...announced, event.id].slice(-200)));
+    queueMicrotask(() => setBubble({ kind: "event", event }));
+    // Only a new event id (or the previous bubble closing) should start this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nextEvent?.id, muted, open, showingEvent]);
+
+  // Page lines: for visitors on every page once per session; for a signed-in
+  // candidate only the overview greeting, the rest is news from the journey.
+  // Choosing a mode: hand over to the AI interviewer, once per session.
+  const hasJourney = journey !== null;
   const lastRouteLine = useRef<string | null>(null);
   useEffect(() => {
-    if (!line || muted || open) return;
+    if (muted || open) return;
+    if (hasJourney && pathname.startsWith("/interview/select")) {
+      if (!firstVisitThisSession(`handoff:${pathname}`)) return;
+      queueMicrotask(() => setBubble((current) => (current?.kind === "event" ? current : { kind: "handoff" })));
+      return;
+    }
+    if (!line) return;
     const isRouteLine = lastRouteLine.current !== pathname;
     lastRouteLine.current = pathname;
+    if (isRouteLine && hasJourney && pathname !== "/dashboard") return;
     if (isRouteLine && !firstVisitThisSession(pathname)) return;
-    queueMicrotask(() => setBubble(line));
-    const timer = window.setTimeout(() => setBubble(null), BUBBLE_LINGER_MS);
+    queueMicrotask(() => setBubble((current) => (current?.kind === "event" ? current : { kind: "line", line })));
+  }, [hasJourney, line, muted, open, pathname]);
+
+  // Every bubble fades on its own.
+  useEffect(() => {
+    if (!bubble) return;
+    const timer = window.setTimeout(
+      () => setBubble((current) => (current === bubble ? null : current)),
+      bubble.kind === "line" ? BUBBLE_LINGER_MS : EVENT_LINGER_MS,
+    );
     return () => window.clearTimeout(timer);
-  }, [line, muted, open, pathname]);
+  }, [bubble]);
 
   // Escape closes the panel and returns focus to the launcher.
   useEffect(() => {
@@ -86,90 +148,102 @@ export function MascotContainer({
   }, [open]);
 
   const scene = resolveRouteScene(pathname);
-  const pageLine = scene.speechKey ? t(scene.speechKey) : null;
-  const tips = (scene.tipKeys ?? []).map((key) => t(key));
-  const pose = POSE_BY_MOOD[mood] ?? "front";
+  const status: ViStatus | null = journey?.status ?? null;
+  const busyEvent = journey?.events.find((event) => event.kind === "cvProcessing");
+  const pose: FoxAvatarPose = status
+    ? muted && (status === "done" || status === "todo")
+      ? "sleepy"
+      : status === "todo" && journey?.events[0]?.kind === "reportReady"
+        ? "delighted"
+        : POSE_BY_STATUS[status]
+    : (POSE_BY_MOOD[mood] ?? "front");
+  const statusText = status
+    ? status === "busy"
+      ? fillLine(t("guide.status.busy"), { step: busyEvent?.step ?? 1 })
+      : t(`guide.status.${status}`)
+    : t("guide.status.tips");
+  const pending = journey?.pending ?? 0;
+  const close = () => {
+    setOpen(false);
+    launcherRef.current?.focus();
+  };
 
   return (
     <div className={cn("fixed bottom-4 right-4 z-40 flex flex-col items-end gap-3 md:bottom-6 md:right-6", className)}>
       {open ? (
-        <section
-          id={panelId}
-          role="dialog"
-          aria-label={t("assistant.title")}
-          className="anim-pop w-[min(340px,calc(100vw-2rem))] origin-bottom-right overflow-hidden rounded-3xl bg-white shadow-[0_24px_60px_-24px_rgba(20,36,75,0.45)] ring-1 ring-[#DCE4F3]"
-        >
-          <header className="flex items-center gap-3 border-b border-[#EAEFF8] bg-[#F8FAFC] px-4 py-3">
-            <FoxAvatar size={36} pose={pose} className="rounded-full bg-white ring-1 ring-[#DCE4F3]" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-[#14244B]">{t("assistant.title")}</p>
-              <p className="text-[12px] text-[#607096]">{t("assistant.subtitle")}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                launcherRef.current?.focus();
-              }}
-              aria-label={t("assistant.close")}
-              className="grid h-8 w-8 place-items-center rounded-full text-[#607096] transition-colors hover:bg-white hover:text-[#14244B]"
-            >
-              <X className="size-4" aria-hidden="true" />
-            </button>
-          </header>
-          <div className="max-h-[50vh] space-y-3 overflow-y-auto px-4 py-4 text-sm leading-6 text-[#14244B]">
-            {pageLine ? <p>{pageLine}</p> : null}
-            {tips.length ? (
-              <ul className="space-y-2">
-                {tips.map((tip, index) => (
-                  <li
-                    key={tip}
-                    className="anim-rise rounded-2xl bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#14244B] ring-1 ring-[#EAEFF8]"
-                    style={{ ["--i" as string]: index + 1 }}
-                  >
-                    {tip}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-          <footer className="flex flex-wrap items-center gap-2 border-t border-[#EAEFF8] px-4 py-3">
-            <Link
-              href="/interview/select"
-              onClick={() => setOpen(false)}
-              className="inline-flex h-9 items-center rounded-full bg-[#204195] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#183275]"
-            >
-              {t("assistant.start")}
-            </Link>
-            <Link
-              href="/dashboard/help"
-              onClick={() => setOpen(false)}
-              className="inline-flex h-9 items-center rounded-full px-3 text-[13px] font-semibold text-[#204195] hover:bg-[#F0F4FC]"
-            >
-              {t("assistant.help")}
-            </Link>
-            <button
-              type="button"
-              onClick={() => setMutedRaw(muted ? "0" : "1")}
-              aria-pressed={muted}
-              className="ml-auto text-[12px] font-medium text-[#607096] underline-offset-4 hover:text-[#14244B] hover:underline"
-            >
-              {muted ? t("assistant.unmute") : t("assistant.mute")}
-            </button>
-          </footer>
-        </section>
-      ) : bubble ? (
+        <>
+          <button
+            type="button"
+            aria-label={t("guide.close")}
+            onClick={close}
+            className="fixed inset-0 bg-[#14244B]/35 sm:hidden"
+          />
+          <section
+            id={panelId}
+            role="dialog"
+            aria-label={t("guide.name")}
+            className="anim-pop fixed inset-x-0 bottom-0 max-h-[85vh] origin-bottom overflow-hidden rounded-t-3xl bg-white shadow-[0_-12px_40px_-16px_rgba(20,36,75,0.5)] ring-1 ring-[#DCE4F3] sm:static sm:w-[360px] sm:origin-bottom-right sm:rounded-3xl sm:shadow-[0_24px_60px_-24px_rgba(20,36,75,0.45)]"
+          >
+            <span aria-hidden="true" className="mx-auto mt-2.5 block h-1 w-10 rounded-full bg-[#C9D4EA] sm:hidden" />
+            <header className="flex items-center gap-3 border-b border-[#EAEFF8] bg-[#F8FAFF] px-4 py-3">
+              <FoxAvatar size={44} pose={pose} />
+              <div className="min-w-0 flex-1">
+                <p className="text-[15px] font-bold text-[#14244B]">{t("guide.name")}</p>
+                <p className="text-[12px] text-[#4A5878]">{journey ? t("guide.subtitle") : t("guide.tipsSubtitle")}</p>
+              </div>
+              <button
+                type="button"
+                onClick={close}
+                aria-label={t("guide.close")}
+                className="grid h-10 w-10 place-items-center rounded-full text-[#607096] transition-colors hover:bg-white hover:text-[#14244B]"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </header>
+            {journey ? (
+              <ViJourneyPanel journey={journey} onNavigate={() => setOpen(false)} />
+            ) : (
+              <ViTipsPanel
+                pageLine={scene.speechKey ? t(scene.speechKey) : null}
+                tips={(scene.tipKeys ?? []).map((key) => t(key))}
+                onNavigate={() => setOpen(false)}
+              />
+            )}
+            <footer className="flex flex-wrap items-center gap-2 border-t border-[#EAEFF8] px-4 py-2.5">
+              <Link
+                href="/dashboard/help"
+                onClick={() => setOpen(false)}
+                className="inline-flex h-10 items-center rounded-full px-2 text-[13px] font-semibold text-[#204195] hover:bg-[#F0F4FC]"
+              >
+                {t("guide.help")}
+              </Link>
+              <button
+                type="button"
+                onClick={() => setMutedRaw(muted ? "0" : "1")}
+                aria-pressed={muted}
+                className="ml-auto h-10 px-1 text-[12px] font-medium text-[#4A5878] underline underline-offset-4 hover:text-[#14244B]"
+              >
+                {muted ? t("guide.unmute") : t("guide.mute")}
+              </button>
+            </footer>
+          </section>
+        </>
+      ) : bubble?.kind === "event" ? (
+        <ViEventBubble event={bubble.event} onClose={() => setBubble(null)} />
+      ) : bubble?.kind === "handoff" ? (
+        <ViHandoffBubble onClose={() => setBubble(null)} />
+      ) : bubble?.kind === "line" ? (
         <div
           role="status"
           aria-live="polite"
-          className="anim-pop relative hidden max-w-[280px] origin-bottom-right rounded-2xl md:block rounded-br-md bg-white px-4 py-3 pr-8 text-[13.5px] leading-relaxed text-[#14244B] shadow-[0_12px_32px_-12px_rgba(20,36,75,0.35)] ring-1 ring-[#DCE4F3]"
+          className="anim-pop relative hidden max-w-[300px] origin-bottom-right rounded-2xl bg-white px-4 py-3 pr-9 text-[13.5px] leading-relaxed text-[#14244B] shadow-[0_12px_32px_-12px_rgba(20,36,75,0.35)] ring-1 ring-[#DCE4F3] md:block"
         >
-          {bubble.text}
+          {bubble.line.text}
           <button
             type="button"
             onClick={() => setBubble(null)}
-            aria-label={t("mascot.dismiss")}
-            className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full text-[#607096] hover:bg-[#F0F4FC] hover:text-[#14244B]"
+            aria-label={t("guide.dismiss")}
+            className="absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full text-[#607096] hover:bg-[#F0F4FC] hover:text-[#14244B]"
           >
             <X className="size-3.5" aria-hidden="true" />
           </button>
@@ -183,20 +257,44 @@ export function MascotContainer({
           setBubble(null);
           setOpen((value) => !value);
         }}
-        aria-label={open ? t("assistant.close") : t("assistant.open")}
+        aria-label={fillLine(t("guide.openWith"), { status: statusText })}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        title={open ? t("assistant.close") : t("assistant.open")}
-        className="group relative grid h-12 w-12 place-items-center rounded-full bg-white shadow-[0_10px_28px_-10px_rgba(20,36,75,0.5)] ring-1 ring-[#DCE4F3] transition-transform duration-200 ease-out hover:-translate-y-0.5 active:scale-95 md:h-14 md:w-14"
+        className={cn(
+          "group flex h-14 items-center gap-2.5 rounded-full bg-white pl-1 pr-4 shadow-[0_12px_30px_-14px_rgba(20,36,75,0.5)] transition-transform duration-200 ease-out hover:-translate-y-0.5 active:scale-95 motion-reduce:transition-none",
+          status === "error"
+            ? "bg-[#FFF5F5] ring-2 ring-[#C43B3B]"
+            : status === "open"
+              ? "ring-1 ring-[#F1C9A5]"
+              : status === "busy"
+                ? "ring-2 ring-[#204195]"
+                : "ring-1 ring-[#C9D6F5]",
+          open && "hidden sm:flex",
+        )}
       >
-        <span className={cn("absolute inset-0 grid place-items-center transition-all duration-200 ease-out", open ? "scale-50 opacity-0" : "scale-100 opacity-100")}>
-          <FoxAvatar size={46} pose={pose} />
+        <FoxAvatar size={60} pose={pose} className="-mt-3.5" />
+        <span className="flex flex-col items-start leading-tight">
+          <span className="text-[13px] font-bold text-[#14244B]">{t("guide.name")}</span>
+          <span
+            className={cn(
+              "text-[12px]",
+              status === "error"
+                ? "font-semibold text-[#A12E2E]"
+                : status === "open"
+                  ? "font-semibold text-[#A14B0B]"
+                  : "text-[#4A5878]",
+            )}
+          >
+            {statusText}
+          </span>
         </span>
-        <span className={cn("absolute inset-0 grid place-items-center text-[#14244B] transition-all duration-200 ease-out", open ? "scale-100 opacity-100" : "scale-50 opacity-0")}>
-          <X className="size-5" aria-hidden="true" />
-        </span>
-        {bubble && !open ? (
-          <span aria-hidden="true" className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-[#FCB625] ring-2 ring-white" />
+        {pending > 0 ? (
+          <span
+            aria-hidden="true"
+            className="grid h-6 min-w-6 place-items-center rounded-full bg-[#C2410C] px-1.5 text-[12px] font-bold text-white"
+          >
+            {pending}
+          </span>
         ) : null}
       </button>
     </div>
