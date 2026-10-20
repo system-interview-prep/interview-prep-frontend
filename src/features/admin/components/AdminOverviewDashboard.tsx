@@ -2,31 +2,66 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  Server,
-  Activity,
-  FileText,
-  MessageSquare,
-  Target,
-  Eye,
-  ArrowUpRight,
-  RefreshCw,
-  Clock,
-  Layers,
-  HelpCircle,
-  Database,
-  Cpu,
-} from "lucide-react";
+import { Server, Activity, MessageSquare, Target, ArrowUpRight, RefreshCw, Clock, Cpu } from "lucide-react";
 import { adminApi, AdminOverviewData } from "@/lib/apiClient";
 import { jobProfileApi } from "../services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
+import { useAdminAlerts } from "@features/admin/pipeline/hooks/useAdminAlerts";
 import AdminPageHeader from "./primitives/AdminPageHeader";
 import AdminMetricCard from "./primitives/AdminMetricCard";
-import AdminStatusBadge from "./primitives/AdminStatusBadge";
-import AdminSection from "./primitives/AdminSection";
+import { type AdminStatusType } from "./primitives/AdminStatusBadge";
+import InterviewTrends from "./InterviewTrends";
 
+const DOT: Partial<Record<AdminStatusType, string>> = {
+  healthy: "bg-emerald-500",
+  warning: "bg-amber-500",
+  error: "bg-red-500",
+  unavailable: "bg-zinc-400",
+};
+
+/** Compact service state: a pill with a colored dot; the AI pill opens the AI page. */
+function ServicePill({
+  icon: Icon,
+  title,
+  status,
+  statusLabel,
+  href,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  status: AdminStatusType;
+  statusLabel: string;
+  href?: string;
+}) {
+  const body = (
+    <>
+      <Icon className="size-3.5 shrink-0 text-[#204195]" />
+      <span className="font-semibold text-[#14244B]">{title}</span>
+      <span className="text-[#C2CBDD]" aria-hidden="true">·</span>
+      <span className={`size-1.5 shrink-0 rounded-full ${DOT[status] ?? "bg-slate-400"}`} aria-hidden="true" />
+      <span className="text-[#475569]">{statusLabel}</span>
+      {href ? <ArrowUpRight className="size-3 shrink-0 text-[#607096]" aria-hidden="true" /> : null}
+    </>
+  );
+  const cls = "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#DCE4F3] bg-white px-3 py-1.5 text-xs shadow-2xs";
+  return href ? (
+    <Link href={href} className={`${cls} transition-colors hover:border-[#204195]/50`}>
+      {body}
+    </Link>
+  ) : (
+    <span className={cls}>{body}</span>
+  );
+}
+
+/**
+ * The single place for platform-wide numbers: service status, interview
+ * activity, monthly trend and mode breakdown (formerly the "Phân tích" page),
+ * and content counts. Detail lives on the dedicated pages.
+ */
 export default function AdminOverviewDashboard() {
   const { t } = useLanguage();
+  const { errorCount, warningCount } = useAdminAlerts();
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [overviewData, setOverviewData] = useState<AdminOverviewData | null>(null);
@@ -35,7 +70,6 @@ export default function AdminOverviewDashboard() {
 
   const loadDashboardData = async () => {
     try {
-      // 1. Fetch Admin Overview
       const overviewRes = await adminApi.getOverview();
       if (overviewRes.data?.success && overviewRes.data.overview) {
         setOverviewData(overviewRes.data.overview);
@@ -46,313 +80,147 @@ export default function AdminOverviewDashboard() {
     } catch {
       setBackendStatus("unavailable");
     }
-
     try {
-      // 2. Fetch Job profiles count
       const jpRes = await jobProfileApi.list({ limit: 1 });
       setJobProfileCount(jpRes.data.total ?? jpRes.data.items?.length ?? 0);
     } catch {
       setJobProfileCount(null);
-    }
-
-    finally {
+    } finally {
       setLoading(false);
       setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
-    loadDashboardData();
+    void loadDashboardData();
   }, []);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    loadDashboardData();
+    void loadDashboardData();
   };
 
+  const healthy = backendStatus === "healthy";
+  const aiStatus: AdminStatusType = errorCount ? "error" : warningCount ? "warning" : "healthy";
+  const aiLabel = errorCount
+    ? fmt(t("overview2.ai.errors"), { n: errorCount })
+    : warningCount
+      ? fmt(t("overview2.ai.warnings"), { n: warningCount })
+      : t("overview2.ai.ok");
+  const pending = loading || overviewData === null;
+
   return (
-    <div className="space-y-6">
-      {/* 0. Header */}
+    <div className="min-w-0 space-y-6">
       <AdminPageHeader
         title={t("fixAdmin.overview.title")}
-        description={t("fixAdmin.overview.subtitle")}
-        breadcrumbs={[{ label: t("fixAdmin.shell.adminBadge"), href: "/admin/dashboard" }, { label: t("admin.sidebar.group.overview") || "Tổng quan" }]}
-        statusBadge={
-          <AdminStatusBadge
-            status={backendStatus === "healthy" ? "healthy" : "unavailable"}
-            label={backendStatus === "healthy" ? (t("admin.dashboard.systemOnline") || "Hệ thống hoạt động") : (t("admin.dashboard.systemOffline") || "Mất kết nối Backend")}
-          />
-        }
+        description={t("overview2.subtitle")}
+        breadcrumbs={[{ label: t("fixAdmin.detail.breadcrumbAdmin"), href: "/admin/dashboard" }, { label: t("admin.sidebar.group.overview") }]}
         primaryAction={
           <button
             type="button"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-2 rounded-full border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-2xs hover:bg-[#F8FAFC] transition-all cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-2 rounded-full border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-2xs transition-all hover:bg-[#F8FAFC] disabled:opacity-50"
           >
-            <RefreshCw className={`size-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-            <span>{t("admin.dashboard.refresh") || "Làm mới"}</span>
+            <RefreshCw className={`size-3.5 ${isRefreshing ? "animate-spin motion-reduce:animate-none" : ""}`} />
+            <span>{t("admin.dashboard.refresh")}</span>
           </button>
         }
       />
 
-      {/* 1. PRODUCT / SYSTEM STATUS (Strict Rule 16) */}
-      <AdminSection
-        title={t("admin.dashboard.healthSectionTitle") || "1. Trạng thái các dịch vụ cốt lõi (System Health)"}
-        description={t("admin.dashboard.healthSectionSubtitle") || "Giám sát độ sẵn sàng của hạ tầng Backend, Dịch vụ Phỏng vấn, Xử lý CV, Nhà cung cấp AI và Observability"}
-      >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5 flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-[#14244B] flex items-center gap-1.5">
-                <Server className="size-3.5 text-[#204195]" />
-                {t("admin.dashboard.coreBackend") || "Core Backend"}
-              </span>
-              <AdminStatusBadge
-                status={backendStatus === "healthy" ? "healthy" : "unavailable"}
-                label={backendStatus === "healthy" ? t("fixAdmin.status.healthy") : t("fixAdmin.status.offline")}
-                size="sm"
-              />
-            </div>
-            <p className="text-[11px] text-[#607096]">{t("admin.dashboard.coreBackendSub") || "REST API & PostgreSQL"}</p>
-          </div>
-
-          <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5 flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-[#14244B] flex items-center gap-1.5">
-                <Activity className="size-3.5 text-[#204195]" />
-                {t("admin.dashboard.interviewEngine") || "Interview Engine"}
-              </span>
-              <AdminStatusBadge
-                status={backendStatus === "healthy" ? "healthy" : "unknown"}
-                label={backendStatus === "healthy" ? t("fixAdmin.status.healthy") : t("fixAdmin.status.unknown")}
-                size="sm"
-              />
-            </div>
-            <p className="text-[11px] text-[#607096]">{t("admin.dashboard.interviewEngineSub") || "WebSocket Session Hub"}</p>
-          </div>
-
-          <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5 flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-[#14244B] flex items-center gap-1.5">
-                <FileText className="size-3.5 text-[#607096]" />
-                {t("admin.dashboard.cvProcessing") || "CV Processing"}
-              </span>
-              <AdminStatusBadge status="unknown" label={t("fixAdmin.status.unknown")} size="sm" />
-            </div>
-            <p className="text-[11px] text-[#607096]">{t("admin.dashboard.cvProcessingSub") || "Chưa có health endpoint"}</p>
-          </div>
-
-          <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5 flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-[#14244B] flex items-center gap-1.5">
-                <Cpu className="size-3.5 text-[#607096]" />
-                {t("admin.dashboard.aiProvider") || "AI Provider"}
-              </span>
-              <AdminStatusBadge status="unknown" label={t("fixAdmin.status.unknown")} size="sm" />
-            </div>
-            <p className="text-[11px] text-[#607096]">{t("admin.dashboard.aiProviderSub") || "LLM Gateway status pending"}</p>
-          </div>
-
-          <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5 flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-[#14244B] flex items-center gap-1.5">
-                <Eye className="size-3.5 text-[#607096]" />
-                {t("admin.dashboard.observability") || "Observability"}
-              </span>
-              <AdminStatusBadge status="warning" label={t("fixAdmin.status.notConnected")} size="sm" />
-            </div>
-            <p className="text-[11px] text-[#607096]">{t("admin.dashboard.observabilitySub") || "Langfuse / LangSmith pending"}</p>
-          </div>
-        </div>
-      </AdminSection>
-
-      {/* 2. USAGE METRICS (Strict Rule 2 - Real Data from /admin/overview) */}
-      <AdminSection
-        title={t("admin.dashboard.usageSectionTitle") || "2. Vận hành phỏng vấn (Usage Metrics)"}
-        description={t("admin.dashboard.usageSectionSubtitle") || "Thống kê thực tế các phiên phỏng vấn được thực hiện trên hệ thống"}
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <AdminMetricCard
-            title={t("admin.dashboard.totalSessions") || "Tổng số phiên phỏng vấn"}
-            value={overviewData?.totalSessions}
-            unit={t("admin.interviews.sessionUnit") || "phiên"}
-            subtitle={t("admin.dashboard.totalSessionsSub") || "Toàn bộ lịch sử"}
-            icon={MessageSquare}
-            isPending={loading || overviewData === null}
-            pendingText={t("admin.common.loading") || "Đang tải dữ liệu..."}
-          />
-          <AdminMetricCard
-            title={t("admin.dashboard.activeSessions") || "Phiên đang diễn ra"}
-            value={overviewData?.activeSessions}
-            unit={t("admin.interviews.sessionUnit") || "phiên"}
-            subtitle={t("admin.dashboard.activeSessionsSub") || "STARTED / IN_PROGRESS"}
-            icon={Activity}
-            status={overviewData?.activeSessions ? "active" : undefined}
-            isPending={loading || overviewData === null}
-            pendingText={t("admin.common.loading") || "Đang tải dữ liệu..."}
-          />
-          <AdminMetricCard
-            title={t("admin.dashboard.completedSessions") || "Phiên đã hoàn thành"}
-            value={overviewData?.completedSessions}
-            unit={t("admin.interviews.sessionUnit") || "phiên"}
-            subtitle={t("admin.dashboard.completedSessionsSub") || "Đã chốt kết quả"}
-            icon={Clock}
-            status={overviewData?.completedSessions ? "success" : undefined}
-            isPending={loading || overviewData === null}
-            pendingText={t("admin.common.loading") || "Đang tải dữ liệu..."}
-          />
-          <AdminMetricCard
-            title={t("admin.dashboard.averageScore") || "Điểm AI trung bình"}
-            value={overviewData?.averageScore ? `${overviewData.averageScore.toFixed(1)}/100` : null}
-            subtitle={overviewData?.averageScore ? (t("admin.dashboard.averageScoreSub") || "Dựa trên session đã chấm") : (t("admin.dashboard.averageScoreEmpty") || "Chưa có session có điểm")}
-            icon={Target}
-            isPending={loading || overviewData === null}
-            pendingText={t("admin.common.noData") || "Chưa có dữ liệu"}
-          />
-        </div>
-      </AdminSection>
-
-      {/* 3. AI HEALTH & OBSERVABILITY STATUS (Strict Rules 24 & 25) */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <AdminSection
-          title={t("admin.dashboard.aiHealthSectionTitle") || "3. Trạng thái AI Observability"}
-          description={t("admin.dashboard.aiHealthSectionSubtitle") || "Tích hợp giám sát Traces, Latency, Token và Chi phí suy luận"}
-        >
-          <div className="rounded-3xl border border-[#FCB625]/40 bg-[#FCB625]/10 p-5">
-            <div className="flex items-start gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-[#14244B]">{t("fixAdmin.overview.observability")}</h3>
-                  <AdminStatusBadge status="warning" label={t("fixAdmin.status.notConnected")} size="sm" />
-                </div>
-                <p className="mt-1.5 text-xs text-[#607096] leading-relaxed">
-                  {t("admin.dashboard.aiHealthDesc") || "Cần kết nối nhà cung cấp Observability (như Langfuse hoặc LangSmith) thông qua INTERVIA Backend để giám sát chi tiết Traces, Latency (p50/p95), Tokens, Chi phí và Đánh giá AI."}
-                </p>
-                <div className="mt-4 flex items-center gap-3">
-                  <Link
-                    href="/admin/ai"
-                    className="inline-flex items-center gap-1.5 rounded-full bg-[#204195] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#183275] transition-colors"
-                  >
-                    <span>{t("admin.dashboard.exploreAiOps") || "Khám phá AI Operations"}</span>
-                    <ArrowUpRight className="size-3.5" />
-                  </Link>
-                  <Link
-                    href="/admin/settings"
-                    className="text-xs font-semibold text-[#204195] hover:underline"
-                  >
-                    {t("admin.dashboard.configIntegration") || "Cấu hình tích hợp"}
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        </AdminSection>
-
-        {/* 4. CONTENT HEALTH */}
-        <AdminSection
-          title={t("admin.dashboard.contentSectionTitle") || "4. Tình trạng nội dung (Content Health)"}
-          description={t("admin.dashboard.contentSectionSubtitle") || "Quản lý hồ sơ công việc, ngành nghề và cơ sở tri thức phục vụ phỏng vấn"}
-        >
-          <div className="grid grid-cols-1 gap-3">
-            <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#607096]">
-                {t("admin.sidebar.jobBoard") || "Mô tả công việc (JD)"}
-              </p>
-              <div className="mt-2 flex items-baseline gap-1.5">
-                {jobProfileCount !== null ? (
-                  <span className="text-2xl font-black text-[#14244B]">{jobProfileCount}</span>
-                ) : (
-                  <span className="text-xs text-[#8A98B8]">{t("admin.common.loading") || "Đang tải..."}</span>
-                )}
-                <span className="text-xs text-[#607096]">{t("admin.jobProfile.unit") || "JD"}</span>
-              </div>
-              <Link
-                href="/admin/job-descriptions"
-                className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#204195] hover:underline"
-              >
-                <span>{t("admin.common.viewList") || "Xem danh sách"}</span>
-                <ArrowUpRight className="size-3" />
-              </Link>
-            </div>
-
-          </div>
-        </AdminSection>
+      {/* Service state as one compact row; only services with a real check are shown. */}
+      <div className="-mt-2 flex flex-wrap items-center gap-2" aria-label={t("overview2.services.title")}>
+        <ServicePill
+          icon={Server}
+          title={t("overview2.services.backend")}
+          status={healthy ? "healthy" : backendStatus === "unknown" ? "unknown" : "unavailable"}
+          statusLabel={healthy ? t("fixAdmin.status.healthy") : backendStatus === "unknown" ? t("admin.common.loading") : t("fixAdmin.status.offline")}
+        />
+        <ServicePill icon={Cpu} title={t("overview2.services.ai")} status={aiStatus} statusLabel={aiLabel} href="/admin/ai" />
       </div>
 
-      {/* 5. QUICK ACTIONS & RECENT MODULE ACCESS */}
-      <AdminSection
-        title={t("admin.dashboard.quickActionsTitle") || "5. Truy cập nhanh các nghiệp vụ quản trị"}
-        description={t("admin.dashboard.quickActionsSubtitle") || "Điều hướng nhanh tới các phân hệ nghiệp vụ và vận hành chính"}
-      >
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <Link
-            href="/admin/job-descriptions/create"
-            className="group flex flex-col items-center rounded-xl border border-[#DCE4F3] bg-white p-4 text-center transition-all hover:border-[#204195] hover:shadow-xs"
-          >
-            <div className="mb-2 flex size-10 items-center justify-center rounded-xl bg-[#EEF2FD] text-[#204195] group-hover:bg-[#204195] group-hover:text-white transition-colors">
-              <FileText className="size-5" />
-            </div>
-            <span className="text-xs font-bold text-[#14244B]">{t("admin.sidebar.createProfile") || "Tạo Job Description"}</span>
-            <span className="text-[10.5px] text-[#607096] mt-0.5">{t("admin.dashboard.action.createProfileSub") || "Tải lên JD mới"}</span>
-          </Link>
 
-          <Link
-            href="/admin/interviews"
-            className="group flex flex-col items-center rounded-xl border border-[#DCE4F3] bg-white p-4 text-center transition-all hover:border-[#204195] hover:shadow-xs"
-          >
-            <div className="mb-2 flex size-10 items-center justify-center rounded-xl bg-[#EEF2FD] text-[#204195] group-hover:bg-[#204195] group-hover:text-white transition-colors">
-              <MessageSquare className="size-5" />
-            </div>
-            <span className="text-xs font-bold text-[#14244B]">{t("admin.sidebar.interviews") || "Phiên phỏng vấn"}</span>
-            <span className="text-[10.5px] text-[#607096] mt-0.5">{t("admin.dashboard.action.interviewsSub") || "Theo dõi phiên live"}</span>
-          </Link>
-
-          <Link
-            href="/admin/question-bank"
-            className="group flex flex-col items-center rounded-xl border border-[#DCE4F3] bg-white p-4 text-center transition-all hover:border-[#204195] hover:shadow-xs"
-          >
-            <div className="mb-2 flex size-10 items-center justify-center rounded-xl bg-[#EEF2FD] text-[#204195] group-hover:bg-[#204195] group-hover:text-white transition-colors">
-              <HelpCircle className="size-5" />
-            </div>
-            <span className="text-xs font-bold text-[#14244B]">{t("admin.sidebar.questionBank") || "Ngân hàng câu hỏi"}</span>
-            <span className="text-[10.5px] text-[#607096] mt-0.5">{t("admin.dashboard.action.questionBankSub") || "Bộ câu hỏi tuyển dụng"}</span>
-          </Link>
-
-          <Link
-            href="/admin/knowledge-base"
-            className="group flex flex-col items-center rounded-xl border border-[#DCE4F3] bg-white p-4 text-center transition-all hover:border-[#204195] hover:shadow-xs"
-          >
-            <div className="mb-2 flex size-10 items-center justify-center rounded-xl bg-[#EEF2FD] text-[#204195] group-hover:bg-[#204195] group-hover:text-white transition-colors">
-              <Database className="size-5" />
-            </div>
-            <span className="text-xs font-bold text-[#14244B]">{t("admin.sidebar.knowledgeBase") || "Cơ sở tri thức"}</span>
-            <span className="text-[10.5px] text-[#607096] mt-0.5">{t("admin.dashboard.action.knowledgeSub") || "RAG & Tài liệu mẫu"}</span>
-          </Link>
-
-          <Link
-            href="/admin/ai"
-            className="group flex flex-col items-center rounded-xl border border-[#DCE4F3] bg-white p-4 text-center transition-all hover:border-[#204195] hover:shadow-xs"
-          >
-            <div className="mb-2 flex size-10 items-center justify-center rounded-xl bg-[#EEF2FD] text-[#204195] group-hover:bg-[#204195] group-hover:text-white transition-colors">
-              <Cpu className="size-5" />
-            </div>
-            <span className="text-xs font-bold text-[#14244B]">{t("admin.sidebar.aiOverview") || "AI Operations"}</span>
-            <span className="text-[10.5px] text-[#607096] mt-0.5">{t("admin.dashboard.action.aiOpsSub") || "Model & Prompts"}</span>
-          </Link>
-
-          <Link
-            href="/admin/insights"
-            className="group flex flex-col items-center rounded-xl border border-[#DCE4F3] bg-white p-4 text-center transition-all hover:border-[#204195] hover:shadow-xs"
-          >
-            <div className="mb-2 flex size-10 items-center justify-center rounded-xl bg-[#EEF2FD] text-[#204195] group-hover:bg-[#204195] group-hover:text-white transition-colors">
-              <Layers className="size-5" />
-            </div>
-            <span className="text-xs font-bold text-[#14244B]">{t("admin.sidebar.insights") || "Phân tích sản phẩm"}</span>
-            <span className="text-[10.5px] text-[#607096] mt-0.5">{t("admin.dashboard.action.insightsSub") || "Insights & Xu hướng"}</span>
+      <section aria-label={t("overview2.activity.title")} className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 className="text-base font-bold text-[#14244B]">{t("overview2.activity.title")}</h2>
+            <p className="mt-0.5 text-xs text-[#607096]">{t("overview2.activity.desc")}</p>
+          </div>
+          <Link href="/admin/interviews" className="inline-flex items-center gap-1 text-xs font-semibold text-[#204195] hover:underline">
+            {t("overview2.activity.open")}
+            <ArrowUpRight className="size-3" aria-hidden="true" />
           </Link>
         </div>
-      </AdminSection>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <AdminMetricCard
+            title={t("admin.dashboard.totalSessions")}
+            value={overviewData?.totalSessions}
+            unit={t("admin.interviews.sessionUnit")}
+            subtitle={t("admin.dashboard.totalSessionsSub")}
+            icon={MessageSquare}
+            isPending={pending}
+            pendingText={t("admin.common.loading")}
+          />
+          <AdminMetricCard
+            title={t("admin.dashboard.activeSessions")}
+            value={overviewData?.activeSessions}
+            unit={t("admin.interviews.sessionUnit")}
+            subtitle={t("overview2.activity.activeSub")}
+            icon={Activity}
+            isPending={pending}
+            pendingText={t("admin.common.loading")}
+          />
+          <AdminMetricCard
+            title={t("admin.dashboard.completedSessions")}
+            value={overviewData?.completedSessions}
+            unit={t("admin.interviews.sessionUnit")}
+            subtitle={t("admin.dashboard.completedSessionsSub")}
+            icon={Clock}
+            isPending={pending}
+            pendingText={t("admin.common.loading")}
+          />
+          <AdminMetricCard
+            title={t("admin.dashboard.averageScore")}
+            value={overviewData?.averageScore ? `${overviewData.averageScore.toFixed(1)}/100` : null}
+            subtitle={overviewData?.averageScore ? t("admin.dashboard.averageScoreSub") : t("admin.dashboard.averageScoreEmpty")}
+            icon={Target}
+            isPending={pending}
+            pendingText={t("admin.common.noData")}
+          />
+        </div>
+      </section>
+
+      <section id="trends" aria-label={t("overview2.trends.title")} className="scroll-mt-6 space-y-3">
+        <div>
+          <h2 className="text-base font-bold text-[#14244B]">{t("overview2.trends.title")}</h2>
+          <p className="mt-0.5 text-xs text-[#607096]">{t("overview2.trends.desc")}</p>
+        </div>
+        <InterviewTrends data={overviewData} />
+      </section>
+
+      <section aria-label={t("overview2.content.title")} className="space-y-3">
+        <div>
+          <h2 className="text-base font-bold text-[#14244B]">{t("overview2.content.title")}</h2>
+          <p className="mt-0.5 text-xs text-[#607096]">{t("overview2.content.desc")}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Link
+            href="/admin/job-descriptions"
+            className="group flex items-center justify-between gap-3 rounded-xl border border-[#DCE4F3] bg-white px-4 py-3 shadow-2xs transition-colors hover:border-[#204195]/50"
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-xs font-semibold text-[#607096]">{t("admin.sidebar.jobBoard")}</span>
+              <span className="mt-0.5 flex items-baseline gap-1">
+                <span className="text-xl font-bold tabular-nums text-[#14244B]">
+                  {jobProfileCount !== null ? jobProfileCount : loading ? "…" : "—"}
+                </span>
+                <span className="text-xs text-[#607096]">{t("admin.jobProfile.unit")}</span>
+              </span>
+            </span>
+            <ArrowUpRight className="size-4 shrink-0 text-[#607096] transition-colors group-hover:text-[#204195]" aria-hidden="true" />
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }
