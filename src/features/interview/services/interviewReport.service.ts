@@ -27,6 +27,25 @@ export interface TurnEvaluation {
   strengths?: string[];
   weaknesses?: string[];
   feedback?: string;
+  /**
+   * SKIPPED: the candidate skipped the question or said they could not answer; scored 0.
+   * NOT_GRADABLE: unreadable voice transcript or a system failure; left out of the score.
+   */
+  outcome?: 'ANSWERED' | 'SKIPPED' | 'NOT_GRADABLE';
+  /** Checklist verdicts; empty when the question has no expected points (graded holistically). */
+  rubric_points?: RubricPoint[];
+  rubricPoints?: RubricPoint[];
+}
+
+export interface RubricPoint {
+  key: string;
+  description: string;
+  importance: 'CORE' | 'BONUS';
+  status: 'COVERED' | 'PARTIAL' | 'INCORRECT' | 'MISSING';
+  /** Verbatim from the answer; checked by the server, empty when MISSING. */
+  quote: string;
+  /** Why the server changed the grader's label (e.g. unverified_quote). */
+  adjusted: string;
 }
 
 export interface CompetencyScore {
