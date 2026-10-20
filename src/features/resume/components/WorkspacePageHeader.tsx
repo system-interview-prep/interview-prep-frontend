@@ -24,18 +24,18 @@ export function WorkspacePageHeader({
   return (
     <header
       className={cn(
-        "anim-rise flex flex-col gap-5 border-b border-[#EAEFF8] pb-6 lg:flex-row lg:items-end lg:justify-between",
+        "anim-rise flex flex-col gap-3 border-b border-[#DCE4F3] pb-4 sm:flex-row sm:items-end sm:justify-between",
         className,
       )}
     >
       <div className="flex min-w-0 items-start gap-4">
         <div className="min-w-0">
-          <h1 className="break-words text-2xl font-extrabold tracking-tight text-[#14244B] sm:text-3xl md:text-4xl">{title}</h1>
-          {subtitle ? <p className="mt-2 max-w-2xl text-sm leading-6 text-[#607096]">{subtitle}</p> : null}
-          {children ? <div className="mt-4 flex flex-wrap items-center gap-3">{children}</div> : null}
+          <h1 className="break-words text-xl font-black tracking-tight text-[#14244B] sm:text-2xl">{title}</h1>
+          {subtitle ? <p className="mt-1 max-w-3xl text-xs leading-5 text-[#607096] sm:text-sm">{subtitle}</p> : null}
+          {children ? <div className="mt-3 flex flex-wrap items-center gap-2.5">{children}</div> : null}
         </div>
       </div>
-      {aside ? <div className="min-w-0 lg:max-w-sm lg:shrink-0">{aside}</div> : null}
+      {aside ? <div className="min-w-0 sm:max-w-sm sm:shrink-0">{aside}</div> : null}
     </header>
   );
 }
