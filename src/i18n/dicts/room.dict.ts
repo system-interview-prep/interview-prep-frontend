@@ -71,6 +71,8 @@ export const roomEn: Record<string, string> = {
   "room.timer.overtime": "Wrapping up",
   "room.timer.remainingAria": "About {time} left",
   "room.timer.remaining": "left (est.)",
+  "room.timer.notStarted": "starts with the first question",
+  "room.timer.notStartedAria": "{time}, the clock starts with the first question",
 
   // Chat room
   "room.chat.live": "Interview in progress",
@@ -357,6 +359,8 @@ export const roomVi: Record<string, string> = {
   "room.timer.overtime": "Đang hoàn tất buổi",
   "room.timer.remainingAria": "Thời gian dự kiến còn lại {time}",
   "room.timer.remaining": "dự kiến còn lại",
+  "room.timer.notStarted": "bắt đầu tính khi có câu hỏi đầu tiên",
+  "room.timer.notStartedAria": "{time}, thời gian bắt đầu tính khi có câu hỏi đầu tiên",
 
   // Chat room
   "room.chat.live": "Đang phỏng vấn",
