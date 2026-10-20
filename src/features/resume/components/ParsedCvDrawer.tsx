@@ -70,24 +70,24 @@ export function ParsedCvDrawer({ cvId, fileName, onClose }: { cvId: string; file
         onClick={(event) => event.stopPropagation()}
         className="flex h-full w-full max-w-xl flex-col bg-[#F8FAFC] shadow-[0_0_60px_-20px_rgba(20,36,75,0.6)]"
       >
-        <header className="flex items-start justify-between gap-3 border-b border-[#DCE4F3] bg-white px-5 py-4">
+        <header className="flex items-start justify-between gap-3 border-b border-[#DCE4F3] bg-white px-4 py-4 sm:px-5">
           <div className="min-w-0">
-            <h2 id="parsed-cv-title" className="text-xl font-semibold text-[#14244B]">
+            <h2 id="parsed-cv-title" className="text-lg font-bold text-[#14244B]">
               {t("parsedCv.title")}
             </h2>
-            <p className="truncate text-xs text-[#607096]">{fileName}</p>
+            <p className="truncate text-xs text-[#607096]" title={fileName}>{fileName}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label={t("parsedCv.close")}
-            className="rounded-full p-2 text-[#607096] transition-colors hover:bg-[#F0F4FC] hover:text-[#14244B]"
+            className="grid size-9 shrink-0 place-items-center rounded-xl text-[#607096] transition-colors hover:bg-[#F0F4FC] hover:text-[#14244B]"
           >
             <X className="size-4" />
           </button>
         </header>
 
-        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+        <div className="min-w-0 flex-1 space-y-6 overflow-y-auto px-4 py-5 [overflow-wrap:anywhere] sm:px-5">
           <StatusNote text={t("parsedCv.explain")} />
 
           {error ? (
@@ -114,7 +114,7 @@ export function ParsedCvDrawer({ cvId, fileName, onClose }: { cvId: string; file
                       return (
                         <li
                           key={str(skill.claimId) || index}
-                          className="rounded-full bg-white px-2.5 py-1 text-xs text-[#14244B] border border-[#DCE4F3]"
+                          className="max-w-full rounded-full bg-white px-2.5 py-1 text-xs text-[#14244B] border border-[#DCE4F3]"
                           title={str(skill.rawLabel) !== label ? str(skill.rawLabel) : undefined}
                         >
                           {label}
