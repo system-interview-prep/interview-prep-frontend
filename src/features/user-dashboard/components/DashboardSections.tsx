@@ -53,6 +53,21 @@ export function sessionHref(session: StoredDashboardSession): string {
   return `/interview/room/${session.sessionId}`;
 }
 
+/**
+ * The name to greet a candidate by. Vietnamese full names end with the given name
+ * ("Nguyễn Văn An" → "An"), but a profile name may carry a title or role after it
+ * ("Hiền – Ứng viên Backend & Dữ liệu"), so anything after a separator is dropped first
+ * and only word-like tokens count. Returns "" when nothing usable is left.
+ */
+export function greetingName(fullName?: string | null): string {
+  const raw = (fullName ?? "").trim();
+  if (!raw) return "";
+  const isWord = (token: string) => /^\p{L}[\p{L}'’.-]*$/u.test(token);
+  const head = raw.split(/\s+[-/]\s*|[–—&|,;:()[\]@]/)[0] ?? "";
+  const words = head.split(/\s+/).filter(isWord);
+  return words[words.length - 1] ?? "";
+}
+
 type Translate = (key: string) => string;
 
 function modeLabel(mode: StoredDashboardSession["mode"], t: Translate) {
@@ -80,9 +95,9 @@ export function SectionHeading({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h2 id={id} className="font-display text-xl font-bold tracking-tight text-[#14244B] sm:text-2xl">
+    <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+      <div className="min-w-0">
+        <h2 id={id} className="font-display text-base font-bold tracking-tight text-[#14244B] sm:text-lg">
           {title}
         </h2>
         {subtitle ? <p className="mt-0.5 text-xs text-[#607096]">{subtitle}</p> : null}
@@ -96,7 +111,7 @@ export function SectionHeading({
 function CardTitle({ id, title, action }: { id: string; title: string; action?: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <h3 id={id} className="text-base font-bold text-[#14244B]">{title}</h3>
+      <h3 id={id} className="min-w-0 text-base font-bold text-[#14244B]">{title}</h3>
       {action}
     </div>
   );
@@ -160,6 +175,7 @@ export function OverviewMetrics({
   weekSessions,
   totalSessions,
   streak,
+  weeklyStreak,
   minutes,
   t,
 }: {
@@ -168,6 +184,8 @@ export function OverviewMetrics({
   weekSessions: number;
   totalSessions: number;
   streak: number;
+  /** Weekly streak from the server (features/progress); replaces the daily streak when present. */
+  weeklyStreak?: { weeks: number; goal: number; thisWeekCount: number } | null;
   minutes: number;
   t: Translate;
 }) {
@@ -177,110 +195,102 @@ export function OverviewMetrics({
       : null;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {/* 1. Điểm đánh giá gần nhất */}
-      <article className="group relative overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#607096]">
-            {t("userDash.overview.readiness")}
-          </span>
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/10 text-amber-500 transition-colors group-hover:bg-amber-500 group-hover:text-white">
-            <Award className="size-5" />
-          </span>
-        </div>
-        <div className="mt-3 flex items-baseline gap-2">
-          {latestScore !== null ? (
-            <>
-              <span className="font-display text-3xl font-extrabold text-[#14244B]">
-                <CountUp value={latestScore} decimals={1} />
-              </span>
-              <span className="text-sm font-semibold text-[#8B98B5]">/10</span>
-              {scoreDiff !== null && Math.abs(scoreDiff) >= 0.1 && (
-                <span
-                  className={cn(
-                    "ml-auto inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-bold",
-                    scoreDiff > 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600",
-                  )}
-                >
-                  {scoreDiff > 0 ? `+${scoreDiff.toFixed(1)}` : scoreDiff.toFixed(1)}
-                </span>
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <MetricTile
+        label={t("userDash.overview.readiness")}
+        icon={<Award className="size-4" />}
+        iconClass="bg-amber-500/10 text-amber-600"
+        value={latestScore !== null ? <CountUp value={latestScore} decimals={1} /> : "—"}
+        unit={latestScore !== null ? "/10" : undefined}
+        badge={
+          latestScore !== null && scoreDiff !== null && Math.abs(scoreDiff) >= 0.1 ? (
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold",
+                scoreDiff > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700",
               )}
-            </>
-          ) : (
-            <span className="font-display text-3xl font-extrabold text-[#14244B]">—</span>
-          )}
-        </div>
-        <p className="mt-1.5 text-xs text-[#607096]">
-          {latestScore !== null ? "Dựa trên buổi phỏng vấn đã chấm" : t("userDash.overview.readinessEmpty")}
-        </p>
-      </article>
-
-      {/* 2. Buổi luyện tập */}
-      <article className="group relative overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#607096]">
-            {t("userDash.overview.weekSessions")}
-          </span>
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-500/10 text-emerald-600 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
-            <CheckCircle2 className="size-5" />
-          </span>
-        </div>
-        <div className="mt-3 flex items-baseline gap-1.5">
-          <span className="font-display text-3xl font-extrabold text-[#14244B]">
-            <CountUp value={weekSessions} />
-          </span>
-          <span className="text-sm font-semibold text-[#8B98B5]">buổi tuần này</span>
-          {totalSessions > 0 && (
-            <span className="ml-auto text-xs text-[#8B98B5]">Tổng {totalSessions}</span>
-          )}
-        </div>
-        <p className="mt-1.5 text-xs text-[#607096]">
-          {weekSessions > 0 ? "Đang duy trì nhịp độ rất tốt" : t("userDash.overview.weekSessionsHelp")}
-        </p>
-      </article>
-
-      {/* 3. Chuỗi ngày liên tiếp */}
-      <article className="group relative overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#607096]">
-            {t("userDash.overview.streak")}
-          </span>
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-orange-500/10 text-orange-500 transition-colors group-hover:bg-orange-500 group-hover:text-white">
-            <Flame className="size-5 fill-current" />
-          </span>
-        </div>
-        <div className="mt-3 flex items-baseline gap-1.5">
-          <span className="font-display text-3xl font-extrabold text-[#14244B]">
-            <CountUp value={streak} />
-          </span>
-          <span className="text-sm font-semibold text-[#8B98B5]">ngày</span>
-        </div>
-        <p className="mt-1.5 text-xs text-[#607096]">
-          {streak > 0 ? "Giữ vững phong độ luyện tập!" : "Bắt đầu chuỗi ngày mới ngay hôm nay!"}
-        </p>
-      </article>
-
-      {/* 4. Thời lượng luyện tập */}
-      <article className="group relative overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#607096]">
-            {t("userDash.overview.time")}
-          </span>
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#204195]/10 text-[#204195] transition-colors group-hover:bg-[#204195] group-hover:text-white">
-            <Clock className="size-5" />
-          </span>
-        </div>
-        <div className="mt-3 flex items-baseline gap-1.5">
-          <span className="font-display text-3xl font-extrabold text-[#14244B]">
-            <CountUp value={minutes} />
-          </span>
-          <span className="text-sm font-semibold text-[#8B98B5]">phút</span>
-        </div>
-        <p className="mt-1.5 text-xs text-[#607096]">
-          {minutes > 0 ? "Thời gian rèn luyện với AI tuần này" : t("userDash.overview.timeUnavailable")}
-        </p>
-      </article>
+            >
+              {scoreDiff > 0 ? `+${scoreDiff.toFixed(1)}` : scoreDiff.toFixed(1)}
+            </span>
+          ) : null
+        }
+        help={latestScore !== null ? "Dựa trên buổi phỏng vấn đã chấm" : t("userDash.overview.readinessEmpty")}
+      />
+      <MetricTile
+        label={t("userDash.overview.weekSessions")}
+        icon={<CheckCircle2 className="size-4" />}
+        iconClass="bg-emerald-500/10 text-emerald-600"
+        value={<CountUp value={weekSessions} />}
+        unit="buổi tuần này"
+        help={
+          weekSessions > 0
+            ? totalSessions > 0
+              ? `Tổng ${totalSessions} buổi · đang duy trì nhịp độ tốt`
+              : "Đang duy trì nhịp độ rất tốt"
+            : t("userDash.overview.weekSessionsHelp")
+        }
+      />
+      <MetricTile
+        label={weeklyStreak ? t("practiceProgress.dashboard.streakLabel") : t("userDash.overview.streak")}
+        icon={<Flame className="size-4 fill-current" />}
+        iconClass="bg-orange-500/10 text-orange-500"
+        value={<CountUp value={weeklyStreak ? weeklyStreak.weeks : streak} />}
+        unit={weeklyStreak ? t("practiceProgress.dashboard.streakUnit") : "ngày"}
+        help={
+          weeklyStreak
+            ? t("practiceProgress.dashboard.streakHelp")
+                .replace("{count}", String(weeklyStreak.thisWeekCount))
+                .replace("{goal}", String(weeklyStreak.goal))
+            : streak > 0
+              ? "Giữ vững phong độ luyện tập!"
+              : "Bắt đầu chuỗi ngày mới ngay hôm nay!"
+        }
+      />
+      <MetricTile
+        label={t("userDash.overview.time")}
+        icon={<Clock className="size-4" />}
+        iconClass="bg-[#204195]/10 text-[#204195]"
+        value={<CountUp value={minutes} />}
+        unit="phút"
+        help={minutes > 0 ? "Thời gian rèn luyện với AI tuần này" : t("userDash.overview.timeUnavailable")}
+      />
     </div>
+  );
+}
+
+/** One compact KPI tile, sized like the admin metric tiles. */
+function MetricTile({
+  label,
+  icon,
+  iconClass,
+  value,
+  unit,
+  badge,
+  help,
+}: {
+  label: string;
+  icon: ReactNode;
+  iconClass: string;
+  value: ReactNode;
+  unit?: string;
+  badge?: ReactNode;
+  help: string;
+}) {
+  return (
+    <article className="flex min-w-0 flex-col rounded-2xl border border-[#DCE4F3] bg-white px-4 py-3">
+      <div className="flex items-start justify-between gap-2">
+        <span className="min-w-0 text-[11px] font-bold uppercase leading-4 tracking-wide text-[#607096]">{label}</span>
+        <span className={cn("grid size-7 shrink-0 place-items-center rounded-lg", iconClass)} aria-hidden="true">
+          {icon}
+        </span>
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+        <span className="font-display text-xl font-extrabold tabular-nums text-[#14244B] sm:text-2xl">{value}</span>
+        {unit ? <span className="text-xs font-semibold text-[#607096]">{unit}</span> : null}
+        {badge}
+      </div>
+      <p className="mt-1 text-xs leading-snug text-[#607096]">{help}</p>
+    </article>
   );
 }
 
@@ -318,22 +328,24 @@ export function ImprovementFocus({
   const roleTitle = latest.jobTitle || "Vị trí gần nhất";
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50/80 via-white to-blue-50/40 p-5 shadow-xs transition-all hover:shadow-sm sm:p-6">
+    <section className="relative overflow-hidden rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50/80 via-white to-blue-50/40 p-4 shadow-xs sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3.5">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-500/15 text-amber-600">
-            <Sparkles className="size-5" />
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-amber-500/15 text-amber-600">
+            <Sparkles className="size-4" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-100/90 px-2.5 py-0.5 text-xs font-bold text-amber-800">
                 Gợi ý cải thiện từ AI
               </span>
-              <span className="text-xs font-medium text-[#607096]">Từ buổi gần nhất: {roleTitle}</span>
+              <span className="min-w-0 text-xs font-medium text-[#607096] [overflow-wrap:anywhere]">Từ buổi gần nhất: {roleTitle}</span>
             </div>
-            <h3 className="mt-1.5 text-base font-bold text-[#14244B]">
-              Năng lực cần rèn luyện: <span className="text-[#204195]">{weakest.competency}</span>
-              <span className="ml-2 inline-block rounded-md border border-amber-200 bg-white px-2 py-0.5 text-xs font-extrabold text-amber-700 shadow-xs">
+            <h3 className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-bold text-[#14244B]">
+              <span className="min-w-0 [overflow-wrap:anywhere]">
+                Năng lực cần rèn luyện: <span className="text-[#204195]">{weakest.competency}</span>
+              </span>
+              <span className="shrink-0 rounded-md border border-amber-200 bg-white px-2 py-0.5 text-xs font-extrabold text-amber-700">
                 {weakest.score.toFixed(1)}/10
               </span>
             </h3>
@@ -346,7 +358,7 @@ export function ImprovementFocus({
           <button
             type="button"
             onClick={() => onPractice({ id: latest.jobId!, title: roleTitle })}
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#183275] active:scale-[0.98]"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-4 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#183275] active:scale-[0.98]"
           >
             <span>Luyện lại vị trí này</span>
             <ArrowRight className="size-3.5" />
@@ -412,19 +424,19 @@ export function PracticeModes({
   ];
 
   return (
-    <section aria-labelledby="modes-title" className="space-y-4">
+    <section aria-labelledby="modes-title">
       <SectionHeading
         id="modes-title"
         title={t("userDash.modes.title")}
         subtitle="Chọn hình thức phù hợp với thời gian và mục tiêu rèn luyện hôm nay của bạn."
       />
 
-      <div className="grid gap-5 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3">
         {modes.map((mode) => (
           <article
             key={mode.key}
             className={cn(
-              "relative flex flex-col justify-between rounded-2xl border p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg",
+              "relative flex min-w-0 flex-col justify-between rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5",
               mode.isFeatured
                 ? "border-[#204195] bg-gradient-to-b from-[#F0F4FC]/90 via-white to-white shadow-md ring-1 ring-[#204195]/20"
                 : "border-[#DCE4F3] bg-white shadow-xs hover:border-[#204195]/40",
@@ -443,10 +455,10 @@ export function PracticeModes({
 
             <div>
               <div className="flex items-center gap-3">
-                <div className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", mode.color)}>
+                <div className={cn("grid size-10 shrink-0 place-items-center rounded-xl", mode.color)}>
                   <mode.Icon className="size-5" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3 className="font-display text-base font-bold text-[#14244B]">{mode.title}</h3>
                   <span className="text-[11px] font-medium text-[#8B98B5]">{mode.duration}</span>
                 </div>
@@ -454,12 +466,12 @@ export function PracticeModes({
               <p className="mt-3 text-xs leading-relaxed text-[#607096]">{mode.desc}</p>
             </div>
 
-            <div className="mt-5 border-t border-[#EAEFF8] pt-4">
+            <div className="mt-4 border-t border-[#EAEFF8] pt-3">
               <button
                 type="button"
                 onClick={mode.action}
                 className={cn(
-                  "flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all active:scale-[0.98]",
+                  "flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-bold transition-all active:scale-[0.98]",
                   mode.isFeatured
                     ? "bg-[#204195] text-white shadow-xs hover:bg-[#183275]"
                     : "border border-[#DCE4F3] bg-white text-[#14244B] hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195]",
@@ -491,7 +503,7 @@ export function RecentActivity({
   const displaySessions = sessions.slice(0, 4);
 
   return (
-    <section aria-labelledby="activity-title" className={cn(CARD, "flex flex-col p-5 sm:p-6 shadow-xs")}>
+    <section aria-labelledby="activity-title" className={cn(CARD, "flex flex-col p-4 sm:p-5")}>
       <CardTitle
         id="activity-title"
         title={t("userDash.activity.title")}
@@ -519,10 +531,13 @@ export function RecentActivity({
                   className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-2xl px-2 py-3 text-left transition-colors hover:bg-[#F8FAFC]"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-[#14244B]">
+                    <span
+                      className="block truncate text-sm font-semibold text-[#14244B]"
+                      title={session.jobTitle || undefined}
+                    >
                       {session.jobTitle || t("userDash.activity.eyebrow")}
                     </span>
-                    <span className="mt-0.5 block truncate text-xs text-[#607096]">
+                    <span className="mt-0.5 block text-xs leading-5 text-[#607096]">
                       {new Date(session.startedAt).toLocaleDateString(localeOf(lang), {
                         day: "2-digit",
                         month: "2-digit",
@@ -580,7 +595,7 @@ export function SuggestedJobs({
 }) {
   const ordered = [...profiles].sort((a, b) => Number(savedJobIds.has(b.id)) - Number(savedJobIds.has(a.id)));
   return (
-    <section aria-labelledby="jobs-title" className="space-y-4">
+    <section aria-labelledby="jobs-title">
       <SectionHeading
         id="jobs-title"
         title={t("uxWs.dash.jobs.title")}
@@ -588,7 +603,7 @@ export function SuggestedJobs({
         action={<LinkButton onClick={() => onNavigate("/dashboard/jobs")}>{t("userDash.jobProfiles.viewAll")} →</LinkButton>}
       />
       {ordered.length ? (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {ordered.slice(0, 3).map((profile) => (
             <JobCard
               key={profile.id}
