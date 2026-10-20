@@ -277,7 +277,7 @@ export function CandidateMatchDetails({
     return (
       <section className="space-y-2" aria-label={label}>
         <div className="flex items-center justify-between gap-4 border-b border-[#EAEFF8] pb-3">
-          <h2 className="text-base font-semibold text-[#14244B]">{label}</h2>
+          <h2 className="min-w-0 text-base font-semibold text-[#14244B]">{label}</h2>
           {summary && (
             <span className="shrink-0 pt-0.5 text-xs font-medium text-[#607096]">
               {fmt(t("fit.details.sectionMatched"), { met: summary.met, total: summary.total })}
@@ -324,10 +324,10 @@ export function CandidateMatchDetails({
   }
 
   return (
-    <section className="overflow-hidden rounded-3xl bg-white ring-1 ring-[#DCE4F3]">
+    <section className="min-w-0 overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white">
       <div className="border-b border-[#EAEFF8] px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <h2 className="text-xl font-semibold text-[#14244B]">{t("fit.details.title")}</h2>
+          <h2 className="text-lg font-bold text-[#14244B]">{t("fit.details.title")}</h2>
           <div className="flex flex-wrap items-center gap-1" aria-label={t("fit.details.filterAria")}>
             {statusFilters.map((filter) => {
               const isActive = activeFilter === filter.id;
@@ -337,7 +337,7 @@ export function CandidateMatchDetails({
                   type="button"
                   onClick={() => setActiveFilter(filter.id)}
                   aria-pressed={isActive}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                  className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${
                     isActive
                       ? "bg-[#14244B] text-white"
                       : "text-[#607096] hover:bg-[#F0F4FC] hover:text-[#14244B]"
@@ -359,7 +359,7 @@ export function CandidateMatchDetails({
       </div>
 
       <div
-        className={`grid min-h-[640px] lg:divide-x lg:divide-[#EAEFF8] ${
+        className={`grid min-h-[640px] grid-cols-1 lg:divide-x lg:divide-[#EAEFF8] ${
           showCvPane
             ? "lg:grid-cols-[minmax(420px,0.95fr)_minmax(0,1.25fr)]"
             : "lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]"
