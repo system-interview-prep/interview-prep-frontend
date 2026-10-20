@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, Target, TrendingUp } from "lucide-react";
+import { ArrowRight, Sparkles, Target, TrendingUp } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { localeOf } from "@/i18n/format";
 import { progressApi, type ProgressComparison } from "../services/progress.service";
 import { fill, longDate, percent, tierLabel } from "../utils/progressFormat";
 
 /**
- * "So với lần trước" on the report: 2–3 things that improved and one to keep
- * practising, against the previous graded interview (same position when there
- * is one). Renders nothing for a first interview or when loading fails.
+ * "So với lần trước" on the report: what this session did for the first time
+ * (checklist evidence), skill level changes, things that improved beyond the
+ * session noise, and one to keep practising, against the previous graded
+ * interview (same position when there is one). Renders nothing for a first
+ * interview or when loading fails.
  */
 export function ProgressComparisonCard({ sessionId }: { sessionId: string }) {
   const { t, lang } = useLanguage();
@@ -42,8 +44,24 @@ export function ProgressComparisonCard({ sessionId }: { sessionId: string }) {
     behavior.skipped.before !== behavior.skipped.now
       ? fill(t("practiceProgress.compare.skipped"), { before: behavior.skipped.before, now: behavior.skipped.now })
       : null,
+    behavior.coreCoverage &&
+    behavior.coreCoverage.before !== null &&
+    behavior.coreCoverage.now !== null &&
+    Math.abs(behavior.coreCoverage.now - behavior.coreCoverage.before) >= 0.1
+      ? fill(t("practiceProgress.compare.coreCoverage"), {
+          before: percent(behavior.coreCoverage.before),
+          now: percent(behavior.coreCoverage.now),
+        })
+      : null,
   ].filter((line): line is string => Boolean(line));
-  const nothing = comparison.improvedSkills.length === 0 && habitLines.length === 0 && !(overall && overall.status !== "flat");
+  const levelUps = (comparison.levelChanges ?? []).filter((change) => change.to > change.from);
+  const levelDowns = (comparison.levelChanges ?? []).filter((change) => change.to < change.from);
+  const firsts = comparison.firsts ?? [];
+  const nothing =
+    comparison.improvedSkills.length === 0 &&
+    habitLines.length === 0 &&
+    levelUps.length === 0 &&
+    !(overall && overall.status !== "flat");
 
   return (
     <section className="min-w-0 rounded-2xl border border-[#DCE4F3] bg-white p-5 sm:p-6 print:break-inside-avoid [overflow-wrap:anywhere]">
@@ -73,6 +91,26 @@ export function ProgressComparisonCard({ sessionId }: { sessionId: string }) {
         </p>
       )}
 
+      {(firsts.length > 0 || levelUps.length > 0) && (
+        <ul className="mt-4 space-y-1.5 rounded-xl bg-[#F5F8FF] p-3 text-sm text-[#14244B] ring-1 ring-[#DCE4F3]">
+          {levelUps.map((change) => (
+            <li key={`level-${change.skill}`} className="flex items-start gap-2 font-semibold">
+              <Sparkles className="mt-0.5 size-4 shrink-0 text-[#D99A19]" aria-hidden="true" />
+              {fill(t("practiceProgress.compare.levelUp"), {
+                skill: change.skill,
+                level: t(`practiceProgress.level.${change.to}`),
+              })}
+            </li>
+          ))}
+          {firsts.map((kind) => (
+            <li key={kind} className="flex items-start gap-2">
+              <Sparkles className="mt-0.5 size-4 shrink-0 text-[#D99A19]" aria-hidden="true" />
+              {t(`practiceProgress.compare.first.${kind}`)}
+            </li>
+          ))}
+        </ul>
+      )}
+
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#287A4B]">
@@ -98,6 +136,14 @@ export function ProgressComparisonCard({ sessionId }: { sessionId: string }) {
               {t("practiceProgress.compare.focus")}
             </p>
             <ul className="mt-2 space-y-1.5 text-sm text-[#14244B]">
+              {levelDowns.map((change) => (
+                <li key={`down-${change.skill}`}>
+                  {fill(t("practiceProgress.compare.levelDown"), {
+                    skill: change.skill,
+                    level: t(`practiceProgress.level.${change.to}`),
+                  })}
+                </li>
+              ))}
               {comparison.focusSkills.map((item) => (
                 <li key={item.skill}>
                   {item.skill}:{" "}
