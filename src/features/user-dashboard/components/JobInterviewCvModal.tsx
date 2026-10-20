@@ -143,6 +143,8 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
   const [selectedCvId, setSelectedCvId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  // Same file uploaded again, or a new file renamed because its name was taken.
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [apiConnected, setApiConnected] = useState(false);
   const [trackingCvId, setTrackingCvId] = useState<string | null>(null);
@@ -279,12 +281,22 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
     if (token) {
       setUploading(true);
       setAnalyzeError(null);
+      setUploadNotice(null);
       setFoxDone(false);
       try {
         const { data } = await userCvApi.upload(f);
         setAnalyzeError(null);
         setFoxDone(false);
-        setTrackingCvId(data.id);
+        if (data.duplicate) {
+          // Nothing new to process: point at the CV they already have.
+          setUploadNotice(fmt(t("uxWs.cvs.duplicateUpload"), { name: data.originalName }));
+          setSelectedCvId(data.id);
+        } else {
+          if (data.renamedFrom) {
+            setUploadNotice(fmt(t("uxWs.cvs.renamedUpload"), { from: data.renamedFrom, to: data.originalName }));
+          }
+          setTrackingCvId(data.id);
+        }
         await loadFiles();
       } catch (e) {
         setAnalyzeError(resolveBackendErrorMessage(e, t, "userDash.myCvs.apiUploadError"));
@@ -566,6 +578,8 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
                 <StatusNote text={t("uxWs.cvs.uploading")} />
               ) : analyzeError ? (
                 <StatusNote tone="error" text={analyzeError} hint={t("uxWs.cvs.errorHint")} />
+              ) : uploadNotice ? (
+                <StatusNote text={uploadNotice} onDismiss={() => setUploadNotice(null)} dismissLabel={t("common.close")} />
               ) : foxDone && !trackingCvId ? (
                 <StatusNote tone="success" text={t("uxWs.jobCvModal.parsedDone")} />
               ) : null}
