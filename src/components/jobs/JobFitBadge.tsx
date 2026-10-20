@@ -24,11 +24,11 @@ export function JobFitBadge({ jobId, fit }: { jobId: string; fit?: JobCardFit })
       className="relative z-[2] block rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-3 py-2 transition-colors hover:border-[#204195]/40 hover:bg-[#F0F4FC]"
       aria-label={fmt(t("jobs.fit.aria"), { met: fit.met, total: fit.total })}
     >
-      <span className="flex items-baseline justify-between gap-2">
-        <span className="text-[12px] font-bold text-[#14244B] tabular-nums">
+      <span className="flex min-w-0 items-baseline justify-between gap-2">
+        <span className="shrink-0 text-[12px] font-bold text-[#14244B] tabular-nums">
           {fmt(t("jobs.fit.label"), { met: fit.met, total: fit.total })}
         </span>
-        <span className="truncate text-[11px] text-[#607096]">
+        <span className="min-w-0 truncate text-[11px] text-[#607096]" title={fit.cvName ? `${fit.cvName} · ${date}` : date}>
           {fit.cvName ? `${fit.cvName} · ${date}` : date}
         </span>
       </span>
