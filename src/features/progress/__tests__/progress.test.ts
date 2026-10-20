@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { uniqueLabels } from "../components/ProgressPage";
+import { groupByArea, uniqueLabels } from "../components/ProgressPage";
+import { SKILL_AREAS } from "../services/progress.service";
 import { fill, milestoneText, percent, trendTone } from "../utils/progressFormat";
 import { progressVi } from "@/i18n/dicts/progress.dict";
 
@@ -184,5 +185,88 @@ describe("noise-aware progress (research 20/10, mirrors application/progress.py)
     // Fewer skipped questions reads as better.
     const skips = evidenceOf([session(1, 0, 0, 3), session(2, 0, 0, 3), session(3, 0, 0, 0), session(4, 0, 0, 0)]);
     expect(skips.find((m) => m.key === "skipRate")!.status).toBe("improved");
+  });
+});
+
+describe("skills a candidate can read (research 20/10)", () => {
+  it("groups skills by area in a fixed order and puts unknown ones last", () => {
+    const groups = groupByArea([
+      { id: "redis", area: "data" as const },
+      { id: "cv", area: "project" as const },
+      { id: "x" },
+      { id: "pg", area: "data" as const },
+    ]);
+    expect(groups.map((g) => g.area)).toEqual(["project", "data", "other"]);
+    expect(groups[1].skills.map((s) => s.id)).toEqual(["redis", "pg"]);
+  });
+
+  it("names and explains every area", () => {
+    for (const area of SKILL_AREAS) {
+      expect(progressVi[`practiceProgress.area.${area}`]).toBeTruthy();
+      expect(progressVi[`practiceProgress.area.${area}.desc`]).toBeTruthy();
+    }
+  });
+});
+
+describe("ready for a real interview: rounds, gaps, practice (research 20/10)", () => {
+  const round = (area: string, status: string, estimate: number | null) =>
+    ({ area, status, estimate, sessions: 2, skills: [], topGap: null }) as never;
+
+  it("picks the weakest round to practise next and links a focused session", async () => {
+    const { nextRound, practiceHref } = await import("../utils/progressModel");
+    const job = {
+      jobId: "job-be",
+      jobTitle: "Backend",
+      sessions: 4,
+      rounds: [round("data", "almost", 6.2), round("infra", "practice", 4.1), round("project", "ready", 7.4)],
+    };
+    expect(nextRound(job)?.area).toBe("infra");
+    expect(nextRound({ ...job, rounds: [round("project", "ready", 7.5)] })).toBeNull();
+    expect(practiceHref("job-be", "cv-1", "infra")).toBe("/interview/cv-score?candidateId=cv-1&jobId=job-be&focus=infra");
+    // Project and teamwork questions are in every session: no focus parameter.
+    expect(practiceHref("job-be", "cv-1", "project")).toBe("/interview/cv-score?candidateId=cv-1&jobId=job-be");
+    expect(practiceHref(null, null, "data")).toBe("/interview/select");
+  });
+
+  it("filters the revision notebook by CV and position", async () => {
+    const { filteredGaps, DEFAULT_FILTERS } = await import("../utils/progressModel");
+    const gap = (jobId: string, resumeId: string) => ({
+      skill: "Redis",
+      skillKey: "skill-redis",
+      area: "data" as const,
+      point: `p-${jobId}-${resumeId}`,
+      status: "MISSING" as const,
+      timesAsked: 2,
+      timesMissed: 2,
+      lastSeen: { sessionId: "s1", date: "2026-10-10T00:00:00Z", question: "q", jobId, resumeId },
+    });
+    const progress = { gaps: { open: [gap("a", "cv1"), gap("b", "cv1")], fixed: [gap("a", "cv2")] } } as never;
+    const out = filteredGaps(progress, { ...DEFAULT_FILTERS, jobId: "a" });
+    expect(out.open.map((g) => g.point)).toEqual(["p-a-cv1"]);
+    expect(filteredGaps(progress, { ...DEFAULT_FILTERS, resumeId: "cv1" }).fixed).toEqual([]);
+  });
+
+  it("never suggests practising a keyword that is no longer asked", async () => {
+    const { summaryOf } = await import("../utils/progressModel");
+    const skill = (label: string, latest: number, minor: boolean) =>
+      ({ conceptId: label, label, latest, minor, trend: { status: "flat" }, points: [], sessionsCount: 3 }) as never;
+    const summary = summaryOf([skill("XML", 0.3, true), skill("Redis", 5.0, false)], new Date("2026-10-20"));
+    expect((summary.focus as { label: string } | null)?.label).toBe("Redis");
+  });
+
+  it("names the rounds asked in a failed interview that were not ready then", async () => {
+    const { notReadyAtTheTime } = await import("../components/ReadinessCards");
+    const report = {
+      id: "r1",
+      jobId: "job-be",
+      company: null,
+      date: "2026-10-18",
+      stage: "technical" as const,
+      result: "failed" as const,
+      askedAreas: ["data", "infra", "ai"] as never,
+      hardParts: null,
+      readiness: { rounds: { data: { status: "ready" as const, estimate: 7.2 }, infra: { status: "practice" as const, estimate: 4 } } },
+    };
+    expect(notReadyAtTheTime(report)).toEqual(["infra"]);
   });
 });
