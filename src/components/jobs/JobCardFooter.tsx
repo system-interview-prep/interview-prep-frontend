@@ -45,10 +45,10 @@ export function JobCardFooter({
       {/* Posted date + optional source, on its own line */}
       {(postedText || sourceText) && (
       <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-[#9AA6C2]">
-        {postedText && <span className="truncate">{postedText}</span>}
-        {postedText && sourceText && <span>·</span>}
+        {postedText && <span className="min-w-0 truncate">{postedText}</span>}
+        {postedText && sourceText && <span className="shrink-0">·</span>}
         {sourceText && (
-          <span className="truncate" title={sourceText}>
+          <span className="min-w-0 truncate" title={sourceText}>
             {sourceText}
           </span>
         )}
@@ -56,7 +56,7 @@ export function JobCardFooter({
       )}
 
       {/* Interview CTA + view job */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex min-w-0 items-center justify-between gap-2">
         {onInterview && (
           <button
             type="button"
@@ -66,14 +66,14 @@ export function JobCardFooter({
               onInterview();
             }}
             title={interviewCta || t("userDash.jobProfiles.interviewNow") || (lang === "vi" ? "Luyện phỏng vấn" : "Practice Interview")}
-            className="relative z-[3] inline-flex items-center gap-1 rounded-full border border-[#204195]/20 bg-[#F0F4FC] px-3 py-1.5 text-[12px] font-bold text-[#204195] transition-all hover:border-[#204195] hover:bg-[#204195] hover:text-white active:scale-95"
+            className="relative z-[3] inline-flex h-9 min-w-0 shrink items-center gap-1 rounded-full border border-[#204195]/20 bg-[#F0F4FC] px-3 text-[12px] font-bold text-[#204195] transition-all hover:border-[#204195] hover:bg-[#204195] hover:text-white active:scale-95"
           >
-            <span>{interviewCta || t("userDash.jobProfiles.interviewNow") || (lang === "vi" ? "Luyện phỏng vấn" : "Practice Interview")}</span>
-            <Play className="size-2.5 fill-current" aria-hidden="true" />
+            <span className="truncate">{interviewCta || t("userDash.jobProfiles.interviewNow") || (lang === "vi" ? "Luyện phỏng vấn" : "Practice Interview")}</span>
+            <Play className="size-2.5 shrink-0 fill-current" aria-hidden="true" />
           </button>
         )}
 
-        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#204195] transition-transform duration-150 group-hover:translate-x-0.5 sm:text-xs">
+        <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-[#204195] transition-transform duration-150 group-hover:translate-x-0.5 sm:text-xs">
           <span>{t("jobs.card.viewJob") || "Xem chi tiết"}</span>
           <ArrowRight className="size-3.5" aria-hidden="true" />
         </span>
