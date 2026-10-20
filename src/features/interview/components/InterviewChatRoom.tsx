@@ -15,6 +15,8 @@ import { ConfirmDialog } from '@components/shared/ConfirmDialog';
 import { ChatStageStepper, getStageLabel } from './ChatInterviewProgress';
 import { currentQuestionFromRuntime } from '../hooks/useRuntimeProgress';
 import { ChatRoomErrorState, ChatRoomLoadingState } from './ChatRoomStates';
+import { ChatReturnModal } from './ChatReturnModal';
+import { useChatPresence } from '../hooks/useChatPresence';
 import { useLanguage } from '@/i18n/LanguageProvider';
 import { fmt } from '@/i18n/format';
 import {
@@ -53,6 +55,9 @@ export default function InterviewChatRoom({
   const [showEndModal, setShowEndModal] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Heartbeat + "left" signal while the room is open; the backend closes an abandoned chat after a grace period.
+  const presence = useChatPresence(sessionId, Boolean(runtime) && runtime?.sessionStatus !== 'CLOSED');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -460,6 +465,17 @@ export default function InterviewChatRoom({
         </div>
       )}
 
+      {presence.awaySince && runtime?.sessionStatus !== 'CLOSED' ? (
+        <ChatReturnModal
+          awaySince={presence.awaySince}
+          graceMinutes={presence.graceMinutes}
+          onContinue={() => {
+            presence.dismissAway();
+            textareaRef.current?.focus();
+          }}
+        />
+      ) : null}
+
       {/* End Session Confirmation Modal (Dual-Trigger) */}
       <AbortConfirmationModal
         isOpen={showEndModal}
@@ -471,7 +487,7 @@ export default function InterviewChatRoom({
       <ConfirmDialog
         open={showLeaveConfirm}
         title={t('room.common.leaveConfirmTitle')}
-        body={t('room.common.leaveConfirmBody')}
+        body={fmt(t('room.common.leaveConfirmBody'), { n: presence.graceMinutes })}
         confirmLabel={t('room.common.leaveConfirm')}
         cancelLabel={t('room.common.continueInterview')}
         onConfirm={() => {
