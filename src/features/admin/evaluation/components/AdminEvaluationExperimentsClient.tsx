@@ -18,12 +18,12 @@ export default function AdminEvaluationExperimentsClient() {
   const experiments: EvalExperimentItem[] = [];
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <AdminPageHeader
         title={t("admin.eval.experiments.title")}
         description={t("admin.eval.experiments.subtitle")}
         breadcrumbs={[
-          { label: "Admin", href: "/admin/dashboard" },
+          { label: t("fixAdmin.detail.breadcrumbAdmin"), href: "/admin/dashboard" },
           { label: t("admin.sidebar.evalOverview"), href: "/admin/evaluation" },
           { label: t("admin.sidebar.evalExperiments") },
         ]}
@@ -81,7 +81,7 @@ export default function AdminEvaluationExperimentsClient() {
 
       {/* Search Bar */}
       <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
+        <div className="relative min-w-0 flex-1 sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#607096]" />
           <input
             value={searchQuery}
@@ -94,9 +94,16 @@ export default function AdminEvaluationExperimentsClient() {
       </div>
 
       {/* Table / Empty State */}
+      {experiments.length === 0 ? (
+        <AdminEmptyState
+          variant="pending"
+          title={t("fixAdmin.eval.experiments.emptyTitle")}
+          description={t("fixAdmin.eval.experiments.emptyDesc")}
+        />
+      ) : (
       <div className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[820px] text-left border-collapse">
             <thead>
               <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
                 <th className="px-6 py-4">{t("fixAdmin.eval.experiments.colName")}</th>
@@ -109,18 +116,7 @@ export default function AdminEvaluationExperimentsClient() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EAEFF8] text-xs">
-              {experiments.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-8">
-                    <AdminEmptyState
-                      variant="pending"
-                      title={t("fixAdmin.eval.experiments.emptyTitle")}
-                      description={t("fixAdmin.eval.experiments.emptyDesc")}
-                    />
-                  </td>
-                </tr>
-              ) : (
-                experiments.map((exp) => (
+              {experiments.map((exp) => (
                   <tr key={exp.id} className="transition-colors hover:bg-[#F8FAFC]">
                     <td className="px-6 py-4 font-bold text-[#14244B]">{exp.name}</td>
                     <td className="px-6 py-4">{exp.datasetName}</td>
@@ -134,12 +130,12 @@ export default function AdminEvaluationExperimentsClient() {
                       </Link>
                     </td>
                   </tr>
-                ))
-              )}
+                ))}
             </tbody>
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 }
