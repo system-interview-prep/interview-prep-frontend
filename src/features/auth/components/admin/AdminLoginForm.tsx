@@ -14,7 +14,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { FoxAvatar } from "@features/mascot/components/FoxAvatar";
+import { BrandLogo } from "@components/shared/BrandLogo";
 import {
   completeAuthSession,
   getAuthErrorMessage,
@@ -127,11 +127,9 @@ export default function AdminLoginForm() {
           {/* Logo & Header */}
           <div className="text-center">
             <div className="mx-auto inline-flex items-center justify-center gap-2 mb-3">
-              <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-white ring-1 ring-[#DCE4F3]">
-                <FoxAvatar size={34} />
-              </span>
-              <span className="font-display text-lg font-semibold tracking-tight text-[#14244B]">
-                Intervia
+              <BrandLogo size={38} />
+              <span className="font-display text-lg font-bold tracking-[0.08em] text-[#14244B]">
+                INTERVIA
               </span>
             </div>
 
