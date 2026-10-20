@@ -1,5 +1,5 @@
 import { pickerVi } from "@/i18n/dicts/picker.dict";
-import { interviewRuntimeApi } from "./interviewRuntime.service";
+import { interviewRuntimeApi, type FocusArea } from "./interviewRuntime.service";
 import { fmt } from "@/i18n/format";
 import { entryBlockFromError, entryBlockMessageKey } from "@features/interview/utils/entryGate";
 
@@ -20,6 +20,8 @@ export type StartInterviewParams = {
   /** Canonical job description id used by the structured interview runtime. */
   jobId?: string;
   durationMinutes?: number;
+  /** Practise one round (from the progress page); ignored when not a technical round. */
+  focusArea?: FocusArea;
 };
 
 /**
@@ -73,6 +75,7 @@ export async function startInterviewSession({
   candidateId,
   jobId,
   durationMinutes = 25,
+  focusArea,
 }: StartInterviewParams): Promise<string> {
   // Interviews are Vietnamese-only; the backend enforces it as well.
   const languageParam = "Vietnamese";
@@ -102,6 +105,7 @@ export async function startInterviewSession({
     experienceType: runtimeExperience,
     locale,
     durationMinutes,
+    ...(focusArea ? { focusArea } : {}),
   });
   const sessionId = session.sessionId;
 
