@@ -182,7 +182,7 @@ export default function InterviewResultsPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
-            className="flex size-9 items-center justify-center rounded-full bg-[#F5F7FB] text-[#607096] ring-1 ring-[#DCE4F3] transition hover:bg-[#EAF0FD] hover:text-[#14244B]"
+            className="flex size-9 items-center justify-center rounded-xl bg-[#F5F7FB] text-[#607096] ring-1 ring-[#DCE4F3] transition hover:bg-[#EAF0FD] hover:text-[#14244B]"
             title={t("report.page.backAria")}
             aria-label={t("report.page.backAria")}
           >
@@ -200,14 +200,14 @@ export default function InterviewResultsPage() {
             <button
               type="button"
               onClick={() => window.print()}
-              className="inline-flex h-9 items-center rounded-full bg-white px-4 text-xs font-semibold text-[#14244B] ring-1 ring-[#DCE4F3] transition hover:bg-[#EEF2FD]"
+              className="inline-flex h-9 items-center rounded-xl bg-white px-4 text-xs font-semibold text-[#14244B] ring-1 ring-[#DCE4F3] transition hover:bg-[#EEF2FD]"
             >
               {t("report.page.print")}
             </button>
           ) : (
             <Link
               href="/interview/select"
-              className="inline-flex h-9 items-center rounded-full bg-[#204195] px-4 text-xs font-semibold text-white transition hover:bg-[#183275]"
+              className="inline-flex h-9 items-center rounded-xl bg-[#204195] px-4 text-xs font-semibold text-white transition hover:bg-[#183275]"
             >
               {t("report.page.continue")}
             </Link>
@@ -218,7 +218,7 @@ export default function InterviewResultsPage() {
       <main className="flex-1 py-5 sm:py-8 print:py-0">
         {state.kind === "loading" || state.kind === "evaluating" ? (
           <div className="mx-auto max-w-md px-4 py-24 text-center" role="status" aria-live="polite">
-            <h2 className="mt-5 font-display text-2xl font-semibold text-[#14244B]">
+            <h2 className="mt-5 font-display text-lg font-bold text-[#14244B]">
               {state.kind === "evaluating" ? t("report.page.evaluating") : t("report.page.loading")}
             </h2>
             {state.kind === "evaluating" && (
@@ -234,8 +234,8 @@ export default function InterviewResultsPage() {
             )}
           </div>
         ) : state.kind === "error" || state.kind === "no-report" ? (
-          <div className="mx-auto my-16 max-w-lg space-y-4 rounded-3xl bg-white p-6 text-center ring-1 ring-[#DCE4F3]">
-            <h3 className="font-display text-xl font-semibold text-[#14244B]">{t(state.title)}</h3>
+          <div className="mx-4 my-16 max-w-lg space-y-4 rounded-2xl bg-white p-5 text-center ring-1 ring-[#DCE4F3] sm:mx-auto sm:p-6">
+            <h3 className="font-display text-lg font-bold text-[#14244B]">{t(state.title)}</h3>
             <p className="text-sm leading-relaxed text-[#607096]">{t(state.body)}</p>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               {state.kind === "error" && (state.code === "generic" || state.code === "busy") && (
@@ -243,14 +243,14 @@ export default function InterviewResultsPage() {
                   <button
                     type="button"
                     onClick={() => void evaluate()}
-                    className="inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275]"
+                    className="inline-flex h-10 items-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275]"
                   >
                     {t("report.page.regrade")}
                   </button>
                   <button
                     type="button"
                     onClick={() => void load()}
-                    className="inline-flex h-11 items-center rounded-full bg-[#F7F9FD] px-5 text-sm font-semibold text-[#14244B] transition hover:bg-[#EEF2FD]"
+                    className="inline-flex h-10 items-center rounded-xl bg-[#F7F9FD] px-5 text-sm font-semibold text-[#14244B] transition hover:bg-[#EEF2FD]"
                   >
                     {t("report.page.reload")}
                   </button>
@@ -260,7 +260,7 @@ export default function InterviewResultsPage() {
                 <button
                   type="button"
                   onClick={() => void load()}
-                  className="inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275]"
+                  className="inline-flex h-10 items-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275]"
                 >
                   {t("report.page.reload")}
                 </button>
@@ -268,7 +268,7 @@ export default function InterviewResultsPage() {
               {state.kind === "error" && state.code === "auth" && (
                 <Link
                   href="/login"
-                  className="inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275]"
+                  className="inline-flex h-10 items-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275]"
                 >
                   {t("room.results.login")}
                 </Link>
@@ -276,7 +276,7 @@ export default function InterviewResultsPage() {
               {state.kind === "error" && (state.code === "notFound" || state.code === "missingId") && (
                 <Link
                   href="/dashboard/history"
-                  className="inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275]"
+                  className="inline-flex h-10 items-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275]"
                 >
                   {t("room.results.history")}
                 </Link>
@@ -284,14 +284,14 @@ export default function InterviewResultsPage() {
               {state.kind === "no-report" && session && !session.endedAt && (
                 <Link
                   href={`/interview/room/${encodeURIComponent(sessionId)}`}
-                  className="inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white hover:bg-[#183275]"
+                  className="inline-flex h-10 items-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white hover:bg-[#183275]"
                 >
                   {t("report.page.backToRoom")}
                 </Link>
               )}
               <Link
                 href="/interview/select"
-                className="inline-flex h-11 items-center rounded-full bg-[#F7F9FD] px-5 text-sm font-semibold text-[#14244B] hover:bg-[#EEF2FD]"
+                className="inline-flex h-10 items-center rounded-xl bg-[#F7F9FD] px-5 text-sm font-semibold text-[#14244B] hover:bg-[#EEF2FD]"
               >
                 {t("report.page.newSession")}
               </Link>
