@@ -3,16 +3,21 @@ import { cn } from "@/utils";
 export const FOX_DIRECTIONS_SHEET = "/mascot/intervia-fox-directions.webp?v=1";
 export const FOX_REACTIONS_SHEET = "/mascot/intervia-fox-reactions.webp?v=1";
 
-// Cells in the 3x3 reactions sheet, row by row (see Mascot.tsx).
-const REACTION_CELL = {
-  front: -1,
-  heart: 1,
-  sparkle: 2,
-  wink: 4,
-  delighted: 8,
+// Cells in the 3x3 sheets, row by row (see Mascot.tsx): "directions" for where
+// the fox looks, "reactions" for its face.
+const POSES = {
+  front: { sheet: "directions", cell: 4 },
+  think: { sheet: "directions", cell: 0 },
+  heart: { sheet: "reactions", cell: 1 },
+  sparkle: { sheet: "reactions", cell: 2 },
+  surprised: { sheet: "reactions", cell: 3 },
+  wink: { sheet: "reactions", cell: 4 },
+  sleepy: { sheet: "reactions", cell: 6 },
+  dizzy: { sheet: "reactions", cell: 7 },
+  delighted: { sheet: "reactions", cell: 8 },
 } as const;
 
-export type FoxAvatarPose = keyof typeof REACTION_CELL;
+export type FoxAvatarPose = keyof typeof POSES;
 
 function cellPosition(index: number) {
   return `${(index % 3) * 50}% ${Math.floor(index / 3) * 50}%`;
@@ -34,8 +39,7 @@ export function FoxAvatar({
   /** Leave empty when the fox is decorative. */
   label?: string;
 }) {
-  const index = REACTION_CELL[pose];
-  const fromReactions = index >= 0;
+  const { sheet, cell } = POSES[pose];
   return (
     <span
       role={label ? "img" : undefined}
@@ -45,10 +49,9 @@ export function FoxAvatar({
       style={{
         width: size,
         height: size,
-        backgroundImage: `url(${fromReactions ? FOX_REACTIONS_SHEET : FOX_DIRECTIONS_SHEET})`,
+        backgroundImage: `url(${sheet === "reactions" ? FOX_REACTIONS_SHEET : FOX_DIRECTIONS_SHEET})`,
         backgroundSize: "300% 300%",
-        // Center cell of the directions sheet is the fox looking at the viewer.
-        backgroundPosition: cellPosition(fromReactions ? index : 4),
+        backgroundPosition: cellPosition(cell),
       }}
     />
   );
