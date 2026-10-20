@@ -72,4 +72,117 @@ describe("progress under filters (many CVs, positions, months)", () => {
     expect(folded[0].count).toBe(5);
     expect(foldMonthly(many.slice(0, 5))).toHaveLength(5);
   });
+
+  it("finds how ready the candidate is for the position they practise most", async () => {
+    const { readinessOf } = await import("../utils/progressModel");
+    const ready = readinessOf(progress);
+    expect(ready).toMatchObject({ jobId: "be", sessions: 3, ready: 0, total: 2 });
+    // Weakest first.
+    // The smoothed estimate, not the last raw score.
+    expect(ready?.skills.map((s) => [s.label, s.latest])).toEqual([["Redis", 5.08], ["SQL", 6.48]]);
+    expect(readinessOf(progress, "data")).toMatchObject({ jobId: "data", total: 2 });
+  });
+
+  it("summarises the page and picks one skill to practise next", async () => {
+    const { filteredSkills, summaryOf, DEFAULT_FILTERS } = await import("../utils/progressModel");
+    const skills = filteredSkills(progress, DEFAULT_FILTERS, now);
+    const summary = summaryOf(skills, now);
+    expect(summary.improving.map((s) => s.label)).toEqual(["Redis"]);
+    // Nothing is falling or stale yet: the lowest skill under the line.
+    expect(summary.focusReason).toBe("low");
+    expect(summary.focus?.label).toBe("Apache Spark");
+    // A month later every skill is stale; a falling one would still come first.
+    const later = new Date(Date.UTC(2026, 2, 1));
+    expect(summaryOf(skills, later)).toMatchObject({ focusReason: "stale" });
+    const falling = skills.map((s) => (s.label === "SQL" ? { ...s, trend: { status: "down" as const, delta: -1 } } : s));
+    expect(summaryOf(falling, later)).toMatchObject({ focusReason: "down" });
+    expect(summaryOf(falling, later).focus?.label).toBe("SQL");
+    const allGood = summaryOf(skills.map((s) => ({ ...s, latest: 8 })), now);
+    expect(allGood.focus).toBeNull();
+  });
+
+  it("shows habits as the mean of the last three sessions, so the number and the trend agree", async () => {
+    const { habitsOf } = await import("../utils/progressModel");
+    const withRates = (rates: number[], skips: number[]) =>
+      rates.map((rate, i) => {
+        const base = session(0, "be", "cv1");
+        return { ...base, sessionId: `h${i}`, behavior: { ...base.behavior, firstTimeSufficientRate: rate, skipped: skips[i] } };
+      });
+    const habits = habitsOf(withRates([0.1, 0.2, 0.5, 0.6, 0.6, 0], [3, 0, 0, 0, 1, 3]) as never);
+    expect(habits.firstTimeSufficientRate.latest).toBe(0);
+    expect(habits.firstTimeSufficientRate.recent).toBeCloseTo(0.4);
+    expect(habits.firstTimeSufficientRate.trend.status).toBe("up");
+    // More skips lately is worse: shown as going down.
+    expect(habits.skippedPerSession.recent).toBeCloseTo(4 / 3);
+    expect(habits.skippedPerSession.trend.status).toBe("flat");
+  });
+
+  it("orders milestones by date and shortens long titles", async () => {
+    const { sortedMilestones, shortTitle } = await import("../utils/progressModel");
+    const dates = sortedMilestones([{ date: "2026-08-26" }, { date: "2026-10-19" }, { date: "2026-09-03" }]).map((m) => m.date);
+    expect(dates).toEqual(["2026-10-19", "2026-09-03", "2026-08-26"]);
+    expect(shortTitle("Backend")).toBe("Backend");
+    const long = shortTitle("Chuyên viên Phân tích Dữ liệu Cao cấp phụ trách Hệ thống Báo cáo Tài chính", 40);
+    expect(long.endsWith("…")).toBe(true);
+    expect(long.length).toBeLessThanOrEqual(41);
+  });
+
+});
+
+describe("noise-aware progress (research 20/10, mirrors application/progress.py)", () => {
+  it("calls a change progress only beyond the session noise", async () => {
+    const { reliableTrend, DEFAULT_CALIBRATION } = await import("../utils/progressModel");
+    expect(reliableTrend([5.0, 5.2, 5.0, 5.8, 5.9, 5.7]).status).toBe("flat");
+    const clear = reliableTrend([4.0, 4.5, 4.2, 6.0, 6.4, 6.6]);
+    expect(clear.status).toBe("up");
+    expect(clear.probability).toBeGreaterThanOrEqual(0.8);
+    expect(reliableTrend([7.0, 7.2, 7.1, 5.0, 4.8, 5.2]).status).toBe("down");
+    const quiet = { ...DEFAULT_CALIBRATION, typicalError: 0.4, swc: 0.2 };
+    expect(reliableTrend([5.0, 5.2, 5.0, 5.8, 5.9, 5.7], quiet).status).toBe("up");
+  });
+
+  it("smooths with a Kalman filter and changes level only past the margin", async () => {
+    const { kalmanEstimates, skillLevels } = await import("../utils/progressModel");
+    const estimates = kalmanEstimates([5, 8, 5, 8]);
+    expect(estimates[0][0]).toBe(5);
+    expect(estimates[1][0]).toBeGreaterThan(5);
+    expect(estimates[1][0]).toBeLessThan(8);
+    expect(estimates[0][1]).toBeGreaterThan(estimates[3][1]);
+    expect(skillLevels([5.6, 7.1, 7.4, 6.9, 6.75])).toEqual({ level: 3, changes: [[2, 2, 3]] });
+    expect(skillLevels([7.5, 6.5])).toEqual({ level: 2, changes: [[1, 3, 2]] });
+  });
+
+  it("compares only within the latest tier and grader version", async () => {
+    const { comparablePoints, DEFAULT_CALIBRATION } = await import("../utils/progressModel");
+    const p = (tier: string, graderVersion: string | null) => ({ tier, graderVersion });
+    const points = [p("standard", null), p("standard", "m1"), p("challenge", "m2"), p("challenge", "m2")];
+    expect(comparablePoints(points)).toHaveLength(2);
+    expect(comparablePoints(points, { ...DEFAULT_CALIBRATION, tierAdjusted: true, tierOffsets: { challenge: 1 } })).toHaveLength(3);
+  });
+
+  it("shows checklist evidence as first answers vs latest answers", async () => {
+    const { evidenceOf } = await import("../utils/progressModel");
+    const session = (i: number, measurable: number, star: number, skipped = 0) => ({
+      sessionId: `e${i}`, date: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(), jobId: "be", jobTitle: "BE",
+      overallScore: 6, tier: "standard" as const, difficulty: null, resumeId: null, resumeName: null,
+      behavior: {
+        technicalTurns: 5, answeredTurns: 5, firstTimeSufficient: 3, firstTimeSufficientRate: 0.6, probesNeeded: 2,
+        skipped, starTurns: star, starComplete: 0, measurableResult: measurable,
+      },
+    });
+    const sessions = [session(1, 0, 3), session(2, 1, 3), session(3, 2, 3), session(4, 3, 3)];
+    const metrics = evidenceOf(sessions);
+    const measurable = metrics.find((m) => m.key === "measurable")!;
+    // First 6 experience answers (1/6) vs latest 6 (5/6).
+    expect(measurable).toMatchObject({ nBefore: 6, nNow: 6, status: "improved" });
+    expect(measurable.before).toBeCloseTo(1 / 6);
+    expect(measurable.now).toBeCloseTo(5 / 6);
+    // Older data without checklist counts: not enough to compare.
+    expect(metrics.find((m) => m.key === "fullCore")!.status).toBe("insufficient");
+    // Too few sessions for two separate windows.
+    expect(evidenceOf(sessions.slice(0, 1)).find((m) => m.key === "firstTime")!.status).toBe("insufficient");
+    // Fewer skipped questions reads as better.
+    const skips = evidenceOf([session(1, 0, 0, 3), session(2, 0, 0, 3), session(3, 0, 0, 0), session(4, 0, 0, 0)]);
+    expect(skips.find((m) => m.key === "skipRate")!.status).toBe("improved");
+  });
 });
