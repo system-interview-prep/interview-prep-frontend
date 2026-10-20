@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BrandLogo } from "@components/shared/BrandLogo";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 
@@ -92,30 +93,28 @@ export default function MarketingNav({
   return (
     <header className="sticky top-0 z-50 border-b border-[#DCE4F3]/80 bg-white/90 px-4 backdrop-blur sm:px-8 lg:px-10 xl:px-12">
       <nav
-        className="mx-auto flex h-16 w-full max-w-[1320px] items-center justify-between gap-4"
+        className="mx-auto flex h-16 w-full max-w-[1320px] items-center justify-between gap-2 sm:gap-4"
         aria-label={t("nav.aria.main")}
       >
         {/* Brand */}
         <Link
           href="/"
-          className="inline-flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-90"
+          className="inline-flex min-w-0 shrink items-center gap-2 transition-opacity hover:opacity-90 sm:gap-2.5"
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#DCE4F3] bg-white shadow-2xs">
-            <img src="/logo.jpg" alt="Intervia" className="h-full w-full object-cover" />
-          </div>
-          <span className="font-display text-[22px] font-semibold leading-none tracking-tight text-[#14244B]">
+          <BrandLogo size={40} className="shadow-2xs" />
+          <span className="font-display text-lg font-bold leading-none tracking-[0.06em] text-[#14244B] max-[379px]:sr-only sm:text-[22px]">
             INTERVIA
           </span>
         </Link>
 
         {/* Desktop links */}
-        <div className="hidden items-center gap-1 md:flex">
+        <div className="hidden min-w-0 items-center gap-0.5 xl:flex">
           {links.map((link) =>
             active === link.id ? (
               <span
                 key={link.id}
                 aria-current="page"
-                className="rounded-full bg-[#F0F4FC] px-3.5 py-2 text-sm font-semibold text-[#204195]"
+                className="whitespace-nowrap rounded-full bg-[#F0F4FC] px-3 py-2 text-sm font-semibold text-[#204195] xl:px-3.5"
               >
                 {link.label}
               </span>
@@ -123,7 +122,7 @@ export default function MarketingNav({
               <Link
                 key={link.id}
                 href={link.href}
-                className="rounded-full px-3.5 py-2 text-sm font-medium text-[#607096] transition-colors hover:bg-[#F7F9FD] hover:text-[#14244B]"
+                className="whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium text-[#607096] transition-colors hover:bg-[#F7F9FD] hover:text-[#14244B] xl:px-3.5"
               >
                 {link.label}
               </Link>
@@ -132,19 +131,19 @@ export default function MarketingNav({
         </div>
 
         {/* Right actions */}
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
           {signedIn ? (
             <>
               <Link
                 href="/dashboard"
-                className="hidden text-sm font-semibold text-[#607096] transition-colors hover:text-[#14244B] sm:inline"
+                className="hidden whitespace-nowrap text-sm font-semibold text-[#607096] transition-colors hover:text-[#14244B] sm:inline"
               >
                 {t("nav.dashboard")}
               </Link>
 
               <Link
                 href="/dashboard"
-                className="inline-flex h-10 items-center justify-center rounded-full bg-[#204195] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+                className="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-full bg-[#204195] px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#183275] sm:h-10 sm:px-5 sm:text-sm"
               >
                 {t("nav.openApp")}
               </Link>
@@ -153,14 +152,14 @@ export default function MarketingNav({
             <>
               <Link
                 href="/login"
-                className="hidden text-sm font-semibold text-[#607096] transition-colors hover:text-[#14244B] sm:inline"
+                className="hidden whitespace-nowrap text-sm font-semibold text-[#607096] transition-colors hover:text-[#14244B] sm:inline"
               >
                 {t("nav.signIn")}
               </Link>
 
               <Link
                 href="/signup"
-                className="inline-flex h-10 items-center justify-center rounded-full bg-[#204195] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+                className="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-full bg-[#204195] px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#183275] sm:h-10 sm:px-5 sm:text-sm"
               >
                 {t("nav.startFree")}
               </Link>
@@ -179,7 +178,7 @@ export default function MarketingNav({
                 : t("nav.aria.openMenu")
             }
             aria-expanded={mobileMenuOpen}
-            className="grid h-10 w-10 place-items-center rounded-full text-[#204195] ring-1 ring-[#DCE4F3] transition-colors hover:bg-[#F7F9FD] md:hidden"
+            className="grid h-10 w-10 place-items-center rounded-full text-[#204195] ring-1 ring-[#DCE4F3] transition-colors hover:bg-[#F7F9FD] xl:hidden"
           >
             {mobileMenuOpen ? (
               <X size={20} />
@@ -192,7 +191,7 @@ export default function MarketingNav({
 
       {/* Mobile drawer */}
       {mobileMenuOpen && (
-        <div className="-mx-4 space-y-1 border-t border-[#DCE4F3] bg-white px-4 pb-5 sm:-mx-8 sm:px-8 pt-2 text-left shadow-[0_18px_30px_-20px_rgba(20,36,75,0.35)] md:hidden">
+        <div className="-mx-4 space-y-1 border-t border-[#DCE4F3] bg-white px-4 pb-5 sm:-mx-8 sm:px-8 pt-2 text-left shadow-[0_18px_30px_-20px_rgba(20,36,75,0.35)] xl:hidden">
           {links.map((link) => (
             <Link
               key={link.id}
