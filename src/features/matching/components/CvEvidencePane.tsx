@@ -125,17 +125,17 @@ export function CvEvidencePane({
     <div className="flex h-full min-h-0 flex-col">
       <div className="border-b border-[#EAEFF8] px-4 py-3.5 sm:px-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1 basis-48">
             <h3 className="text-base font-semibold text-[#14244B]">{t("fit.evidence.cv")}</h3>
-            {fileName && <p className="mt-0.5 truncate text-xs text-[#8A99B8]">{fileName}</p>}
+            {fileName && <p className="mt-0.5 truncate text-xs text-[#8A99B8]" title={fileName}>{fileName}</p>}
           </div>
-          <div className="flex rounded-full bg-[#F8FAFC] p-0.5 text-xs ring-1 ring-[#DCE4F3]" role="group" aria-label={t("fit.pane.viewAria")}>
+          <div className="flex shrink-0 rounded-full bg-[#F8FAFC] p-0.5 text-xs ring-1 ring-[#DCE4F3]" role="group" aria-label={t("fit.pane.viewAria")}>
             <button
               type="button"
               aria-pressed={tab === "text"}
               onClick={() => setTab("text")}
               disabled={!hasText}
-              className={`rounded-full px-3 py-1 font-medium ${tab === "text" ? "bg-[#14244B] text-white" : "text-[#607096] hover:bg-[#F0F4FC] disabled:opacity-40"}`}
+              className={`h-9 rounded-full px-3 font-medium ${tab === "text" ? "bg-[#14244B] text-white" : "text-[#607096] hover:bg-[#F0F4FC] disabled:opacity-40"}`}
             >
               {t("fit.pane.tabText")}
             </button>
@@ -145,7 +145,7 @@ export function CvEvidencePane({
               onClick={() => setTab("original")}
               disabled={!isPdf || !cvId}
               title={!isPdf ? t("fit.pane.originalPdfOnly") : undefined}
-              className={`rounded-full px-3 py-1 font-medium ${tab === "original" ? "bg-[#14244B] text-white" : "text-[#607096] hover:bg-[#F0F4FC] disabled:opacity-40"}`}
+              className={`h-9 rounded-full px-3 font-medium ${tab === "original" ? "bg-[#14244B] text-white" : "text-[#607096] hover:bg-[#F0F4FC] disabled:opacity-40"}`}
             >
               {t("fit.pane.tabOriginal")}
             </button>
@@ -157,9 +157,9 @@ export function CvEvidencePane({
       {selected && (
         <div className="border-b border-[#EAEFF8] bg-[#F8FAFC] px-4 py-3 sm:px-5 lg:hidden">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 basis-48">
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A99B8]">{t("fit.pane.current")}</p>
-              <p className="mt-1 text-sm font-semibold leading-5 text-[#14244B]">{selected.label}</p>
+              <p className="mt-1 text-sm font-semibold leading-5 text-[#14244B] [overflow-wrap:anywhere]">{selected.label}</p>
             </div>
             <MatchStatusBadge status={selected.status} labelOverride={selected.statusLabel} />
           </div>
@@ -179,7 +179,7 @@ export function CvEvidencePane({
                     type="button"
                     aria-label={t("fit.pane.prev")}
                     onClick={() => setCursor((value) => (value - 1 + selectedPlaced.length) % selectedPlaced.length)}
-                    className="rounded-full bg-white p-1.5 ring-1 ring-[#DCE4F3] hover:bg-[#F0F4FC]"
+                    className="grid size-9 place-items-center rounded-full bg-white ring-1 ring-[#DCE4F3] hover:bg-[#F0F4FC]"
                   >
                     <ChevronLeft className="size-3.5" aria-hidden="true" />
                   </button>
@@ -187,7 +187,7 @@ export function CvEvidencePane({
                     type="button"
                     aria-label={t("fit.pane.next")}
                     onClick={() => setCursor((value) => (value + 1) % selectedPlaced.length)}
-                    className="rounded-full bg-white p-1.5 ring-1 ring-[#DCE4F3] hover:bg-[#F0F4FC]"
+                    className="grid size-9 place-items-center rounded-full bg-white ring-1 ring-[#DCE4F3] hover:bg-[#F0F4FC]"
                   >
                     <ChevronRight className="size-3.5" aria-hidden="true" />
                   </button>
@@ -204,7 +204,7 @@ export function CvEvidencePane({
           hasText ? (
             <div
               ref={textRef}
-              className="whitespace-pre-wrap break-words px-5 py-5 text-[13px] leading-6 text-[#455676]"
+              className="whitespace-pre-wrap px-4 py-5 [overflow-wrap:anywhere] sm:px-5 text-[13px] leading-6 text-[#455676]"
             >
               {segments.map((segment) => {
                 if (segment.evidenceIds.length === 0 || !segment.status) {
@@ -262,7 +262,7 @@ export function CvEvidencePane({
             </p>
             <ul className="mt-1.5 space-y-1.5">
               {[...unplaced, ...outOfRange].map((item) => (
-                <li key={item.evidenceId} className="text-xs leading-5 text-[#607096]">
+                <li key={item.evidenceId} className="text-xs leading-5 text-[#607096] [overflow-wrap:anywhere]">
                   <button
                     type="button"
                     onClick={() => onSelectRequirement(item.requirementIds[0])}
