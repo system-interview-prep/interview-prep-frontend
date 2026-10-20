@@ -31,7 +31,7 @@ export function RequirementItemCard({
 
   return (
     <div
-      className={`rounded-2xl border transition-colors ${
+      className={`min-w-0 rounded-2xl border transition-colors ${
         isSelected
           ? "border-[#204195] bg-[#F0F4FC]"
           : isNestedChild
@@ -60,11 +60,11 @@ export function RequirementItemCard({
             aria-hidden="true"
           />
           <div className="min-w-0 flex-1">
-            <span className="block text-[13px] font-semibold leading-5 text-[#14244B]">
+            <span className="block text-[13px] font-semibold leading-5 text-[#14244B] [overflow-wrap:anywhere]">
               {item.label}
             </span>
             {item.conditionText && (
-              <span className="mt-1 block text-xs leading-5 text-[#607096]">
+              <span className="mt-1 block text-xs leading-5 text-[#607096] [overflow-wrap:anywhere]">
                 {item.conditionText}
               </span>
             )}
