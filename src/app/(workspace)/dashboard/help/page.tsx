@@ -185,7 +185,7 @@ export default function HelpCenterPage() {
   return (
     <UserDashboardShell>
       <main className="min-h-screen bg-[#F8FAFC] px-4 pb-16 pt-4 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
-        <div className="mx-auto max-w-[1280px] space-y-8">
+        <div className="mx-auto max-w-[1280px] space-y-6">
           {/* HERO: the fox asks, the search answers */}
           <WorkspacePageHeader
             title={t("help.page.header.title")}
@@ -197,14 +197,14 @@ export default function HelpCenterPage() {
                   {t("help.page.search.label")}
                 </label>
                 <div className="relative flex items-center">
-                  <Search className="pointer-events-none absolute left-4 size-5 text-[#607096]" aria-hidden="true" />
+                  <Search className="pointer-events-none absolute left-3.5 size-4 text-[#607096]" aria-hidden="true" />
                   <input
                     id={searchInputId}
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={t("help.page.search.placeholder")}
-                    className="w-full rounded-2xl border-0 bg-[#F8FAFC] py-3.5 pl-12 pr-12 text-sm font-medium text-[#14244B] border border-[#DCE4F3] placeholder-[#607096]/70 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195] sm:text-base"
+                    className="h-10 w-full rounded-xl border-0 bg-white pl-11 pr-11 text-sm font-medium text-[#14244B] border border-[#DCE4F3] placeholder-[#607096]/70 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]"
                   />
                   {searchQuery && (
                     <button
@@ -238,7 +238,7 @@ export default function HelpCenterPage() {
           {/* 4 QUICK ACCESS CARDS */}
           <section aria-labelledby="heading-quick-topics" className="space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
-              <h2 id="heading-quick-topics" className="text-2xl font-semibold text-[#14244B]">
+              <h2 id="heading-quick-topics" className="text-lg font-bold text-[#14244B]">
                 {t("help.page.topics.title")}
               </h2>
               <span className="text-sm text-[#607096]">{t("help.page.topics.hint")}</span>
@@ -257,7 +257,7 @@ export default function HelpCenterPage() {
                       setSelectedCategory(selectedCategory === topic.id ? "all" : topic.id)
                     }
                     aria-pressed={isSelected}
-                    className={`flex min-w-0 flex-col justify-between rounded-3xl p-5 text-left transition-colors ${
+                    className={`flex min-w-0 flex-col justify-between rounded-2xl p-4 text-left transition-colors ${
                       isSelected
                         ? "bg-[#F0F4FC] ring-2 ring-[#204195]"
                         : "bg-white border border-[#DCE4F3] hover:bg-[#F8FAFC]"
@@ -268,7 +268,7 @@ export default function HelpCenterPage() {
                       <p className="text-sm text-[#607096] line-clamp-2">{t(topic.descKey)}</p>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
                       <span className="font-semibold text-[#204195]">
                         {isSelected ? t("help.page.topics.filtering") : t("help.page.topics.view")}
                       </span>
@@ -283,12 +283,12 @@ export default function HelpCenterPage() {
           {/* INTERACTIVE FAQ ACCORDION */}
           <section
             aria-labelledby="heading-faq-list"
-            className="rounded-3xl bg-white p-5 border border-[#DCE4F3] sm:p-8"
+            className="rounded-2xl bg-white p-5 border border-[#DCE4F3] sm:p-6"
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between border-b border-[#EAEFF8] pb-4">
               <div className="min-w-0">
                 <div>
-                  <h2 id="heading-faq-list" className="text-2xl font-semibold text-[#14244B]">
+                  <h2 id="heading-faq-list" className="text-lg font-bold text-[#14244B]">
                     {t("help.page.faqList.title")}
                   </h2>
                   <p className="mt-1 text-sm text-[#607096]">
@@ -325,7 +325,7 @@ export default function HelpCenterPage() {
                       setSearchQuery("");
                       setSelectedCategory("all");
                     }}
-                    className="mt-5 h-11 rounded-full bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] hover:bg-[#F0F4FC]"
+                    className="mt-5 h-10 rounded-xl bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] hover:bg-[#F0F4FC]"
                   >
                     {t("help.page.faqList.showAll")}
                   </button>
@@ -424,7 +424,7 @@ export default function HelpCenterPage() {
           {/* CONTACT CHANNELS & TICKET SUPPORT CARD */}
           <section
             aria-labelledby="heading-support-contact"
-            className="rounded-3xl bg-white p-5 border border-[#DCE4F3] sm:p-8"
+            className="rounded-2xl bg-white p-5 border border-[#DCE4F3] sm:p-6"
           >
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
               {/* LEFT COLUMN: CONTACT CHANNELS (5 cols) */}
@@ -433,7 +433,7 @@ export default function HelpCenterPage() {
                   <p className="text-sm font-semibold text-[#204195]">
                     {t("help.page.contact.eyebrow")}
                   </p>
-                  <h2 id="heading-support-contact" className="text-2xl font-semibold text-[#14244B]">
+                  <h2 id="heading-support-contact" className="text-lg font-bold text-[#14244B]">
                     {t("help.page.contact.title")}
                   </h2>
                   <p className="text-sm text-[#607096]">
@@ -460,7 +460,7 @@ export default function HelpCenterPage() {
               {/* RIGHT COLUMN: SUBMIT TICKET FORM (7 cols) */}
               <div className="min-w-0 space-y-4 lg:col-span-7">
                 <div className="space-y-1">
-                  <h3 className="text-xl font-semibold text-[#14244B]">{t("help.page.form.title")}</h3>
+                  <h3 className="text-base font-bold text-[#14244B]">{t("help.page.form.title")}</h3>
                   <p className="text-sm text-[#607096]">
                     {fmt(t("help.page.form.desc"), { email: SUPPORT_EMAIL })}
                   </p>
@@ -539,7 +539,7 @@ export default function HelpCenterPage() {
                   <div className="pt-2 text-right">
                     <button
                       type="submit"
-                      className="inline-flex h-11 items-center gap-2 rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:opacity-50"
+                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:opacity-50"
                     >
                       {t("help.page.form.submit")}
                     </button>
