@@ -125,13 +125,13 @@ export default function InterviewHistoryPage() {
   if (sessions == null) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-label={t("userDash.loading")}>
-        <div className="w-full max-w-3xl space-y-3">{[0, 1, 2].map((item) => <div key={item} className="anim-shimmer h-20 rounded-3xl" />)}</div>
+        <div className="w-full max-w-3xl space-y-3">{[0, 1, 2].map((item) => <div key={item} className="anim-shimmer h-20 rounded-2xl" />)}</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <WorkspacePageHeader
         title={t("history.title")}
         subtitle={t("history.subtitle")}
@@ -147,7 +147,7 @@ export default function InterviewHistoryPage() {
         <button
           type="button"
           onClick={() => router.push("/interview/select")}
-          className="inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+          className="inline-flex h-10 items-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
         >
           {t("userDash.activity.startNew")}
         </button>
@@ -163,11 +163,11 @@ export default function InterviewHistoryPage() {
       )}
 
       {trend.length >= 2 && (
-        <section className="rounded-3xl bg-white p-5 border border-[#DCE4F3] sm:p-6" aria-labelledby="history-trend">
-          <h2 id="history-trend" className="text-xl font-semibold text-[#14244B]">
+        <section className="rounded-2xl bg-white p-4 border border-[#DCE4F3] sm:p-5" aria-labelledby="history-trend">
+          <h2 id="history-trend" className="text-lg font-bold text-[#14244B]">
             {t("history.trend.title")}
           </h2>
-          <ol className="mt-4 flex h-32 items-end gap-2" aria-label={t("history.trend.title")}>
+          <ol className="mt-4 flex h-32 items-end gap-1 sm:gap-2" aria-label={t("history.trend.title")}>
             {trend.map((session) => {
               const score = session.overallScore ?? 0;
               return (
@@ -181,7 +181,7 @@ export default function InterviewHistoryPage() {
                     style={{ height: `${Math.max(4, (score / 10) * 100)}%`, ["--i" as string]: trend.indexOf(session) }}
                     aria-label={`${score.toFixed(1)} / 10`}
                   />
-                  <span className="text-[10px] tabular-nums text-[#607096]">
+                  <span className="whitespace-nowrap text-[9px] tabular-nums text-[#607096] sm:text-[10px]">
                     {new Date(session.startedAt).toLocaleDateString(localeOf(lang), { day: "2-digit", month: "2-digit" })}
                   </span>
                 </li>
@@ -201,7 +201,7 @@ export default function InterviewHistoryPage() {
               type="button"
               aria-pressed={filter === item.id}
               onClick={() => changeFilter(item.id)}
-              className={`inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold transition-colors ${
+              className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-4 text-[13px] font-semibold transition-colors ${
                 filter === item.id ? "bg-[#14244B] text-white" : "bg-white text-[#607096] border border-[#DCE4F3] hover:bg-[#F0F4FC] hover:text-[#14244B]"
               }`}
             >
@@ -224,26 +224,26 @@ export default function InterviewHistoryPage() {
                 setPage(1);
               }}
               placeholder={t("history.search")}
-              className="h-10 w-full rounded-full border border-[#DCE4F3] bg-white pl-10 pr-4 text-sm text-[#14244B] outline-none transition placeholder:text-[#9AA6C2] focus:border-[#204195] focus:ring-2 focus:ring-[#204195]/15"
+              className="h-10 w-full rounded-xl border border-[#DCE4F3] bg-white pl-10 pr-4 text-sm text-[#14244B] outline-none transition placeholder:text-[#9AA6C2] focus:border-[#204195] focus:ring-2 focus:ring-[#204195]/15"
             />
           </label>
         ) : null}
         </div>
 
         {sessions.length === 0 ? (
-          <div className="flex flex-col items-center rounded-3xl bg-white px-6 py-10 text-center border border-[#DCE4F3]">
+          <div className="flex flex-col items-center rounded-2xl bg-white px-6 py-10 text-center border border-[#DCE4F3]">
             <p className="mt-3 text-lg font-semibold text-[#14244B]">{t("history.empty.title")}</p>
             <p className="mx-auto mt-1.5 max-w-md text-sm leading-6 text-[#607096]">{t("history.empty.body")}</p>
             <button
               type="button"
               onClick={() => router.push("/interview/select")}
-              className="mt-5 inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+              className="mt-5 inline-flex h-10 items-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
             >
               {t("history.empty.cta")}
             </button>
           </div>
         ) : visible.length === 0 ? (
-          <div className="flex flex-col items-center rounded-3xl bg-white px-6 py-8 text-center border border-[#DCE4F3]">
+          <div className="flex flex-col items-center rounded-2xl bg-white px-6 py-8 text-center border border-[#DCE4F3]">
             <p className="mt-3 text-sm text-[#607096]">{t("history.filterEmpty")}</p>
             <button
               type="button"
@@ -251,14 +251,14 @@ export default function InterviewHistoryPage() {
                 changeFilter("all");
                 setQuery("");
               }}
-              className="mt-4 inline-flex h-10 items-center rounded-full bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F0F4FC]"
+              className="mt-4 inline-flex h-10 items-center rounded-xl bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F0F4FC]"
             >
               {t("history.filter.all")}
             </button>
           </div>
         ) : (
           <>
-          <ul key={`${filter}-${currentPage}`} className="divide-y divide-[#EAEFF8] overflow-hidden rounded-3xl bg-white border border-[#DCE4F3]">
+          <ul key={`${filter}-${currentPage}`} className="divide-y divide-[#EAEFF8] overflow-hidden rounded-2xl bg-white border border-[#DCE4F3]">
             {pageItems.map((session, index) => {
               const modeKey = modeKeyFromRuntime(session.mode);
               const started = new Date(session.startedAt);
@@ -274,11 +274,13 @@ export default function InterviewHistoryPage() {
                 <li
                   key={session.sessionId}
                   style={{ ["--i" as string]: index }}
-                  className="anim-rise grid gap-3 px-5 py-4 transition-colors hover:bg-[#F8FAFC] sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-5 sm:px-6"
+                  className="anim-rise grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3.5 transition-colors hover:bg-[#F8FAFC] sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_auto_auto] sm:gap-5 sm:px-6"
                 >
-                  <div className="flex min-w-0 items-center gap-3">
+                  <div className="col-span-2 flex min-w-0 items-center gap-3 sm:col-span-1">
                     <div className="min-w-0">
-                      <p className="truncate text-[15px] font-semibold text-[#14244B]">{session.jobTitle || "—"}</p>
+                      <p className="truncate text-[15px] font-semibold text-[#14244B]" title={session.jobTitle || undefined}>
+                        {session.jobTitle || "—"}
+                      </p>
                       <p className="mt-0.5 text-xs text-[#607096]">
                         {started.toLocaleString(localeOf(lang), { dateStyle: "medium", timeStyle: "short" })} ·{" "}
                         {t(MODE_NAME_KEY[modeKey])}
@@ -286,7 +288,7 @@ export default function InterviewHistoryPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-xs text-[#607096]">
+                  <div className="col-span-2 min-w-0 text-xs text-[#607096] [overflow-wrap:anywhere] sm:col-span-1">
                     <p className={isFailedStart(session) ? "font-semibold text-[#C43B3B]" : ""}>{status}</p>
                     {(session.totalTurns ?? 0) > 0 && (
                       <p className="mt-0.5 tabular-nums">
@@ -297,7 +299,7 @@ export default function InterviewHistoryPage() {
                       </p>
                     )}
                   </div>
-                  <div className="text-left sm:text-right">
+                  <div className="min-w-0 text-left sm:text-right">
                     {session.overallScore != null && level ? (
                       <div className="flex items-center gap-2 sm:justify-end">
                         <span className="text-base font-semibold tabular-nums text-[#14244B]">
@@ -314,7 +316,7 @@ export default function InterviewHistoryPage() {
                   <button
                     type="button"
                     onClick={() => open(session)}
-                    className="inline-flex h-9 items-center justify-center gap-1 justify-self-start rounded-full px-4 text-[13px] font-semibold text-[#204195] ring-1 ring-[#C9D7F1] transition-colors hover:bg-[#204195] hover:text-white sm:justify-self-end"
+                    className="inline-flex h-9 items-center justify-center gap-1 justify-self-end rounded-xl px-4 text-[13px] font-semibold text-[#204195] ring-1 ring-[#C9D7F1] transition-colors hover:bg-[#204195] hover:text-white"
                   >
                     {actionLabel(session)}
                     <span aria-hidden="true">→</span>
