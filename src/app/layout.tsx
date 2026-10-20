@@ -8,7 +8,7 @@ import { NavigationLoadingProvider } from "@components/shared/NavigationLoadingP
 import GlobalMascot from "@features/mascot/components/GlobalMascot";
 
 export const metadata: Metadata = {
-  title: "Intervia · Luyện phỏng vấn với AI",
+  title: "INTERVIA | Luyện phỏng vấn với AI",
   description: "Intervia: đối chiếu CV với JD và luyện phỏng vấn chat, giọng nói, video cùng AI.",
   icons: { icon: "/logo.jpg" },
 };
