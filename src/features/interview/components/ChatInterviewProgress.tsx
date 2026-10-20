@@ -365,6 +365,21 @@ export function InterviewCountdownTimer({
     };
   }, [durationMinutes, isClosed, serverRemainingSeconds, startedAt]);
 
+  // The clock starts with the opening question (backend runtime returns no
+  // startedAt before that): show the full budget, standing still.
+  if (!startedAt && !isClosed && !Number.isFinite(serverRemainingSeconds) && Number(durationMinutes) > 0) {
+    const total = `${String(Math.floor(Number(durationMinutes))).padStart(2, '0')}:00`;
+    return (
+      <div
+        aria-label={fmt(t('room.timer.notStartedAria'), { time: total })}
+        className="inline-flex items-center gap-1.5 rounded-full border border-[#DCE4F3] bg-[#F7F9FD] px-2.5 py-1.5 text-xs font-semibold text-[#14244B] sm:px-3"
+      >
+        <Clock className="size-3.5" />
+        <span className="tabular-nums">{total}</span>
+        <span className="hidden font-normal opacity-80 md:inline">{t('room.timer.notStarted')}</span>
+      </div>
+    );
+  }
   if (secondsRemaining === null) return null;
   if (isClosed) {
     return (
