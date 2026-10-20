@@ -3,7 +3,7 @@
 export const fixInterviewEn: Record<string, string> = {
   "room.common.interviewer": "AI interviewer",
   "room.common.leaveConfirmTitle": "Leave the room?",
-  "room.common.leaveConfirmBody": "The interview is still open. You can come back from History to continue.",
+  "room.common.leaveConfirmBody": "The interview stays open for {n} minutes so you can come back from History and continue. After that it ends automatically as “you left the room”.",
   "room.common.leaveConfirm": "Leave room",
   "room.chat.pendingRetry":
     "Your previous answer was saved but not processed yet. Send that same answer again before writing a new one.",
@@ -49,7 +49,7 @@ export const fixInterviewEn: Record<string, string> = {
 export const fixInterviewVi: Record<string, string> = {
   "room.common.interviewer": "Người phỏng vấn AI",
   "room.common.leaveConfirmTitle": "Rời phòng?",
-  "room.common.leaveConfirmBody": "Buổi phỏng vấn vẫn mở. Bạn có thể quay lại từ Lịch sử để làm tiếp.",
+  "room.common.leaveConfirmBody": "Buổi phỏng vấn vẫn mở trong {n} phút để bạn quay lại từ Lịch sử và làm tiếp. Sau thời gian đó, buổi sẽ tự kết thúc với lý do “bạn rời phòng”.",
   "room.common.leaveConfirm": "Rời phòng",
   "room.chat.pendingRetry":
     "Câu trả lời trước đã được lưu nhưng chưa xử lý xong. Vui lòng gửi lại nguyên nội dung trước khi gửi câu mới.",
