@@ -17,12 +17,12 @@ export default function AdminEvaluationRegressionClient() {
   const regressionCases: EvalRegressionItem[] = [];
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <AdminPageHeader
         title={t("admin.eval.regression.title")}
         description={t("admin.eval.regression.subtitle")}
         breadcrumbs={[
-          { label: "Admin", href: "/admin/dashboard" },
+          { label: t("fixAdmin.detail.breadcrumbAdmin"), href: "/admin/dashboard" },
           { label: t("admin.sidebar.evalOverview"), href: "/admin/evaluation" },
           { label: t("admin.sidebar.evalRegression") },
         ]}
@@ -69,7 +69,7 @@ export default function AdminEvaluationRegressionClient() {
 
       {/* Search Bar */}
       <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
+        <div className="relative min-w-0 flex-1 sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#607096]" />
           <input
             value={searchQuery}
@@ -82,9 +82,16 @@ export default function AdminEvaluationRegressionClient() {
       </div>
 
       {/* Table / Empty State */}
+      {regressionCases.length === 0 ? (
+        <AdminEmptyState
+          variant="pending"
+          title={t("fixAdmin.eval.regression.emptyTitle")}
+          description={t("fixAdmin.eval.regression.emptyDesc")}
+        />
+      ) : (
       <div className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[820px] text-left border-collapse">
             <thead>
               <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
                 <th className="px-6 py-4">{t("fixAdmin.eval.regression.colCase")}</th>
@@ -97,18 +104,7 @@ export default function AdminEvaluationRegressionClient() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EAEFF8] text-xs">
-              {regressionCases.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-8">
-                    <AdminEmptyState
-                      variant="pending"
-                      title={t("fixAdmin.eval.regression.emptyTitle")}
-                      description={t("fixAdmin.eval.regression.emptyDesc")}
-                    />
-                  </td>
-                </tr>
-              ) : (
-                regressionCases.map((rc) => (
+              {regressionCases.map((rc) => (
                   <tr key={rc.id} className="transition-colors hover:bg-[#F8FAFC]">
                     <td className="px-6 py-4 font-bold text-[#14244B]">{rc.caseTitle}</td>
                     <td className="px-6 py-4">{rc.feature}</td>
@@ -118,12 +114,12 @@ export default function AdminEvaluationRegressionClient() {
                     <td className="px-6 py-4 text-[#607096]">{rc.reason}</td>
                     <td className="px-6 py-4 text-right">{rc.reviewStatus}</td>
                   </tr>
-                ))
-              )}
+                ))}
             </tbody>
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 }
