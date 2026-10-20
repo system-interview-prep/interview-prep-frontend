@@ -9,7 +9,7 @@
 import { InterviewCountdownTimer } from './ChatInterviewProgress';
 import type { RuntimeProgress } from '../hooks/useRuntimeProgress';
 import React, { useEffect, useRef, type ReactNode } from 'react';
-import { AlertCircle, ArrowLeft, Loader2, Mic, RotateCcw } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Loader2, Mic, RotateCcw, ShieldCheck } from 'lucide-react';
 import type { LiveKitRoomStatus, LiveKitTranscriptLine, LiveKitTurnState } from '../hooks/useLiveKitRoom';
 import { useLanguage } from '@/i18n/LanguageProvider';
 import { fmt } from '@/i18n/format';
@@ -184,6 +184,12 @@ export function PreJoinCard({
             </li>
           ))}
         </ol>
+
+        {/* Admins can watch a live room (hidden, listen-only, logged): say so before the candidate joins. */}
+        <p className="mt-4 flex items-start gap-2 rounded-2xl bg-[#F5F8FF] px-3 py-2.5 text-xs leading-5 text-[#475569]">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#204195]" aria-hidden="true" />
+          <span>{t('room.voice.prejoin.monitorNotice')}</span>
+        </p>
 
         <button
           type="button"
