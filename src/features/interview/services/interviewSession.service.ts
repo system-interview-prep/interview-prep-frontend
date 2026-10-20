@@ -1,5 +1,7 @@
 import { pickerVi } from "@/i18n/dicts/picker.dict";
 import { interviewRuntimeApi } from "./interviewRuntime.service";
+import { fmt } from "@/i18n/format";
+import { entryBlockFromError, entryBlockMessageKey } from "@features/interview/utils/entryGate";
 
 export type InterviewMode = "chat" | "voice" | "video";
 export type InterviewExperience =
@@ -49,6 +51,13 @@ export function describeStartInterviewError(error: unknown, t: Translate = trans
   const code = (error as { code?: string })?.code;
   const status = (error as { response?: { status?: number } })?.response?.status;
   if (isQuestionUnavailableError(error)) return t("picker.startError.questionUnavailable");
+  const entryBlock = entryBlockFromError(error);
+  if (entryBlock) {
+    return fmt(t(entryBlockMessageKey(entryBlock.reason)), {
+      score: entryBlock.percentage ?? "",
+      min: entryBlock.minMatchPercent ?? "",
+    });
+  }
   if (code === "PLAN_NOT_READY") return t("picker.startError.planNotReady");
   if (status === 401) return t("picker.startError.sessionExpired");
   if (status === 404) return t("picker.startError.notFound");
