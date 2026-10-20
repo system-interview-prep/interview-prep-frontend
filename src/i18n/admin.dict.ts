@@ -593,7 +593,7 @@ export const adminVi: Record<string, string> = {
   "admin.sidebar.knowledgeBase": "Tri thức & Quan hệ",
   "admin.sidebar.interviews": "Phiên phỏng vấn",
   "admin.sidebar.users": "Người dùng & Ứng viên",
-  "admin.sidebar.aiOverview": "AI Overview",
+  "admin.sidebar.aiOverview": "Tình hình hoạt động AI",
   "admin.sidebar.aiModels": "Model Registry",
   "admin.sidebar.aiPrompts": "Quản lý Prompts",
   "admin.sidebar.aiTraces": "Traces & Logs",
