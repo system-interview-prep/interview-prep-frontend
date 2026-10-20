@@ -18,12 +18,12 @@ export default function AdminEvaluationDatasetsClient() {
   const datasets: EvalDatasetItem[] = [];
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <AdminPageHeader
         title={t("admin.eval.datasets.title")}
         description={t("admin.eval.datasets.subtitle")}
         breadcrumbs={[
-          { label: "Admin", href: "/admin/dashboard" },
+          { label: t("fixAdmin.detail.breadcrumbAdmin"), href: "/admin/dashboard" },
           { label: t("admin.sidebar.evalOverview"), href: "/admin/evaluation" },
           { label: t("admin.sidebar.evalDatasets") },
         ]}
@@ -81,7 +81,7 @@ export default function AdminEvaluationDatasetsClient() {
 
       {/* Search Bar */}
       <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
+        <div className="relative min-w-0 flex-1 sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#607096]" />
           <input
             value={searchQuery}
@@ -94,9 +94,16 @@ export default function AdminEvaluationDatasetsClient() {
       </div>
 
       {/* Table / Empty State */}
+      {datasets.length === 0 ? (
+        <AdminEmptyState
+          variant="pending"
+          title={t("fixAdmin.eval.datasets.emptyTitle")}
+          description={t("fixAdmin.eval.datasets.emptyDesc")}
+        />
+      ) : (
       <div className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[820px] text-left border-collapse">
             <thead>
               <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
                 <th className="px-6 py-4">{t("fixAdmin.eval.datasets.colName")}</th>
@@ -109,18 +116,7 @@ export default function AdminEvaluationDatasetsClient() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EAEFF8] text-xs">
-              {datasets.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-8">
-                    <AdminEmptyState
-                      variant="pending"
-                      title={t("fixAdmin.eval.datasets.emptyTitle")}
-                      description={t("fixAdmin.eval.datasets.emptyDesc")}
-                    />
-                  </td>
-                </tr>
-              ) : (
-                datasets.map((ds) => (
+              {datasets.map((ds) => (
                   <tr key={ds.id} className="transition-colors hover:bg-[#F8FAFC]">
                     <td className="px-6 py-4 font-bold text-[#14244B]">{ds.name}</td>
                     <td className="px-6 py-4">{ds.feature}</td>
@@ -134,12 +130,12 @@ export default function AdminEvaluationDatasetsClient() {
                       </Link>
                     </td>
                   </tr>
-                ))
-              )}
+                ))}
             </tbody>
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 }
