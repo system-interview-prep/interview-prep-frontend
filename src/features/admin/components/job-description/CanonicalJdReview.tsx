@@ -108,7 +108,7 @@ function GroundedList({
       {items.length ? (
         <ul className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-2">
           {items.map((item, index) => (
-            <li key={`${item.text}-${index}`} className="border-l-2 border-[#204195]/30 pl-3 text-xs sm:text-sm text-[#14244B]">
+            <li key={`${item.text}-${index}`} className="break-words border-l-2 border-[#204195]/30 pl-3 text-xs sm:text-sm text-[#14244B]">
               {valueOf(item.text)}
               <EvidenceRefs refs={item.evidenceRefs} evidence={evidence} />
             </li>
@@ -144,23 +144,28 @@ export default function CanonicalJdReview({ data }: { data: Record<string, unkno
     <div className="space-y-5">
       <section className="rounded-2xl border border-[#204195]/20 bg-[#F0F4FC] p-5 shadow-2xs">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-widest text-[#204195]">{t("fixAdmin.jdReview.reviewTitle")}</p>
-            <h3 className="mt-1 text-xl font-extrabold text-[#14244B]">{valueOf(jd.jobTitle)}</h3>
+            <h3 className="mt-1 break-words text-lg font-extrabold text-[#14244B]">{valueOf(jd.jobTitle)}</h3>
             <p className="mt-1 text-xs sm:text-sm text-[#607096]">
               {t("fixAdmin.jdReview.reviewDesc")}
             </p>
           </div>
           <span className="rounded-full bg-white border border-[#DCE4F3] px-3 py-1 text-xs font-bold text-[#204195] shadow-2xs">
-            {valueOf(jd.parsing?.status)}
+            {(() => {
+              const raw = valueOf(jd.parsing?.status);
+              const key = `adminUiJd.parsingStatus.${raw}`;
+              const label = t(key);
+              return label === key ? raw : label;
+            })()}
           </span>
         </div>
         {metadata.length > 0 && (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {metadata.map(([label, value]) => (
-              <div key={label} className="rounded-xl border border-[#DCE4F3] bg-white px-3 py-2 shadow-2xs">
+              <div key={label} className="min-w-0 rounded-xl border border-[#DCE4F3] bg-white px-3 py-2 shadow-2xs">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-[#607096]">{t(String(label))}</p>
-                <p className="mt-1 text-sm font-semibold text-[#14244B]">{valueOf(value)}</p>
+                <p className="mt-1 break-words text-sm font-semibold text-[#14244B]">{valueOf(value)}</p>
               </div>
             ))}
           </div>
@@ -172,7 +177,7 @@ export default function CanonicalJdReview({ data }: { data: Record<string, unkno
         <div className="mt-3 flex flex-wrap gap-2">
           {classifications.length ? (
             classifications.map((item, index) => (
-              <span key={`${item.code}-${index}`} className="rounded-full border border-[#204195]/20 bg-[#EEF2FD] px-3 py-1.5 text-xs font-semibold text-[#204195]">
+              <span key={`${item.code}-${index}`} className="max-w-full break-words rounded-full border border-[#204195]/20 bg-[#EEF2FD] px-3 py-1.5 text-xs font-semibold text-[#204195]">
                 {item.isPrimary ? t("fixAdmin.jdReview.primary") : ""}{valueOf(item.label)}
                 {typeof item.confidence === "number" ? ` · ${Math.round(item.confidence * 100)}%` : ""}
               </span>
@@ -196,7 +201,7 @@ export default function CanonicalJdReview({ data }: { data: Record<string, unkno
                   <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${item.priority === "must_have" ? "bg-red-50 text-red-700 border border-red-200" : "bg-[#EEF2FD] text-[#204195] border border-[#204195]/20"}`}>
                     {item.priority === "must_have" ? t("fixAdmin.jdReview.mustHave") : t("fixAdmin.jdReview.preferred")}
                   </span>
-                  <span className="text-sm font-bold text-[#14244B]">{valueOf(item.concept?.label || item.rawLabel)}</span>
+                  <span className="min-w-0 break-words text-sm font-bold text-[#14244B]">{valueOf(item.concept?.label || item.rawLabel)}</span>
                   {experienceLabel(t, item.minimumExperienceMonths) && (
                     <span className="text-xs text-[#607096]">{experienceLabel(t, item.minimumExperienceMonths)}</span>
                   )}
@@ -220,8 +225,8 @@ export default function CanonicalJdReview({ data }: { data: Record<string, unkno
         <div className="mt-4 space-y-2">
           {[...evidence.entries()].map(([id, item]) => (
             <div key={id} className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-3.5 py-2.5 text-xs sm:text-sm shadow-2xs">
-              <p className="font-semibold text-[#14244B]">{item.section || t("fixAdmin.jdReview.source")} · {item.page ? fmt(t("fixAdmin.jdReview.page"), { n: item.page }) : t("fixAdmin.jdReview.unknownPage")}</p>
-              <p className="mt-1 text-xs text-[#607096]">{item.text || t("fixAdmin.jdReview.noText")}</p>
+              <p className="break-words font-semibold text-[#14244B]">{item.section || t("fixAdmin.jdReview.source")} · {item.page ? fmt(t("fixAdmin.jdReview.page"), { n: item.page }) : t("fixAdmin.jdReview.unknownPage")}</p>
+              <p className="mt-1 break-words text-xs text-[#607096] [overflow-wrap:anywhere]">{item.text || t("fixAdmin.jdReview.noText")}</p>
             </div>
           ))}
         </div>
