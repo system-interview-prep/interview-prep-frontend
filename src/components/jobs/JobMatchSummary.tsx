@@ -79,10 +79,10 @@ export function JobMatchSummary({ match }: JobMatchSummaryProps) {
           {signals.slice(0, 3).map((sig, idx) => (
             <span
               key={idx}
-              className="inline-flex items-center gap-1 font-medium text-[#475569]"
+              className="inline-flex min-w-0 max-w-full items-center gap-1 font-medium text-[#475569]"
             >
-              <Check className="size-3 text-[#287A4B] stroke-[2.5]" aria-hidden="true" />
-              <span>{sig}</span>
+              <Check className="size-3 shrink-0 text-[#287A4B] stroke-[2.5]" aria-hidden="true" />
+              <span className="min-w-0 truncate" title={sig}>{sig}</span>
             </span>
           ))}
         </div>
