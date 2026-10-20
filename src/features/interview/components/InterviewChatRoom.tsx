@@ -12,7 +12,7 @@ import {
 import InteractiveCodeSandbox from '@/components/interview/InteractiveCodeSandbox';
 import { AbortConfirmationModal } from '@/components/interview/AbortConfirmationModal';
 import { ConfirmDialog } from '@components/shared/ConfirmDialog';
-import { ChatStageStepper, getStageLabel } from './ChatInterviewProgress';
+import { getStageLabel } from './ChatInterviewProgress';
 import { currentQuestionFromRuntime } from '../hooks/useRuntimeProgress';
 import { ChatRoomErrorState, ChatRoomLoadingState } from './ChatRoomStates';
 import { ChatReturnModal } from './ChatReturnModal';
@@ -54,6 +54,7 @@ export default function InterviewChatRoom({
   const [isEnding, setIsEnding] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   // Heartbeat + "left" signal while the room is open; the backend closes an abandoned chat after a grace period.
@@ -358,6 +359,20 @@ export default function InterviewChatRoom({
     );
   }
 
+  // The engine allows one clarification per question; repeats and questions about
+  // the interview do not count (same rule as chat_runtime's clarify count).
+  const currentTurnId = runtime?.currentTurn?.turnId;
+  const clarifyUsed =
+    Boolean(currentTurnId) &&
+    messages.some(
+      (m) =>
+        m.role === 'assistant' &&
+        m.turnId === currentTurnId &&
+        m.messageType === 'CLARIFY' &&
+        !m.metadata?.repeatRequest &&
+        !m.metadata?.candidateQuestionIntent,
+    );
+
   const composer = (compact: boolean) => (
     <ChatComposer
       value={inputValue}
@@ -369,6 +384,8 @@ export default function InterviewChatRoom({
       onKeyDown={handleKeyDown}
       onSend={() => handleSendMessage()}
       onQuickReply={(text) => handleSendMessage(text)}
+      clarifyUsed={clarifyUsed}
+      onSkip={() => setShowSkipConfirm(true)}
     />
   );
 
@@ -390,14 +407,10 @@ export default function InterviewChatRoom({
         onLeave={() => router.push(backUrl)}
         questionNumber={runtime?.currentTurn ? (runtime.currentTurnIndex ?? 0) + 1 : null}
         totalQuestions={runtime?.totalTurns}
+        stageLabel={isClosed ? null : getStageLabel(currentStage, t)}
       />
 
-      {/* One stepper for all three rooms; below lg the tip shows inline. */}
-      <ChatStageStepper
-        currentStage={currentStage}
-        sessionStatus={runtime?.sessionStatus ?? 'OPEN'}
-        turns={runtime?.turns}
-      />
+      {/* Like the voice room: no stage stepper; the stage is in the header and on the question card (below lg, in the tip bar). */}
       {!isClosed ? <StageTipBar currentStage={currentStage} /> : null}
 
       {isCodingQuestion && !isClosed ? (
@@ -482,6 +495,20 @@ export default function InterviewChatRoom({
         onClose={() => setShowEndModal(false)}
         onConfirm={handleEndSession}
         isSubmitting={isEnding}
+      />
+
+      <ConfirmDialog
+        open={showSkipConfirm}
+        title={t('room.chat.skip.title')}
+        body={t('room.chat.skip.body')}
+        confirmLabel={t('room.chat.skip.confirm')}
+        cancelLabel={t('room.chat.skip.cancel')}
+        onConfirm={() => {
+          setShowSkipConfirm(false);
+          // The engine's skip phrase (interview_engine.SKIP_QUESTION_PATTERNS).
+          void handleSendMessage(t('room.chat.quick.skip'));
+        }}
+        onCancel={() => setShowSkipConfirm(false)}
       />
 
       <ConfirmDialog
