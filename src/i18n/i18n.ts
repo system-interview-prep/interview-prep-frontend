@@ -10,6 +10,7 @@ import { adminUiShellVi } from "./dicts/admin-ui-shell.dict";
 import { adminMatchingVi } from "./dicts/admin-matching.dict";
 import { adminCvParsingVi } from "./dicts/admin-cv-parsing.dict";
 import { adminObserveVi } from "./dicts/admin-observe.dict";
+import { guideVi } from "./dicts/guide.dict";
 import { adminUiJdVi } from "./dicts/admin-ui-jd.dict";
 import { adminUiQbVi } from "./dicts/admin-ui-qb.dict";
 import { adminUiMiscVi } from "./dicts/admin-ui-misc.dict";
@@ -4274,7 +4275,7 @@ const vi: Dict = {
   "mascot.tips.results.3": "Sẵn sàng vòng hai chưa? Cùng vị trí, chỉ cần vượt một điểm thôi.",
   "mascot.tips.history.1": "So hai báo cáo của cùng một vị trí. Khoảng cách đó chính là tiến bộ của bạn.",
   "mascot.tips.history.2": "Buổi chưa xong vẫn có giá trị. Mở lại để làm tiếp từ chỗ đã dừng.",
-  "mascot.tips.landing.1": "Mình là cáo của Intervia. Mình đọc CV, hỏi bạn như người phỏng vấn, rồi chỉ ra chỗ cần sửa.",
+  "mascot.tips.landing.1": "Mình là Vi, cáo dẫn đường của Intervia. Người phỏng vấn AI hỏi bạn theo CV, còn mình lo phần chuẩn bị và nhắc bạn bước tiếp theo.",
   "mascot.tips.landing.2": "Bạn có thể trả lời bằng cách gõ, nói, hoặc qua video. Cách nào thoải mái thì chọn cách đó.",
   "mascot.tips.landing.3": "Đăng ký và mang theo một CV nhé. Vòng đầu tiên chỉ mất khoảng mười lăm phút.",
   "evidence.title": "Minh chứng Đối chiếu JD — CV",
@@ -4514,6 +4515,7 @@ const vi: Dict = {
   ...adminMatchingVi,
   ...adminCvParsingVi,
   ...adminObserveVi,
+  ...guideVi,
 };
 
 export function getDictionary(lang: Lang): Dict {
