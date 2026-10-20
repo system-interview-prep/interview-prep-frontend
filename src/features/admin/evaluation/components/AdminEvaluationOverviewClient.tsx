@@ -20,12 +20,12 @@ export default function AdminEvaluationOverviewClient() {
   const isConnected = false;
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <AdminPageHeader
         title={t("admin.eval.overview.title")}
         description={t("admin.eval.overview.subtitle")}
         breadcrumbs={[
-          { label: "Admin", href: "/admin/dashboard" },
+          { label: t("fixAdmin.detail.breadcrumbAdmin"), href: "/admin/dashboard" },
           { label: t("admin.sidebar.evalOverview") },
         ]}
         statusBadge={
@@ -52,7 +52,7 @@ export default function AdminEvaluationOverviewClient() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
             <span className="text-xs font-bold text-[#607096] block mb-1">{t("fixAdmin.eval.overview.q1")}</span>
-            <div className="flex items-center justify-between mt-2">
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-semibold italic text-[#8A98B8]">{t("fixAdmin.eval.overview.q1Ans")}</span>
               <AdminStatusBadge status="unknown" label={t("fixAdmin.common.pending")} size="sm" />
             </div>
@@ -61,7 +61,7 @@ export default function AdminEvaluationOverviewClient() {
 
           <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
             <span className="text-xs font-bold text-[#607096] block mb-1">{t("fixAdmin.eval.overview.q2")}</span>
-            <div className="flex items-center justify-between mt-2">
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-semibold italic text-[#8A98B8]">{t("fixAdmin.eval.overview.q2Ans")}</span>
               <AdminStatusBadge status="unknown" label={t("fixAdmin.common.pending")} size="sm" />
             </div>
@@ -70,7 +70,7 @@ export default function AdminEvaluationOverviewClient() {
 
           <div className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4">
             <span className="text-xs font-bold text-[#607096] block mb-1">{t("fixAdmin.eval.overview.q3")}</span>
-            <div className="flex items-center justify-between mt-2">
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-semibold italic text-[#8A98B8]">{fmt(t("fixAdmin.eval.overview.q3Ans"), { n: 0 })}</span>
               <AdminStatusBadge status="unknown" label={t("fixAdmin.common.empty")} size="sm" />
             </div>
