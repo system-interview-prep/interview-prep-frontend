@@ -172,7 +172,7 @@ export default function UserJobsBoard() {
 
 
       {/* Search & Quick Filters Bar */}
-      <div className="flex flex-col gap-3 rounded-3xl bg-white p-3 border border-[#DCE4F3] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
         {/* Search input */}
         <div className="relative min-w-0 flex-1 sm:min-w-[min(100%,320px)]">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-[#607096]" aria-hidden="true" />
@@ -181,7 +181,7 @@ export default function UserJobsBoard() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("fixApp.jobs.searchPlaceholder")}
-            className="h-11 w-full rounded-full border-0 bg-[#F8FAFC] py-2 pl-10 pr-4 text-sm text-[#14244B] outline-none border border-[#DCE4F3] transition placeholder:text-[#607096] focus:bg-white focus:ring-2 focus:ring-[#204195]"
+            className="h-10 w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-10 pr-4 text-sm text-[#14244B] outline-none transition placeholder:text-[#607096] focus:bg-white focus:ring-2 focus:ring-[#204195]"
             aria-label={t("fixApp.jobs.searchPlaceholder")}
           />
         </div>
@@ -258,7 +258,7 @@ export default function UserJobsBoard() {
 
       {/* Loading State: Grid of modern Skeletons */}
       {loading ? (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label={t("admin.jobProfile.loading")}>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label={t("admin.jobProfile.loading")}>
           {Array.from({ length: 6 }).map((_, item) => (
             <JobCardSkeleton key={item} />
           ))}
@@ -272,7 +272,7 @@ export default function UserJobsBoard() {
           <button
             type="button"
             onClick={() => void loadPage(attemptedStartRef.current)}
-            className="inline-flex h-9 w-fit shrink-0 items-center rounded-full bg-white px-4 text-[13px] font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
+            className="inline-flex h-9 w-fit shrink-0 items-center rounded-xl bg-white px-4 text-[13px] font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
           >
             {t("fixApp.common.retry")}
           </button>
@@ -294,7 +294,7 @@ export default function UserJobsBoard() {
             )
           ) : (
             /* Job Cards Grid */
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {visibleProfiles.map((p) => {
                 const cardData = mapJobToJobCard(p, { savedJobIds, fit: fits[p.id] });
                 return (
@@ -316,7 +316,7 @@ export default function UserJobsBoard() {
                 type="button"
                 onClick={handlePrevPage}
                 disabled={loading || pageBackStack.length === 0}
-                className="inline-flex h-11 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-full bg-white px-5 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-10 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-xl bg-white px-5 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <span aria-hidden="true">←</span>
                 {t("userDash.jobProfiles.pagePrev")}
@@ -325,7 +325,7 @@ export default function UserJobsBoard() {
                 type="button"
                 onClick={handleNextPage}
                 disabled={loading || !nextPageStart}
-                className="inline-flex h-11 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-full bg-[#204195] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-10 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {t("userDash.jobProfiles.pageNext")}
                 <span aria-hidden="true">→</span>
