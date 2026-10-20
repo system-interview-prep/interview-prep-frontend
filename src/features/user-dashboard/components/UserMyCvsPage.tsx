@@ -137,9 +137,9 @@ function CvRowStatusDetail({ file, onOpenParsed }: { file: CvFile; onOpenParsed:
       </p>
     );
   }
-  if (state === "slow") return <p className="mt-1.5 text-xs text-[#8A5A00]">{t("cvStatus.slowHint")}</p>;
+  if (state === "slow") return <p className="mt-1.5 text-xs text-[#8A5A00] [overflow-wrap:anywhere]">{t("cvStatus.slowHint")}</p>;
   return file.error ? (
-    <p className="mt-1.5 text-xs text-[#C43B3B]">{resolveBackendErrorMessage(file.error, t)}</p>
+    <p className="mt-1.5 text-xs text-[#C43B3B] [overflow-wrap:anywhere]">{resolveBackendErrorMessage(file.error, t)}</p>
   ) : null;
 }
 
@@ -166,6 +166,8 @@ export default function UserMyCvsPage() {
   const closeParsedCv = useCallback(() => setParsedCv(null), []);
   const [dragOver, setDragOver] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  // Same file uploaded again, or a new file renamed because its name was taken.
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [apiConnected, setApiConnected] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -331,12 +333,21 @@ export default function UserMyCvsPage() {
     if (token) {
       setUploading(true);
       setAnalyzeError(null);
+      setUploadNotice(null);
       setFoxDone(false);
       try {
         const { data } = await userCvApi.upload(f);
         setAnalyzeError(null);
         setFoxDone(false);
-        setTrackingCvId(data.id);
+        if (data.duplicate) {
+          // Nothing new to process: point at the CV they already have.
+          setUploadNotice(fmt(t("uxWs.cvs.duplicateUpload"), { name: data.originalName }));
+        } else {
+          if (data.renamedFrom) {
+            setUploadNotice(fmt(t("uxWs.cvs.renamedUpload"), { from: data.renamedFrom, to: data.originalName }));
+          }
+          setTrackingCvId(data.id);
+        }
         await loadFiles();
       } catch (e) {
         setAnalyzeError(resolveBackendErrorMessage(e, t, "userDash.myCvs.apiUploadError"));
@@ -490,7 +501,7 @@ export default function UserMyCvsPage() {
   };
 
   const selectClass =
-    "h-10 w-full min-w-0 rounded-2xl border-0 bg-white px-3 text-[13px] font-medium text-[#14244B] outline-none border border-[#DCE4F3] transition focus:ring-2 focus:ring-[#204195] disabled:cursor-not-allowed disabled:opacity-60";
+    "h-10 w-full min-w-0 rounded-xl border-0 bg-white px-3 text-[13px] font-medium text-[#14244B] outline-none border border-[#DCE4F3] transition focus:ring-2 focus:ring-[#204195] disabled:cursor-not-allowed disabled:opacity-60";
   const filterLabelClass =
     "mb-1.5 block h-4 truncate text-xs font-semibold text-[#607096]";
   const badgeClass =
@@ -522,17 +533,17 @@ export default function UserMyCvsPage() {
             }}
             onDragOver={(e) => e.preventDefault()}
             onDrop={onDrop}
-            className={`flex flex-col items-center rounded-3xl border-2 border-dashed px-5 py-8 text-center transition-colors md:px-10 md:py-10 ${
+            className={`flex flex-col items-center rounded-2xl border-2 border-dashed px-5 py-8 text-center transition-colors md:px-8 md:py-8 ${
               dragOver ? "border-[#204195] bg-[#EEF2FD]" : "border-[#C9D7F1] bg-white"
             }`}
           >
-            <h2 className="text-2xl font-semibold text-[#14244B]">{t("userDash.myCvs.uploadTitle")}</h2>
+            <h2 className="text-lg font-bold text-[#14244B]">{t("userDash.myCvs.uploadTitle")}</h2>
             <p className="mb-6 mt-1.5 max-w-md text-sm leading-6 text-[#607096]">{t("userDash.myCvs.uploadHint")}</p>
             <div className="flex flex-wrap justify-center gap-3">
               <button
                 type="button"
                 onClick={() => inputPdfRef.current?.click()}
-                className="inline-flex h-11 cursor-pointer items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+                className="inline-flex h-10 cursor-pointer items-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
                 aria-label={t("userDash.myCvs.pickPdf")}
               >
                 PDF
@@ -540,7 +551,7 @@ export default function UserMyCvsPage() {
               <button
                 type="button"
                 onClick={() => inputWordRef.current?.click()}
-                className="inline-flex h-11 cursor-pointer items-center rounded-full bg-[#F8FAFC] px-6 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
+                className="inline-flex h-10 cursor-pointer items-center rounded-xl bg-[#F8FAFC] px-6 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
                 aria-label={t("userDash.myCvs.pickWord")}
               >
                 DOCX
@@ -567,6 +578,13 @@ export default function UserMyCvsPage() {
                 tone="error"
                 text={analyzeError}
                 hint={t("uxWs.cvs.errorHint")}
+                className="mt-6 w-full max-w-lg text-left"
+              />
+            ) : uploadNotice ? (
+              <StatusNote
+                text={uploadNotice}
+                onDismiss={() => setUploadNotice(null)}
+                dismissLabel={t("common.close")}
                 className="mt-6 w-full max-w-lg text-left"
               />
             ) : foxDone && !trackingCvId ? (
@@ -613,10 +631,10 @@ export default function UserMyCvsPage() {
             </div>
           ) : null}
 
-          <section className="rounded-3xl bg-white p-5 border border-[#DCE4F3] sm:p-6 md:p-8">
+          <section className="rounded-2xl bg-white p-4 border border-[#DCE4F3] sm:p-6">
             <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-[#14244B]">{t("userDash.myCvs.listTitle")}</h2>
+                <h2 className="text-lg font-bold text-[#14244B]">{t("userDash.myCvs.listTitle")}</h2>
                 <p className="mt-1 text-xs text-[#607096]">
                   {apiConnected ? t("userDash.myCvs.listHintApi") : t("userDash.myCvs.listHint")}
                 </p>
@@ -635,8 +653,8 @@ export default function UserMyCvsPage() {
               </div>
             )}
 
-            <div className="mb-6 grid grid-cols-1 gap-3 rounded-2xl bg-[#F8FAFC] p-4 sm:grid-cols-2 xl:grid-cols-[minmax(180px,1.1fr)_minmax(220px,1.35fr)_minmax(115px,.65fr)_minmax(145px,.8fr)_minmax(125px,.7fr)]">
-              <div className="min-w-0 sm:col-span-2 xl:col-span-1">
+            <div className="mb-5 grid grid-cols-2 gap-3 rounded-2xl bg-[#F8FAFC] p-3 sm:p-4 xl:grid-cols-[minmax(180px,1.1fr)_minmax(220px,1.35fr)_minmax(115px,.65fr)_minmax(145px,.8fr)_minmax(125px,.7fr)]">
+              <div className="col-span-2 min-w-0 xl:col-span-1">
                 <label htmlFor="cv-search" className={filterLabelClass}>
                   {t("userDash.myCvs.searchLabel")}
                 </label>
@@ -654,11 +672,11 @@ export default function UserMyCvsPage() {
                       setPage(1);
                     }}
                     placeholder={t("userDash.myCvs.searchPlaceholder")}
-                    className="h-10 w-full rounded-2xl border-0 bg-white pl-9 pr-3 text-[13px] font-medium text-[#14244B] outline-none border border-[#DCE4F3] transition placeholder:text-[#607096] focus:ring-2 focus:ring-[#204195]"
+                    className="h-10 w-full rounded-xl border-0 bg-white pl-9 pr-3 text-[13px] font-medium text-[#14244B] outline-none border border-[#DCE4F3] transition placeholder:text-[#607096] focus:ring-2 focus:ring-[#204195]"
                   />
                 </div>
               </div>
-              <div className="min-w-0">
+              <div className="col-span-2 min-w-0 sm:col-span-1">
                 <label htmlFor="cv-career-filter" className={filterLabelClass}>
                   {t("userDash.myCvs.filterCareerLabel")}
                 </label>
@@ -715,7 +733,7 @@ export default function UserMyCvsPage() {
                   <option value="90d">{t("userDash.myCvs.filterDate90d")}</option>
                 </select>
               </div>
-              <div className="min-w-0">
+              <div className="col-span-2 min-w-0 sm:col-span-1">
                 <label htmlFor="cv-sort" className={filterLabelClass}>
                   {t("userDash.myCvs.sortLabel")}
                 </label>
@@ -740,18 +758,18 @@ export default function UserMyCvsPage() {
                 {[0, 1, 2].map((item) => <div key={item} className="h-20 animate-pulse rounded-2xl bg-[#F0F4FC] motion-reduce:animate-none" />)}
               </div>
             ) : files.length === 0 ? (
-              <div className="flex flex-col items-center rounded-3xl bg-[#F8FAFC] px-5 py-10 text-center">
+              <div className="flex flex-col items-center rounded-2xl bg-[#F8FAFC] px-5 py-10 text-center">
                 <p className="mt-3 max-w-sm text-sm leading-6 text-[#607096]">{t("userDash.myCvs.emptyList")}</p>
                 <button
                   type="button"
                   onClick={() => inputPdfRef.current?.click()}
-                  className="mt-5 inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+                  className="mt-5 inline-flex h-10 items-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
                 >
                   {t("userDash.myCvs.uploadTitle")}
                 </button>
               </div>
             ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center rounded-3xl bg-[#F8FAFC] px-5 py-10 text-center">
+              <div className="flex flex-col items-center rounded-2xl bg-[#F8FAFC] px-5 py-10 text-center">
                 <p className="mt-3 max-w-sm text-sm leading-6 text-[#607096]">{t("userDash.myCvs.emptyFiltered")}</p>
                 <button
                   type="button"
@@ -762,7 +780,7 @@ export default function UserMyCvsPage() {
                     setCareerCode("");
                     setPage(1);
                   }}
-                  className="mt-5 inline-flex h-11 items-center rounded-full bg-white px-5 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
+                  className="mt-5 inline-flex h-10 items-center rounded-xl bg-white px-5 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
                 >
                   {t("uxWs.cvs.clearFilters")}
                 </button>
@@ -771,7 +789,7 @@ export default function UserMyCvsPage() {
               <>
                 <div className="hidden overflow-hidden rounded-2xl border border-[#DCE4F3] lg:block">
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[780px] border-collapse text-left text-sm">
+                    <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                       <thead>
                       <tr className="border-b border-[#DCE4F3] bg-[#F8FAFC] text-xs font-semibold text-[#204195]">
                         <th className="px-4 py-3">{t("userDash.myCvs.colCandidate")}</th>
@@ -784,17 +802,17 @@ export default function UserMyCvsPage() {
                       <tbody className="divide-y divide-[#EAEFF8] bg-white">
                       {paged.map((f) => (
                         <tr key={f.id} className="transition-colors hover:bg-[#F8FAFC]">
-                          <td className="px-4 py-4 align-middle">
+                          <td className="w-full max-w-0 px-4 py-4 align-middle">
                             <div className="flex items-start gap-3">
                               <div className="min-w-0">
-                                <p className="font-semibold text-[#14244B]">{displayName(f.name)}</p>
-                                <p className="truncate text-xs text-[#607096]">{f.name}</p>
+                                <p className="font-semibold text-[#14244B] [overflow-wrap:anywhere]">{displayName(f.name)}</p>
+                                <p className="truncate text-xs text-[#607096]" title={f.name}>{f.name}</p>
                                 <CareerClassificationSummary status={effectiveCvStatus(f) ?? undefined} parsedData={f.parsedData} compact />
                                 <CvRowStatusDetail file={f} onOpenParsed={() => setParsedCv(f)} />
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-4 align-middle">
+                          <td className="whitespace-nowrap px-4 py-4 align-middle">
                             <span className={`${badgeClass} ${typeBadgeClass(f)}`}>
                               {typeLabel(f)}
                             </span>
@@ -847,14 +865,14 @@ export default function UserMyCvsPage() {
                   {paged.map((f) => (
                     <li
                       key={f.id}
-                      className="rounded-3xl bg-white p-4 border border-[#DCE4F3]"
+                      className="rounded-2xl bg-white p-3.5 border border-[#DCE4F3] sm:p-4"
                     >
                       <div className="flex items-start gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="break-words font-semibold text-[#14244B]">{displayName(f.name)}</p>
-                          <p className="truncate text-xs text-[#607096]">{f.name}</p>
+                          <p className="font-semibold text-[#14244B] [overflow-wrap:anywhere]">{displayName(f.name)}</p>
+                          <p className="truncate text-xs text-[#607096]" title={f.name}>{f.name}</p>
                           <CareerClassificationSummary status={effectiveCvStatus(f) ?? undefined} parsedData={f.parsedData} compact />
-                                <CvRowStatusDetail file={f} onOpenParsed={() => setParsedCv(f)} />
+                          <CvRowStatusDetail file={f} onOpenParsed={() => setParsedCv(f)} />
                           {effectiveCvStatus(f) ? (
                             <div className="mt-2">
                               <span className={`${badgeClass} ${statusBadgeClass(effectiveCvStatus(f))}`}>
@@ -921,9 +939,9 @@ export default function UserMyCvsPage() {
             aria-modal="true"
             aria-labelledby="cv-delete-title"
             tabIndex={-1}
-            className="anim-pop relative z-10 w-full max-w-md rounded-3xl bg-white p-6 shadow-[0_30px_60px_-30px_rgba(20,36,75,0.6)] outline-none"
+            className="anim-pop relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-[0_30px_60px_-30px_rgba(20,36,75,0.6)] outline-none"
           >
-            <h3 id="cv-delete-title" className="text-xl font-semibold text-[#14244B]">{t("fixApp.cvs.deleteTitle")}</h3>
+            <h3 id="cv-delete-title" className="text-lg font-bold text-[#14244B]">{t("fixApp.cvs.deleteTitle")}</h3>
             <p className="mt-2 text-sm leading-6 text-[#607096]">{t("fixApp.cvs.deleteBody")}</p>
             <p className="mt-3 break-all rounded-2xl bg-[#F8FAFC] px-3 py-2 text-xs text-[#607096]">{deleteTarget.name}</p>
             {deleteError ? <StatusNote tone="error" text={deleteError} className="mt-3" /> : null}
@@ -933,7 +951,7 @@ export default function UserMyCvsPage() {
                 onClick={closeDeleteModal}
                 disabled={deleting}
                 data-autofocus
-                className="inline-flex h-11 items-center justify-center rounded-full bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F0F4FC] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F0F4FC] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {t("fixApp.common.cancel")}
               </button>
@@ -941,7 +959,7 @@ export default function UserMyCvsPage() {
                 type="button"
                 onClick={() => void handleConfirmDelete()}
                 disabled={deleting}
-                className="inline-flex h-11 items-center justify-center rounded-full bg-[#C43B3B] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#A93232] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-[#C43B3B] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#A93232] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {deleting ? t("fixApp.cvs.deleting") : t("fixApp.cvs.deleteConfirm")}
               </button>
