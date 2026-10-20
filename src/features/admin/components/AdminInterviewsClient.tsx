@@ -11,11 +11,12 @@ import {
   Loader2,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
 import { Pagination } from "@components/shared/Pagination";
 import { adminApi, AdminSessionItem, type AdminSessionStats } from "@/lib/apiClient";
 import AdminPageHeader from "./primitives/AdminPageHeader";
-import AdminMetricCard from "./primitives/AdminMetricCard";
 import AdminEmptyState from "./primitives/AdminEmptyState";
+import LiveSessionsBoard from "@features/admin/pipeline/components/LiveSessionsBoard";
 
 const PAGE_SIZE = 10;
 
@@ -118,7 +119,7 @@ export default function AdminInterviewsClient({
         title={t("admin.interviews.title") || "Quản lý Phiên Phỏng vấn"}
         description={t("admin.interviews.subtitle") || "Theo dõi và đánh giá toàn bộ các phiên phỏng vấn diễn ra trên hệ thống."}
         breadcrumbs={[
-          { label: "Admin", href: "/admin/dashboard" },
+          { label: "Quản trị", href: "/admin/dashboard" },
           { label: t("admin.sidebar.interviews") || "Phiên phỏng vấn" },
         ]}
         primaryAction={
@@ -132,33 +133,8 @@ export default function AdminInterviewsClient({
         }
       />
 
-      {/* Hero Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <AdminMetricCard
-          title={t("admin.interviews.stat.activeSessions") || "Phiên đang hoạt động"}
-          value={activeSessionsCount}
-          unit={`/ ${totalCount} ${t("admin.common.sessionUnit")}`}
-          subtitle={t("admin.dashboard.stat.activeSessionsSub") || "STARTED / IN_PROGRESS"}
-          status={activeSessionsCount > 0 ? "active" : undefined}
-          icon={Video}
-        />
-        <AdminMetricCard
-          title={t("admin.interviews.stat.avgAiScore") || "Điểm AI trung bình"}
-          value={avgScore > 0 ? `${avgScore}%` : null}
-          subtitle={avgScore > 0 ? (t("admin.dashboard.stat.avgAiScoreSub") || "Toàn bộ phiên đã chấm") : (t("admin.common.noData") || "Chưa có session có điểm")}
-          icon={MessageSquare}
-          isPending={avgScore === 0}
-          pendingText={t("admin.common.noData") || "Chưa có dữ liệu"}
-        />
-        <AdminMetricCard
-          title={t("admin.interviews.stat.avgTurnaround") || "Đã hoàn thành"}
-          value={completedSessionsCount}
-          unit={t("admin.common.sessionUnit")}
-          subtitle={t("admin.dashboard.stat.completedSessionsSub") || "Đã chốt kết quả"}
-          status={completedSessionsCount > 0 ? "success" : undefined}
-          icon={Mic}
-        />
-      </div>
+      {/* Interviews running now: step, time, problems; pushed live. */}
+      <LiveSessionsBoard />
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col gap-4 rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
@@ -225,18 +201,30 @@ export default function AdminInterviewsClient({
         </div>
       </div>
 
+      {/* Counts for the current filter (the platform-wide numbers are on the overview). */}
+      {!loadError && stats ? (
+        <p className="text-xs text-[#607096]" aria-live="polite">
+          {fmt(t("interviews2.filterSummary"), {
+            total: totalCount,
+            active: activeSessionsCount,
+            completed: completedSessionsCount,
+          })}
+          {avgScore > 0 ? ` · ${fmt(t("interviews2.filterAvg"), { score: avgScore })}` : ""}
+        </p>
+      ) : null}
+
       {/* Table */}
       <div className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[880px] table-fixed text-left border-collapse">
             <thead>
               <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
-                <th className="px-6 py-4">{t("admin.interviews.table.candidate") || "Ứng viên"}</th>
-                <th className="px-6 py-4">{t("admin.interviews.table.positionRole") || "Vị trí / Ngôn ngữ"}</th>
-                <th className="px-6 py-4 text-center">{t("admin.interviews.table.mode") || "Hình thức"}</th>
-                <th className="px-6 py-4 text-center">{t("admin.interviews.table.aiScore") || "Điểm AI"}</th>
-                <th className="px-6 py-4">{t("admin.interviews.table.dateSubmitted") || "Thời gian"}</th>
-                <th className="px-6 py-4">{t("admin.interviews.table.status") || "Trạng thái"}</th>
+                <th className="w-[28%] px-5 py-4">{t("admin.interviews.table.candidate") || "Ứng viên"}</th>
+                <th className="w-[26%] px-5 py-4">{t("admin.interviews.table.positionRole") || "Vị trí / Ngôn ngữ"}</th>
+                <th className="w-[11%] px-3 py-4 text-center">{t("admin.interviews.table.mode") || "Hình thức"}</th>
+                <th className="w-[9%] px-3 py-4 text-center">{t("admin.interviews.table.aiScore") || "Điểm AI"}</th>
+                <th className="w-[12%] px-3 py-4">{t("admin.interviews.table.dateSubmitted") || "Thời gian"}</th>
+                <th className="w-[14%] px-3 py-4">{t("admin.interviews.table.status") || "Trạng thái"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EAEFF8] text-xs">
@@ -267,46 +255,53 @@ export default function AdminInterviewsClient({
                   </td>
                 </tr>
               ) : (
-                sessions.map((row) => {
+                // The API pages by PAGE_SIZE; never render more rows than one page.
+                sessions.slice(0, PAGE_SIZE).map((row) => {
                   const pill = statusPill(row.status, t);
                   return (
                     <tr key={row.id} className="transition-colors hover:bg-[#F8FAFC]">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
+                      <td className="px-5 py-4">
+                        <div className="flex min-w-0 items-center gap-3">
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF2FD] font-bold text-[#204195]">
                             {row.candidateInitials}
                           </div>
-                          <div>
-                            <p className="font-bold text-[#14244B]">{row.candidateName}</p>
-                            <p className="text-[11px] text-[#607096]">{row.candidateEmail}</p>
+                          <div className="min-w-0">
+                            <p className="line-clamp-2 font-bold text-[#14244B]" title={row.candidateName}>
+                              {row.candidateName}
+                            </p>
+                            <p className="truncate text-[11px] text-[#607096]" title={row.candidateEmail}>
+                              {row.candidateEmail}
+                            </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <p className="font-semibold text-[#14244B]">{row.position || "—"}</p>
-                        <p className="text-[11px] text-[#607096]">{row.teamAndLocation}</p>
+                      <td className="px-5 py-4">
+                        <p className="line-clamp-2 font-semibold text-[#14244B]" title={row.position ?? undefined}>
+                          {row.position || "—"}
+                        </p>
+                        <p className="truncate text-[11px] text-[#607096]">{row.teamAndLocation}</p>
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#DCE4F3] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-semibold text-[#204195]">
+                      <td className="px-3 py-4 text-center">
+                        <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-[#DCE4F3] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-semibold text-[#204195]">
                           {renderTypeIcon(row.type)}
                           {t(`fixAdmin.ops.interviews.mode.${row.type}`)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-3 py-4 text-center">
                         {typeof row.aiScore === "number" ? (
-                          <span className="font-headline font-bold text-[#14244B] text-sm">
+                          <span className="font-bold text-[#14244B] text-sm tabular-nums">
                             {row.aiScore}%
                           </span>
                         ) : (
                           <span className="font-medium text-[#8A98B8]">--</span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
-                        <p className="font-semibold text-[#14244B]">{row.dateLabel}</p>
+                      <td className="px-3 py-4">
+                        <p className="font-semibold text-[#14244B] tabular-nums">{row.dateLabel}</p>
                         <p className="text-[11px] text-[#607096]">{row.timeLabel}</p>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className={pill.className}>{pill.label}</span>
+                      <td className="px-3 py-4">
+                        <span className={`${pill.className} whitespace-nowrap`}>{pill.label}</span>
                         <Link
                           href={`/admin/interviews/${encodeURIComponent(row.id)}`}
                           className="mt-1 block text-[11px] font-semibold text-[#204195] hover:underline"
