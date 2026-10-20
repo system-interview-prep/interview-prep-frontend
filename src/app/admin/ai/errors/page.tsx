@@ -1,17 +1,6 @@
-import { Suspense } from "react";
-import AdminAiErrorsClient from "@features/admin/ai/components/AdminAiErrorsClient";
+import { redirect } from "next/navigation";
 
-export default function AdminAiErrorsPage() {
-  return (
-    <Suspense
-      fallback={
-        <div
-          className="h-80 animate-pulse rounded-2xl border border-[#DCE4F3] bg-white motion-reduce:animate-none"
-          aria-hidden="true"
-        />
-      }
-    >
-      <AdminAiErrorsClient />
-    </Suspense>
-  );
+/** "AI errors" was the call log with the error filter on; the log page has that filter. */
+export default function AiErrorsRedirect() {
+  redirect("/admin/ai/traces?status=error");
 }
