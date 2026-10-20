@@ -4,6 +4,15 @@ import { uxMarketingEn, uxMarketingVi } from "./dicts/ux-marketing.dict";
 import { uxWorkspaceEn, uxWorkspaceVi } from "./dicts/ux-workspace.dict";
 import { uxInterviewEn, uxInterviewVi } from "./dicts/ux-interview.dict";
 import { pickerEn, pickerVi } from "./dicts/picker.dict";
+import { progressEn, progressVi } from "./dicts/progress.dict";
+import { aiPipelineEn, aiPipelineVi } from "./dicts/aiPipeline.dict";
+import { adminUiShellVi } from "./dicts/admin-ui-shell.dict";
+import { adminMatchingVi } from "./dicts/admin-matching.dict";
+import { adminCvParsingVi } from "./dicts/admin-cv-parsing.dict";
+import { adminObserveVi } from "./dicts/admin-observe.dict";
+import { adminUiJdVi } from "./dicts/admin-ui-jd.dict";
+import { adminUiQbVi } from "./dicts/admin-ui-qb.dict";
+import { adminUiMiscVi } from "./dicts/admin-ui-misc.dict";
 import { reportEn, reportVi } from "./dicts/report.dict";
 import { roomEn, roomVi } from "./dicts/room.dict";
 import { fixInterviewEn, fixInterviewVi } from "./dicts/fix-interview.dict";
@@ -114,6 +123,8 @@ const en: Dict = {
   ...fixMarketingEn,
   ...uxInterviewEn,
   ...pickerEn,
+  ...progressEn,
+  ...aiPipelineEn,
   "nav.platform": "Platform",
   "marketing.brandCurator": "INTERVIA",
   "resources.metaTitle": "Resources | INTERVIA",
@@ -2350,6 +2361,8 @@ const vi: Dict = {
   ...fixMarketingVi,
   ...uxInterviewVi,
   ...pickerVi,
+  ...progressVi,
+  ...aiPipelineVi,
   "nav.platform": "Nền tảng",
   "marketing.brandCurator": "INTERVIA AI",
   "resources.metaTitle": "Tài nguyên | INTERVIA AI",
@@ -4491,6 +4504,14 @@ const vi: Dict = {
   "admin.login.demoTitle": "Tài khoản demo",
   "admin.login.demoFilled": "✓ Đã điền tài khoản demo",
   "admin.login.demoPrompt": "Nhấn để tự động điền thông tin đăng nhập",
+  // Admin UI fixes: loaded last so they replace English or unclear labels.
+  ...adminUiShellVi,
+  ...adminUiJdVi,
+  ...adminUiQbVi,
+  ...adminUiMiscVi,
+  ...adminMatchingVi,
+  ...adminCvParsingVi,
+  ...adminObserveVi,
 };
 
 export function getDictionary(lang: Lang): Dict {
