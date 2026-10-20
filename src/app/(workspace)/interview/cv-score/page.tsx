@@ -36,6 +36,7 @@ import { useInterviewEntryPolicy } from "@features/interview/hooks/useInterviewE
 import { entryBlockMessageKey, evaluateEntry } from "@features/interview/utils/entryGate";
 import { EntryWarningDialog } from "@features/interview/components/EntryWarningDialog";
 import { PracticeTierNote } from "@features/interview/components/PracticeTierNote";
+import { asFocusArea } from "@features/interview/services/interviewRuntime.service";
 
 /* ── Helper Resolvers ── */
 
@@ -497,6 +498,8 @@ function ScorePageContent() {
   const urlCandidateId = params.get("candidateId")?.trim() ?? "";
   const urlJobId = params.get("jobId")?.trim() ?? "";
   const urlJobTitle = params.get("jobTitle")?.trim() || "";
+  // "Luyện vòng này" on the progress page: the round this session focuses on.
+  const focusArea = asFocusArea(params.get("focus"));
 
   const [activeContext, setActiveContext] = useState<{
     candidateId: string;
@@ -780,6 +783,7 @@ function ScorePageContent() {
         candidateId,
         jobId,
         durationMinutes,
+        focusArea,
       });
       setStartStage(2);
       router.push(targetUrl);
@@ -966,6 +970,11 @@ function ScorePageContent() {
                   </button>
                 </div>
                 <div className="border-b border-[#EAEFF8] bg-[#F8FAFC] px-6 py-4 sm:px-7">
+                  {focusArea && (
+                    <p className="mb-3 rounded-xl bg-[#EEF3FF] px-3 py-2 text-xs font-semibold text-[#204195] ring-1 ring-[#C9D6F5]">
+                      {fmt(t("practiceProgress.focus.banner"), { round: t(`practiceProgress.area.${focusArea}`) })}
+                    </p>
+                  )}
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-semibold text-[#607096]">
                       {t("fit.mode.duration")}
