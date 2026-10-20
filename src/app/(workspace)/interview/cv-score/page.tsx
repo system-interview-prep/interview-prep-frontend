@@ -32,6 +32,10 @@ import { fmt } from "@/i18n/format";
 import { CandidateMatchDetails } from "@features/matching/components/CandidateMatchDetails";
 import { buildHumanizedRequirementsAndGroups } from "@features/matching/utils/match-formatters";
 import { countFit, saveFit } from "@features/matching/utils/fitCache";
+import { useInterviewEntryPolicy } from "@features/interview/hooks/useInterviewEntryPolicy";
+import { entryBlockMessageKey, evaluateEntry } from "@features/interview/utils/entryGate";
+import { EntryWarningDialog } from "@features/interview/components/EntryWarningDialog";
+import { PracticeTierNote } from "@features/interview/components/PracticeTierNote";
 
 /* ── Helper Resolvers ── */
 
@@ -371,14 +375,14 @@ export function CompactMatchSummary({
       : t("fit.summary.scoreReference");
 
   return (
-    <section className="overflow-hidden rounded-[28px] border border-[#DCE4F3] bg-white shadow-[0_18px_50px_-42px_rgba(20,36,75,.45)]">
-      <div className="grid md:grid-cols-[280px_minmax(0,1fr)]">
+    <section className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-[0_18px_50px_-42px_rgba(20,36,75,.45)]">
+      <div className="grid grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]">
         <div className={displayPercentage ? "bg-gradient-to-br from-[#183A88] to-[#315FC8] p-6 text-white sm:p-7" : "bg-[#F0F4FC] p-6 sm:p-7"}>
           {displayPercentage ? (
             <>
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-100">{scoreLabel}</p>
               <div className="mt-3 flex items-start font-semibold leading-none">
-                <span className="font-display text-[68px] tracking-[-0.06em] sm:text-[76px]">{percentage}</span>
+                <span className="font-display text-[56px] tracking-[-0.06em] sm:text-[64px]">{percentage}</span>
                 <span className="mt-2 text-[28px] text-blue-100">%</span>
               </div>
               <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/20">
@@ -393,23 +397,23 @@ export function CompactMatchSummary({
           )}
         </div>
 
-        <div className="p-6 sm:p-7">
+        <div className="min-w-0 p-5 sm:p-7">
           <div className="flex items-center gap-2.5">
             <span className={`size-2.5 shrink-0 rounded-full ${stateDot}`} aria-hidden="true" />
-            <h2 className="text-xl font-semibold text-[#14244B] sm:text-2xl">
+            <h2 className="text-lg font-bold text-[#14244B]">
               {stateLabel}
             </h2>
           </div>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#607096]">{stateDescription}</p>
-          <div className="mt-5 grid grid-cols-3 gap-2.5">
+          <div className="mt-5 grid grid-cols-3 gap-2">
             {[
               { value: counts.met, label: t("fit.status.met"), dot: "bg-[#287A4B]" },
               { value: counts.unknown, label: t("fit.status.needsVerification"), dot: "bg-[#D99A19]" },
               { value: counts.notMet, label: t("fit.status.notMet"), dot: "bg-[#C43B3B]" },
             ].map((item) => (
-              <div key={item.label} className="rounded-2xl border border-[#E3E8F2] bg-[#F8FAFC] px-3 py-3 text-[#14244B]">
+              <div key={item.label} className="min-w-0 rounded-2xl border border-[#E3E8F2] bg-[#F8FAFC] px-2.5 py-3 text-[#14244B] sm:px-3">
                 <p className="text-xl font-bold leading-none sm:text-2xl">{item.value}</p>
-                <p className="mt-1.5 flex items-center gap-1.5 truncate text-[11px] font-semibold text-[#607096]" title={item.label}><span className={`size-1.5 shrink-0 rounded-full ${item.dot}`} />{item.label}</p>
+                <p className="mt-1.5 flex items-start gap-1.5 text-[11px] font-semibold leading-tight text-[#607096]"><span className={`mt-1 size-1.5 shrink-0 rounded-full ${item.dot}`} /><span className="min-w-0 [overflow-wrap:anywhere]">{item.label}</span></p>
               </div>
             ))}
           </div>
@@ -458,7 +462,7 @@ export function MatchBreakdown({
 
   return (
     <section aria-label={t("fit.breakdown.aria")} className="overflow-hidden rounded-3xl bg-white ring-1 ring-[#DCE4F3]">
-      <div className="grid sm:grid-cols-3 sm:divide-x sm:divide-[#EAEFF8]">
+      <div className="grid grid-cols-1 sm:grid-cols-3 sm:divide-x sm:divide-[#EAEFF8]">
         {items.map(({ count, label, description, dotClass }, index) => (
           <div
             key={label}
@@ -728,6 +732,29 @@ function ScorePageContent() {
   const closeModeChooser = useCallback(() => setShowModeChooser(false), []);
   const modeDialogRef = useDialogA11y<HTMLDivElement>(showModeChooser, startingInterview ? undefined : closeModeChooser);
 
+  // The room opens only after the CV–job match has been scored: the interview
+  // plan is built from that match, and the candidate should see the score first.
+  const hasMatchScore = Boolean(result) && !loading && !error;
+  // The threshold the backend enforces when it creates the session.
+  const entryPolicy = useInterviewEntryPolicy();
+  const entry = hasMatchScore && result ? evaluateEntry(result, entryPolicy) : null;
+  const canEnterRoom = Boolean(entry?.allowed);
+  const entryBlockedText = entry && !entry.allowed && entry.reason
+    ? fmt(t(entryBlockMessageKey(entry.reason)), { score: entry.percentage ?? "", min: entryPolicy.minMatchPercent })
+    : null;
+  // Practice mode: a CV far from the job confirms once before the mode chooser.
+  const [entryWarningOpen, setEntryWarningOpen] = useState(false);
+  const [entryConfirmed, setEntryConfirmed] = useState(false);
+  const openModeChooser = () => {
+    if (!canEnterRoom) return;
+    setInterviewStartError(null);
+    if (entry?.needsConfirmation && !entryConfirmed) {
+      setEntryWarningOpen(true);
+      return;
+    }
+    setShowModeChooser(true);
+  };
+
   const handleStartInterview = async (
     mode: "chat" | "voice" | "video",
     experience?: "question_practice" | "interview_chat"
@@ -735,6 +762,10 @@ function ScorePageContent() {
     if (startingInterview) return;
     if (!candidateId || !jobId) {
       setInterviewStartError("fit.page.missingContext");
+      return;
+    }
+    if (!hasMatchScore || !canEnterRoom) {
+      setInterviewStartError(hasMatchScore ? null : "fit.page.scoreRequired");
       return;
     }
     setInterviewStartError(null);
@@ -797,7 +828,7 @@ function ScorePageContent() {
                   router.push("/dashboard/jobs");
                 }
               }}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-[#607096] transition-colors hover:text-[#204195]"
+              className="-ml-2 inline-flex h-9 items-center gap-2 rounded-xl px-2 text-sm font-semibold text-[#607096] transition-colors hover:bg-[#F0F4FC] hover:text-[#204195]"
             >
               <span aria-hidden="true">←</span>
               <span>{t("fit.page.back")}</span>
@@ -810,7 +841,7 @@ function ScorePageContent() {
             subtitle={hasNoContext ? t("fit.page.emptyDesc") : t("uxWs.cvScore.subtitle")}
             aside={
               !resolving && !hasNoContext ? (
-                <div className="rounded-3xl bg-white p-5 ring-1 ring-[#DCE4F3]">
+                <div className="min-w-0 rounded-2xl border border-[#DCE4F3] bg-white p-4 sm:p-5">
                   <div className="flex items-start gap-3">
                     {jobProfile?.company?.logoUrl && !logoError ? (
                       <img
@@ -827,9 +858,9 @@ function ScorePageContent() {
                     ) : null}
                     <div className="min-w-0 flex-1">
                       {jobProfile?.company?.name && (
-                        <p className="break-words text-xs font-semibold text-[#607096]">{jobProfile.company.name}</p>
+                        <p className="text-xs font-semibold text-[#607096] [overflow-wrap:anywhere]">{jobProfile.company.name}</p>
                       )}
-                      <p className="mt-0.5 break-words text-lg font-semibold leading-snug text-[#14244B]">
+                      <p className="mt-0.5 text-base font-bold leading-snug text-[#14244B] [overflow-wrap:anywhere] sm:text-lg">
                         {displayJobTitle}
                       </p>
                     </div>
@@ -849,7 +880,7 @@ function ScorePageContent() {
                     ]
                       .filter(Boolean)
                       .map((part, index) => (
-                        <span key={index} className="break-words">
+                        <span key={index} className="min-w-0 [overflow-wrap:anywhere]">
                           {index > 0 && <span aria-hidden="true" className="mr-2">·</span>}
                           {part}
                         </span>
@@ -861,7 +892,7 @@ function ScorePageContent() {
                     </p>
                   )}
                   {cvFileName && (
-                    <p className="mt-3 break-words border-t border-[#EAEFF8] pt-3 text-xs text-[#607096]">
+                    <p className="mt-3 border-t border-[#EAEFF8] pt-3 text-xs text-[#607096] [overflow-wrap:anywhere]">
                       {t("fixApp.cvScore.cvLabel")} <span className="font-semibold text-[#14244B]">{cvFileName}</span>
                     </p>
                   )}
@@ -873,21 +904,32 @@ function ScorePageContent() {
               <>
                 <button
                   type="button"
-                  onClick={() => {
-                    setInterviewStartError(null);
-                    setShowModeChooser(true);
-                  }}
-                  disabled={startingInterview}
-                  className="inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:opacity-50"
+                  onClick={openModeChooser}
+                  disabled={startingInterview || !canEnterRoom}
+                  aria-disabled={startingInterview || !canEnterRoom}
+                  title={entryBlockedText ?? (!hasMatchScore && !loading ? t("fit.page.scoreRequired") : undefined)}
+                  className="inline-flex h-10 items-center rounded-xl bg-[#204195] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {startingInterview ? t("fit.page.creatingRoom") : t("fit.page.practiceNow")}
+                  {startingInterview
+                    ? t("fit.page.creatingRoom")
+                    : loading
+                    ? t("fit.page.waitingScore")
+                    : t("fit.page.practiceNow")}
                 </button>
                 <Link
                   href={`/dashboard/jobs/${jobId}`}
-                  className="inline-flex h-11 items-center rounded-full bg-white px-5 text-sm font-semibold text-[#204195] ring-1 ring-[#DCE4F3] transition-colors hover:bg-[#F8FAFC]"
+                  className="inline-flex h-10 items-center rounded-xl border border-[#DCE4F3] bg-white px-4 text-sm font-semibold text-[#204195] transition-colors hover:bg-[#F8FAFC]"
                 >
                   {t("fit.page.viewJd")}
                 </Link>
+                {!loading && !canEnterRoom && (
+                  <p role="status" className="basis-full text-xs font-medium text-[#B45309]">
+                    {entryBlockedText ?? t("fit.page.scoreRequired")}
+                  </p>
+                )}
+                {entry?.allowed && (
+                  <PracticeTierNote className="basis-full sm:max-w-xl" decision={entry} policy={entryPolicy} />
+                )}
               </>
             )}
           </WorkspacePageHeader>
@@ -910,7 +952,7 @@ function ScorePageContent() {
                 className="anim-pop relative max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white ring-1 ring-[#DCE4F3] outline-none"
               >
                 <div className="flex items-start justify-between gap-3 border-b border-[#EAEFF8] px-6 py-5 sm:px-7">
-                  <h2 id="interview-mode-title" className="text-2xl font-semibold text-[#14244B]">
+                  <h2 id="interview-mode-title" className="text-lg font-bold text-[#14244B]">
                     {t("fit.mode.question")}
                   </h2>
                   <button
@@ -1069,7 +1111,7 @@ function ScorePageContent() {
           {/* Loading or Resolving State: what the system is doing, phase by phase. */}
           {(loading || resolving) && (
             <div className="mx-auto max-w-xl rounded-3xl bg-white p-6 ring-1 ring-[#DCE4F3] sm:p-8">
-              <h3 className="text-xl font-bold text-[#14244B]">{t("fit.page.loadingTitle")}</h3>
+              <h3 className="text-lg font-bold text-[#14244B]">{t("fit.page.loadingTitle")}</h3>
               <p className="mt-1 text-sm text-[#607096]">{t("fit.page.loadingDesc")}</p>
               <ProcessStatus
                 className="mt-5"
@@ -1081,18 +1123,18 @@ function ScorePageContent() {
 
           {/* Empty State when no context is selected */}
           {!resolving && hasNoContext && (
-            <section className="rounded-3xl bg-white p-10 text-center ring-1 ring-[#DCE4F3] sm:p-14">
-              <h2 className="mt-4 text-2xl font-semibold text-[#14244B]">{t("fit.page.emptyTitle")}</h2>
+            <section className="rounded-2xl border border-[#DCE4F3] bg-white p-6 text-center sm:p-14">
+              <h2 className="mt-4 text-lg font-bold text-[#14244B]">{t("fit.page.emptyTitle")}</h2>
               <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
                 <Link
                   href="/dashboard/jobs"
-                  className="inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+                  className="inline-flex h-10 items-center rounded-xl bg-[#204195] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
                 >
                   {t("fit.page.exploreJobs")}
                 </Link>
                 <Link
                   href="/dashboard/cvs"
-                  className="inline-flex h-11 items-center rounded-full bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F0F4FC]"
+                  className="inline-flex h-10 items-center rounded-xl border border-[#DCE4F3] bg-white px-4 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F0F4FC]"
                 >
                   {t("fit.page.manageCvs")}
                 </Link>
@@ -1107,7 +1149,7 @@ function ScorePageContent() {
               <button
                 type="button"
                 onClick={() => void loadData()}
-                className="ml-[54px] inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+                className="inline-flex h-10 items-center rounded-xl bg-[#204195] px-5 sm:ml-[54px] text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
               >
                 {t("fit.page.retry")}
               </button>
@@ -1124,15 +1166,22 @@ function ScorePageContent() {
               candidateId={candidateId}
               jobId={jobId}
               onMatchUpdated={handleMatchingResult}
-              onChooseInterviewMode={() => {
-                setInterviewStartError(null);
-                setShowModeChooser(true);
-              }}
+              onChooseInterviewMode={openModeChooser}
               startingInterview={startingInterview}
             />
           )}
         </div>
       </main>
+      <EntryWarningDialog
+        decision={entryWarningOpen ? entry : null}
+        lowFitPercent={entryPolicy.lowFitPercent}
+        onCancel={() => setEntryWarningOpen(false)}
+        onConfirm={() => {
+          setEntryWarningOpen(false);
+          setEntryConfirmed(true);
+          setShowModeChooser(true);
+        }}
+      />
     </UserDashboardShell>
   );
 }
@@ -1243,11 +1292,11 @@ export function ReportContent({
           scoreIsDiagnostic={result.diagnosticScore != null}
         />
         {nextAction && (
-          <section className="rounded-3xl border border-[#DCE4F3] border-l-4 border-l-[#D99A19] bg-white p-5 sm:p-6">
+          <section className="rounded-2xl border border-[#DCE4F3] border-l-4 border-l-[#D99A19] bg-white p-5 sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs font-semibold text-[#204195]">{t("fit.next.eyebrow")}</p>
-                <h3 className="mt-1 text-xl font-semibold text-[#14244B]">
+                <h3 className="mt-1 text-lg font-bold text-[#14244B]">
                   {nextAction.title}
                 </h3>
                 <p className="mt-1 text-sm leading-6 text-[#607096]">{nextAction.description}</p>
@@ -1256,14 +1305,14 @@ export function ReportContent({
               {nextAction.kind === "update" ? (
                 <Link
                   href="/dashboard/cvs"
-                  className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#204195] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
                 >
                   {t("fit.next.updateCv")}
                 </Link>
               ) : nextAction.kind === "review" ? (
                 <a
                   href="#criteria-review"
-                  className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#204195] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
                 >
                   {t("fit.next.reviewCta")}
                 </a>
@@ -1272,7 +1321,7 @@ export function ReportContent({
                   type="button"
                   onClick={onChooseInterviewMode}
                   disabled={startingInterview}
-                  className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:opacity-50"
+                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#204195] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:opacity-50"
                 >
                   {t("fit.next.interviewCta")}
                 </button>
@@ -1298,19 +1347,20 @@ export function ReportContent({
 
       {/* ── Section: Competency Factors — collapsed by default ── */}
       {factors.length > 0 && (
-        <details className="group overflow-hidden rounded-3xl bg-white ring-1 ring-[#DCE4F3]" open={false}>
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 group-open:border-b group-open:border-[#EAEFF8]">
-            <div>
-              <span className="text-lg font-semibold text-[#14244B]">{t("fit.factors.title")}</span>
-              <span className="ml-2 text-xs text-[#607096]">{t("fit.factors.subtitle")}</span>
+        <details className="group overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 group-open:border-b group-open:border-[#EAEFF8]">
+            <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
+              <span className="text-lg font-bold text-[#14244B]">{t("fit.factors.title")}</span>
+              <span className="text-xs text-[#607096]">{t("fit.factors.subtitle")}</span>
             </div>
             <svg className="size-4 text-[#9AA6C2] transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
             </svg>
           </summary>
 
+        {/* display:none while closed, so the folded cards take no layout space. */}
         {factors.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3.5 p-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="hidden grid-cols-1 gap-3.5 p-5 group-open:grid sm:grid-cols-2 lg:grid-cols-4">
             {factors.map((f, idx) => {
               const info = getFactorLabel(f.factor, t);
               const isScored = f.status === "scored" && typeof f.rawScore === "number";
@@ -1330,7 +1380,7 @@ export function ReportContent({
               return (
                 <div
                   key={`${f.factor}-${idx}`}
-                  className="flex flex-col justify-between rounded-2xl bg-[#F8FAFC] p-4"
+                  className="flex min-w-0 flex-col justify-between rounded-2xl bg-[#F8FAFC] p-4"
                 >
                   <div>
                     <h4 className="text-sm font-semibold text-[#14244B]">{info.label}</h4>
@@ -1368,7 +1418,7 @@ export function ReportContent({
             })}
           </div>
         ) : (
-          <div className="m-5 rounded-2xl bg-[#F8FAFC] p-6 text-center text-xs text-[#607096]">
+          <div className="m-5 hidden rounded-2xl bg-[#F8FAFC] p-6 text-center text-xs text-[#607096] group-open:block">
             {t("fit.factors.empty")}
           </div>
         )}
@@ -1380,8 +1430,8 @@ export function ReportContent({
 
       {/* ── Section: Workplace Compatibility ── */}
       {informativeCompatibility.length > 0 && (
-        <section className="rounded-3xl bg-white p-5 ring-1 ring-[#DCE4F3] sm:p-6">
-          <h3 className="text-lg font-semibold text-[#14244B]">{t("fit.compat.title")}</h3>
+        <section className="rounded-2xl border border-[#DCE4F3] bg-white p-5 sm:p-6">
+          <h3 className="text-lg font-bold text-[#14244B]">{t("fit.compat.title")}</h3>
           <p className="mt-0.5 text-xs text-[#607096]">{t("fit.compat.subtitle")}</p>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1389,7 +1439,7 @@ export function ReportContent({
               const compatInfo = resolveCompatibilityInfo(c.status, c.criterion, t);
               const title = c.criterion === "work_mode" ? t("fit.compat.workMode") : t("fit.compat.location");
               return (
-                <div key={idx} className={`rounded-2xl border p-3.5 ${compatInfo.boxBg}`}>
+                <div key={idx} className={`min-w-0 rounded-2xl border p-3.5 ${compatInfo.boxBg}`}>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h4 className="text-sm font-semibold text-[#14244B]">{title}</h4>
@@ -1397,7 +1447,7 @@ export function ReportContent({
                         {compatInfo.label}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-[#607096]">{resolveReasonCodeText(c.reasonCode, t)}</p>
+                    <p className="mt-1 text-xs text-[#607096] [overflow-wrap:anywhere]">{resolveReasonCodeText(c.reasonCode, t)}</p>
                   </div>
                 </div>
               );
@@ -1408,7 +1458,7 @@ export function ReportContent({
 
       {/* ── Section: System Warnings ── */}
       {result.warnings && result.warnings.length > 0 && (
-        <section className="rounded-3xl bg-[#F0F4FC] p-5">
+        <section className="rounded-2xl bg-[#F0F4FC] p-5">
           <div>
             <div className="min-w-0">
               <h3 className="text-sm font-semibold text-[#14244B]">{t("fit.warn.title")}</h3>
@@ -1416,7 +1466,7 @@ export function ReportContent({
                 {result.warnings.map((w, index) => (
                   <li key={`${w}-${index}`} className="flex items-start gap-2">
                     <span className="mt-1.5 size-1 shrink-0 rounded-full bg-[#9AA6C2]" aria-hidden="true" />
-                    <span>{resolveWarningText(w, t)}</span>
+                    <span className="min-w-0 [overflow-wrap:anywhere]">{resolveWarningText(w, t)}</span>
                   </li>
                 ))}
               </ul>
