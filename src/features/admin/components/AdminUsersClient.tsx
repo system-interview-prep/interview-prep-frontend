@@ -1,12 +1,13 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Plus, RefreshCw, Search, Shield, UserCheck, Users } from "lucide-react";
+import { Plus, RefreshCw, Search, Settings2, Shield, UserCheck, Users } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { fmt, localeOf } from "@/i18n/format";
 import { formatUserRole } from "@/i18n/roles";
 import { useDialogA11y } from "@components/shared/useDialogA11y";
 import { StatusNote } from "@components/shared/StatusNote";
+import { Pagination } from "@components/shared/Pagination";
 import {
   adminUsersApi,
   type AdminUser,
@@ -18,8 +19,20 @@ import AdminEmptyState from "./primitives/AdminEmptyState";
 import AdminMetricCard from "./primitives/AdminMetricCard";
 import AdminPageHeader from "./primitives/AdminPageHeader";
 import AdminStatusBadge from "./primitives/AdminStatusBadge";
+import AdminRowAction, { AdminRowActions } from "./primitives/AdminRowAction";
 
 type Translate = (key: string) => string;
+
+const PAGE_SIZE = 20;
+
+/**
+ * The backend cursor is the URL-safe base64 of the row offset, so any page can be
+ * requested directly (lets the numbered pager jump instead of only next/prev).
+ */
+function cursorForPage(page: number): string | undefined {
+  if (page <= 1) return undefined;
+  return btoa(String((page - 1) * PAGE_SIZE));
+}
 
 const emptyCreateForm: CreateAdminUserPayload = {
   name: "",
@@ -85,8 +98,7 @@ export default function AdminUsersClient() {
   const { t, lang } = useLanguage();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [cursorStack, setCursorStack] = useState<(string | undefined)[]>([undefined]);
+  const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<"all" | UserRole>("all");
   const [active, setActive] = useState<"all" | "active" | "inactive">("all");
@@ -110,7 +122,6 @@ export default function AdminUsersClient() {
   const createRef = useDialogA11y<HTMLDivElement>(showCreate, closeCreate);
   const manageRef = useDialogA11y<HTMLDivElement>(selected !== null, closeManage);
 
-  const cursor = cursorStack.at(-1);
   const loadUsers = useCallback(async () => {
     setLoading(true);
     setListError(null);
@@ -119,18 +130,18 @@ export default function AdminUsersClient() {
         query: query.trim() || undefined,
         role: role === "all" ? undefined : role,
         active: active === "all" ? undefined : active === "active",
-        cursor,
-        limit: 25,
+        cursor: cursorForPage(page),
+        limit: PAGE_SIZE,
       });
-      setUsers(data.items ?? []);
+      // Guard against an API that ignores `limit`: never render more than one page.
+      setUsers((data.items ?? []).slice(0, PAGE_SIZE));
       setTotal(data.total ?? 0);
-      setNextCursor(data.nextCursor ?? null);
     } catch {
       setListError(t("fixAdmin.ops.users.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [active, cursor, query, role, t]);
+  }, [active, page, query, role, t]);
 
   useEffect(() => {
     const id = window.setTimeout(() => void loadUsers(), 300);
@@ -176,14 +187,14 @@ export default function AdminUsersClient() {
     }
   }
 
-  const resetPaging = () => setCursorStack([undefined]);
+  const resetPaging = () => setPage(1);
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <AdminPageHeader
         title={t("admin.users.title")}
         description={t("admin.users.subtitle")}
-        breadcrumbs={[{ label: "Admin", href: "/admin/dashboard" }, { label: t("admin.sidebar.users") }]}
+        breadcrumbs={[{ label: t("fixAdmin.detail.breadcrumbAdmin"), href: "/admin/dashboard" }, { label: t("admin.sidebar.users") }]}
         statusBadge={<AdminStatusBadge status="healthy" label={t("fixAdmin.ops.users.liveBadge")} />}
         primaryAction={
           <button
@@ -233,8 +244,8 @@ export default function AdminUsersClient() {
         />
       )}
 
-      <div className="flex flex-col gap-3 rounded-3xl border border-[#DCE4F3] bg-white p-4 sm:flex-row">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 rounded-3xl border border-[#DCE4F3] bg-white p-4 sm:flex-row sm:flex-wrap">
+        <div className="relative min-w-0 flex-1 sm:min-w-[220px]">
           <label htmlFor="admin-users-search" className="sr-only">{t("fixAdmin.ops.users.searchLabel")}</label>
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#607096]" aria-hidden="true" />
           <input
@@ -277,7 +288,9 @@ export default function AdminUsersClient() {
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-3xl border border-[#DCE4F3] bg-white">
+      <div className="max-w-full overflow-hidden rounded-3xl border border-[#DCE4F3] bg-white">
+        {/* `relative` keeps the absolutely positioned sr-only header inside the scroller. */}
+        <div className="relative overflow-x-auto">
         <table className="w-full min-w-[780px] text-left text-sm">
           <thead className="bg-[#F8FAFC] text-xs uppercase text-[#607096]">
             <tr>
@@ -292,9 +305,9 @@ export default function AdminUsersClient() {
           <tbody className="divide-y divide-[#EAEFF8]">
             {!loading && users.map((user) => (
               <tr key={user.id}>
-                <td className="p-4">
-                  <p className="font-semibold text-[#14244B]">{user.name}</p>
-                  <p className="text-xs text-[#607096]">{user.email}</p>
+                <td className="min-w-[200px] max-w-[280px] p-4">
+                  <p className="break-words font-semibold text-[#14244B]">{user.name}</p>
+                  <p className="text-xs text-[#607096] [overflow-wrap:anywhere]">{user.email}</p>
                 </td>
                 <td className="p-4">
                   <div className="flex flex-wrap gap-1">
@@ -315,13 +328,13 @@ export default function AdminUsersClient() {
                 </td>
                 <td className="p-4 text-xs text-[#14244B]">{formatDate(user.created_at)}</td>
                 <td className="p-4 text-right">
-                  <button
-                    type="button"
-                    onClick={() => { setManageError(null); setSelected({ ...user, roles: [...user.roles] }); }}
-                    className="rounded-full px-3 py-1 font-semibold text-[#204195] hover:bg-[#F0F4FC]"
-                  >
-                    {t("fixAdmin.ops.users.manage")}
-                  </button>
+                  <AdminRowActions>
+                    <AdminRowAction
+                      icon={Settings2}
+                      label={t("fixAdmin.ops.users.manage")}
+                      onClick={() => { setManageError(null); setSelected({ ...user, roles: [...user.roles] }); }}
+                    />
+                  </AdminRowActions>
                 </td>
               </tr>
             ))}
@@ -343,27 +356,22 @@ export default function AdminUsersClient() {
             )}
           </tbody>
         </table>
-        <div className="flex items-center justify-between border-t border-[#EAEFF8] px-4 py-3 text-xs text-[#607096]">
-          <span>{fmt(t("fixAdmin.ops.users.showing"), { count: users.length, total })}</span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={loading || cursorStack.length === 1}
-              onClick={() => setCursorStack((items) => items.slice(0, -1))}
-              className="rounded-full border border-[#DCE4F3] px-3 py-1.5 text-[#14244B] hover:bg-[#F8FAFC] disabled:opacity-50"
-            >
-              {t("fixAdmin.ops.common.prev")}
-            </button>
-            <button
-              type="button"
-              disabled={loading || !nextCursor}
-              onClick={() => nextCursor && setCursorStack((items) => [...items, nextCursor])}
-              className="rounded-full border border-[#DCE4F3] px-3 py-1.5 text-[#14244B] hover:bg-[#F8FAFC] disabled:opacity-50"
-            >
-              {t("fixAdmin.ops.common.next")}
-            </button>
-          </div>
         </div>
+        {total > PAGE_SIZE ? (
+          <Pagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            onPageChange={setPage}
+            className="border-t border-[#EAEFF8] px-4 py-3"
+          />
+        ) : (
+          !loading && users.length > 0 && (
+            <p className="border-t border-[#EAEFF8] px-4 py-3 text-xs text-[#607096]">
+              {fmt(t("fixAdmin.ops.users.showing"), { count: users.length, total })}
+            </p>
+          )
+        )}
       </div>
 
       {showCreate && (
@@ -419,12 +427,12 @@ export default function AdminUsersClient() {
             aria-modal="true"
             aria-labelledby="admin-manage-user-title"
             tabIndex={-1}
-            className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-xl focus:outline-none"
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl bg-white p-6 shadow-xl focus:outline-none"
           >
-            <h2 id="admin-manage-user-title" className="text-lg font-bold text-[#14244B]">
+            <h2 id="admin-manage-user-title" className="break-words text-lg font-bold text-[#14244B]">
               {fmt(t("fixAdmin.ops.users.manageTitle"), { name: selected.name })}
             </h2>
-            <p className="mb-4 text-sm text-[#607096]">{selected.email}</p>
+            <p className="mb-4 text-sm text-[#607096] [overflow-wrap:anywhere]">{selected.email}</p>
             <RolePicker legend={t("fixAdmin.ops.users.form.roles")} value={selected.roles} onChange={(roles) => setSelected({ ...selected, roles })} t={t} />
             <label htmlFor="admin-manage-active" className="mt-4 flex items-center gap-2 text-sm text-[#14244B]">
               <input id="admin-manage-active" type="checkbox" checked={selected.is_active} onChange={(e) => setSelected({ ...selected, is_active: e.target.checked })} className="accent-[#204195]" />
