@@ -56,6 +56,11 @@ export const roomEn: Record<string, string> = {
 
   // End reasons
   "room.endReason.userEnded": "Stopped at your request",
+  "room.endReason.candidateLeft": "Ended because you left the room",
+  "room.chat.return.title": "Welcome back to the interview",
+  "room.chat.return.leftAt": "You left the room at {time}",
+  "room.chat.return.body": "The interview clock kept running while you were away. If you leave for more than {n} minutes, the interview ends automatically as “you left the room”.",
+  "room.chat.return.continue": "Continue the interview",
   "room.endReason.timeout": "Ended: time ran out",
   "room.endReason.early": "Ended early",
   "room.endReason.technical": "Stopped by a system error",
@@ -337,6 +342,11 @@ export const roomVi: Record<string, string> = {
 
   // End reasons
   "room.endReason.userEnded": "Đã dừng theo yêu cầu",
+  "room.endReason.candidateLeft": "Kết thúc do bạn rời phòng",
+  "room.chat.return.title": "Chào mừng bạn quay lại buổi phỏng vấn",
+  "room.chat.return.leftAt": "Bạn đã rời phòng lúc {time}",
+  "room.chat.return.body": "Thời gian phỏng vấn vẫn tiếp tục chạy khi bạn vắng mặt. Nếu rời phòng quá {n} phút, buổi phỏng vấn sẽ tự kết thúc với lý do “bạn rời phòng”.",
+  "room.chat.return.continue": "Tiếp tục phỏng vấn",
   "room.endReason.timeout": "Đã kết thúc do hết thời gian",
   "room.endReason.early": "Phiên đã kết thúc sớm",
   "room.endReason.technical": "Đã dừng do lỗi hệ thống",
