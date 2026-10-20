@@ -95,21 +95,21 @@ export default function UserJobDetailView() {
   if (loading) {
     return (
       <div className="space-y-5" role="status" aria-label={t("admin.jobProfile.loading")}>
-        <div className="h-64 animate-pulse rounded-3xl bg-[#F0F4FC]/60 motion-reduce:animate-none" />
-        <div className="h-80 animate-pulse rounded-3xl bg-[#F0F4FC] motion-reduce:animate-none" />
+        <div className="h-64 animate-pulse rounded-2xl bg-[#F0F4FC]/60 motion-reduce:animate-none" />
+        <div className="h-80 animate-pulse rounded-2xl bg-[#F0F4FC] motion-reduce:animate-none" />
       </div>
     );
   }
 
   if (error && !profile) {
     return (
-      <div className="flex min-w-0 flex-col items-center rounded-3xl bg-white px-6 py-12 text-center border border-[#DCE4F3]">
+      <div className="flex min-w-0 flex-col items-center rounded-2xl bg-white px-6 py-12 text-center border border-[#DCE4F3]">
         <p className="mt-4 max-w-md text-sm leading-6 text-[#C43B3B]" role="alert">
           {error}
         </p>
         <Link
           href="/dashboard/jobs"
-          className="mt-5 inline-flex h-11 items-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+          className="mt-5 inline-flex h-10 items-center rounded-xl bg-[#204195] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
         >
           <span aria-hidden="true" className="mr-1.5">←</span>
           <span>{t("userDash.jobProfiles.detailBack")}</span>
@@ -163,10 +163,10 @@ export default function UserJobDetailView() {
         <span>{t("userDash.jobProfiles.detailBack")}</span>
       </Link>
 
-      <header className="anim-rise overflow-hidden rounded-3xl border border-[#DCE4F3] bg-white shadow-[0_18px_50px_-36px_rgba(20,36,75,0.32)]">
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-w-0 p-6 sm:p-8 lg:p-10">
-            <h1 className="max-w-4xl break-words text-3xl font-extrabold tracking-tight text-[#14244B] sm:text-4xl lg:text-[42px] lg:leading-[1.12]">
+      <header className="anim-rise overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-[0_18px_50px_-36px_rgba(20,36,75,0.32)]">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0 p-5 sm:p-8 lg:p-10">
+            <h1 className="max-w-4xl text-xl [overflow-wrap:anywhere] font-black tracking-tight text-[#14244B] sm:text-2xl">
               {profile.title}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[#607096] sm:text-base">
@@ -177,7 +177,7 @@ export default function UserJobDetailView() {
               <button
                 type="button"
                 onClick={() => setCvModalOpen(true)}
-                className="inline-flex h-11 items-center justify-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#183275]"
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-[#204195] px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#183275]"
               >
                 {t("userDash.jobProfiles.interviewNow")}
               </button>
@@ -186,7 +186,7 @@ export default function UserJobDetailView() {
                   href={profile.source.applyUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#DCE4F3] bg-white px-5 text-sm font-semibold text-[#204195] transition-colors hover:border-[#B9C8E5] hover:bg-[#F8FAFC]"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-5 text-sm font-semibold text-[#204195] transition-colors hover:border-[#B9C8E5] hover:bg-[#F8FAFC]"
                 >
                   {t("uxWs.jobDetail.applySource")}
                   <ExternalLink className="size-4" aria-hidden="true" />
@@ -203,7 +203,7 @@ export default function UserJobDetailView() {
                   {keywords.map((keyword) => (
                     <span
                       key={keyword}
-                      className="rounded-full border border-[#DCE4F3] bg-[#F8FAFC] px-3 py-1.5 text-xs font-semibold text-[#29436F]"
+                      className="max-w-full rounded-full border border-[#DCE4F3] bg-[#F8FAFC] px-3 py-1.5 text-xs font-semibold text-[#29436F] [overflow-wrap:anywhere]"
                     >
                       {keyword}
                     </span>
@@ -213,7 +213,7 @@ export default function UserJobDetailView() {
             )}
           </div>
 
-          <aside className="border-t border-[#EAEFF8] bg-[#F8FAFC] p-6 sm:p-8 lg:border-l lg:border-t-0 lg:p-8">
+          <aside className="min-w-0 border-t border-[#EAEFF8] bg-[#F8FAFC] p-5 sm:p-8 lg:border-l lg:border-t-0 lg:p-8">
             <div className="flex items-center gap-3">
               {/* Company Logo / Avatar */}
               <div className="relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-sm">
@@ -240,13 +240,13 @@ export default function UserJobDetailView() {
               <div className="min-w-0">
                 {profile.company?.name && (
                   <p className="flex items-center gap-1.5 text-sm font-semibold text-[#14244B]">
-                    <span className="min-w-0 break-words">{profile.company.name}</span>
+                    <span className="min-w-0 [overflow-wrap:anywhere]">{profile.company.name}</span>
                     {profile.company.verified && (
                       <CheckCircle2 className="size-4 shrink-0 text-[#204195]" aria-label={t("fixApp.jobs.verified")} />
                     )}
                   </p>
                 )}
-                <p className="mt-1 text-xs font-semibold text-[#607096]">{categoryName}</p>
+                <p className="mt-1 text-xs font-semibold text-[#607096] [overflow-wrap:anywhere]">{categoryName}</p>
               </div>
             </div>
 
@@ -258,7 +258,7 @@ export default function UserJobDetailView() {
 
             {/* Metadata */}
             <dl className="mt-6 space-y-2.5 border-t border-[#DCE4F3] pt-5 text-[13px] leading-5 text-[#607096]">
-              {profile.location && <div className="break-words"><dt className="sr-only">{t("fixApp.jobs.location")}</dt><dd>{profile.location}</dd></div>}
+              {profile.location && <div className="[overflow-wrap:anywhere]"><dt className="sr-only">{t("fixApp.jobs.location")}</dt><dd>{profile.location}</dd></div>}
               {(profile.workMode || profile.employmentType || profile.seniority) && (
                 <div>
                   {[
@@ -278,7 +278,7 @@ export default function UserJobDetailView() {
               </div>
               {profile.source?.name && (
                 <div className="text-xs">
-                  {t("uxWs.jobDetail.source")}: <strong className="font-semibold text-[#14244B]">{profile.source.name}</strong>
+                  {t("uxWs.jobDetail.source")}: <strong className="font-semibold text-[#14244B] [overflow-wrap:anywhere]">{profile.source.name}</strong>
                 </div>
               )}
             </dl>
@@ -287,15 +287,15 @@ export default function UserJobDetailView() {
       </header>
 
       {keywords.length === 0 && !String(profile.description || "").trim() && (
-        <p className="rounded-3xl bg-white p-6 text-sm text-[#607096] border border-[#DCE4F3]">
+        <p className="rounded-2xl bg-white p-6 text-sm text-[#607096] border border-[#DCE4F3]">
           {t("userDash.jobProfiles.detailEmpty")}
         </p>
       )}
 
       {originalDescription && (
-        <section className="rounded-3xl bg-white p-5 border border-[#DCE4F3] sm:p-8">
+        <section className="min-w-0 rounded-2xl border border-[#DCE4F3] bg-white p-5 sm:p-8">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-[#14244B]">
+            <h2 className="text-lg font-bold text-[#14244B]">
               {t("userDash.jobProfiles.detailDescription")}
             </h2>
             {canTranslate && (
@@ -303,7 +303,7 @@ export default function UserJobDetailView() {
                 type="button"
                 onClick={() => void toggleTranslation()}
                 disabled={translating}
-                className="inline-flex h-9 items-center rounded-full bg-[#F8FAFC] px-4 text-[13px] font-semibold text-[#204195] transition-colors hover:bg-[#F0F4FC] disabled:cursor-wait disabled:opacity-60"
+                className="inline-flex h-9 items-center rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-4 text-[13px] font-semibold text-[#204195] transition-colors hover:bg-[#F0F4FC] disabled:cursor-wait disabled:opacity-60"
               >
                 <span className={translating ? "animate-pulse motion-reduce:animate-none" : undefined}>
                   {translating
@@ -320,7 +320,7 @@ export default function UserJobDetailView() {
               {translationError}
             </p>
           )}
-          <div className="prose max-w-none break-words text-sm leading-7 text-[#14244B]">
+          <div className="prose max-w-none text-sm [overflow-wrap:anywhere] leading-7 text-[#14244B]">
             <ReactMarkdown
               components={{
                 h2: (p) => <h3 className="mb-2 mt-5 text-base font-semibold text-[#14244B]" {...p} />,
