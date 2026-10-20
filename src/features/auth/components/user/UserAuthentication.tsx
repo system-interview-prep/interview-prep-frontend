@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import FoxAvatar from "@features/mascot/components/FoxAvatar";
+import { BrandLogo } from "@components/shared/BrandLogo";
 import { StatusNote } from "@components/shared/StatusNote";
 import { useGoogleLogin } from "@react-oauth/google";
 import {
@@ -212,11 +212,9 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
           href="/"
           className="inline-flex items-center gap-2 transition-opacity hover:opacity-90"
         >
-          <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-white ring-1 ring-[#DCE4F3]">
-            <FoxAvatar size={38} />
-          </span>
-          <span className="font-display text-[22px] font-semibold leading-none tracking-tight text-[#14244B]">
-            Intervia
+          <BrandLogo size={40} />
+          <span className="font-display text-[22px] font-bold leading-none tracking-[0.08em] text-[#14244B]">
+            INTERVIA
           </span>
         </Link>
         <Link
