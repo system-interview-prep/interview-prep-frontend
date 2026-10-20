@@ -21,6 +21,7 @@ import { userCvApi } from "@features/resume/services/userCv.service";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
 import { JobInterviewCvModal } from "@features/user-dashboard/components/JobInterviewCvModal";
 import { useSavedJobs } from "@features/user-dashboard/hooks/useSavedJobs";
+import { progressApi } from "@features/progress/services/progress.service";
 
 const DEMO_SESSIONS: StoredDashboardSession[] = [
   {
@@ -146,6 +147,7 @@ import {
   sessionHref,
   weakestCompetency,
   weekStart,
+  greetingName,
   type StoredDashboardSession,
 } from "./DashboardSections";
 
@@ -160,14 +162,14 @@ function DashboardSkeleton({ label }: { label: string }) {
   return (
     <div className="space-y-7 md:space-y-9" role="status" aria-label={label}>
       {/* Hero skeleton */}
-      <div className="h-64 animate-pulse rounded-3xl bg-[#14244B]/10 motion-reduce:animate-none sm:h-72" />
+      <div className="h-56 animate-pulse rounded-2xl bg-[#14244B]/10 motion-reduce:animate-none sm:h-64" />
 
       {/* 4 Metrics skeleton */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[0, 1, 2, 3].map((item) => (
           <div
             key={item}
-            className="h-28 animate-pulse rounded-2xl border border-[#DCE4F3]/70 bg-white motion-reduce:animate-none"
+            className="h-24 animate-pulse rounded-2xl border border-[#DCE4F3]/70 bg-white motion-reduce:animate-none"
           />
         ))}
       </div>
@@ -249,6 +251,20 @@ export function DashboardOverview({
   const [closeError, setCloseError] = useState(false);
 
   const [now] = useState(() => Date.now());
+  // Weekly streak from the server; the daily streak below is the fallback while it loads or fails.
+  const [weeklyStreak, setWeeklyStreak] = useState<{ weeks: number; goal: number; thisWeekCount: number } | null>(null);
+  useEffect(() => {
+    let active = true;
+    progressApi
+      .get()
+      .then((progress) => {
+        if (active) setWeeklyStreak(progress.streak);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const activeJob = profiles.find((profile) => savedJobIds.has(profile.id)) ?? profiles[0];
   const practiced = useMemo(() => sessions.filter((item) => !isFailedStart(item)), [sessions]);
@@ -291,7 +307,7 @@ export function DashboardOverview({
     else onRetry();
   };
 
-  const firstName = (userName ?? "").trim().split(/\s+/).pop();
+  const firstName = greetingName(userName);
 
   return (
     <div className="space-y-7 md:space-y-9">
@@ -345,7 +361,7 @@ export function DashboardOverview({
           </div>
           <Link
             href="/login"
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#183275]"
+            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-4 h-9 text-xs font-bold text-white shadow-xs transition hover:bg-[#183275]"
           >
             <span>Đăng nhập ngay</span>
             <ArrowRight className="size-3.5" />
@@ -354,25 +370,25 @@ export function DashboardOverview({
       )}
 
       {/* 1. Hero Welcome Banner */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#14244B] via-[#1B3574] to-[#204195] p-6 text-white shadow-md sm:p-8 md:p-9">
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#14244B] via-[#1B3574] to-[#204195] p-5 text-white shadow-md sm:p-7">
         {/* Subtle decorative glow */}
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-[#FCB625]/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-16 right-32 h-64 w-64 rounded-full bg-[#204195]/40 blur-3xl" />
 
         <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div className="max-w-3xl flex-1">
+          <div className="min-w-0 max-w-3xl flex-1">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1 text-xs font-semibold text-white/90 backdrop-blur-xs">
               <Sparkles className="size-3.5 text-[#FCB625]" />
               <span>Nền tảng luyện phỏng vấn AI thông minh</span>
             </div>
 
-            <h1 className="mt-3.5 font-display text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
+            <h1 className="mt-3 font-display text-xl font-black tracking-tight text-white [overflow-wrap:anywhere] sm:text-2xl">
               {isGuest
                 ? "Chào mừng bạn đến với Intervia 👋"
                 : `Chào ${firstName || "bạn"}, sẵn sàng bứt phá hôm nay? 👋`}
             </h1>
 
-            <p className="mt-2.5 text-sm leading-relaxed text-white/80 sm:text-base">
+            <p className="mt-2 text-sm leading-relaxed text-white/80">
               {isGuest
                 ? "Khám phá giao diện Dashboard luyện phỏng vấn AI. Đăng nhập để lưu tiến độ thực chiến và mở khóa toàn bộ tính năng."
                 : "Rèn luyện phản xạ đối thoại thực chiến, nhận nhận xét đa chiều tức thì và tự tin chinh phục nhà tuyển dụng hàng đầu."}
@@ -381,12 +397,12 @@ export function DashboardOverview({
             {/* In-progress session notice if any */}
             {openSession && (
               <div className="mt-4.5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#FCB625]/30 bg-[#FCB625]/10 px-4 py-2.5 backdrop-blur-xs">
-                <div className="flex items-center gap-2 text-xs font-medium text-white">
-                  <span className="relative flex h-2 w-2">
+                <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-white">
+                  <span className="relative flex h-2 w-2 shrink-0">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#FCB625] opacity-75" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-[#FCB625]" />
                   </span>
-                  <span>
+                  <span className="min-w-0 [overflow-wrap:anywhere]">
                     Buổi dang dở: <strong>{openSession.jobTitle || "Phiên phỏng vấn"}</strong>
                   </span>
                 </div>
@@ -407,7 +423,7 @@ export function DashboardOverview({
                 <>
                   <Link
                     href="/login"
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#FCB625] px-6 text-sm font-bold text-[#14244B] shadow-md transition-all hover:-translate-y-0.5 hover:bg-[#ffc54a] active:translate-y-0"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#FCB625] px-6 text-sm font-bold text-[#14244B] shadow-md transition-all hover:-translate-y-0.5 hover:bg-[#ffc54a] active:translate-y-0"
                   >
                     <span>Đăng nhập lưu tiến độ</span>
                     <ArrowRight className="size-4" />
@@ -415,7 +431,7 @@ export function DashboardOverview({
                   <button
                     type="button"
                     onClick={beginRecommended}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-xs transition-all hover:bg-white/20 active:translate-y-0"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-xs transition-all hover:bg-white/20 active:translate-y-0"
                   >
                     <Play className="size-4 fill-current" />
                     <span>Luyện phỏng vấn thử</span>
@@ -423,7 +439,7 @@ export function DashboardOverview({
                   <button
                     type="button"
                     onClick={() => onNavigate("/dashboard/jobs")}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-xs transition-all hover:bg-white/20 active:translate-y-0"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-xs transition-all hover:bg-white/20 active:translate-y-0"
                   >
                     <Briefcase className="size-4" />
                     <span>Khám phá việc làm</span>
@@ -434,7 +450,7 @@ export function DashboardOverview({
                   <button
                     type="button"
                     onClick={beginRecommended}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#FCB625] px-6 text-sm font-bold text-[#14244B] shadow-md transition-all hover:-translate-y-0.5 hover:bg-[#ffc54a] active:translate-y-0"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#FCB625] px-6 text-sm font-bold text-[#14244B] shadow-md transition-all hover:-translate-y-0.5 hover:bg-[#ffc54a] active:translate-y-0"
                   >
                     <Play className="size-4 fill-current" />
                     <span>Bắt đầu phỏng vấn ngay</span>
@@ -443,7 +459,7 @@ export function DashboardOverview({
                   <button
                     type="button"
                     onClick={() => onNavigate("/dashboard/jobs")}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-xs transition-all hover:bg-white/20 active:translate-y-0"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-xs transition-all hover:bg-white/20 active:translate-y-0"
                   >
                     <Briefcase className="size-4" />
                     <span>Khám phá việc làm</span>
@@ -453,7 +469,7 @@ export function DashboardOverview({
                     <button
                       type="button"
                       onClick={() => onNavigate(sessionHref(lastReport))}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-xs transition-all hover:bg-white/20 active:translate-y-0"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-xs transition-all hover:bg-white/20 active:translate-y-0"
                     >
                       <span>Xem báo cáo gần nhất</span>
                       <ArrowUpRight className="size-4" />
@@ -496,7 +512,7 @@ export function DashboardOverview({
           <button
             type="button"
             onClick={() => onNavigate("/dashboard/cvs")}
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#183275]"
+            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-4 h-9 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#183275]"
           >
             <span>Tải CV ngay</span>
             <ArrowRight className="size-3.5" />
@@ -511,6 +527,7 @@ export function DashboardOverview({
         weekSessions={week.sessions}
         totalSessions={practiced.length}
         streak={week.streak}
+        weeklyStreak={weeklyStreak}
         minutes={week.minutes}
         t={t}
       />
