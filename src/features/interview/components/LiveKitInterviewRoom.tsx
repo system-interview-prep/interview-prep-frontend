@@ -24,6 +24,7 @@ import {
 } from './VoiceRoomParts';
 import { VoiceWaveform, type VoiceOrbState } from './VoiceWaveform';
 import { CurrentQuestionCard, QuestionTimer } from './CurrentQuestionCard';
+import { getStageLabel } from './ChatInterviewProgress';
 import { useLanguage } from '@/i18n/LanguageProvider';
 import { fmt } from '@/i18n/format';
 
@@ -205,7 +206,7 @@ export default function LiveKitInterviewRoom({
               <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-between gap-3">
                 <div className="w-full shrink-0">
                   <CurrentQuestionCard
-                    stageLabel={progress?.stage ?? null}
+                    stageLabel={getStageLabel(progress?.stage, t)}
                     competency={progress?.question?.competency ?? null}
                     text={progress?.question?.text ?? null}
                     followUpText={progress?.question?.followUpText ?? null}
@@ -220,7 +221,7 @@ export default function LiveKitInterviewRoom({
                     }
                   />
                 </div>
-                <div className="my-auto grid w-full flex-1 min-h-0 grid-cols-1 items-center gap-3 sm:grid-cols-2">
+                <div className="my-auto grid w-full flex-1 min-h-0 grid-cols-2 items-center gap-2 sm:gap-3">
                   <SpeakerTile name={t('room.common.interviewer')} tone="ai" active={isAgentSpeaking}>
                     <InterviewerPresence state={presence} size="small" />
                   </SpeakerTile>
@@ -234,7 +235,7 @@ export default function LiveKitInterviewRoom({
                     {!cameraEnabled ? (
                       <div className="relative flex flex-col items-center gap-2 text-[#607096]">
                         <VideoOff className="size-7" aria-hidden="true" />
-                        <span className="text-sm">{t('room.voice.cameraOff')}</span>
+                        <span className="hidden text-sm sm:inline">{t('room.voice.cameraOff')}</span>
                       </div>
                     ) : null}
                     <span className="absolute bottom-2.5 left-2.5 rounded-md bg-white px-2 py-1 text-xs font-medium text-[#14244B] shadow-sm">
@@ -255,7 +256,7 @@ export default function LiveKitInterviewRoom({
                 {/* 1. Compact Question Card with QuestionTimer */}
                 <div className="w-full shrink-0">
                   <CurrentQuestionCard
-                    stageLabel={progress?.stage ?? null}
+                    stageLabel={getStageLabel(progress?.stage, t)}
                     competency={progress?.question?.competency ?? null}
                     text={progress?.question?.text ?? null}
                     followUpText={progress?.question?.followUpText ?? null}
