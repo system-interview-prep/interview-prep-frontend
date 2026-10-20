@@ -398,7 +398,8 @@ export default function LiveKitInterviewRoom({
       <ConfirmDialog
         open={showLeaveConfirm}
         title={t('room.common.leaveConfirmTitle')}
-        body={t('room.common.leaveConfirmBody')}
+        // Same grace period as the backend session reaper (CANDIDATE_LEFT_GRACE_MINUTES).
+        body={fmt(t('room.common.leaveConfirmBody'), { n: 5 })}
         confirmLabel={t('room.common.leaveConfirm')}
         cancelLabel={t('room.common.continueInterview')}
         onConfirm={leaveRoom}
