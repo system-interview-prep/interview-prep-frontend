@@ -8,7 +8,7 @@ vi.mock("@components/shared/NavigationLoadingProvider", () => ({
 }));
 
 import { DashboardOverview } from "../components/UserDashboardHome";
-import type { StoredDashboardSession } from "../components/DashboardSections";
+import { greetingName, type StoredDashboardSession } from "../components/DashboardSections";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -85,5 +85,24 @@ describe("DashboardOverview", () => {
     expect(html).toContain("System design");
     expect(html).toContain("5.2/10");
     expect(html).toContain("Luyện lại vị trí này");
+  });
+});
+
+describe("greetingName", () => {
+  it("greets by the given name and ignores a role or title after a separator", () => {
+    expect(greetingName("Nguyễn Văn An")).toBe("An");
+    expect(greetingName("Nguyễn Thị Thanh Hiền Phương Anh – Ứng viên Kỹ sư Phần mềm Backend & Dữ liệu")).toBe("Anh");
+    expect(greetingName("Trần Bình - Data Engineer")).toBe("Bình");
+    expect(greetingName("Lê Chi & Dữ liệu")).toBe("Chi");
+    expect(greetingName("Phạm Minh (Tony)")).toBe("Minh");
+    expect(greetingName("Nguyễn Văn An—Dev")).toBe("An");
+    expect(greetingName("hien.nguyen@example.com")).toBe("hien.nguyen");
+  });
+
+  it("returns an empty string when there is no usable name", () => {
+    expect(greetingName("")).toBe("");
+    expect(greetingName(null)).toBe("");
+    expect(greetingName("  &  ")).toBe("");
+    expect(greetingName("& Dữ liệu")).toBe("");
   });
 });
