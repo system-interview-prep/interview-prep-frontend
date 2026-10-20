@@ -7,6 +7,10 @@ import type {
   SkillPoint,
   SkillProgress,
   Trend,
+  GapItem,
+  JobReadiness,
+  RoundReadiness,
+  SkillArea,
 } from "../services/progress.service";
 
 /**
@@ -371,11 +375,13 @@ export type ProgressSummary = {
  * up, and the skill to practise now. A falling skill comes first, then one not
  * practised for `STALE_DAYS`, then the lowest one still under the line.
  */
-export function summaryOf(skills: SkillView[], now: Date): ProgressSummary {
+export function summaryOf(allSkills: SkillView[], now: Date): ProgressSummary {
   const idle = (skill: SkillView) => {
     const last = skill.points[skill.points.length - 1];
     return last ? Math.floor((now.getTime() - new Date(last.date).getTime()) / DAY_MS) : 0;
   };
+  // JSON, XML… are no longer asked on their own: never the thing to practise next.
+  const skills = allSkills.filter((s) => !s.minor);
   const improving = skills.filter((s) => s.trend.status === "up").sort((a, b) => (b.trend.delta ?? 0) - (a.trend.delta ?? 0));
   const under = skills.filter((s) => s.latest < READY_SCORE);
   const down = under.filter((s) => s.trend.status === "down").sort((a, b) => (a.trend.delta ?? 0) - (b.trend.delta ?? 0))[0];
@@ -507,4 +513,58 @@ export function evidenceOf(sessions: ProgressSession[]): EvidenceMetric[] {
     const status = diff >= threshold ? "improved" : -diff >= threshold ? "declined" : "same";
     return { key, before, now, nBefore: first.total, nNow: last.total, status };
   });
+}
+
+// --------------------------------------------------------------------------
+// Rounds, gaps and practice (research 20/10, "Ứng viên có quan tâm không"):
+// before a real interview a candidate asks "am I ready, what will they ask
+// and where am I still weak, what do I practise now". The backend groups the
+// answers by interview round (core/interview_rounds.py) and follows each key
+// point across sessions (progress.gap_notebook).
+// --------------------------------------------------------------------------
+
+/** Technical rounds a session can focus on (backend interview_rounds.FOCUSABLE_AREAS). */
+export const FOCUSABLE_AREAS: SkillArea[] = ["language", "framework", "data", "api", "infra", "ai"];
+
+/** The position the readiness card is about: the filtered one, else the most practised. */
+export function jobReadinessOf(progress: PracticeProgress, jobId: string | "all" = "all"): JobReadiness | null {
+  const all = progress.readiness ?? [];
+  if (all.length === 0) return null;
+  if (jobId !== "all") return all.find((item) => item.jobId === jobId) ?? null;
+  return all.slice().sort((a, b) => b.sessions - a.sessions)[0] ?? null;
+}
+
+const STATUS_ORDER: Record<RoundReadiness["status"], number> = { practice: 0, thin: 1, unseen: 2, almost: 3, ready: 4 };
+
+/** The round to practise next: the weakest one, then one with too little evidence. */
+export function nextRound(job: JobReadiness | null): RoundReadiness | null {
+  if (!job) return null;
+  const open = job.rounds.filter((round) => round.status !== "ready");
+  return (
+    open.slice().sort(
+      (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || (a.estimate ?? 0) - (b.estimate ?? 0),
+    )[0] ?? null
+  );
+}
+
+/** The CV last used for this position, so "Luyện vòng này" starts with it. */
+export function lastResumeFor(progress: PracticeProgress, jobId: string): string | null {
+  const sessions = progress.sessions.filter((s) => s.jobId === jobId && s.resumeId);
+  return sessions[sessions.length - 1]?.resumeId ?? null;
+}
+
+/** Link that opens a practice session for this position, focused on a technical round. */
+export function practiceHref(jobId: string | null, resumeId: string | null, area?: SkillArea | null): string {
+  if (!jobId || !resumeId) return "/interview/select";
+  const params = new URLSearchParams({ candidateId: resumeId, jobId });
+  if (area && FOCUSABLE_AREAS.includes(area)) params.set("focus", area);
+  return `/interview/cv-score?${params.toString()}`;
+}
+
+/** Gaps under the page filters (CV and position of the last time the point was judged). */
+export function filteredGaps(progress: PracticeProgress, filters: ProgressFilters): { open: GapItem[]; fixed: GapItem[] } {
+  const keep = (item: GapItem) =>
+    (filters.jobId === "all" || item.lastSeen.jobId === filters.jobId) &&
+    (filters.resumeId === "all" || item.lastSeen.resumeId === filters.resumeId);
+  return { open: (progress.gaps?.open ?? []).filter(keep), fixed: (progress.gaps?.fixed ?? []).filter(keep) };
 }
