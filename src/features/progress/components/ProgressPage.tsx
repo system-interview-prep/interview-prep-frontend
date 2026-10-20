@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Flag, Flame, Loader2, Snowflake, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { ArrowRight, Check, Flag, Flame, Loader2, Snowflake, Target, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { localeOf } from "@/i18n/format";
 import { cn } from "@/utils";
@@ -20,8 +20,19 @@ import {
   filteredSessions,
   filteredSkills,
   foldMonthly,
-  habitsOf,
+  evidenceOf,
+  LEVEL_COUNT,
+  LEVEL_EDGES,
+  LEVEL_MARGIN,
+  readinessOf,
+  READY_SCORE,
+  shortTitle,
+  sortedMilestones,
+  STALE_DAYS,
+  summaryOf,
+  type EvidenceMetric,
   type ProgressFilters,
+  type Readiness,
   type SkillSort,
   type SkillView,
 } from "../utils/progressModel";
@@ -50,6 +61,11 @@ export function TrendBadge({ trend }: { trend: Trend }) {
   const Icon = trend.status === "up" ? TrendingUp : trend.status === "down" ? TrendingDown : Minus;
   return (
     <span
+      title={
+        trend.probability != null && trend.status !== "insufficient"
+          ? fill(t("practiceProgress.trend.probability"), { p: Math.round(trend.probability * 100) })
+          : undefined
+      }
       className={cn(
         "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold",
         trend.status === "up" && "bg-emerald-50 text-emerald-700",
@@ -164,40 +180,95 @@ function WeeklyStreakCard({ progress, onGoal, savingGoal }: { progress: Practice
   );
 }
 
-function HabitsCard({ sessions }: { sessions: ProgressSession[] }) {
+/** How the candidate answers, first answers vs latest ones: the clearest evidence of progress. */
+function EvidenceCard({ sessions }: { sessions: ProgressSession[] }) {
   const { t } = useLanguage();
-  const behavior = habitsOf(sessions);
-  const tiles = [
-    {
-      key: "first",
-      label: t("practiceProgress.habits.firstTime"),
-      help: t("practiceProgress.habits.firstTimeHelp"),
-      value: percent(behavior.firstTimeSufficientRate.latest),
-      trend: behavior.firstTimeSufficientRate.trend,
-    },
-    {
-      key: "skip",
-      label: t("practiceProgress.habits.skipped"),
-      help: t("practiceProgress.habits.skippedHelp"),
-      value: behavior.skippedPerSession.latest === null ? "—" : String(behavior.skippedPerSession.latest),
-      trend: behavior.skippedPerSession.trend,
-    },
-  ];
+  const metrics = evidenceOf(sessions);
+  const shown = metrics.filter((m) => m.nBefore + m.nNow > 0);
+  const order = { improved: 0, declined: 1, same: 2, insufficient: 3 } as const;
+  shown.sort((a, b) => order[a.status] - order[b.status]);
+  if (shown.length === 0) return null;
   return (
-    <Card title={t("practiceProgress.habits.title")}>
-      <div className="grid grid-cols-2 gap-3">
-        {tiles.map((tile) => (
-          <div key={tile.key} className="min-w-0 rounded-2xl bg-[#F8FAFC] px-4 py-3 ring-1 ring-[#EAEFF8]">
-            <p className="text-xs font-semibold text-[#607096]">{tile.label}</p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="font-display text-xl font-extrabold tabular-nums text-[#14244B] sm:text-2xl">{tile.value}</span>
-              <TrendBadge trend={tile.trend} />
+    <Card title={t("practiceProgress.evidence.title")} desc={t("practiceProgress.evidence.desc")}>
+      <ul className="grid gap-3 md:grid-cols-2">
+        {shown.map((metric) => (
+          <EvidenceRow key={metric.key} metric={metric} />
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+function EvidenceRow({ metric }: { metric: EvidenceMetric }) {
+  const { t } = useLanguage();
+  const pct = (value: number | null) => (value === null ? "—" : `${Math.round(value * 100)}%`);
+  const tone =
+    metric.status === "improved"
+      ? "bg-emerald-50 text-emerald-700"
+      : metric.status === "declined"
+        ? "bg-rose-50 text-rose-700"
+        : "bg-[#F0F4FC] text-[#607096]";
+  return (
+    <li className="min-w-0 rounded-2xl bg-[#F8FAFC] px-4 py-3 ring-1 ring-[#EAEFF8]">
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 text-[13px] font-semibold text-[#14244B]">{t(`practiceProgress.evidence.${metric.key}`)}</p>
+        <span className={cn("shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold", tone)}>
+          {t(`practiceProgress.evidence.status.${metric.status}`)}
+        </span>
+      </div>
+      {metric.status === "insufficient" ? (
+        <p className="mt-2 text-xs text-[#607096]">
+          {fill(t("practiceProgress.evidence.needMore"), { n: Math.min(metric.nBefore, metric.nNow), min: 5 })}
+        </p>
+      ) : (
+        <>
+          <p className="mt-1.5 font-display text-xl font-extrabold tabular-nums text-[#14244B]">
+            {pct(metric.before)} <span className="text-base font-bold text-[#8B98B5]">→</span> {pct(metric.now)}
+          </p>
+          <div className="mt-2 space-y-1" aria-hidden="true">
+            <div className="h-1.5 overflow-hidden rounded-full bg-[#EAEFF8]">
+              <div className="h-1.5 rounded-full bg-[#9AA6C2]" style={{ width: `${Math.round((metric.before ?? 0) * 100)}%` }} />
             </div>
-            <p className="mt-1 text-[11px] text-[#8B98B5]">{tile.help}</p>
+            <div className="h-1.5 overflow-hidden rounded-full bg-[#EAEFF8]">
+              <div className="h-1.5 rounded-full bg-[#204195]" style={{ width: `${Math.round((metric.now ?? 0) * 100)}%` }} />
+            </div>
           </div>
+          <p className="mt-1.5 text-[11px] text-[#607096]">
+            {fill(t(metric.key === "coreCoverage" ? "practiceProgress.evidence.windowPoints" : "practiceProgress.evidence.window"), {
+              before: metric.nBefore,
+              now: metric.nNow,
+            })}
+          </p>
+        </>
+      )}
+    </li>
+  );
+}
+
+/** Level name, its position, and how far the estimate is from the next level. */
+function SkillLevel({ skill }: { skill: SkillView }) {
+  const { t } = useLanguage();
+  const estimate = skill.estimate ?? null;
+  const next = skill.level < LEVEL_EDGES.length ? LEVEL_EDGES[skill.level] + LEVEL_MARGIN : null;
+  const gap = estimate !== null && next !== null ? Math.max(0, next - estimate) : null;
+  return (
+    <div className="mt-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="shrink-0 whitespace-nowrap rounded-full bg-[#EEF2FD] px-2 py-0.5 text-[11px] font-bold text-[#204195]">
+          {t(`practiceProgress.level.${skill.level}`)}
+        </span>
+        <span className="min-w-0 text-right text-[11px] text-[#607096]">
+          {gap === null
+            ? t("practiceProgress.level.top")
+            : fill(t("practiceProgress.level.toNext"), { gap: gap.toFixed(1), level: t(`practiceProgress.level.${skill.level + 1}`) })}
+        </span>
+      </div>
+      <div className="mt-1.5 grid gap-0.5" style={{ gridTemplateColumns: `repeat(${LEVEL_COUNT}, minmax(0, 1fr))` }} aria-hidden="true">
+        {Array.from({ length: LEVEL_COUNT }, (_, i) => (
+          <span key={i} className={cn("h-1.5 rounded-full", i <= skill.level ? "bg-[#204195]" : "bg-[#DCE4F3]")} />
         ))}
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -272,9 +343,6 @@ function FilterBar({
   );
 }
 
-/** Days without practice after which a skill is flagged for review (spaced practice). */
-const STALE_DAYS = 30;
-
 function SkillCardItem({ skill, now }: { skill: SkillView; now: Date }) {
   const { t, lang } = useLanguage();
   const locale = localeOf(lang);
@@ -290,6 +358,12 @@ function SkillCardItem({ skill, now }: { skill: SkillView; now: Date }) {
     x: labels[i],
     score: p.score,
     detail: monthly ? fill(t("practiceProgress.skills.monthMean"), { n: p.count }) : tierLabel(p.tier, t),
+    estimate: p.estimate ?? null,
+    // 80% band around the estimate.
+    band:
+      p.estimate != null && p.estimateSd != null
+        ? [Math.max(0, p.estimate - 1.28 * p.estimateSd), Math.min(10, p.estimate + 1.28 * p.estimateSd)]
+        : null,
   }));
   return (
     <div className="min-w-0 rounded-2xl p-3 ring-1 ring-[#EAEFF8]">
@@ -297,7 +371,13 @@ function SkillCardItem({ skill, now }: { skill: SkillView; now: Date }) {
         <p className="min-w-0 text-sm font-bold text-[#14244B] [overflow-wrap:anywhere]">{skill.label}</p>
         <TrendBadge trend={skill.trend} />
       </div>
-      <p className="mt-0.5 text-[11px] text-[#607096]">
+      <SkillLevel skill={skill} />
+      <p className="mt-1.5 text-[11px] text-[#607096]">
+        {skill.estimate != null && (
+          <>
+            {fill(t("practiceProgress.skills.estimate"), { score: skill.estimate.toFixed(1) })} ·{" "}
+          </>
+        )}
         {fill(t("practiceProgress.skills.latest"), { score: skill.latest.toFixed(1) })} ·{" "}
         {fill(t("practiceProgress.skills.best"), { score: skill.best.toFixed(1) })} ·{" "}
         {fill(t("practiceProgress.skills.sessions"), { n: skill.sessionsCount })}
@@ -307,7 +387,13 @@ function SkillCardItem({ skill, now }: { skill: SkillView; now: Date }) {
           {fill(t("practiceProgress.skills.stale"), { n: idleDays })}
         </p>
       )}
-      <ScoreLineChart points={points} ariaLabel={`${skill.label}: ${points.map((p) => p.score).join(", ")}`} />
+      {monthly && <p className="mt-1 text-[11px] text-[#607096]">{t("practiceProgress.skills.monthlyNote")}</p>}
+      <ScoreLineChart
+        points={points}
+        target={READY_SCORE}
+        targetLabel={fill(t("practiceProgress.skills.target"), { score: READY_SCORE })}
+        ariaLabel={`${skill.label}: ${points.map((p) => p.score).join(", ")}`}
+      />
     </div>
   );
 }
@@ -385,77 +471,279 @@ function SkillsCard({
 }
 
 const JOBS_SHOWN = 3;
+const ONCE_SHOWN = 5;
 
+function JobChart({ job }: { job: JobProgress }) {
+  const { t, lang } = useLanguage();
+  const locale = localeOf(lang);
+  const folded = foldMonthly(job.points);
+  const monthly = folded.length < job.points.length;
+  const labels = monthly ? folded.map((p) => monthLabel(p.date)) : uniqueLabels(folded.map((p) => p.date), locale);
+  const labelOfSession = new Map<string, string>();
+  job.points.forEach((p) => {
+    const index = monthly
+      ? folded.findIndex((f) => monthLabel(f.date) === monthLabel(p.date))
+      : folded.findIndex((f) => f.sessionId === p.sessionId);
+    if (index >= 0) labelOfSession.set(p.sessionId, labels[index]);
+  });
+  const points: ScorePoint[] = folded.map((p, i) => ({
+    key: p.sessionId,
+    x: labels[i],
+    score: p.score,
+    detail: monthly ? fill(t("practiceProgress.skills.monthMean"), { n: p.count }) : tierLabel(p.tier, t),
+  }));
+  const markers = job.tierChanges.map((change) => ({
+    x: labelOfSession.get(change.sessionId) ?? "",
+    label: fill(t("practiceProgress.jobs.tierChange"), { tier: tierLabel(change.to, t) }),
+  }));
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="min-w-0 text-sm font-bold text-[#14244B] [overflow-wrap:anywhere]">{job.jobTitle ?? job.jobId}</p>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-[#FFF8E6] px-2 py-0.5 text-[11px] font-semibold text-[#7A4B00] ring-1 ring-[#FCB625]/40">
+            {tierLabel(job.currentTier, t)}
+          </span>
+          <TrendBadge trend={job.trend} />
+        </div>
+      </div>
+      {monthly && <p className="mt-1 text-[11px] text-[#607096]">{t("practiceProgress.skills.monthlyNote")}</p>}
+      <ScoreLineChart
+        points={points}
+        markers={markers}
+        height={170}
+        ariaLabel={`${job.jobTitle ?? ""}: ${points.map((p) => `${p.x} ${p.score}`).join(", ")}`}
+      />
+      {markers.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-2 text-[11px] text-[#7A4B00]">
+          {markers.map((marker) => (
+            <li key={`${marker.x}-${marker.label}`} className="flex items-center gap-1.5">
+              <span className="h-3 w-0.5 rounded bg-[#D99A19]" aria-hidden="true" />
+              {marker.x}: {marker.label}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Positions with two sessions or more get a chart; one-off positions a compact list (a one-point chart says nothing). */
 function JobsCard({ jobs }: { jobs: JobProgress[] }) {
   const { t, lang } = useLanguage();
   const locale = localeOf(lang);
   const [shown, setShown] = useState(JOBS_SHOWN);
+  const [onceShown, setOnceShown] = useState(ONCE_SHOWN);
   if (jobs.length === 0) return null;
+  const charted = jobs.filter((job) => job.points.length >= 2);
+  const once = jobs.filter((job) => job.points.length < 2);
   return (
     <Card title={t("practiceProgress.jobs.title")} desc={t("practiceProgress.jobs.desc")}>
-      <div className="space-y-5">
-        {jobs.slice(0, shown).map((job) => {
-          const folded = foldMonthly(job.points);
-          const monthly = folded.length < job.points.length;
-          const labels = monthly
-            ? folded.map((p) => monthLabel(p.date))
-            : uniqueLabels(folded.map((p) => p.date), locale);
-          const labelOfSession = new Map<string, string>();
-          job.points.forEach((p) => {
-            const index = monthly ? folded.findIndex((f) => monthLabel(f.date) === monthLabel(p.date)) : folded.findIndex((f) => f.sessionId === p.sessionId);
-            if (index >= 0) labelOfSession.set(p.sessionId, labels[index]);
-          });
-          const points: ScorePoint[] = folded.map((p, i) => ({
-            key: p.sessionId,
-            x: labels[i],
-            score: p.score,
-            detail: monthly ? fill(t("practiceProgress.skills.monthMean"), { n: p.count }) : tierLabel(p.tier, t),
-          }));
-          const markers = job.tierChanges.map((change) => ({
-            x: labelOfSession.get(change.sessionId) ?? "",
-            label: fill(t("practiceProgress.jobs.tierChange"), { tier: tierLabel(change.to, t) }),
-          }));
-          return (
-            <div key={job.jobId}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="min-w-0 text-sm font-bold text-[#14244B] [overflow-wrap:anywhere]">{job.jobTitle ?? job.jobId}</p>
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-[#FFF8E6] px-2 py-0.5 text-[11px] font-semibold text-[#7A4B00] ring-1 ring-[#FCB625]/40">
-                    {tierLabel(job.currentTier, t)}
-                  </span>
-                  <TrendBadge trend={job.trend} />
-                </div>
-              </div>
-              <ScoreLineChart
-                points={points}
-                markers={markers}
-                height={170}
-                ariaLabel={`${job.jobTitle ?? ""}: ${points.map((p) => `${p.x} ${p.score}`).join(", ")}`}
-              />
-              {markers.length > 0 && (
-                <ul className="mt-2 flex flex-wrap gap-2 text-[11px] text-[#7A4B00]">
-                  {markers.map((marker) => (
-                    <li key={`${marker.x}-${marker.label}`} className="flex items-center gap-1.5">
-                      <span className="h-3 w-0.5 rounded bg-[#D99A19]" aria-hidden="true" />
-                      {marker.x}: {marker.label}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {jobs.length > shown && (
+      {charted.length > 0 && (
+        <div className="space-y-5">
+          {charted.slice(0, shown).map((job) => (
+            <JobChart key={job.jobId} job={job} />
+          ))}
+        </div>
+      )}
+      {charted.length > shown && (
         <button
           type="button"
           onClick={() => setShown((n) => n + JOBS_SHOWN)}
           className="mt-4 inline-flex h-9 items-center rounded-xl px-4 text-xs font-bold text-[#204195] ring-1 ring-[#DCE4F3] hover:bg-[#F0F4FC]"
         >
-          {fill(t("practiceProgress.jobs.showMore"), { n: jobs.length - shown })}
+          {fill(t("practiceProgress.jobs.showMore"), { n: charted.length - shown })}
         </button>
       )}
+      {once.length > 0 && (
+        <div className={cn(charted.length > 0 && "mt-5 border-t border-[#EAEFF8] pt-4")}>
+          <p className="text-xs font-semibold text-[#607096]">{fill(t("practiceProgress.jobs.once"), { n: once.length })}</p>
+          <ul className="mt-2 divide-y divide-[#EAEFF8]">
+            {once.slice(0, onceShown).map((job) => {
+              const point = job.points[0];
+              return (
+                <li key={job.jobId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                  <Link
+                    href={`/interview/results/${point.sessionId}`}
+                    className="min-w-0 flex-1 basis-56 text-sm font-semibold text-[#14244B] [overflow-wrap:anywhere] hover:underline"
+                  >
+                    {job.jobTitle ?? job.jobId}
+                  </Link>
+                  <span className="text-[11px] text-[#607096]">{shortDate(point.date, locale)}</span>
+                  <span className="rounded-full bg-[#FFF8E6] px-2 py-0.5 text-[11px] font-semibold text-[#7A4B00]">{tierLabel(point.tier, t)}</span>
+                  <span className="w-10 text-right text-sm font-bold tabular-nums text-[#14244B]">{point.score.toFixed(1)}</span>
+                </li>
+              );
+            })}
+          </ul>
+          {once.length > onceShown && (
+            <button
+              type="button"
+              onClick={() => setOnceShown((n) => n + ONCE_SHOWN * 2)}
+              className="mt-2 inline-flex h-9 items-center rounded-xl px-4 text-xs font-bold text-[#204195] ring-1 ring-[#DCE4F3] hover:bg-[#F0F4FC]"
+            >
+              {fill(t("practiceProgress.jobs.onceMore"), { n: once.length - onceShown })}
+            </button>
+          )}
+        </div>
+      )}
     </Card>
+  );
+}
+
+/** One line on where the candidate stands, and the one skill to practise next (feed-forward). */
+function SummaryCard({
+  progress,
+  skills,
+  sessions,
+  now,
+}: {
+  progress: PracticeProgress;
+  skills: SkillView[];
+  sessions: ProgressSession[];
+  now: Date;
+}) {
+  const { t } = useLanguage();
+  const summary = summaryOf(skills, now);
+  const { streak } = progress;
+  // The clearest change in how the candidate answers leads the summary.
+  const evidence = evidenceOf(sessions)
+    .filter((m) => m.status === "improved" && m.before !== null && m.now !== null)
+    .sort((a, b) => Math.abs((b.now ?? 0) - (b.before ?? 0)) - Math.abs((a.now ?? 0) - (a.before ?? 0)))[0];
+  const sentences = [
+    evidence
+      ? fill(t("practiceProgress.summary.evidence"), {
+          what: t(`practiceProgress.evidence.${evidence.key}`),
+          before: `${Math.round((evidence.before ?? 0) * 100)}%`,
+          now: `${Math.round((evidence.now ?? 0) * 100)}%`,
+        })
+      : null,
+    streak.weeks > 0
+      ? fill(t("practiceProgress.summary.streak"), { n: streak.weeks })
+      : fill(t("practiceProgress.summary.streakNone"), { count: streak.thisWeekCount, goal: streak.goal }),
+    summary.improving.length === 0
+      ? t("practiceProgress.summary.improvingNone")
+      : summary.improving.length === 1
+        ? fill(t("practiceProgress.summary.improvingOne"), { skill: summary.improving[0].label })
+        : fill(t("practiceProgress.summary.improvingMany"), {
+            skill: summary.improving[0].label,
+            n: summary.improving.length - 1,
+          }),
+  ];
+  const focusLine =
+    summary.focus && summary.focusReason
+      ? fill(t(`practiceProgress.summary.focus.${summary.focusReason}`), {
+          skill: summary.focus.label,
+          score: summary.focus.latest.toFixed(1),
+          n: summary.idleDays,
+          target: READY_SCORE,
+        })
+      : fill(t("practiceProgress.summary.allReady"), { target: READY_SCORE });
+  return (
+    <section
+      aria-label={t("practiceProgress.summary.title")}
+      className="flex flex-col gap-4 rounded-2xl border border-[#C9D6F5] bg-[#F5F8FF] p-4 sm:flex-row sm:items-center sm:p-5"
+    >
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <p className="text-sm leading-6 text-[#14244B]">{sentences.filter(Boolean).join(" ")}</p>
+        <p className="flex items-start gap-2 text-sm font-semibold leading-6 text-[#14244B]">
+          <Target className="mt-1 size-4 shrink-0 text-[#204195]" aria-hidden="true" />
+          <span>{focusLine}</span>
+        </p>
+      </div>
+      <Link
+        href="/interview/select"
+        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-xl bg-[#204195] px-5 text-sm font-semibold text-white hover:bg-[#183275] sm:self-center"
+      >
+        {summary.focus ? t("practiceProgress.summary.practice") : t("practiceProgress.summary.practiceMore")}
+        <ArrowRight className="size-4" aria-hidden="true" />
+      </Link>
+    </section>
+  );
+}
+
+const READY_SHOWN = 5;
+
+/** Feed-up: how close the candidate is to their position (skills at the line). The week's goal sits in the streak card beside it. */
+function GoalsCard({ readiness }: { readiness: Readiness | null }) {
+  const { t } = useLanguage();
+  const [expanded, setExpanded] = useState(false);
+  const skills = readiness ? (expanded ? readiness.skills : readiness.skills.slice(0, READY_SHOWN)) : [];
+  return (
+    <Card title={t("practiceProgress.goals.title")}>
+      <div className="space-y-5">
+        {readiness ? (
+          <div>
+            <p className="text-xs font-semibold text-[#607096]">{t("practiceProgress.goals.ready")}</p>
+            <p className="mt-0.5 text-sm font-bold text-[#14244B] [overflow-wrap:anywhere]">{readiness.jobTitle ?? readiness.jobId}</p>
+            <div className="mt-2 flex items-center gap-3">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#EAEFF8]" aria-hidden="true">
+                <div
+                  className="h-2 rounded-full bg-[#287A4B]"
+                  style={{ width: `${Math.round((readiness.ready / readiness.total) * 100)}%` }}
+                />
+              </div>
+              <span className="shrink-0 text-xs font-bold tabular-nums text-[#14244B]">
+                {fill(t("practiceProgress.goals.readyValue"), { ready: readiness.ready, total: readiness.total, target: READY_SCORE })}
+              </span>
+            </div>
+            <ul className="mt-3 space-y-2">
+              {skills.map((skill) => (
+                <li key={skill.conceptId} className="grid grid-cols-[minmax(0,1fr)_5rem_2.5rem] items-center gap-2 text-xs">
+                  <span className="truncate text-[#14244B]" title={skill.label}>
+                    {skill.label}
+                  </span>
+                  <span className="relative h-1.5 rounded-full bg-[#EAEFF8]" aria-hidden="true">
+                    <span
+                      className={cn("absolute inset-y-0 left-0 rounded-full", skill.ready ? "bg-[#287A4B]" : "bg-[#D08A1E]")}
+                      style={{ width: `${Math.min(100, (skill.latest / 10) * 100)}%` }}
+                    />
+                    <span className="absolute -top-0.5 h-2.5 w-0.5 rounded bg-[#287A4B]" style={{ left: `${READY_SCORE * 10}%` }} />
+                  </span>
+                  <span className={cn("text-right font-semibold tabular-nums", skill.ready ? "text-[#1F5C3A]" : "text-[#8A5A0B]")}>
+                    {skill.latest.toFixed(1)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {readiness.skills.length > READY_SHOWN && (
+              <button
+                type="button"
+                onClick={() => setExpanded((value) => !value)}
+                className="mt-2 inline-flex h-9 items-center rounded-xl px-3 text-xs font-bold text-[#204195] hover:bg-[#F0F4FC]"
+              >
+                {expanded
+                  ? t("practiceProgress.goals.showLess")
+                  : fill(t("practiceProgress.goals.showAll"), { n: readiness.skills.length })}
+              </button>
+            )}
+            <p className="mt-2 text-[11px] leading-relaxed text-[#607096]">
+              {fill(t("practiceProgress.goals.readyHelp"), { job: shortTitle(readiness.jobTitle, 40), n: readiness.sessions })}
+            </p>
+          </div>
+        ) : (
+          <p className="text-xs text-[#607096]">{t("practiceProgress.goals.readyEmpty")}</p>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/** How "đang tốt lên" is decided, and whether the noise behind it was measured. */
+function CalibrationNote({ progress }: { progress: PracticeProgress }) {
+  const { t, lang } = useLanguage();
+  const calibration = progress.calibration;
+  if (!calibration) return null;
+  return (
+    <p className="px-1 text-[11px] leading-relaxed text-[#607096]">
+      {calibration.measured && calibration.measuredAt
+        ? fill(t("practiceProgress.calibration.measured"), {
+            date: longDate(calibration.measuredAt, localeOf(lang)),
+            te: calibration.typicalError.toFixed(1),
+          })
+        : fill(t("practiceProgress.calibration.default"), { te: calibration.typicalError.toFixed(1) })}{" "}
+      {t("practiceProgress.calibration.rule")}
+    </p>
   );
 }
 
@@ -466,16 +754,14 @@ function MilestonesCard({ progress }: { progress: PracticeProgress }) {
   return (
     <Card title={t("practiceProgress.milestones.title")}>
       <ol className="relative space-y-3 border-l-2 border-[#EAEFF8] pl-5">
-        {progress.milestones
-          .slice()
-          .reverse()
+        {sortedMilestones(progress.milestones)
           .map((milestone) => (
             <li key={`${milestone.kind}-${milestone.sessionId}-${milestone.skill ?? ""}`} className="relative">
               <span className="absolute -left-[27px] top-0.5 grid size-5 place-items-center rounded-full bg-[#FCB625] text-[#14244B]">
                 <Flag className="size-3" aria-hidden="true" />
               </span>
               <Link href={`/interview/results/${milestone.sessionId}`} className="text-sm font-semibold text-[#14244B] [overflow-wrap:anywhere] hover:underline">
-                {milestoneText(milestone, t)}
+                {milestoneText({ ...milestone, jobTitle: shortTitle(milestone.jobTitle) }, t)}
               </Link>
               <p className="text-[11px] text-[#8B98B5]">{longDate(milestone.date, locale)}</p>
             </li>
@@ -581,6 +867,7 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
         : null,
     [progress, filters, now],
   );
+  const readiness = useMemo(() => (progress ? readinessOf(progress, filters.jobId) : null), [progress, filters.jobId]);
 
   return (
     <div className="space-y-6">
@@ -603,9 +890,10 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
         </div>
       ) : (
         <>
+          {hasSessions && view && <SummaryCard progress={progress} skills={view.skills} sessions={view.sessions} now={now} />}
           <div className="grid gap-6 lg:grid-cols-2">
+            <GoalsCard readiness={readiness} />
             <WeeklyStreakCard progress={progress} onGoal={changeGoal} savingGoal={savingGoal} />
-            {hasSessions && view && <HabitsCard sessions={view.sessions} />}
           </div>
           {hasSessions && view ? (
             <>
@@ -616,8 +904,10 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
                 </p>
               ) : (
                 <>
+                  <EvidenceCard sessions={view.sessions} />
                   <SkillsCard skills={view.skills} filters={filters} onChange={setFilters} now={now} />
                   <JobsCard jobs={view.jobs} />
+                  <CalibrationNote progress={progress} />
                 </>
               )}
               <MilestonesCard progress={progress} />
