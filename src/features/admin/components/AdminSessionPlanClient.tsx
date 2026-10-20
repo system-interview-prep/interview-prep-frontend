@@ -116,7 +116,8 @@ function TurnCard({ turn }: { turn: AdminPlanTurn }) {
   );
 }
 
-export default function AdminSessionPlanClient({ sessionId }: { sessionId: string }) {
+/** `embedded`: shown as a tab of the AI journey page, without its own header and back link. */
+export default function AdminSessionPlanClient({ sessionId, embedded = false }: { sessionId: string; embedded?: boolean }) {
   const { t } = useLanguage();
   const sourceLabel = useSourceLabel();
   const [state, setState] = useState<LoadState>({ status: "loading" });
@@ -134,7 +135,7 @@ export default function AdminSessionPlanClient({ sessionId }: { sessionId: strin
     };
   }, [sessionId]);
 
-  const header = (
+  const header = embedded ? null : (
     <AdminPageHeader
       title={t("adminPlan.title")}
       description={t("adminPlan.subtitle")}
@@ -161,9 +162,11 @@ export default function AdminSessionPlanClient({ sessionId }: { sessionId: strin
             variant={state.notFound ? "empty" : "error"}
           />
         )}
-        <Link href="/admin/interviews" className="text-sm font-semibold text-[#204195] hover:underline">
-          {t("adminPlan.back")}
-        </Link>
+        {embedded ? null : (
+          <Link href="/admin/interviews" className="text-sm font-semibold text-[#204195] hover:underline">
+            {t("adminPlan.back")}
+          </Link>
+        )}
       </div>
     );
   }
@@ -239,9 +242,11 @@ export default function AdminSessionPlanClient({ sessionId }: { sessionId: strin
         </ol>
       </AdminSection>
 
-      <Link href="/admin/interviews" className="text-sm font-semibold text-[#204195] hover:underline">
-        {t("adminPlan.back")}
-      </Link>
+      {embedded ? null : (
+        <Link href="/admin/interviews" className="text-sm font-semibold text-[#204195] hover:underline">
+          {t("adminPlan.back")}
+        </Link>
+      )}
     </div>
   );
 }
