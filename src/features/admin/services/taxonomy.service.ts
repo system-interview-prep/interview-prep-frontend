@@ -1,9 +1,18 @@
 import api from "@/lib/apiClient";
 
+/**
+ * The single admin taxonomy API client (Core module `taxonomy`, ADMIN only).
+ */
+
+/** Kinds Core accepts (`CONCEPT_KINDS`); kept open so unknown kinds still type-check. */
+export type TaxonomyConceptKind =
+  | "domain" | "occupation" | "job_family" | "job_role" | "skill" | "competency"
+  | (string & {});
+
 export type TaxonomyConcept = {
   concept_id: string;
   label: string;
-  kind: string;
+  kind: TaxonomyConceptKind;
   description?: string | null;
   metadata?: Record<string, unknown>;
   is_active: boolean;
