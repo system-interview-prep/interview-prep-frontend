@@ -106,7 +106,7 @@ describe('Chat messages', () => {
 });
 
 describe('Chat composer', () => {
-  const render = (stage: string, compact = false) =>
+  const render = (stage: string, compact = false, clarifyUsed = false) =>
     renderToStaticMarkup(
       <ChatComposer
         value="abc"
@@ -118,19 +118,34 @@ describe('Chat composer', () => {
         onKeyDown={noop}
         onSend={noop}
         onQuickReply={noop}
+        clarifyUsed={clarifyUsed}
+        onSkip={noop}
       />
     );
 
-  it('offers the farewell quick reply in CLOSING (engine farewell pattern, no "?")', () => {
+  it('offers a role question and the farewell in CLOSING, without skip', () => {
     const html = render('CLOSING');
+    expect(html).toContain('Công việc hằng ngày của vị trí này như thế nào?');
     expect(html).toContain('Tôi không có câu hỏi nào thêm, cảm ơn anh/chị.');
     expect(html).toContain('Đặt câu hỏi cho nhà tuyển dụng');
+    expect(html).not.toContain('Bỏ qua câu này');
   });
 
-  it('offers a clarification quick reply elsewhere and hides chips in the coding pane', () => {
-    expect(render('DEEP_DIVE')).toContain('Bạn có thể nhắc lại câu hỏi không?');
-    expect(render('DEEP_DIVE', true)).not.toContain('nhắc lại câu hỏi');
+  it('offers one clarification per question and a separate skip button, never "repeat"', () => {
+    const html = render('DEEP_DIVE');
+    expect(html).toContain('Mình chưa rõ ý câu hỏi, bạn giải thích thêm được không?');
+    expect(html).toContain('Bỏ qua câu này');
+    expect(html).not.toContain('nhắc lại câu hỏi');
+    expect(html).not.toContain('đổi sang câu hỏi khác');
+    expect(render('DEEP_DIVE', false, true)).not.toContain('chưa rõ ý câu hỏi');
+    expect(render('DEEP_DIVE', true)).not.toContain('chưa rõ ý câu hỏi');
     expect(render('BEHAVIORAL')).toContain('Bối cảnh → Nhiệm vụ → Hành động → Kết quả');
+  });
+
+  it('shows no chips during the warm-up', () => {
+    const html = render('WARM_UP');
+    expect(html).not.toContain('chưa rõ ý câu hỏi');
+    expect(html).not.toContain('Bỏ qua câu này');
   });
 });
 
