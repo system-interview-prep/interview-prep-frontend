@@ -1,8 +1,8 @@
 "use client";
 
 import AdminPageHeader from "./primitives/AdminPageHeader";
-import AdminStatusBadge from "./primitives/AdminStatusBadge";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import AccessLogsSection from "@features/admin/pipeline/components/AccessLogsSection";
 
 export interface AuditLogItem {
   id: string;
@@ -32,20 +32,22 @@ const PLANNED_EVENT_KEYS = [
 export default function AdminAuditLogsClient() {
   const { t } = useLanguage();
 
-  // No audit backend yet: show an honest "coming soon" state instead of
-  // search/filter controls over an empty, hard-coded list.
+  // Reads of candidate data are logged and listed; configuration changes are
+  // not recorded yet, so that part stays an honest "coming soon" section.
   return (
     <div className="space-y-6">
       <AdminPageHeader
         title={t("admin.auditLogs.title")}
         description={t("admin.auditLogs.subtitle")}
         breadcrumbs={[
-          { label: "Admin", href: "/admin/dashboard" },
+          { label: "Quản trị", href: "/admin/dashboard" },
           { label: t("admin.sidebar.group.system") },
           { label: t("admin.sidebar.auditLogs") },
         ]}
-        statusBadge={<AdminStatusBadge status="pending" label={t("fixAdmin.ops.audit.comingSoon")} />}
       />
+
+      {/* Live: every read of a candidate's answers (admin_access_logs). */}
+      <AccessLogsSection />
 
       <section
         aria-labelledby="audit-coming-soon-title"
