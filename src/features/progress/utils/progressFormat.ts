@@ -47,6 +47,7 @@ export function milestoneText(milestone: Milestone, t: Translate): string {
     tier: tierLabel(milestone.tier, t),
     skill: milestone.skill ?? "",
     score: milestone.score ?? "",
+    level: milestone.level !== undefined ? t(`practiceProgress.level.${milestone.level}`) : "",
   });
 }
 
