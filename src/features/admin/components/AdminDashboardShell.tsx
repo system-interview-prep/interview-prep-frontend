@@ -3,9 +3,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import AdminAlertsBanner, { AdminAlertsNavBadge } from "@features/admin/pipeline/components/AdminAlertsBanner";
+import AdminNotificationBell from "@features/admin/notifications/AdminNotificationBell";
+import AdminNotificationToasts from "@features/admin/notifications/AdminNotificationToasts";
 import { useCallback, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
-  Plus,
   LayoutDashboard,
   Users,
   Briefcase,
@@ -17,27 +19,28 @@ import {
   Box,
   Terminal,
   Activity,
-  Coins,
-  AlertOctagon,
   Target,
   FlaskConical,
   GitCompare,
-  TrendingUp,
   ScrollText,
   Settings,
   HelpCircle,
   LogOut,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Shield,
   Tags,
   Menu,
   X,
+  GitCompareArrows,
+  FileScan,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { ConfirmDialog } from "@components/shared/ConfirmDialog";
 import { useDialogA11y } from "@components/shared/useDialogA11y";
-import { FoxAvatar } from "@features/mascot/components/FoxAvatar";
+import { BrandLogo } from "@components/shared/BrandLogo";
+import { usePageTitle } from "@components/shared/usePageTitle";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
 import { performClientLogout } from "@features/auth/services/auth.service";
 
@@ -84,6 +87,7 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   // Mobile navigation drawer (the desktop sidebar is hidden below md).
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [soonOpen, setSoonOpen] = useState(false);
   const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
   const drawerRef = useDialogA11y<HTMLDivElement>(mobileNavOpen, closeMobileNav);
   const isCollapsed = useSyncExternalStore(subscribeSidebar, getSidebarSnapshot, getSidebarServerSnapshot);
@@ -98,39 +102,33 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     }
   };
 
-  const displayName = profile?.name || profile?.email || t("fixAdmin.shell.adminBadge");
-  const roleLabel = t("admin.role.seniorAdmin");
   const navReady = useIsClient();
+  // The profile comes from browser storage: read it only after hydration so the
+  // server and first client render match (no hydration mismatch on name/initials).
+  const clientProfile = navReady ? profile : null;
+  const displayName = clientProfile?.name || clientProfile?.email || t("fixAdmin.shell.adminBadge");
+  const roleLabel = t("admin.role.seniorAdmin");
 
   const isActive = useMemo(
     () => ({
       dashboard: pathname === "/admin/dashboard" || pathname === "/admin",
       users: pathname.startsWith("/admin/users"),
-      jobProfiles:
-        pathname === "/admin/job-descriptions" ||
-        pathname === "/admin/job-profiles" ||
-        ((pathname.startsWith("/admin/job-descriptions/") || pathname.startsWith("/admin/job-profiles/")) &&
-          !pathname.startsWith("/admin/job-descriptions/create") &&
-          !pathname.startsWith("/admin/job-profiles/create")),
-      createJob:
-        pathname.startsWith("/admin/job-descriptions/create") ||
-        pathname.startsWith("/admin/job-profiles/create"),
+      jobProfiles: pathname.startsWith("/admin/job-descriptions") || pathname.startsWith("/admin/job-profiles"),
       questionBank: pathname.startsWith("/admin/question-bank"),
       taxonomy: pathname.startsWith("/admin/taxonomy"),
       rubrics: pathname.startsWith("/admin/rubrics"),
       knowledgeBase: pathname.startsWith("/admin/knowledge-base"),
       interviews: pathname.startsWith("/admin/interviews"),
+      matching: pathname.startsWith("/admin/matching"),
+      cvParsing: pathname.startsWith("/admin/cv-parsing"),
       aiOverview: pathname === "/admin/ai",
       aiModels: pathname.startsWith("/admin/ai/models"),
       aiPrompts: pathname.startsWith("/admin/ai/prompts"),
       aiTraces: pathname.startsWith("/admin/ai/traces"),
-      aiUsage: pathname.startsWith("/admin/ai/usage"),
-      aiErrors: pathname.startsWith("/admin/ai/errors"),
       evaluation: pathname === "/admin/evaluation",
       evalDatasets: pathname.startsWith("/admin/evaluation/datasets"),
       evalExperiments: pathname.startsWith("/admin/evaluation/experiments"),
       evalRegression: pathname.startsWith("/admin/evaluation/regression"),
-      insights: pathname.startsWith("/admin/insights"),
       auditLogs: pathname.startsWith("/admin/audit-logs"),
       settings: pathname.startsWith("/admin/settings"),
       help: pathname.startsWith("/admin/help"),
@@ -138,6 +136,34 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     }),
     [pathname]
   );
+
+  // Browser tab "<menu item> | INTERVIA" on menu pages; nested pages keep their own metadata.
+  const TAB_TITLE_KEYS: Record<string, string> = {
+    "/admin/dashboard": "admin.sidebar.dashboard",
+    "/admin/users": "admin.sidebar.users",
+    "/admin/job-descriptions": "admin.sidebar.jobBoard",
+    "/admin/question-bank": "admin.sidebar.questionBank",
+    "/admin/taxonomy": "fixAdmin.shell.taxonomy",
+    "/admin/rubrics": "admin.sidebar.rubrics",
+    "/admin/knowledge-base": "admin.sidebar.knowledgeBase",
+    "/admin/interviews": "admin.sidebar.interviews",
+    "/admin/cv-parsing": "cvParse.title",
+    "/admin/matching": "matching.title",
+    "/admin/ai": "admin.sidebar.aiOverview",
+    "/admin/ai/traces": "admin.sidebar.aiTraces",
+    "/admin/ai/models": "admin.sidebar.aiModels",
+    "/admin/ai/prompts": "admin.sidebar.aiPrompts",
+    "/admin/evaluation": "admin.sidebar.evalOverview",
+    "/admin/evaluation/datasets": "admin.sidebar.evalDatasets",
+    "/admin/evaluation/experiments": "admin.sidebar.evalExperiments",
+    "/admin/evaluation/regression": "admin.sidebar.evalRegression",
+    "/admin/audit-logs": "admin.sidebar.auditLogs",
+    "/admin/settings": "admin.sidebar.settings",
+    "/admin/help": "common.helpCenter",
+    "/admin/profile": "fixAdmin.shell.profile",
+  };
+  const tabKey = TAB_TITLE_KEYS[pathname];
+  usePageTitle(tabKey ? t(tabKey) : null);
 
   if (pathname === "/admin/login") {
     return <>{children}</>;
@@ -160,6 +186,8 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     active: boolean;
     /** Placeholder page: the backend is not connected yet. */
     soon?: boolean;
+    /** Live count shown next to the label (active alerts on the AI overview). */
+    badge?: ReactNode;
   };
 
   const navGroupOverview: NavItem[] = [
@@ -180,39 +208,31 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
 
   const navGroupInterviews: NavItem[] = [
     { href: "/admin/interviews", label: t("admin.sidebar.interviews"), Icon: MessageSquare, active: isActive.interviews },
+    { href: "/admin/cv-parsing", label: t("cvParse.title"), Icon: FileScan, active: isActive.cvParsing },
+    { href: "/admin/matching", label: t("matching.title"), Icon: GitCompareArrows, active: isActive.matching },
   ];
 
   const navGroupAiOps: NavItem[] = [
-    { href: "/admin/ai", label: t("admin.sidebar.aiOverview"), Icon: Cpu, active: isActive.aiOverview, soon: true },
-    { href: "/admin/ai/models", label: t("admin.sidebar.aiModels"), Icon: Box, active: isActive.aiModels, soon: true },
-    { href: "/admin/ai/prompts", label: t("admin.sidebar.aiPrompts"), Icon: Terminal, active: isActive.aiPrompts, soon: true },
-    { href: "/admin/ai/traces", label: t("admin.sidebar.aiTraces"), Icon: Activity, active: isActive.aiTraces, soon: true },
-    { href: "/admin/ai/usage", label: t("admin.sidebar.aiUsage"), Icon: Coins, active: isActive.aiUsage, soon: true },
-    { href: "/admin/ai/errors", label: t("admin.sidebar.aiErrors"), Icon: AlertOctagon, active: isActive.aiErrors, soon: true },
+    { href: "/admin/ai", label: t("admin.sidebar.aiOverview"), Icon: Cpu, active: isActive.aiOverview, badge: <AdminAlertsNavBadge /> },
+    { href: "/admin/ai/traces", label: t("admin.sidebar.aiTraces"), Icon: Activity, active: isActive.aiTraces },
   ];
 
-  const navGroupEvaluation: NavItem[] = [
+  /** Placeholder pages (no backend yet), kept together in one collapsed group. */
+  const navGroupSoon: NavItem[] = [
+    { href: "/admin/ai/models", label: t("admin.sidebar.aiModels"), Icon: Box, active: isActive.aiModels, soon: true },
+    { href: "/admin/ai/prompts", label: t("admin.sidebar.aiPrompts"), Icon: Terminal, active: isActive.aiPrompts, soon: true },
     { href: "/admin/evaluation", label: t("admin.sidebar.evalOverview"), Icon: Target, active: isActive.evaluation, soon: true },
     { href: "/admin/evaluation/datasets", label: t("admin.sidebar.evalDatasets"), Icon: Database, active: isActive.evalDatasets, soon: true },
     { href: "/admin/evaluation/experiments", label: t("admin.sidebar.evalExperiments"), Icon: FlaskConical, active: isActive.evalExperiments, soon: true },
     { href: "/admin/evaluation/regression", label: t("admin.sidebar.evalRegression"), Icon: GitCompare, active: isActive.evalRegression, soon: true },
   ];
 
-  const navGroupAnalytics: NavItem[] = [
-    { href: "/admin/insights", label: t("admin.sidebar.insights"), Icon: TrendingUp, active: isActive.insights },
-  ];
-
   const navGroupSystem: NavItem[] = [
-    { href: "/admin/audit-logs", label: t("admin.sidebar.auditLogs"), Icon: ScrollText, active: isActive.auditLogs, soon: true },
+    { href: "/admin/audit-logs", label: t("admin.sidebar.auditLogs"), Icon: ScrollText, active: isActive.auditLogs },
     { href: "/admin/settings", label: t("admin.sidebar.settings"), Icon: Settings, active: isActive.settings },
   ];
 
 
-  const soonBadge = (
-    <span className="rounded-full bg-[#F0F4FC] px-1.5 py-0.5 text-[9px] font-semibold text-[#607096]">
-      {t("fixAdmin.shell.soon")}
-    </span>
-  );
 
   const brandMark = (collapsed: boolean, onNavigate?: () => void) =>
     collapsed ? (
@@ -220,11 +240,11 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
         <Link
           href="/admin/dashboard"
           onClick={onNavigate}
-          className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-white ring-1 ring-[#DCE4F3] hover:opacity-90"
+          className="rounded-xl transition-opacity hover:opacity-90"
           title={t("fixAdmin.shell.brandTitle")}
           aria-label={t("fixAdmin.shell.brandTitle")}
         >
-          <FoxAvatar size={36} />
+          <BrandLogo size={40} />
         </Link>
       </div>
     ) : (
@@ -234,12 +254,10 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
           onClick={onNavigate}
           className="flex min-w-0 items-center gap-2.5 rounded-xl px-1 py-1 transition-opacity hover:opacity-90"
         >
-          <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-white ring-1 ring-[#DCE4F3]">
-            <FoxAvatar size={34} />
-          </span>
+          <BrandLogo size={38} />
           <span className="min-w-0">
             <span className="flex items-center gap-1.5">
-              <span className="truncate font-display text-base font-semibold tracking-tight text-[#14244B]">Intervia</span>
+              <span className="truncate font-display text-base font-bold tracking-[0.08em] text-[#14244B]">INTERVIA</span>
               <span className="rounded-full bg-[#F0F4FC] px-1.5 py-0.5 text-[9px] font-bold uppercase text-[#204195]">
                 {t("fixAdmin.shell.adminBadge")}
               </span>
@@ -250,102 +268,101 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
       </div>
     );
 
-  const createButton = (collapsed: boolean, onNavigate?: () => void) =>
-    collapsed ? (
-      <Link
-        href="/admin/job-descriptions/create"
-        onClick={onNavigate}
-        className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-[#204195] text-white shadow-xs transition-all hover:bg-[#183275] hover:shadow-sm active:scale-[0.99]"
-        title={t("admin.sidebar.createProfile")}
-        aria-label={t("admin.sidebar.createProfile")}
-      >
-        <Plus className="size-4" />
-      </Link>
-    ) : (
-      <Link
-        href="/admin/job-descriptions/create"
-        onClick={onNavigate}
-        className="flex min-h-9 w-full items-center justify-center gap-2 rounded-full bg-[#204195] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#183275] hover:shadow-sm active:scale-[0.99]"
-      >
-        <Plus className="size-3.5" />
-        <span>{t("admin.sidebar.createProfile")}</span>
-      </Link>
-    );
-
-  const groups = [
-    { title: t("admin.sidebar.group.overview"), items: navGroupOverview },
-    { title: t("admin.sidebar.group.people"), items: navGroupPeople },
+  // Fewer, larger groups: single-item groups only repeated their item's name.
+  const groups: { title: string; items: NavItem[]; collapsible?: boolean }[] = [
+    { title: "", items: navGroupOverview },
     { title: t("admin.sidebar.group.content"), items: navGroupContent },
-    { title: t("admin.sidebar.group.interviews"), items: navGroupInterviews },
-    { title: t("admin.sidebar.group.aiOps"), items: navGroupAiOps },
-    { title: t("admin.sidebar.group.evaluation"), items: navGroupEvaluation },
-    { title: t("admin.sidebar.group.analytics"), items: navGroupAnalytics },
-    { title: t("admin.sidebar.group.system"), items: navGroupSystem },
+    { title: t("admin.sidebar.group.operations"), items: [...navGroupInterviews, ...navGroupAiOps] },
+    { title: t("admin.sidebar.group.system"), items: [...navGroupPeople, ...navGroupSystem] },
+    { title: t("admin.sidebar.group.soon"), items: navGroupSoon, collapsible: true },
   ];
+
+
+  const renderNavItem = (item: NavItem, collapsed: boolean, onNavigate?: () => void) => {
+    const active = item.active;
+    const label = item.soon ? `${item.label} (${t("fixAdmin.shell.soon")})` : item.label;
+    if (collapsed) {
+      return (
+        <li key={item.href}>
+          <Link
+            href={item.href}
+            onClick={onNavigate}
+            title={label}
+            aria-label={label}
+            aria-current={navReady && active ? "page" : undefined}
+            className={`relative mx-auto flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-150 ${
+              navReady && active
+                ? "bg-[#EEF2FD] text-[#204195]"
+                : item.soon
+                  ? "text-[#A3AFC8] hover:bg-[#F2F5FC] hover:text-[#607096]"
+                  : "text-[#667085] hover:bg-[#F2F5FC] hover:text-[#204195]"
+            }`}
+          >
+            <item.Icon className="size-4" />
+            {item.badge ? <span className="absolute -right-1 -top-1">{item.badge}</span> : null}
+          </Link>
+        </li>
+      );
+    }
+    return (
+      <li key={item.href}>
+        <Link
+          href={item.href}
+          onClick={onNavigate}
+          aria-current={navReady && active ? "page" : undefined}
+          className={linkClass(active)}
+        >
+          <item.Icon className="size-3.5 shrink-0" />
+          <span className={`flex-1 truncate text-xs ${item.soon && !(navReady && active) ? "text-[#8A98B8]" : ""}`}>
+            {item.label}
+          </span>
+          {item.badge ?? null}
+        </Link>
+      </li>
+    );
+  };
 
   const navGroups = (collapsed: boolean, onNavigate?: () => void) => (
     <nav className="space-y-3 pt-1" aria-label={t("fixAdmin.shell.menuTitle")}>
-      {groups.map((group, groupIdx) => (
-        <div key={group.title}>
-          {groupIdx > 0 && <div className={`${collapsed ? "mx-auto my-2 w-6" : "mx-2 my-2"} h-px bg-[#EAEFF8]`} />}
-          {!collapsed && (
-            <p className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-[#8A98B8]">{group.title}</p>
-          )}
-          <ul className="space-y-0.5">
-            {group.items.map((item) => {
-              const active = item.active;
-              const label = item.soon ? `${item.label} (${t("fixAdmin.shell.soon")})` : item.label;
-              if (collapsed) {
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={onNavigate}
-                      title={label}
-                      aria-label={label}
-                      aria-current={navReady && active ? "page" : undefined}
-                      className={`mx-auto flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-150 ${
-                        navReady && active
-                          ? "bg-[#EEF2FD] text-[#204195]"
-                          : item.soon
-                            ? "text-[#A3AFC8] hover:bg-[#F2F5FC] hover:text-[#607096]"
-                            : "text-[#667085] hover:bg-[#F2F5FC] hover:text-[#204195]"
-                      }`}
-                    >
-                      <item.Icon className="size-4" />
-                    </Link>
-                  </li>
-                );
-              }
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    onClick={onNavigate}
-                    aria-current={navReady && active ? "page" : undefined}
-                    className={linkClass(active)}
-                  >
-                    <item.Icon className="size-3.5 shrink-0" />
-                    <span className={`flex-1 truncate text-xs ${item.soon && !(navReady && active) ? "text-[#8A98B8]" : ""}`}>
-                      {item.label}
-                    </span>
-                    {item.soon ? soonBadge : null}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+      {groups.map((group, groupIdx) => {
+        const groupActive = navReady && group.items.some((item) => item.active);
+        // The "coming soon" group stays folded (one row) unless opened or one of its pages is open.
+        const folded = group.collapsible && !soonOpen && !groupActive;
+        if (group.collapsible && collapsed && !groupActive) return null;
+        return (
+          <div key={group.title || "home"}>
+            {groupIdx > 0 && <div className={`${collapsed ? "mx-auto my-2 w-6" : "mx-2 my-2"} h-px bg-[#EAEFF8]`} />}
+            {!collapsed && group.collapsible ? (
+              <button
+                type="button"
+                onClick={() => setSoonOpen((open) => !open)}
+                aria-expanded={!folded}
+                className="flex w-full items-center gap-1.5 rounded-lg px-2.5 pb-1 text-left text-[10px] font-bold uppercase tracking-wider text-[#8A98B8] hover:text-[#607096]"
+              >
+                <span className="flex-1">{group.title}</span>
+                <span className="rounded-full bg-[#F0F4FC] px-1.5 py-0.5 text-[9px] font-semibold normal-case tracking-normal text-[#607096]">
+                  {group.items.length}
+                </span>
+                <ChevronDown className={`size-3 transition-transform ${folded ? "" : "rotate-180"}`} aria-hidden="true" />
+              </button>
+            ) : !collapsed && group.title ? (
+              <p className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-[#8A98B8]">{group.title}</p>
+            ) : null}
+            {folded ? null : (
+              <ul className="space-y-0.5">{group.items.map((item) => renderNavItem(item, collapsed, onNavigate))}</ul>
+            )}
+          </div>
+        );
+      })}
     </nav>
   );
 
   const avatar = (
     <>
-      {profile?.picture && !avatarError ? (
+      {clientProfile?.picture && !avatarError ? (
         <img
           alt=""
-          src={profile.picture}
+          src={clientProfile.picture}
           referrerPolicy="no-referrer"
           onError={() => setAvatarError(true)}
           className="h-8 w-8 shrink-0 rounded-full border border-[#DCE4F3] object-cover shadow-2xs"
@@ -470,7 +487,7 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
 
       <div className="min-h-screen bg-[#F8FAFC] font-body text-[#14244B]">
         {/* Mobile Topbar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-[#DCE4F3] bg-white px-4 py-2.5 md:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-[#DCE4F3] bg-white px-4 py-2.5 lg:hidden">
           <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
@@ -484,28 +501,33 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
             </button>
             {brandMark(false)}
           </div>
-          <Link
-            href="/admin/profile"
-            aria-label={t("fixAdmin.shell.profile")}
-            className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#DCE4F3] bg-[#204195] text-xs font-bold text-[#FCB625]"
-            title={displayName}
-          >
-            {profile?.picture && !avatarError ? (
-              <img
-                alt=""
-                src={profile.picture}
-                className="h-8 w-8 rounded-full object-cover"
-                onError={() => setAvatarError(true)}
-              />
-            ) : (
-              initialsFromName(displayName)
-            )}
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            <AdminNotificationBell />
+            <Link
+              href="/admin/profile"
+              aria-label={t("fixAdmin.shell.profile")}
+              className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#DCE4F3] bg-[#204195] text-xs font-bold text-[#FCB625]"
+              title={displayName}
+            >
+              {clientProfile?.picture && !avatarError ? (
+                <img
+                  alt=""
+                  src={clientProfile.picture}
+                  className="h-8 w-8 rounded-full object-cover"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                initialsFromName(displayName)
+              )}
+            </Link>
+          </div>
         </header>
+
+        <AdminNotificationToasts />
 
         {/* Mobile navigation drawer */}
         {mobileNavOpen && (
-          <div className="fixed inset-0 z-[60] md:hidden">
+          <div className="fixed inset-0 z-[60] lg:hidden">
             <div className="absolute inset-0 bg-[#14244B]/40" onClick={closeMobileNav} aria-hidden="true" />
             <div
               ref={drawerRef}
@@ -516,19 +538,18 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
               tabIndex={-1}
               className="anim-pop absolute inset-y-0 left-0 flex w-[min(18rem,85vw)] flex-col justify-between bg-white shadow-[0_30px_80px_-30px_rgba(20,36,75,0.5)] outline-none"
             >
-              <div className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-3.5">
-                <div className="flex items-center justify-between gap-2">
-                  {brandMark(false, closeMobileNav)}
-                  <button
-                    type="button"
-                    onClick={closeMobileNav}
-                    aria-label={t("fixAdmin.shell.closeMenu")}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#607096] transition-colors hover:bg-[#F0F4FC] hover:text-[#14244B]"
-                  >
-                    <X className="size-5" />
-                  </button>
-                </div>
-                {createButton(false, closeMobileNav)}
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#EAEFF8] px-3.5 py-3">
+                {brandMark(false, closeMobileNav)}
+                <button
+                  type="button"
+                  onClick={closeMobileNav}
+                  aria-label={t("fixAdmin.shell.closeMenu")}
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#607096] transition-colors hover:bg-[#F0F4FC] hover:text-[#14244B]"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+              <div className="admin-nav-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain p-3.5">
                 {navGroups(false, closeMobileNav)}
               </div>
               {sidebarFooter(false, closeMobileNav)}
@@ -538,7 +559,7 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
 
         {/* Desktop Sidebar */}
         <aside
-          className={`fixed left-0 top-0 z-40 hidden h-dvh flex-col justify-between border-r border-[#DCE4F3] bg-white transition-[width] duration-300 ease-in-out md:flex ${
+          className={`fixed left-0 top-0 z-40 hidden h-dvh flex-col justify-between border-r border-[#DCE4F3] bg-white transition-[width] duration-300 ease-in-out lg:flex ${
             isCollapsed ? "w-[72px]" : "w-64"
           }`}
         >
@@ -557,9 +578,11 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
             )}
           </button>
 
-          <div className={`flex-1 overflow-y-auto overscroll-contain space-y-4 ${isCollapsed ? "p-2.5" : "p-3.5"}`}>
+          {/* The brand stays put; only the menu (from "Bảng tổng quan" down) scrolls. */}
+          <div className={`shrink-0 border-b border-[#EAEFF8] ${isCollapsed ? "px-2.5 py-3" : "px-3.5 py-3"}`}>
             {brandMark(isCollapsed)}
-            {createButton(isCollapsed)}
+          </div>
+          <div className={`admin-nav-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain ${isCollapsed ? "p-2.5" : "p-3.5"}`}>
             {navGroups(isCollapsed)}
           </div>
 
@@ -569,10 +592,18 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
         {/* Main Content Area */}
         <main
           className={`min-h-screen transition-[margin] duration-300 ease-in-out px-4 py-8 sm:px-6 md:px-8 lg:px-10 ${
-            isCollapsed ? "md:ml-[72px]" : "md:ml-64"
+            isCollapsed ? "lg:ml-[72px]" : "lg:ml-64"
           }`}
         >
-          <div className="mx-auto max-w-7xl">{children}</div>
+          <div className="mx-auto max-w-7xl">
+            {/* Desktop: notifications bell (mobile has it in the top bar). */}
+            <div className="-mt-4 mb-3 hidden justify-end lg:flex">
+              <AdminNotificationBell />
+            </div>
+            {/* Incidents get the full banner only where they are acted on; elsewhere the bell and the menu count carry them. */}
+            {isActive.dashboard || isActive.aiOverview ? <AdminAlertsBanner /> : null}
+            {children}
+          </div>
         </main>
       </div>
     </>
