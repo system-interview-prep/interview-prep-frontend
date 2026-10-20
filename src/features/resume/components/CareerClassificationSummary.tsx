@@ -5,6 +5,7 @@ import {
   type ParsedCvData,
   type CvProcessingStatus,
 } from "@features/resume/types";
+import { useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { fmt } from "@/i18n/format";
 
@@ -25,6 +26,8 @@ export default function CareerClassificationSummary({
   compact?: boolean;
 }) {
   const { t } = useLanguage();
+  // Evidence mounts only while open, so a closed row carries no hidden text boxes.
+  const [whyOpen, setWhyOpen] = useState(false);
   if (status !== "DONE") return null;
 
   const classifications = parsedData?.careerClassifications ?? [];
@@ -35,8 +38,8 @@ export default function CareerClassificationSummary({
   const evidence = resolveClassificationEvidence(primary, parsedData?.evidence ?? []);
 
   return (
-    <div className={compact ? "mt-3" : "rounded-3xl bg-white p-5 border border-[#DCE4F3]"}>
-      <div className="flex flex-wrap items-center gap-1.5" aria-label={t("picker.career.ariaLabel")}>
+    <div className={compact ? "mt-3" : "rounded-2xl bg-white p-5 border border-[#DCE4F3]"}>
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5" aria-label={t("picker.career.ariaLabel")}>
         <span className="inline-flex items-center rounded-full bg-[#F0F4FC] px-2.5 py-0.5 text-xs font-semibold text-[#204195]">
           {primary.label}
         </span>
@@ -52,19 +55,29 @@ export default function CareerClassificationSummary({
       )}
 
       {evidence.length > 0 && (
-        <details className="group mt-2 text-xs text-[#607096]">
+        <details className="group mt-2 text-xs text-[#607096]" onToggle={(event) => setWhyOpen(event.currentTarget.open)}>
           <summary className="w-fit cursor-pointer select-none font-medium text-[#607096] hover:text-[#204195]">{t("picker.career.why")}</summary>
-          <ul className="mt-2 space-y-2 border-l-2 border-[#FCB625] pl-3">
-            {evidence.map((item) => (
-              <li key={item.evidenceId}>
-                <span>{item.text}</span>
-                {item.pageNumber ? <span className="ml-1 text-[10px] text-[#204195]">{fmt(t("picker.career.page"), { n: item.pageNumber })}</span> : null}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-[11px] text-[#607096]">
-            {fmt(t("picker.career.confidence"), { level: t(confidenceKey(primary.confidence)) })}
-          </p>
+          {whyOpen ? (
+            <>
+              <ul className="mt-2 space-y-2 border-l-2 border-[#FCB625] pl-3 [overflow-wrap:anywhere]">
+                {evidence.map((item) => (
+                  <li key={item.evidenceId}>
+                    <span>
+                      {item.text}
+                      {item.pageNumber ? (
+                        <span className="ml-1 whitespace-nowrap text-[10px] text-[#204195]">
+                          {fmt(t("picker.career.page"), { n: item.pageNumber })}
+                        </span>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[11px] text-[#607096]">
+                {fmt(t("picker.career.confidence"), { level: t(confidenceKey(primary.confidence)) })}
+              </p>
+            </>
+          ) : null}
         </details>
       )}
     </div>
