@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useId } from "react";
+import AdminPageHeader from "./primitives/AdminPageHeader";
+import AdminRowAction, { AdminRowActions } from "./primitives/AdminRowAction";
 import axios from "axios";
 import Button from "@components/ui/Button";
 import { ConfirmDialog } from "@components/shared/ConfirmDialog";
@@ -746,12 +748,12 @@ export default function KnowledgeBaseClient({
   );
 
   return (
-    <div className="bg-surface font-body text-on-surface antialiased">
+    <div className="min-w-0 text-on-surface antialiased">
       {/* Notification Toast */}
       <div role="status" aria-live="polite" aria-atomic="true">
         {notification && (
           <div
-            className={`fixed top-6 right-6 z-[9999] max-w-md p-4 rounded-3xl shadow-2xl transition-all duration-300 transform translate-y-0 text-white flex items-start gap-3 border ${
+            className={`fixed top-20 left-4 right-4 z-[9999] sm:left-auto sm:right-6 sm:top-6 sm:max-w-md p-4 rounded-3xl shadow-2xl transition-all duration-300 transform translate-y-0 text-white flex items-start gap-3 border ${
               notification.type === "success"
                 ? "bg-[#287A4B] border-[#287A4B]"
                 : "bg-[#C43B3B] border-[#C43B3B]"
@@ -762,7 +764,7 @@ export default function KnowledgeBaseClient({
             ) : (
               <AlertCircle className="size-5 shrink-0 mt-0.5" aria-hidden="true" />
             )}
-            <div>
+            <div className="min-w-0 break-words">
               <p className="font-bold text-sm">
                 {notification.type === "success" ? t("fixAdmin.kb.toastSuccess") : t("fixAdmin.kb.toastError")}
               </p>
@@ -775,18 +777,18 @@ export default function KnowledgeBaseClient({
       {/* Main Content Area */}
       <div className="w-full space-y-6">
         {/* Top Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
-          <div>
-            <h1 className="font-headline text-2xl font-bold tracking-tight text-[#14244B] sm:text-3xl">
-              {t("admin.knowledgeBase") || "Cơ sở tri thức (RAG)"}
-            </h1>
-            <p className="mt-1 text-xs text-[#607096]">
-              {t("fixAdmin.kb.subtitle")}
-            </p>
-          </div>
+        <div>
+          <AdminPageHeader
+            title={t("admin.knowledgeBase") || "Cơ sở tri thức (RAG)"}
+            description={t("fixAdmin.kb.subtitle")}
+            breadcrumbs={[
+              { label: t("fixAdmin.detail.breadcrumbAdmin"), href: "/admin/dashboard" },
+              { label: t("admin.knowledgeBase") },
+            ]}
+          />
 
           {/* Tab Switcher */}
-          <div role="tablist" aria-label={t("fixAdmin.kb.tabsLabel")} className="flex rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-1 shadow-xs">
+          <div role="tablist" aria-label={t("fixAdmin.kb.tabsLabel")} className="grid grid-cols-2 gap-1 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-1 shadow-xs sm:inline-flex sm:flex-wrap">
             <button
               id="knowledge-tab-catalog"
               type="button"
@@ -794,7 +796,7 @@ export default function KnowledgeBaseClient({
               aria-selected={activeTab === "catalog"}
               aria-controls="knowledge-panel-catalog"
               onClick={() => setActiveTab("catalog")}
-              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-center text-xs font-bold transition-all ${
                 activeTab === "catalog"
                   ? "bg-white text-[#204195] shadow-xs"
                   : "text-[#607096] hover:text-[#204195]"
@@ -810,7 +812,7 @@ export default function KnowledgeBaseClient({
               aria-selected={activeTab === "editor"}
               aria-controls="knowledge-panel-editor"
               onClick={() => setActiveTab("editor")}
-              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-center text-xs font-bold transition-all ${
                 activeTab === "editor"
                   ? "bg-white text-[#204195] shadow-xs"
                   : "text-[#607096] hover:text-[#204195]"
@@ -826,7 +828,7 @@ export default function KnowledgeBaseClient({
               aria-selected={activeTab === "playground"}
               aria-controls="knowledge-panel-vector"
               onClick={() => setActiveTab("playground")}
-              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-center text-xs font-bold transition-all ${
                 activeTab === "playground"
                   ? "bg-white text-[#204195] shadow-xs"
                   : "text-[#607096] hover:text-[#204195]"
@@ -835,7 +837,7 @@ export default function KnowledgeBaseClient({
               <FlaskConical className="size-4" />
               {t("fixAdmin.kb.tabVector")}
             </button>
-            <button id="knowledge-tab-graph" type="button" role="tab" aria-selected={activeTab === "graph"} aria-controls="knowledge-panel-graph" onClick={() => setActiveTab("graph")} className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${activeTab === "graph" ? "bg-white text-[#204195] shadow-xs" : "text-[#607096] hover:text-[#204195]"}`}>
+            <button id="knowledge-tab-graph" type="button" role="tab" aria-selected={activeTab === "graph"} aria-controls="knowledge-panel-graph" onClick={() => setActiveTab("graph")} className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-center text-xs font-bold transition-all ${activeTab === "graph" ? "bg-white text-[#204195] shadow-xs" : "text-[#607096] hover:text-[#204195]"}`}>
               <Network className="size-4" /> {t("fixAdmin.kb.tabGraph")}
             </button>
           </div>
@@ -848,16 +850,16 @@ export default function KnowledgeBaseClient({
             <div id="knowledge-panel-catalog" role="tabpanel" aria-labelledby="knowledge-tab-catalog" className="space-y-6">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-bold font-headline tracking-tight text-[#14244B]">{t("fixAdmin.kb.catalogTitle")}</h2>
+                  <h2 className="text-base font-bold text-[#14244B] sm:text-lg">{t("fixAdmin.kb.catalogTitle")}</h2>
                   <p className="text-[#607096] text-xs mt-1">
                     {t("fixAdmin.kb.catalogSubtitle")}
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-12 gap-8 items-start">
+              <div className="grid grid-cols-12 gap-6 items-start">
                 {/* Left Category Column */}
-                <div className="col-span-12 lg:col-span-3 space-y-4">
+                <div className="col-span-12 min-w-0 lg:col-span-3 space-y-4">
                   <div className="bg-white border border-[#DCE4F3] rounded-3xl p-5 shadow-xs">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[#607096] mb-4 flex items-center gap-2">
                       <Tags className="size-4" />
@@ -922,7 +924,7 @@ export default function KnowledgeBaseClient({
                 </div>
 
                 {/* Right Main Table Column */}
-                <div className="col-span-12 lg:col-span-9 space-y-6">
+                <div className="col-span-12 min-w-0 lg:col-span-9 space-y-6">
                   {/* Filtering bar */}
                   <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#DCE4F3] flex gap-4 items-center shadow-xs focus-within:ring-2 focus-within:ring-[#204195]/20 focus-within:border-[#204195] transition-all">
                     <Search className="size-5 text-[#607096] shrink-0" aria-hidden="true" />
@@ -948,7 +950,7 @@ export default function KnowledgeBaseClient({
                           {fmt(t("fixAdmin.kb.selectedCount"), { n: selectedDocIds.length })}
                         </span>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={handleBulkToggleActive}
@@ -988,7 +990,7 @@ export default function KnowledgeBaseClient({
                       </div>
                     ) : (
                       <>
-                      <div className="overflow-x-auto">
+                      <div className="relative overflow-x-auto">
                       <table className="w-full min-w-[960px] text-left border-collapse">
                         <thead>
                           <tr className="bg-[#F8FAFC] text-[10px] uppercase font-bold text-[#607096] border-b border-[#DCE4F3]">
@@ -1023,7 +1025,7 @@ export default function KnowledgeBaseClient({
                                   className="rounded border-[#DCE4F3] text-[#204195] focus:ring-2 focus:ring-[#204195]/20 h-4 w-4 cursor-pointer"
                                 />
                               </td>
-                              <td className="p-4 font-bold text-[#14244B]">
+                              <td className="max-w-[220px] p-4 font-bold text-[#14244B] [overflow-wrap:anywhere]">
                                 {doc.document_id}
                               </td>
                               <td className="p-4">
@@ -1040,7 +1042,13 @@ export default function KnowledgeBaseClient({
                                     ? "bg-[#FFF6DF] text-[#8A5A00]"
                                     : "bg-[#FDF2F2] text-[#C43B3B]"
                                 }`}>
-                                  {doc.difficulty}
+                                  {doc.difficulty === "basic"
+                                    ? t("fixAdmin.kb.diffBasic")
+                                    : doc.difficulty === "intermediate"
+                                    ? t("fixAdmin.kb.diffIntermediate")
+                                    : doc.difficulty === "advanced"
+                                    ? t("fixAdmin.kb.diffAdvanced")
+                                    : doc.difficulty}
                                 </span>
                               </td>
                               <td className="p-4 text-center capitalize font-semibold">{doc.language}</td>
@@ -1064,34 +1072,32 @@ export default function KnowledgeBaseClient({
                                   <div aria-hidden="true" className="w-9 h-5 bg-[#EAEFF8] peer-focus-visible:ring-2 peer-focus-visible:ring-[#204195]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#DCE4F3] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#287A4B]"></div>
                                 </label>
                               </td>
-                              <td className="p-4 text-right space-x-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleEvaluateDoc(doc.document_id)}
-                                  title={t("fixAdmin.kb.evaluate")}
-                                  aria-label={fmt(t("fixAdmin.kb.evaluateDoc"), { id: doc.document_id })}
-                                  className="p-1.5 text-[#204195] hover:bg-[#F0F4FC] rounded-full transition-colors inline-flex items-center"
-                                >
-                                  <Brain className="size-5" aria-hidden="true" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleLoadEdit(doc.document_id)}
-                                  title={t("fixAdmin.kb.edit")}
-                                  aria-label={fmt(t("fixAdmin.kb.editDoc"), { id: doc.document_id })}
-                                  className="p-1.5 text-[#204195] hover:bg-[#F0F4FC] rounded-full transition-colors inline-flex items-center"
-                                >
-                                  <Edit className="size-5" aria-hidden="true" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => requestDeleteDoc(doc.document_id)}
-                                  title={t("fixAdmin.kb.delete")}
-                                  aria-label={fmt(t("fixAdmin.kb.deleteDoc"), { id: doc.document_id })}
-                                  className="p-1.5 text-[#C43B3B] hover:bg-[#FDF2F2] rounded-full transition-colors inline-flex items-center"
-                                >
-                                  <Trash2 className="size-5" aria-hidden="true" />
-                                </button>
+                              <td className="p-4 text-right">
+                                <AdminRowActions>
+                                  <AdminRowAction
+                                    icon={Brain}
+                                    tone="neutral"
+                                    iconOnly
+                                    label={t("fixAdmin.kb.evaluate")}
+                                    aria-label={fmt(t("fixAdmin.kb.evaluateDoc"), { id: doc.document_id })}
+                                    onClick={() => handleEvaluateDoc(doc.document_id)}
+                                  />
+                                  <AdminRowAction
+                                    icon={Edit}
+                                    iconOnly
+                                    label={t("fixAdmin.kb.edit")}
+                                    aria-label={fmt(t("fixAdmin.kb.editDoc"), { id: doc.document_id })}
+                                    onClick={() => handleLoadEdit(doc.document_id)}
+                                  />
+                                  <AdminRowAction
+                                    icon={Trash2}
+                                    tone="danger"
+                                    iconOnly
+                                    label={t("fixAdmin.kb.delete")}
+                                    aria-label={fmt(t("fixAdmin.kb.deleteDoc"), { id: doc.document_id })}
+                                    onClick={() => requestDeleteDoc(doc.document_id)}
+                                  />
+                                </AdminRowActions>
                               </td>
                             </tr>
                           ))}
@@ -1120,11 +1126,11 @@ export default function KnowledgeBaseClient({
           {activeTab === "editor" && (
             <div id="knowledge-panel-editor" role="tabpanel" aria-labelledby="knowledge-tab-editor" className="grid grid-cols-12 gap-8">
               {/* Form Input (Left panel) */}
-              <div className="col-span-12 lg:col-span-8 space-y-6">
-                <div className="bg-white rounded-3xl p-8 border border-[#DCE4F3] shadow-xs">
-                  <div className="flex items-center justify-between mb-8 pb-4 border-b border-[#DCE4F3]">
-                    <div>
-                      <h3 className="text-xl font-bold font-headline text-on-surface">
+              <div className="col-span-12 min-w-0 lg:col-span-8 space-y-6">
+                <div className="bg-white rounded-3xl p-5 sm:p-8 border border-[#DCE4F3] shadow-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-8 pb-4 border-b border-[#DCE4F3]">
+                    <div className="min-w-0 break-words">
+                      <h3 className="text-base font-bold sm:text-lg text-on-surface">
                         {isEditMode ? fmt(t("fixAdmin.kb.editorTitleEdit"), { id: editDocId }) : t("fixAdmin.kb.editorTitleNew")}
                       </h3>
                       <p className="text-[#607096] text-xs mt-1">
@@ -1362,11 +1368,11 @@ export default function KnowledgeBaseClient({
               </div>
 
               {/* Upload zone & Log (Right panel) */}
-              <div className="col-span-12 lg:col-span-4 space-y-6">
+              <div className="col-span-12 min-w-0 lg:col-span-4 space-y-6">
                 {/* Upload Dropzone */}
                 <div className="bg-white rounded-3xl p-6 border border-[#DCE4F3] shadow-xs group">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold font-headline">{t("admin.knowledge.ingestDocuments")}</h3>
+                    <h3 className="text-base font-bold sm:text-lg">{t("admin.knowledge.ingestDocuments")}</h3>
                     <span className="text-[10px] font-bold text-[#607096] px-2.5 py-1 bg-[#F0F4FC] rounded-full">
                       CSV, JSON
                     </span>
@@ -1400,7 +1406,7 @@ export default function KnowledgeBaseClient({
 
                 {/* Session Log */}
                 <div className="bg-white rounded-3xl p-6 border border-[#DCE4F3] shadow-xs">
-                  <h3 className="text-lg font-bold font-headline mb-4 flex items-center gap-2">
+                  <h3 className="text-base font-bold sm:text-lg mb-4 flex items-center gap-2">
                     <History className="size-5 text-[#287A4B]" />
                     {t("fixAdmin.kb.sessionLogTitle")}
                   </h3>
@@ -1437,9 +1443,9 @@ export default function KnowledgeBaseClient({
           {activeTab === "graph" && (
             <div id="knowledge-panel-graph" role="tabpanel" aria-labelledby="knowledge-tab-graph" className="space-y-6">
               <div className="rounded-3xl border border-[#DCE4F3] bg-white p-6 shadow-xs">
-                <div className="flex items-start gap-3"><div className="rounded-xl bg-[#EEF2FD] p-3 text-[#204195]"><Network className="size-6" /></div><div><h2 className="text-xl font-bold text-[#14244B]">{t("fixAdmin.kb.graphTitle")}</h2><p className="mt-1 text-sm text-[#607096]">{t("fixAdmin.kb.graphSubtitle")}</p></div></div>
+                <div className="flex items-start gap-3"><div className="rounded-xl bg-[#EEF2FD] p-3 text-[#204195]"><Network className="size-6" /></div><div><h2 className="text-base font-bold text-[#14244B] sm:text-lg">{t("fixAdmin.kb.graphTitle")}</h2><p className="mt-1 text-sm text-[#607096]">{t("fixAdmin.kb.graphSubtitle")}</p></div></div>
               </div>
-              <div className="rounded-3xl border border-dashed border-[#DCE4F3] bg-white p-10 text-center"><Network className="mx-auto size-9 text-[#204195]" /><h3 className="mt-4 font-bold text-[#14244B]">{t("fixAdmin.kb.graphEmptyTitle")}</h3><p className="mx-auto mt-2 max-w-xl text-sm text-[#607096]">{t("fixAdmin.kb.graphEmptyBody")}</p><div className="mx-auto mt-6 max-w-xl rounded-xl bg-[#F8FAFC] p-4 text-left font-mono text-xs text-[#607096]">GET /admin/question-bank/graph?rootType=questionVersion&amp;rootId=...<br />GET /admin/taxonomy/active</div></div>
+              <div className="rounded-3xl border border-dashed border-[#DCE4F3] bg-white p-6 text-center sm:p-10"><Network className="mx-auto size-9 text-[#204195]" /><h3 className="mt-4 font-bold text-[#14244B]">{t("fixAdmin.kb.graphEmptyTitle")}</h3><p className="mx-auto mt-2 max-w-xl text-sm text-[#607096]">{t("fixAdmin.kb.graphEmptyBody")}</p><div className="mx-auto mt-6 max-w-xl rounded-xl bg-[#F8FAFC] p-4 text-left font-mono text-xs text-[#607096] [overflow-wrap:anywhere]">GET /admin/question-bank/graph?rootType=questionVersion&amp;rootId=...<br />GET /admin/taxonomy/active</div></div>
             </div>
           )}
 
@@ -1447,9 +1453,9 @@ export default function KnowledgeBaseClient({
           {activeTab === "playground" && (
             <div id="knowledge-panel-vector" role="tabpanel" aria-labelledby="knowledge-tab-vector" className="grid grid-cols-12 gap-8">
               {/* Controls (Left Column) */}
-              <div className="col-span-12 lg:col-span-4 space-y-6">
+              <div className="col-span-12 min-w-0 lg:col-span-4 space-y-6">
                 <div className="bg-white rounded-3xl p-6 border border-[#DCE4F3] shadow-xs">
-                  <h3 className="text-lg font-bold font-headline mb-6 flex items-center gap-2">
+                  <h3 className="text-base font-bold sm:text-lg mb-6 flex items-center gap-2">
                     <Sliders className="size-5 text-primary" />
                     {t("fixAdmin.kb.filtersTitle")}
                   </h3>
@@ -1542,7 +1548,7 @@ export default function KnowledgeBaseClient({
               </div>
 
               {/* Results (Right Column) */}
-              <div className="col-span-12 lg:col-span-8 space-y-6">
+              <div className="col-span-12 min-w-0 lg:col-span-8 space-y-6">
                 {/* Stats bar if search occurred */}
                 {retrievalStats && (
                   <div className="grid grid-cols-5 gap-3 p-4 bg-[#F0F4FC] border border-[#DCE4F3] rounded-xl">
