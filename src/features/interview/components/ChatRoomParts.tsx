@@ -15,6 +15,7 @@ import {
   Loader2,
   LogOut,
   Send,
+  SkipForward,
   User,
   X,
 } from 'lucide-react';
@@ -73,7 +74,10 @@ export function ChatRoomHeader({
   onLeave,
   questionNumber,
   totalQuestions,
+  stageLabel,
 }: {
+  /** Current interview stage ("Mở đầu", "Chuyên môn"…), shown next to the status. */
+  stageLabel?: string | null;
   questionNumber?: number | null;
   totalQuestions?: number;
   jobTitle: string;
@@ -108,6 +112,7 @@ export function ChatRoomHeader({
             />
             <span className="truncate">
               {isClosed ? getEndReasonLabel(endReason, t) : t('room.chat.live')}
+              {stageLabel ? <span className="font-semibold text-[#204195]"> · {stageLabel}</span> : null}
               {' · '}
               {durationMinutes ? fmt(t('room.chat.modeDuration'), { n: durationMinutes }) : t('room.chat.mode')}
             </span>
@@ -362,13 +367,32 @@ export function ErrorBanner({ message, onDismiss }: { message: string; onDismiss
 
 // ── Composer ─────────────────────────────────────────────────────────────────
 
-/** Quick replies whose exact text the engine routes as intended (verified
- *  against interview_engine patterns: CLARIFY, and the CLOSING farewell). */
-function quickRepliesFor(stage: string | null | undefined, t: (key: string) => string): string[] {
-  if (stage === 'CLOSING') return [t('room.chat.quick.closing')];
-  // Swapping the warm-up has nothing to swap to; every other stage asks a real question.
-  if (stage && stage !== 'WARM_UP') return [t('room.chat.quick.repeat'), t('room.chat.quick.skip')];
-  return [t('room.chat.quick.repeat')];
+/**
+ * Quick replies for the chat room, each one checked against the engine's
+ * intent rules (interview_engine.classify_candidate_intent /
+ * classify_candidate_question):
+ * - "chưa rõ ý câu hỏi…" is a CLARIFY_REQUEST: explained once per question,
+ *   never graded; hidden once that question's clarification is used.
+ * - In the Q&A stage, a question about the role is answered (2 at most), and
+ *   "không có câu hỏi thêm" closes the interview.
+ * Left out on purpose: "nhắc lại câu hỏi" (the question is on screen in
+ * chat), "đổi câu hỏi" (a skip scores 0: behind a confirmed button instead),
+ * "cho mình suy nghĩ / xin ví dụ" (read as an answer and graded) and
+ * "không biết" (a give-up, scores 0).
+ */
+export function quickRepliesFor(
+  stage: string | null | undefined,
+  t: (key: string) => string,
+  clarifyUsed = false,
+): string[] {
+  if (stage === 'CLOSING') return [t('room.chat.quick.roleQuestion'), t('room.chat.quick.closing')];
+  if (!stage || stage === 'WARM_UP') return [];
+  return clarifyUsed ? [] : [t('room.chat.quick.clarify')];
+}
+
+/** Skipping is a real decision (the question scores 0), so it is not a one-tap quick reply. */
+export function canSkipQuestion(stage: string | null | undefined): boolean {
+  return Boolean(stage) && stage !== 'WARM_UP' && stage !== 'CLOSING';
 }
 
 export function ChatComposer({
@@ -381,9 +405,15 @@ export function ChatComposer({
   onKeyDown,
   onSend,
   onQuickReply,
+  clarifyUsed = false,
+  onSkip,
 }: {
   value: string;
   currentStage?: string | null;
+  /** The current question already had its one clarification. */
+  clarifyUsed?: boolean;
+  /** Ask to skip the current question (the caller confirms first). */
+  onSkip?: () => void;
   isSending: boolean;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   compact?: boolean;
@@ -401,9 +431,9 @@ export function ChatComposer({
         : t('room.chat.placeholder.default');
   return (
     <div className="flex flex-col gap-2">
-      {!compact ? (
-        <div className="flex flex-wrap gap-2">
-          {quickRepliesFor(currentStage, t).map((text) => (
+      {!compact && (quickRepliesFor(currentStage, t, clarifyUsed).length || (onSkip && canSkipQuestion(currentStage))) ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {quickRepliesFor(currentStage, t, clarifyUsed).map((text) => (
             <button
               key={text}
               type="button"
@@ -414,6 +444,17 @@ export function ChatComposer({
               {text}
             </button>
           ))}
+          {onSkip && canSkipQuestion(currentStage) ? (
+            <button
+              type="button"
+              onClick={onSkip}
+              disabled={isSending}
+              className="ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-[#8A98B8] transition hover:bg-[#F7F9FD] hover:text-[#C43B3B] disabled:opacity-50"
+            >
+              <SkipForward className="size-3.5" aria-hidden="true" />
+              {t('room.chat.skip.button')}
+            </button>
+          ) : null}
         </div>
       ) : null}
       <div className="flex items-end gap-2 rounded-3xl border border-[#DCE4F3] bg-white p-2 transition focus-within:border-[#204195] focus-within:ring-2 focus-within:ring-[#204195]/15">
