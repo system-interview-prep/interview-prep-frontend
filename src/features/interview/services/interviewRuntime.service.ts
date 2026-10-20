@@ -163,7 +163,16 @@ export type CreateInterviewRuntimeSessionRequest = {
   experienceType?: InterviewRuntimeExperience;
   locale: string;
   durationMinutes?: number;
+  /** "Luyện vòng này" on the progress page: half the technical questions come from this round. */
+  focusArea?: FocusArea;
 };
+
+/** Rounds made of technical questions (backend interview_rounds.FOCUSABLE_AREAS). */
+export const FOCUS_AREAS = ["language", "framework", "data", "api", "infra", "ai"] as const;
+export type FocusArea = (typeof FOCUS_AREAS)[number];
+export function asFocusArea(value: string | null | undefined): FocusArea | undefined {
+  return (FOCUS_AREAS as readonly string[]).includes(value ?? "") ? (value as FocusArea) : undefined;
+}
 
 export const interviewRuntimeApi = {
   /** Match threshold for entering a room (GET /api/v1/interviews/entry-policy). */
