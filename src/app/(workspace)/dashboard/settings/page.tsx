@@ -342,7 +342,7 @@ export default function SettingsPage() {
       {toastMessage && (
         <aside
           aria-atomic="true"
-          className="fixed left-4 right-4 top-20 z-50 rounded-3xl bg-white p-3 border border-[#DCE4F3] shadow-[0_18px_40px_-24px_rgba(20,36,75,0.45)] animate-in fade-in slide-in-from-top-3 sm:left-auto sm:w-[26rem] md:right-8"
+          className="fixed left-4 right-4 top-20 z-50 rounded-2xl bg-white p-3 border border-[#DCE4F3] shadow-[0_18px_40px_-24px_rgba(20,36,75,0.45)] animate-in fade-in slide-in-from-top-3 sm:left-auto sm:w-[26rem] md:right-8"
         >
           <StatusNote
             text={toastMessage.text}
@@ -354,7 +354,7 @@ export default function SettingsPage() {
       )}
 
       <main className="min-h-screen bg-[#F8FAFC] px-4 pb-16 pt-4 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
-        <div className="mx-auto max-w-[1280px] space-y-8">
+        <div className="mx-auto max-w-[1280px] space-y-6">
           {/* HERO: the fox introduces settings and hands over save / reset */}
           <WorkspacePageHeader
             title={t("settings.page.header.title")}
@@ -364,7 +364,7 @@ export default function SettingsPage() {
               type="button"
               onClick={handleSaveSettings}
               disabled={isSaving}
-              className="inline-flex h-11 items-center gap-2 rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:opacity-60"
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:opacity-60"
               aria-label={t("settings.page.header.saveAria")}
             >
               {isSaving ? (
@@ -380,7 +380,7 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={() => setResetConfirmOpen(true)}
-              className="inline-flex h-11 items-center rounded-full bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F0F4FC]"
+              className="inline-flex h-10 items-center rounded-xl bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F0F4FC]"
               aria-label={t("settings.page.header.resetAria")}
             >
               {t("settings.page.header.reset")}
@@ -403,7 +403,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={() => setActiveTab(tab.id as typeof activeTab)}
                   aria-pressed={isSelected}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                  className={`inline-flex h-9 items-center rounded-xl px-3.5 text-sm font-semibold transition-colors ${
                     isSelected
                       ? "bg-[#204195] text-white"
                       : "bg-white text-[#607096] border border-[#DCE4F3] hover:bg-[#F0F4FC] hover:text-[#14244B]"
@@ -416,17 +416,17 @@ export default function SettingsPage() {
           </nav>
 
           {/* MAIN SETTINGS GRID */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:gap-8">
             {/* CARD 1: CẤU HÌNH PHỎNG VẤN & AI */}
             {(activeTab === "all" || activeTab === "ai") && (
               <section
                 aria-labelledby="heading-ai-settings"
-                className="flex min-w-0 flex-col justify-between rounded-3xl bg-white p-5 border border-[#DCE4F3] sm:p-7"
+                className="flex min-w-0 flex-col justify-between rounded-2xl bg-white p-5 border border-[#DCE4F3] sm:p-6"
               >
                 <div className="space-y-6">
                   {/* Card Header */}
                   <div className="border-b border-[#EAEFF8] pb-4">
-                    <h2 id="heading-ai-settings" className="text-2xl font-semibold text-[#14244B]">
+                    <h2 id="heading-ai-settings" className="text-lg font-bold text-[#14244B]">
                       {t("settings.page.ai.title")}
                     </h2>
                     <p className="mt-1 text-sm text-[#607096]">{t("settings.page.ai.subtitle")}</p>
@@ -441,7 +441,7 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={handlePreviewVoice}
-                        className="rounded-full bg-[#F8FAFC] px-3.5 py-1.5 text-sm font-semibold text-[#204195] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
+                        className="inline-flex h-9 items-center rounded-xl bg-[#F8FAFC] px-3.5 text-sm font-semibold text-[#204195] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
                         aria-label={t("settings.page.ai.previewAria")}
                       >
                         {isPlayingVoice ? t("settings.page.ai.playing") : t("settings.page.ai.preview")}
@@ -453,7 +453,7 @@ export default function SettingsPage() {
                         id={voiceSelectId}
                         value={settings.aiVoice}
                         onChange={(e) => setSettings({ ...settings, aiVoice: e.target.value })}
-                        className="w-full appearance-none rounded-2xl border-0 bg-[#F8FAFC] px-4 py-2.5 pr-10 text-sm font-medium text-[#14244B] border border-[#DCE4F3] transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]"
+                        className="w-full appearance-none rounded-xl border-0 bg-[#F8FAFC] px-4 py-2.5 pr-10 text-sm font-medium text-[#14244B] border border-[#DCE4F3] transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]"
                       >
                         {AI_VOICES.map((v) => (
                           <option key={v.id} value={v.id}>
@@ -538,7 +538,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 border-t border-[#EAEFF8] pt-4 text-right">
+                <div className="mt-6 border-t border-[#EAEFF8] pt-4 sm:text-right">
                   <span className="text-xs font-medium text-[#607096]">
                     {t("settings.page.ai.footer")}
                   </span>
@@ -550,12 +550,12 @@ export default function SettingsPage() {
             {(activeTab === "all" || activeTab === "notifications") && (
               <section
                 aria-labelledby="heading-notifications"
-                className="flex min-w-0 flex-col justify-between rounded-3xl bg-white p-5 border border-[#DCE4F3] sm:p-7"
+                className="flex min-w-0 flex-col justify-between rounded-2xl bg-white p-5 border border-[#DCE4F3] sm:p-6"
               >
                 <div className="space-y-6">
                   {/* Card Header */}
                   <div className="border-b border-[#EAEFF8] pb-4">
-                    <h2 id="heading-notifications" className="text-2xl font-semibold text-[#14244B]">
+                    <h2 id="heading-notifications" className="text-lg font-bold text-[#14244B]">
                       {t("settings.page.notify.title")}
                     </h2>
                     <p className="mt-1 text-sm text-[#607096]">{t("settings.page.notify.subtitle")}</p>
@@ -696,11 +696,11 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 border-t border-[#EAEFF8] pt-4 text-right">
-                  <span className="text-xs text-[#607096]">
+                <div className="mt-6 border-t border-[#EAEFF8] pt-4 sm:text-right">
+                  <p className="min-w-0 text-xs text-[#607096] [overflow-wrap:anywhere]">
                     {t("settings.page.notify.footer")}{" "}
                     <strong className="text-[#14244B]">{profile?.email || t("settings.page.common.unknown")}</strong>
-                  </span>
+                  </p>
                 </div>
               </section>
             )}
@@ -709,12 +709,12 @@ export default function SettingsPage() {
             {(activeTab === "all" || activeTab === "security") && (
               <section
                 aria-labelledby="heading-security"
-                className="flex min-w-0 flex-col justify-between rounded-3xl bg-white p-5 border border-[#DCE4F3] sm:p-7"
+                className="flex min-w-0 flex-col justify-between rounded-2xl bg-white p-5 border border-[#DCE4F3] sm:p-6"
               >
                 <div className="space-y-6">
                   {/* Card Header */}
                   <div className="border-b border-[#EAEFF8] pb-4">
-                    <h2 id="heading-security" className="text-2xl font-semibold text-[#14244B]">
+                    <h2 id="heading-security" className="text-lg font-bold text-[#14244B]">
                       {t("settings.page.security.title")}
                     </h2>
                     <p className="mt-1 text-sm text-[#607096]">{t("settings.page.security.subtitle")}</p>
@@ -754,7 +754,7 @@ export default function SettingsPage() {
                   {/* Section: Password Action */}
                   <div className="rounded-2xl bg-[#F8FAFC] p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-[#14244B]">
                           {t("settings.page.security.passwordTitle")}
                         </p>
@@ -766,7 +766,7 @@ export default function SettingsPage() {
                         type="button"
                         disabled
                         title={t("settings.page.security.changePasswordTitle")}
-                        className="inline-flex h-10 shrink-0 cursor-not-allowed items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] opacity-60"
+                        className="inline-flex h-10 shrink-0 cursor-not-allowed items-center justify-center rounded-xl bg-white px-4 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] opacity-60"
                         aria-label={t("settings.page.security.changePasswordAria")}
                       >
                         {t("settings.page.security.changePassword")}
@@ -793,7 +793,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 border-t border-[#EAEFF8] pt-4 text-right">
+                <div className="mt-6 border-t border-[#EAEFF8] pt-4 sm:text-right">
                   <button
                     type="button"
                     disabled
@@ -810,12 +810,12 @@ export default function SettingsPage() {
             {(activeTab === "all" || activeTab === "danger") && (
               <section
                 aria-labelledby="heading-danger"
-                className="flex min-w-0 flex-col justify-between rounded-3xl bg-white p-5 ring-1 ring-[#F5C2C2] sm:p-7"
+                className="flex min-w-0 flex-col justify-between rounded-2xl bg-white p-5 ring-1 ring-[#F5C2C2] sm:p-6"
               >
                 <div className="space-y-6">
                   {/* Card Header */}
                   <div className="border-b border-[#F5C2C2] pb-4">
-                    <h2 id="heading-danger" className="text-2xl font-semibold text-[#C43B3B]">
+                    <h2 id="heading-danger" className="text-lg font-bold text-[#C43B3B]">
                       {t("settings.page.danger.title")}
                     </h2>
                     <p className="mt-1 text-sm text-[#607096]">{t("settings.page.danger.subtitle")}</p>
@@ -836,7 +836,7 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={handleExportData}
-                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-white px-5 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
+                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-white px-5 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
                       >
                         {t("settings.page.danger.exportButton")}
                       </button>
@@ -858,7 +858,7 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         disabled
-                        className="inline-flex h-10 cursor-not-allowed items-center justify-center rounded-full bg-white px-5 text-sm font-semibold text-[#C43B3B] ring-1 ring-[#F5C2C2] opacity-60"
+                        className="inline-flex h-10 cursor-not-allowed items-center justify-center rounded-xl bg-white px-5 text-sm font-semibold text-[#C43B3B] ring-1 ring-[#F5C2C2] opacity-60"
                         aria-label={t("settings.page.danger.deleteAria")}
                       >
                         {t("settings.page.danger.deleteButton")}
@@ -867,7 +867,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 border-t border-[#F5C2C2] pt-4 text-right">
+                <div className="mt-6 border-t border-[#F5C2C2] pt-4 sm:text-right">
                   <span className="text-xs font-medium text-[#607096]">
                     {t("settings.page.danger.footer")}
                   </span>
@@ -896,7 +896,7 @@ export default function SettingsPage() {
           aria-labelledby="password-modal-title"
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#14244B]/40 p-4"
         >
-          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 border border-[#DCE4F3] shadow-[0_24px_60px_-30px_rgba(20,36,75,0.45)] sm:p-7">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 border border-[#DCE4F3] shadow-[0_24px_60px_-30px_rgba(20,36,75,0.45)] sm:p-6">
             <div className="flex items-center justify-between gap-3 border-b border-[#EAEFF8] pb-4">
               <h3 id="password-modal-title" className="text-xl font-semibold text-[#14244B]">
                 {t("settings.page.password.title")}
@@ -1001,14 +1001,14 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setIsPasswordModalOpen(false)}
-                  className="inline-flex h-10 items-center justify-center rounded-full bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
+                  className="inline-flex h-10 items-center justify-center rounded-xl bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
                 >
                   {t("settings.page.modal.cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={isUpdatingPassword}
-                  className="inline-flex h-10 items-center gap-2 rounded-full bg-[#204195] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:opacity-60"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#204195] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:opacity-60"
                 >
                   {isUpdatingPassword ? t("settings.page.password.updating") : t("settings.page.password.submit")}
                 </button>
@@ -1026,7 +1026,7 @@ export default function SettingsPage() {
           aria-labelledby="delete-modal-title"
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#14244B]/40 p-4"
         >
-          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 ring-1 ring-[#F5C2C2] shadow-[0_24px_60px_-30px_rgba(20,36,75,0.45)] sm:p-7">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 ring-1 ring-[#F5C2C2] shadow-[0_24px_60px_-30px_rgba(20,36,75,0.45)] sm:p-6">
             <div className="flex items-center justify-between gap-3 border-b border-[#F5C2C2] pb-4">
               <h3 id="delete-modal-title" className="text-xl font-semibold text-[#C43B3B]">
                 {t("settings.page.delete.title")}
@@ -1069,7 +1069,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setIsDeleteModalOpen(false)}
-                  className="inline-flex h-10 items-center justify-center rounded-full bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
+                  className="inline-flex h-10 items-center justify-center rounded-xl bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
                 >
                   {t("settings.page.modal.cancel")}
                 </button>
@@ -1079,7 +1079,7 @@ export default function SettingsPage() {
                     isDeletingAccount ||
                     deleteConfirmationInput.toLowerCase().trim() !== (profile?.email || "delete").toLowerCase().trim()
                   }
-                  className="inline-flex h-10 items-center gap-2 rounded-full bg-[#C43B3B] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#A93232] disabled:opacity-40"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#C43B3B] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#A93232] disabled:opacity-40"
                 >
                   {isDeletingAccount ? t("settings.page.delete.deleting") : t("settings.page.delete.submit")}
                 </button>
