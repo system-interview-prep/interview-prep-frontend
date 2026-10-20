@@ -7,6 +7,7 @@ import CareerClassificationSummary from "@features/resume/components/CareerClass
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useCvProcessingStatus } from "@features/resume/hooks/useCvProcessingStatus";
 import { userCvApi, type UserCvDto } from "@features/resume/services/userCv.service";
+import { refreshVi } from "@features/mascot/hooks/useViJourney";
 import type { CvProcessingStatus, CareerTaxonomyItem, ParsedCvData } from "@features/resume/types";
 import { resolveBackendErrorMessage } from "@/utils/backendError";
 import { fmt, localeOf } from "@/i18n/format";
@@ -337,6 +338,7 @@ export default function UserMyCvsPage() {
       setFoxDone(false);
       try {
         const { data } = await userCvApi.upload(f);
+        refreshVi();
         setAnalyzeError(null);
         setFoxDone(false);
         if (data.duplicate) {
