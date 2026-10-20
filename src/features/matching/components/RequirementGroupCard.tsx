@@ -26,8 +26,8 @@ export function RequirementGroupCard({ group, selectedId, onSelect }: Requiremen
           <span className="inline-flex items-center rounded-full bg-[#F0F4FC] px-2 py-0.5 text-[11px] font-semibold text-[#607096]">
             {group.operator === "any_of" ? t("fit.group.alternative") : t("fit.group.combined")}
           </span>
-          <h4 className="mt-2 text-[13px] font-semibold leading-5 text-[#14244B]">{group.title}</h4>
-          <p className="mt-1 text-[11px] leading-4 text-[#8A99B8]">{group.subtext}</p>
+          <h4 className="mt-2 text-[13px] font-semibold leading-5 text-[#14244B] [overflow-wrap:anywhere]">{group.title}</h4>
+          <p className="mt-1 text-[11px] leading-4 text-[#8A99B8] [overflow-wrap:anywhere]">{group.subtext}</p>
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-[#E3E8F2] pt-3">
@@ -44,7 +44,7 @@ export function RequirementGroupCard({ group, selectedId, onSelect }: Requiremen
             type="button"
             onClick={() => setIsOpen((prev) => !prev)}
             aria-expanded={isOpen}
-            className="inline-flex items-center gap-1 text-xs font-medium text-[#607096] hover:text-[#14244B] px-2 py-1 rounded-full hover:bg-[#F0F4FC] transition-colors"
+            className="inline-flex h-9 items-center gap-1 text-xs font-medium text-[#607096] hover:text-[#14244B] px-2 rounded-full hover:bg-[#F0F4FC] transition-colors"
           >
             <span>{fmt(t("fit.group.count"), { count: group.items.length })}</span>
             {isOpen ? (
