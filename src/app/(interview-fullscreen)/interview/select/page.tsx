@@ -10,6 +10,7 @@ import {
   Check,
   CheckCircle2,
   FileText,
+  Loader2,
   MessageSquare,
   Mic,
   Sparkles,
@@ -25,10 +26,64 @@ import {
   startInterviewSession,
 } from "@features/interview/services/interviewSession.service";
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
+import { scoreCvAgainstJobProfile, type CvScoringResponse } from "@/lib/aiService";
+import { mapBackendErrorToI18nKey } from "@/utils/backendError";
+import { countFit, saveFit } from "@features/matching/utils/fitCache";
+import { fmt } from "@/i18n/format";
+import { useInterviewEntryPolicy } from "@features/interview/hooks/useInterviewEntryPolicy";
+import { entryBlockMessageKey, entryWarningMessageKey, evaluateEntry } from "@features/interview/utils/entryGate";
+import { EntryWarningDialog } from "@features/interview/components/EntryWarningDialog";
+import { PracticeTierNote } from "@features/interview/components/PracticeTierNote";
 import { userCvApi, type UserCvDto } from "@features/resume/services/userCv.service";
 import { RECOMMENDED_MODE } from "@features/interview/utils/interviewModes";
 import { localeOf } from "@/i18n/format";
+
+const FIT_BAND_LABEL_KEYS: Record<string, string> = {
+  strong_fit: "fit.band.strong.label",
+  partial_fit: "fit.band.partial.label",
+  review_required: "fit.band.review.label",
+  not_eligible: "fit.band.notEligible.label",
+  insufficient_evidence: "fit.band.insufficient.label",
+};
 import { cn } from "@/utils";
+
+/** Rows shown per list at first; each "Xem thêm" reveals LIST_STEP more. */
+const LIST_CAP = 4;
+const LIST_STEP = 6;
+
+/** First `limit` rows, keeping the selected row visible even when it sits further down. */
+function capList<T extends { id: string }>(items: T[], limit: number, selectedId: string): T[] {
+  if (items.length <= limit) return items;
+  const head = items.slice(0, limit);
+  const selected = items.find((item) => item.id === selectedId);
+  return selected && !head.includes(selected) ? [...head.slice(0, limit - 1), selected] : head;
+}
+
+function ShowMoreButton({
+  total,
+  limit,
+  onChange,
+}: {
+  total: number;
+  limit: number;
+  onChange: (limit: number) => void;
+}) {
+  const { t } = useLanguage();
+  if (total <= LIST_CAP) return null;
+  const remaining = total - limit;
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(remaining > 0 ? limit + LIST_STEP : LIST_CAP)}
+      aria-expanded={remaining <= 0}
+      className="inline-flex h-9 w-full items-center justify-center rounded-xl border border-[#DCE4F3] bg-white text-xs font-semibold text-[#204195] transition-colors hover:bg-[#F0F4FC]"
+    >
+      {remaining > 0
+        ? fmt(t("uxWs.select.showMore"), { n: Math.min(LIST_STEP, remaining) })
+        : t("uxWs.select.showLess")}
+    </button>
+  );
+}
 
 export default function InterviewSelectPage() {
   const { t, lang } = useLanguage();
@@ -42,6 +97,8 @@ export default function InterviewSelectPage() {
   const [isStarting, setIsStarting] = useState(false);
   const [startPhase, setStartPhase] = useState<number | null>(null);
   const [startFailed, setStartFailed] = useState(false);
+  const [cvLimit, setCvLimit] = useState(LIST_CAP);
+  const [jobLimit, setJobLimit] = useState(LIST_CAP);
 
   const startDialogRef = useDialogA11y<HTMLDivElement>(
     startPhase !== null,
@@ -84,14 +141,101 @@ export default function InterviewSelectPage() {
     [cvs, selectedCvId],
   );
 
-  const canStart = Boolean(selectedCvId && selectedJobId && !loadingContext);
+  // CV–job match score for the current pair. The room opens only once it is
+  // ready: the interview plan is built from this match, and the candidate
+  // should see where they stand before practising.
+  const [match, setMatch] = useState<{
+    key: string;
+    status: "loading" | "ready" | "error";
+    result?: CvScoringResponse;
+    errorKey?: string;
+  } | null>(null);
+  const [matchAttempt, setMatchAttempt] = useState(0);
+  const entryPolicy = useInterviewEntryPolicy();
+  const pairKey = selectedCvId && selectedJobId ? `${selectedCvId}:${selectedJobId}` : "";
+
+  useEffect(() => {
+    if (!pairKey) {
+      setMatch(null);
+      return;
+    }
+    let active = true;
+    setMatch({ key: pairKey, status: "loading" });
+    scoreCvAgainstJobProfile({ candidateId: selectedCvId, jobId: selectedJobId })
+      .then((result) => {
+        if (!active) return;
+        setMatch({ key: pairKey, status: "ready", result });
+        saveFit({
+          jobId: selectedJobId,
+          cvId: selectedCvId,
+          cvName: cvs.find((cv) => cv.id === selectedCvId)?.originalName ?? null,
+          ...countFit(result.requirementResults),
+          analyzedAt: new Date().toISOString(),
+        });
+      })
+      .catch((cause) => {
+        if (!active) return;
+        setMatch({ key: pairKey, status: "error", errorKey: mapBackendErrorToI18nKey(cause) ?? undefined });
+      });
+    return () => {
+      active = false;
+    };
+    // cvs only supplies the display name for the fit cache.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pairKey, matchAttempt]);
+
+  const matchReady = match?.key === pairKey && match.status === "ready";
+  const matchLoading = Boolean(pairKey) && (!match || match.key !== pairKey || match.status === "loading");
+  const matchPercentage =
+    matchReady && typeof match?.result?.score.percentage === "number"
+      ? Math.max(0, Math.min(100, Math.round(match.result.score.percentage)))
+      : null;
+  const scoreDetailsHref = pairKey
+    ? `/interview/cv-score?${new URLSearchParams({
+        candidateId: selectedCvId,
+        jobId: selectedJobId,
+        jobTitle: selectedJob?.title ?? "",
+      }).toString()}`
+    : "";
+
+  // Same rule the backend enforces when it creates the session.
+  const entry = matchReady && match?.result ? evaluateEntry(match.result, entryPolicy) : null;
+  const entryBlockedText = entry && !entry.allowed && entry.reason
+    ? fmt(t(entryBlockMessageKey(entry.reason)), {
+        score: entry.percentage ?? "",
+        min: entryPolicy.minMatchPercent,
+      })
+    : null;
+
+  const canStart = Boolean(selectedCvId && selectedJobId && !loadingContext && matchReady && entry?.allowed);
+
+  // Practice mode: a CV far from the job confirms once per CV–job pair.
+  const [pendingStart, setPendingStart] = useState<{
+    mode: "chat" | "voice" | "video";
+    experience?: "question_practice" | "interview_chat";
+  } | null>(null);
+  const [confirmedPair, setConfirmedPair] = useState("");
 
   const startMode = async (
     mode: "chat" | "voice" | "video",
     experience?: "question_practice" | "interview_chat",
   ) => {
+    if (canStart && !isStarting && entry?.needsConfirmation && confirmedPair !== pairKey) {
+      setPendingStart({ mode, experience });
+      return;
+    }
+    await launch(mode, experience);
+  };
+
+  const launch = async (
+    mode: "chat" | "voice" | "video",
+    experience?: "question_practice" | "interview_chat",
+  ) => {
     if (!canStart || isStarting) {
-      setContextError({ key: "picker.select.needBoth" });
+      if (entryBlockedText) return; // the banner already says why
+      setContextError({
+        key: selectedCvId && selectedJobId ? "picker.select.score.required" : "picker.select.needBoth",
+      });
       return;
     }
     setContextError(null);
@@ -197,7 +341,7 @@ export default function InterviewSelectPage() {
                   <span>Khởi tạo phiên luyện tập</span>
                 </div>
 
-                <h1 className="mt-3.5 font-display text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
+                <h1 className="mt-3 font-display text-xl font-black tracking-tight text-white sm:text-2xl">
                   {t("interview.select.title")}
                 </h1>
 
@@ -230,18 +374,18 @@ export default function InterviewSelectPage() {
                   </span>
                   <span>{t("uxWs.select.step1")}</span>
                 </div>
-                <h2 className="mt-1 font-display text-xl font-bold tracking-tight text-[#14244B] sm:text-2xl">
+                <h2 className="mt-1 font-display text-base font-bold tracking-tight text-[#14244B] sm:text-lg">
                   Chọn hồ sơ CV &amp; Vị trí ứng tuyển
                 </h2>
               </div>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               {/* Card 1: Chọn hồ sơ CV */}
-              <div className="flex flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs transition-all hover:shadow-md sm:p-6">
+              <div className="flex min-w-0 flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-xs transition-all hover:shadow-md sm:p-6">
                 <div>
-                  <div className="flex items-center justify-between border-b border-[#EAEFF8] pb-3.5">
-                    <div className="flex items-center gap-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-[#EAEFF8] pb-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
                       <span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-50 text-[#204195]">
                         <FileText className="size-4" />
                       </span>
@@ -249,7 +393,7 @@ export default function InterviewSelectPage() {
                     </div>
                     <Link
                       href="/dashboard/cvs"
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#204195] hover:underline"
+                      className="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl px-2 text-xs font-semibold text-[#204195] hover:bg-[#F0F4FC]"
                     >
                       <span>+ Quản lý CV</span>
                     </Link>
@@ -266,15 +410,15 @@ export default function InterviewSelectPage() {
                       <p className="mt-2 text-xs font-medium text-[#607096]">{t("journey.select.hintNoCv")}</p>
                       <Link
                         href="/dashboard/cvs"
-                        className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#204195] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#183275]"
+                        className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#204195] px-4 text-xs font-bold text-white shadow-xs hover:bg-[#183275]"
                       >
                         <span>{t("journey.select.uploadCv")}</span>
                         <ArrowRight className="size-3" />
                       </Link>
                     </div>
                   ) : (
-                    <div className="mt-4 max-h-64 space-y-2.5 overflow-y-auto pr-1">
-                      {cvs.map((cv) => {
+                    <div className="mt-4 space-y-2.5">
+                      {capList(cvs, cvLimit, selectedCvId).map((cv) => {
                         const isSelected = cv.id === selectedCvId;
                         return (
                           <button
@@ -282,7 +426,7 @@ export default function InterviewSelectPage() {
                             type="button"
                             onClick={() => setSelectedCvId(cv.id)}
                             className={cn(
-                              "flex w-full items-center justify-between rounded-xl border p-3.5 text-left transition-all",
+                              "flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border p-3 text-left transition-all",
                               isSelected
                                 ? "border-[#204195] bg-[#F0F4FC]/90 shadow-xs ring-1 ring-[#204195]/30"
                                 : "border-[#EAEFF8] bg-[#F8FAFC]/50 hover:border-[#204195]/30 hover:bg-white",
@@ -300,7 +444,10 @@ export default function InterviewSelectPage() {
                                 {isSelected && <Check className="size-3 stroke-[3]" />}
                               </span>
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-xs font-bold text-[#14244B]">
+                                <p
+                                  className="line-clamp-2 text-xs font-bold text-[#14244B] [overflow-wrap:anywhere]"
+                                  title={cv.originalName || cv.id}
+                                >
                                   {cv.originalName || cv.id}
                                 </p>
                                 <p className="mt-0.5 text-[11px] text-[#607096]">
@@ -316,16 +463,17 @@ export default function InterviewSelectPage() {
                           </button>
                         );
                       })}
+                      <ShowMoreButton total={cvs.length} limit={cvLimit} onChange={setCvLimit} />
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Card 2: Chọn Vị trí tuyển dụng */}
-              <div className="flex flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs transition-all hover:shadow-md sm:p-6">
+              <div className="flex min-w-0 flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-xs transition-all hover:shadow-md sm:p-6">
                 <div>
-                  <div className="flex items-center justify-between border-b border-[#EAEFF8] pb-3.5">
-                    <div className="flex items-center gap-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-[#EAEFF8] pb-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
                       <span className="grid h-8 w-8 place-items-center rounded-xl bg-amber-50 text-amber-600">
                         <Briefcase className="size-4" />
                       </span>
@@ -333,7 +481,7 @@ export default function InterviewSelectPage() {
                     </div>
                     <Link
                       href="/dashboard/jobs"
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#204195] hover:underline"
+                      className="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl px-2 text-xs font-semibold text-[#204195] hover:bg-[#F0F4FC]"
                     >
                       <span>Khám phá việc làm →</span>
                     </Link>
@@ -350,15 +498,15 @@ export default function InterviewSelectPage() {
                       <p className="mt-2 text-xs font-medium text-[#607096]">{t("userDash.jobs.emptyTitle")}</p>
                       <Link
                         href="/dashboard/jobs"
-                        className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#204195] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#183275]"
+                        className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#204195] px-4 text-xs font-bold text-white shadow-xs hover:bg-[#183275]"
                       >
                         <span>{t("userDash.jobs.browse")}</span>
                         <ArrowRight className="size-3" />
                       </Link>
                     </div>
                   ) : (
-                    <div className="mt-4 max-h-64 space-y-2.5 overflow-y-auto pr-1">
-                      {jobs.map((job) => {
+                    <div className="mt-4 space-y-2.5">
+                      {capList(jobs, jobLimit, selectedJobId).map((job) => {
                         const isSelected = job.id === selectedJobId;
                         return (
                           <button
@@ -366,7 +514,7 @@ export default function InterviewSelectPage() {
                             type="button"
                             onClick={() => setSelectedJobId(job.id)}
                             className={cn(
-                              "flex w-full items-center justify-between rounded-xl border p-3.5 text-left transition-all",
+                              "flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border p-3 text-left transition-all",
                               isSelected
                                 ? "border-[#204195] bg-[#F0F4FC]/90 shadow-xs ring-1 ring-[#204195]/30"
                                 : "border-[#EAEFF8] bg-[#F8FAFC]/50 hover:border-[#204195]/30 hover:bg-white",
@@ -384,7 +532,10 @@ export default function InterviewSelectPage() {
                                 {isSelected && <Check className="size-3 stroke-[3]" />}
                               </span>
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-xs font-bold text-[#14244B]">
+                                <p
+                                  className="line-clamp-2 text-xs font-bold text-[#14244B] [overflow-wrap:anywhere]"
+                                  title={job.title}
+                                >
                                   {job.title}
                                 </p>
                                 <p className="mt-0.5 truncate text-[11px] text-[#607096]">
@@ -398,6 +549,7 @@ export default function InterviewSelectPage() {
                           </button>
                         );
                       })}
+                      <ShowMoreButton total={jobs.length} limit={jobLimit} onChange={setJobLimit} />
                     </div>
                   )}
                 </div>
@@ -406,29 +558,85 @@ export default function InterviewSelectPage() {
 
             {/* Trạng thái sẵn sàng */}
             <div
+              role="status"
+              aria-live="polite"
               className={cn(
                 "flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-xs transition-colors",
-                canStart
+                canStart && !entry?.needsConfirmation
                   ? "border-emerald-200/80 bg-emerald-50/70 text-emerald-800"
                   : "border-amber-200/80 bg-amber-50/70 text-amber-800",
               )}
             >
-              <div className="flex items-center gap-2">
-                {canStart ? (
+              <div className="flex min-w-0 flex-1 basis-64 items-center gap-2">
+                {canStart && !entry?.needsConfirmation ? (
                   <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+                ) : matchLoading && !loadingContext ? (
+                  <Loader2 className="size-4 shrink-0 animate-spin text-amber-600" />
                 ) : (
                   <AlertCircle className="size-4 shrink-0 text-amber-600" />
                 )}
-                <span className="font-medium">
-                  {canStart
-                    ? `Đã sẵn sàng tạo đề phỏng vấn: ${selectedJob?.title ?? ""} (dựa trên CV ${selectedCv?.originalName ?? ""})`
-                    : "Vui lòng chọn đủ hồ sơ CV và vị trí ứng tuyển để kích hoạt các chế độ phỏng vấn."}
+                <span className="min-w-0 font-medium [overflow-wrap:anywhere]">
+                  {!selectedCvId || !selectedJobId
+                    ? "Vui lòng chọn đủ hồ sơ CV và vị trí ứng tuyển để kích hoạt các chế độ phỏng vấn."
+                    : matchLoading
+                    ? t("picker.select.score.loading")
+                    : match?.status === "error"
+                    ? `${t(match.errorKey ?? "picker.select.score.error")} ${t("picker.select.score.required")}`
+                    : entryBlockedText
+                    ? entryBlockedText
+                    : (
+                        <>
+                          <strong className="font-bold">
+                            {matchPercentage != null
+                              ? fmt(t("picker.select.score.ready"), { score: `${matchPercentage}%` })
+                              : fmt(t("picker.select.score.assessed"), {
+                                  band: t(FIT_BAND_LABEL_KEYS[match?.result?.fitBand ?? ""] ?? "fit.band.insufficient.label"),
+                                })}
+                          </strong>
+                          {` · ${selectedJob?.title ?? ""} (CV ${selectedCv?.originalName ?? ""})`}
+                        </>
+                      )}
+                  {entry?.allowed && entry.warnings.length > 0 && (
+                    <span className="mt-0.5 block text-[11px] font-normal opacity-80">
+                      {entry.warnings
+                        .map((warning) =>
+                          fmt(t(entryWarningMessageKey(warning)), {
+                            score: entry.percentage ?? "",
+                            low: entryPolicy.lowFitPercent,
+                          }),
+                        )
+                        .join(" ")}
+                    </span>
+                  )}
+                  {entryPolicy.minMatchPercent > 0 && selectedCvId && selectedJobId && (
+                    <span className="mt-0.5 block text-[11px] font-normal opacity-80">
+                      {fmt(t("picker.entry.threshold"), { min: entryPolicy.minMatchPercent })}
+                    </span>
+                  )}
                 </span>
               </div>
+              <div className="flex shrink-0 items-center gap-3">
+                {match?.status === "error" && match.key === pairKey && (
+                  <button
+                    type="button"
+                    onClick={() => setMatchAttempt((n) => n + 1)}
+                    className="inline-flex h-9 items-center gap-1 font-bold text-[#204195] hover:underline"
+                  >
+                    {t("picker.select.score.retry")}
+                  </button>
+                )}
+                {matchReady && scoreDetailsHref && (
+                  <Link href={scoreDetailsHref} className="inline-flex h-9 items-center gap-1 font-bold text-[#204195] hover:underline">
+                    {t("picker.select.score.details")}
+                    <ArrowRight className="size-3" />
+                  </Link>
+                )}
+              </div>
               {contextErrorText && (
-                <span className="font-bold text-[#C43B3B]">{contextErrorText}</span>
+                <span className="basis-full font-bold text-[#C43B3B] [overflow-wrap:anywhere]">{contextErrorText}</span>
               )}
             </div>
+            {entry?.allowed && <PracticeTierNote decision={entry} policy={entryPolicy} />}
           </section>
 
           {/* Bước 2: Chọn hình thức phỏng vấn */}
@@ -440,7 +648,7 @@ export default function InterviewSelectPage() {
                 </span>
                 <span>{t("uxWs.select.step2")}</span>
               </div>
-              <h2 id="mode-step-title" className="mt-1 font-display text-xl font-bold tracking-tight text-[#14244B] sm:text-2xl">
+              <h2 id="mode-step-title" className="mt-1 font-display text-base font-bold tracking-tight text-[#14244B] sm:text-lg">
                 Chọn phương thức đối thoại cùng AI
               </h2>
               <p className="mt-0.5 text-xs text-[#607096]">
@@ -455,7 +663,7 @@ export default function InterviewSelectPage() {
                   <article
                     key={mode.key}
                     className={cn(
-                      "relative flex flex-col justify-between rounded-2xl border p-6 transition-all duration-200",
+                      "relative flex min-w-0 flex-col justify-between rounded-2xl border p-5 transition-all duration-200 sm:p-6",
                       canStart && !isStarting && "hover:-translate-y-1 hover:shadow-lg",
                       isFeatured
                         ? "border-[#204195] bg-gradient-to-b from-[#F0F4FC]/90 via-white to-white shadow-md ring-1 ring-[#204195]/20"
@@ -479,7 +687,7 @@ export default function InterviewSelectPage() {
                         <div className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-xl", mode.color)}>
                           <mode.Icon className="size-6" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <h3 className="font-display text-base font-bold text-[#14244B]">{mode.name}</h3>
                           <span className="text-[11px] font-medium text-[#8B98B5]">{mode.duration}</span>
                         </div>
@@ -493,7 +701,7 @@ export default function InterviewSelectPage() {
                         onClick={mode.start}
                         disabled={!canStart || isStarting}
                         className={cn(
-                          "flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold transition-all active:scale-[0.98]",
+                          "flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-bold transition-all active:scale-[0.98]",
                           isFeatured
                             ? "bg-[#204195] text-white shadow-xs hover:bg-[#183275]"
                             : "border border-[#DCE4F3] bg-white text-[#14244B] hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195]",
@@ -511,6 +719,19 @@ export default function InterviewSelectPage() {
           </section>
         </div>
       </main>
+
+      <EntryWarningDialog
+        decision={pendingStart ? entry : null}
+        lowFitPercent={entryPolicy.lowFitPercent}
+        detailsHref={scoreDetailsHref || undefined}
+        onCancel={() => setPendingStart(null)}
+        onConfirm={() => {
+          const next = pendingStart;
+          setPendingStart(null);
+          setConfirmedPair(pairKey);
+          if (next) void launch(next.mode, next.experience);
+        }}
+      />
 
       {/* Preparation Dialog */}
       {startPhase !== null && (
@@ -530,7 +751,7 @@ export default function InterviewSelectPage() {
             <h2 id="start-status-title" className="text-lg font-bold text-[#14244B]">
               {startFailed ? t("journey.select.failedTitle") : t("journey.select.preparingTitle")}
             </h2>
-            <p className="mt-1 text-xs text-[#607096]">{selectedJob?.title}</p>
+            <p className="mt-1 text-xs text-[#607096] [overflow-wrap:anywhere]">{selectedJob?.title}</p>
 
             <div className="mt-5 text-left">
               <ProcessStatus
