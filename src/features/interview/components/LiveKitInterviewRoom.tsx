@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Camera, CameraOff, Check, Mic, MicOff, PhoneOff, VideoOff } from 'lucide-react';
+import { Camera, CameraOff, Mic, MicOff, PhoneOff, VideoOff } from 'lucide-react';
 import { AbortConfirmationModal } from '@/components/interview/AbortConfirmationModal';
 import { ConfirmDialog } from '@components/shared/ConfirmDialog';
 import { useLiveKitRoom } from '../hooks/useLiveKitRoom';
@@ -345,18 +345,6 @@ export default function LiveKitInterviewRoom({
           <div className="flex shrink-0 items-center justify-between border-t border-[#DCE4F3] px-4 py-3 sm:px-6">
             <div className="min-w-0 max-w-full">{isConnected ? <TurnStatus status={barStatus} /> : null}</div>
             <div role="toolbar" aria-label={t('room.voice.controlsAria')} className="flex items-center gap-3">
-              {/* Optional: submits the answer now instead of waiting for the
-                  agent's silence window. Hands-free submission still works. */}
-              {isConnected && turnState === 'answering' && !sttDown ? (
-                <ControlButton
-                  label={t('room.voice.submitAnswer')}
-                  text={t('room.voice.submitAnswer')}
-                  onClick={() => void sendAnswerCommand('answer.commit')}
-                  active={false}
-                  primary
-                  icon={<Check className="size-5" />}
-                />
-              ) : null}
               <ControlButton
                 label={micEnabled ? t('room.voice.micOff') : t('room.voice.micOn')}
                 onClick={() => void toggleMic()}
