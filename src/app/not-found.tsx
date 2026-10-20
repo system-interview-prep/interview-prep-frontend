@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FoxAvatar } from "@features/mascot/components/FoxAvatar";
+import { BrandLogo } from "@components/shared/BrandLogo";
 import { useLanguage } from "@/i18n/LanguageProvider";
 
 export default function NotFound() {
@@ -11,8 +11,8 @@ export default function NotFound() {
     <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC] px-4 py-12">
       <div className="w-full max-w-md rounded-3xl border border-[#DCE4F3] bg-white p-8 text-center shadow-[0_24px_60px_-40px_rgba(20,36,75,0.35)]">
         <Link href="/" className="mx-auto mb-6 inline-flex items-center gap-2 font-display text-lg font-semibold text-[#14244B]">
-          <FoxAvatar size={32} />
-          Intervia
+          <BrandLogo size={34} />
+          <span className="font-bold tracking-[0.08em]">INTERVIA</span>
         </Link>
         <p className="text-sm font-semibold tracking-wide text-[#607096]">404</p>
         <h1 className="mt-2 font-display text-2xl font-semibold text-[#14244B]">{t("fixAdmin.notFound.title")}</h1>
