@@ -29,6 +29,10 @@ export type UserCvDto = {
   parsedData?: ParsedCvData;
   /** Normalized text the parser read; evidence char offsets point into it. */
   rawText?: string | null;
+  /** Upload response only: the same file was uploaded before; this is that CV, nothing new was stored. */
+  duplicate?: boolean;
+  /** Upload response only: a different file already had this name; the new CV was saved as `originalName`. */
+  renamedFrom?: string | null;
 };
 
 export type CareerClassificationsResponse = {
@@ -132,7 +136,9 @@ export const userCvApi = {
     const formData = new FormData();
     formData.append("file", file);
     const response = await api.post<unknown>("/users/me/cvs", formData);
-    return { ...response, data: normalizeUserCvDto(response.data) };
+    const raw = (response.data ?? {}) as Record<string, unknown>;
+    const renamedFrom = typeof raw.renamedFrom === "string" && raw.renamedFrom ? raw.renamedFrom : null;
+    return { ...response, data: { ...normalizeUserCvDto(response.data), duplicate: raw.duplicate === true, renamedFrom } };
   },
 
   /** Lấy một trang CV (mới nhất trước). Khớp BE: GET /users/me/cvs?limit&offset → { items, total } */
