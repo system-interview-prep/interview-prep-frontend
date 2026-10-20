@@ -1,4 +1,5 @@
 import apiClient from "@/lib/apiClient";
+import type { InterviewEntryPolicy } from "@features/interview/utils/entryGate";
 
 export type InterviewRuntimeMode = "text" | "voice" | "video";
 export type InterviewRuntimeExperience =
@@ -165,6 +166,12 @@ export type CreateInterviewRuntimeSessionRequest = {
 };
 
 export const interviewRuntimeApi = {
+  /** Match threshold for entering a room (GET /api/v1/interviews/entry-policy). */
+  entryPolicy: async (): Promise<InterviewEntryPolicy> => {
+    const response = await apiClient.get<InterviewEntryPolicy>("/api/v1/interviews/entry-policy");
+    return response.data;
+  },
+
   create: async (
     payload: CreateInterviewRuntimeSessionRequest,
   ): Promise<InterviewRuntimeSession> => {
