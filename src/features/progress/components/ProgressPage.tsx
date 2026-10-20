@@ -10,8 +10,11 @@ import {
   progressApi,
   type JobProgress,
   type PracticeProgress,
+  type JobReadiness,
   type ProgressSession,
+  type SkillArea,
   type Trend,
+  SKILL_AREAS,
 } from "../services/progress.service";
 import { fill, longDate, milestoneText, monthLabel, percent, shortDate, tierLabel, trendLabel } from "../utils/progressFormat";
 import {
@@ -21,6 +24,12 @@ import {
   filteredSkills,
   foldMonthly,
   evidenceOf,
+  filteredGaps,
+  FOCUSABLE_AREAS,
+  jobReadinessOf,
+  lastResumeFor,
+  nextRound,
+  practiceHref,
   LEVEL_COUNT,
   LEVEL_EDGES,
   LEVEL_MARGIN,
@@ -37,6 +46,7 @@ import {
   type SkillView,
 } from "../utils/progressModel";
 import { ScoreLineChart, type ScorePoint } from "./ScoreLineChart";
+import { GapNotebookCard, RealInterviewsCard, RoundsCard } from "./ReadinessCards";
 
 const GOALS = [1, 2, 3, 4, 5, 6, 7];
 const SKILL_CHARTS = 6;
@@ -379,7 +389,6 @@ function SkillCardItem({ skill, now }: { skill: SkillView; now: Date }) {
           </>
         )}
         {fill(t("practiceProgress.skills.latest"), { score: skill.latest.toFixed(1) })} ·{" "}
-        {fill(t("practiceProgress.skills.best"), { score: skill.best.toFixed(1) })} ·{" "}
         {fill(t("practiceProgress.skills.sessions"), { n: skill.sessionsCount })}
       </p>
       {idleDays >= STALE_DAYS && (
@@ -394,7 +403,94 @@ function SkillCardItem({ skill, now }: { skill: SkillView; now: Date }) {
         targetLabel={fill(t("practiceProgress.skills.target"), { score: READY_SCORE })}
         ariaLabel={`${skill.label}: ${points.map((p) => p.score).join(", ")}`}
       />
+      <SkillQuestions skill={skill} />
     </div>
+  );
+}
+
+const AREA_SHOWN = 3;
+
+/** Skills grouped by area in display order; empty areas left out, order inside kept. */
+export function groupByArea<T extends { area?: SkillArea }>(skills: T[]): { area: SkillArea; skills: T[] }[] {
+  return SKILL_AREAS.map((area) => ({ area, skills: skills.filter((skill) => (skill.area ?? "other") === area) })).filter(
+    (group) => group.skills.length > 0,
+  );
+}
+
+/** One area (databases, infrastructure, projects…): its skills, a few at a time. */
+function SkillAreaGroup({ area, skills, now }: { area: SkillArea; skills: SkillView[]; now: Date }) {
+  const { t } = useLanguage();
+  const [shown, setShown] = useState(AREA_SHOWN);
+  const improving = skills.filter((skill) => skill.trend.status === "up").length;
+  return (
+    <section aria-label={t(`practiceProgress.area.${area}`)}>
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h3 className="text-sm font-bold text-[#14244B]">{t(`practiceProgress.area.${area}`)}</h3>
+        <p className="text-[11px] text-[#607096]">
+          {fill(t("practiceProgress.area.summary"), { n: skills.length, up: improving })}
+        </p>
+      </div>
+      <p className="mb-3 text-[11px] leading-relaxed text-[#607096]">{t(`practiceProgress.area.${area}.desc`)}</p>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {skills.slice(0, shown).map((skill) => (
+          <SkillCardItem key={skill.conceptId} skill={skill} now={now} />
+        ))}
+      </div>
+      {skills.length > shown && (
+        <button
+          type="button"
+          onClick={() => setShown((n) => n + SKILL_CHARTS)}
+          className="mt-3 inline-flex h-9 items-center rounded-xl px-4 text-xs font-bold text-[#204195] ring-1 ring-[#DCE4F3] hover:bg-[#F0F4FC]"
+        >
+          {fill(t("practiceProgress.skills.showMore"), { n: Math.min(SKILL_CHARTS, skills.length - shown) })}
+        </button>
+      )}
+    </section>
+  );
+}
+
+/** What was asked under a skill, the score, and the key points the answer missed. */
+function SkillQuestions({ skill }: { skill: SkillView }) {
+  const { t, lang } = useLanguage();
+  const locale = localeOf(lang);
+  const questions = skill.recentQuestions ?? [];
+  if (questions.length === 0) return null;
+  return (
+    <details className="mt-2 rounded-xl bg-[#F8FAFC] px-3 py-2 ring-1 ring-[#EAEFF8]">
+      <summary className="cursor-pointer text-xs font-semibold text-[#204195]">
+        {fill(t("practiceProgress.skills.questions"), { n: questions.length })}
+      </summary>
+      <ol className="mt-2 space-y-3">
+        {questions.map((item) => (
+          <li key={`${item.sessionId}-${item.question}`} className="text-xs">
+            <div className="flex items-start justify-between gap-2">
+              <p className="min-w-0 text-[#14244B] [overflow-wrap:anywhere]">{item.question || t("practiceProgress.skills.questionUnknown")}</p>
+              <span className="shrink-0 font-bold tabular-nums text-[#14244B]">{item.score.toFixed(1)}</span>
+            </div>
+            {item.missing.length > 0 ? (
+              <div className="mt-1">
+                <p className="text-[11px] font-semibold text-[#8A5A0B]">{t("practiceProgress.skills.missing")}</p>
+                <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-[11px] text-[#33415F]">
+                  {item.missing.map((miss) => (
+                    <li key={miss.point}>
+                      {miss.point}
+                      {miss.status !== "MISSING" && (
+                        <span className="text-[#607096]"> ({t(`practiceProgress.skills.missing.${miss.status}`)})</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : item.checked ? (
+              <p className="mt-1 text-[11px] text-[#287A4B]">{t("practiceProgress.skills.missingNone")}</p>
+            ) : null}
+            <Link href={`/interview/results/${item.sessionId}`} className="mt-1 inline-block text-[11px] font-semibold hover:underline">
+              {fill(t("practiceProgress.skills.openReport"), { date: shortDate(item.date, locale) })}
+            </Link>
+          </li>
+        ))}
+      </ol>
+    </details>
   );
 }
 
@@ -410,9 +506,11 @@ function SkillsCard({
   onChange: (next: ProgressFilters) => void;
 }) {
   const { t } = useLanguage();
-  const [shown, setShown] = useState(SKILL_CHARTS);
-  const charted = skills.filter((skill) => skill.sessionsCount >= 2);
-  const once = skills.filter((skill) => skill.sessionsCount < 2);
+  // JSON, XML, Git…: no longer asked as a topic of their own (research 20/10).
+  const minor = skills.filter((skill) => skill.minor);
+  const asked = skills.filter((skill) => !skill.minor);
+  const charted = asked.filter((skill) => skill.sessionsCount >= 2);
+  const once = asked.filter((skill) => skill.sessionsCount < 2);
   return (
     <Card title={t("practiceProgress.skills.title")} desc={t("practiceProgress.skills.desc")}>
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -434,37 +532,37 @@ function SkillsCard({
           <option value="improved">{t("practiceProgress.skills.sort.improved")}</option>
           <option value="weakest">{t("practiceProgress.skills.sort.weakest")}</option>
         </select>
-        <span className="text-xs text-[#8B98B5]">{fill(t("practiceProgress.skills.count"), { n: skills.length })}</span>
+        <span className="text-xs text-[#8B98B5]">{fill(t("practiceProgress.skills.count"), { n: asked.length })}</span>
       </div>
       {charted.length === 0 ? (
         <p className="text-sm text-[#607096]">{t("practiceProgress.skills.noneRepeated")}</p>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {charted.slice(0, shown).map((skill) => (
-            <SkillCardItem key={skill.conceptId} skill={skill} now={now} />
+        <div className="space-y-6">
+          {groupByArea(charted).map(({ area, skills: inArea }) => (
+            <SkillAreaGroup key={area} area={area} skills={inArea} now={now} />
           ))}
         </div>
-      )}
-      {charted.length > shown && (
-        <button
-          type="button"
-          onClick={() => setShown((n) => n + SKILL_CHARTS)}
-          className="mt-4 inline-flex h-9 items-center rounded-xl px-4 text-xs font-bold text-[#204195] ring-1 ring-[#DCE4F3] hover:bg-[#F0F4FC]"
-        >
-          {fill(t("practiceProgress.skills.showMore"), { n: Math.min(SKILL_CHARTS, charted.length - shown) })}
-        </button>
       )}
       {once.length > 0 && (
         <div className="mt-5 border-t border-[#EAEFF8] pt-4">
           <p className="text-xs font-semibold text-[#607096]">{fill(t("practiceProgress.skills.once"), { n: once.length })}</p>
           <ul className="mt-2 flex flex-wrap gap-2">
             {once.map((skill) => (
-              <li key={skill.conceptId} className="rounded-full bg-[#F8FAFC] px-3 py-1 text-xs text-[#14244B] ring-1 ring-[#EAEFF8]">
+              <li
+                key={skill.conceptId}
+                title={t(`practiceProgress.area.${skill.area ?? "other"}`)}
+                className="rounded-full bg-[#F8FAFC] px-3 py-1 text-xs text-[#14244B] ring-1 ring-[#EAEFF8]"
+              >
                 {skill.label} <span className="font-semibold tabular-nums">{skill.latest.toFixed(1)}</span>
               </li>
             ))}
           </ul>
         </div>
+      )}
+      {minor.length > 0 && (
+        <p className="mt-4 text-[11px] leading-relaxed text-[#607096]">
+          {fill(t("practiceProgress.skills.minorNote"), { skills: minor.map((skill) => skill.label).join(", ") })}
+        </p>
       )}
     </Card>
   );
@@ -597,11 +695,13 @@ function SummaryCard({
   skills,
   sessions,
   now,
+  job,
 }: {
   progress: PracticeProgress;
   skills: SkillView[];
   sessions: ProgressSession[];
   now: Date;
+  job: JobReadiness | null;
 }) {
   const { t } = useLanguage();
   const summary = summaryOf(skills, now);
@@ -630,15 +730,33 @@ function SummaryCard({
             n: summary.improving.length - 1,
           }),
   ];
+  // With readiness by round: the round to practise next, the point missed most
+  // there, and a link that opens a session focused on that round.
+  const round = nextRound(job);
+  const roundLine = round
+    ? [
+        fill(t(`practiceProgress.summary.round.${round.status}`), {
+          round: t(`practiceProgress.area.${round.area}`),
+          score: round.estimate?.toFixed(1) ?? "—",
+        }),
+        round.topGap ? fill(t("practiceProgress.summary.round.gap"), { point: round.topGap.point }) : null,
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : job
+      ? t("practiceProgress.summary.round.allReady")
+      : null;
+  const href = job ? practiceHref(job.jobId, lastResumeFor(progress, job.jobId), round?.area) : "/interview/select";
   const focusLine =
-    summary.focus && summary.focusReason
+    roundLine ??
+    (summary.focus && summary.focusReason
       ? fill(t(`practiceProgress.summary.focus.${summary.focusReason}`), {
           skill: summary.focus.label,
           score: summary.focus.latest.toFixed(1),
           n: summary.idleDays,
           target: READY_SCORE,
         })
-      : fill(t("practiceProgress.summary.allReady"), { target: READY_SCORE });
+      : fill(t("practiceProgress.summary.allReady"), { target: READY_SCORE }));
   return (
     <section
       aria-label={t("practiceProgress.summary.title")}
@@ -652,10 +770,14 @@ function SummaryCard({
         </p>
       </div>
       <Link
-        href="/interview/select"
+        href={href}
         className="inline-flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-xl bg-[#204195] px-5 text-sm font-semibold text-white hover:bg-[#183275] sm:self-center"
       >
-        {summary.focus ? t("practiceProgress.summary.practice") : t("practiceProgress.summary.practiceMore")}
+        {round && FOCUSABLE_AREAS.includes(round.area)
+          ? t("practiceProgress.rounds.practice")
+          : round || (!job && summary.focus)
+            ? t("practiceProgress.summary.practice")
+            : t("practiceProgress.summary.practiceMore")}
         <ArrowRight className="size-4" aria-hidden="true" />
       </Link>
     </section>
@@ -868,6 +990,9 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
     [progress, filters, now],
   );
   const readiness = useMemo(() => (progress ? readinessOf(progress, filters.jobId) : null), [progress, filters.jobId]);
+  // Readiness by interview round (newer backends); the skill list card is the fallback.
+  const job = useMemo(() => (progress ? jobReadinessOf(progress, filters.jobId) : null), [progress, filters.jobId]);
+  const byRound = Boolean(progress?.readiness);
 
   return (
     <div className="space-y-6">
@@ -890,9 +1015,11 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
         </div>
       ) : (
         <>
-          {hasSessions && view && <SummaryCard progress={progress} skills={view.skills} sessions={view.sessions} now={now} />}
+          {hasSessions && view && (
+            <SummaryCard progress={progress} skills={view.skills} sessions={view.sessions} now={now} job={job} />
+          )}
           <div className="grid gap-6 lg:grid-cols-2">
-            <GoalsCard readiness={readiness} />
+            {byRound ? <RoundsCard progress={progress} job={job} /> : <GoalsCard readiness={readiness} />}
             <WeeklyStreakCard progress={progress} onGoal={changeGoal} savingGoal={savingGoal} />
           </div>
           {hasSessions && view ? (
@@ -904,6 +1031,8 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
                 </p>
               ) : (
                 <>
+                  <GapNotebookCard gaps={filteredGaps(progress, filters)} />
+                  {byRound && <RealInterviewsCard progress={progress} />}
                   <EvidenceCard sessions={view.sessions} />
                   <SkillsCard skills={view.skills} filters={filters} onChange={setFilters} now={now} />
                   <JobsCard jobs={view.jobs} />
