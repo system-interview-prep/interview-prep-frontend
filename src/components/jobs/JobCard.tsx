@@ -33,7 +33,7 @@ export function JobCard({
   return (
     <article
       onClick={() => onClick?.(job.id)}
-      className={`group relative flex h-full flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#204195]/40 hover:shadow-md ${className}`}
+      className={`group relative flex h-full min-w-0 flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#204195]/40 hover:shadow-md ${className}`}
     >
       {/* Clickable Card Overlay */}
       <Link
@@ -43,7 +43,7 @@ export function JobCard({
       />
 
       {/* Main Content Area */}
-      <div className="relative z-[2] flex flex-1 flex-col space-y-3.5">
+      <div className="relative z-[2] flex min-w-0 flex-1 flex-col space-y-3.5">
         {/* 1. Header: Logo, Title, Company, Category, Verified, Bookmark */}
         <JobCardHeader
           title={job.title}
