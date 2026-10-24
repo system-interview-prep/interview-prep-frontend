@@ -11,6 +11,8 @@ import type {
   JobReadiness,
   RoundReadiness,
   SkillArea,
+  TimelineEntry,
+  TimelineRecord,
 } from "../services/progress.service";
 
 /**
@@ -554,10 +556,20 @@ export function lastResumeFor(progress: PracticeProgress, jobId: string): string
 }
 
 /** Link that opens a practice session for this position, focused on a technical round. */
-export function practiceHref(jobId: string | null, resumeId: string | null, area?: SkillArea | null): string {
+export function practiceHref(
+  jobId: string | null,
+  resumeId: string | null,
+  area?: SkillArea | null,
+  reask?: { conceptId: string; skill: string } | null,
+): string {
   if (!jobId || !resumeId) return "/interview/select";
   const params = new URLSearchParams({ candidateId: resumeId, jobId });
   if (area && FOCUSABLE_AREAS.includes(area)) params.set("focus", area);
+  // Skills known only by their label cannot be planned again (backend skill_key "label:…").
+  if (reask && reask.conceptId && !reask.conceptId.startsWith("label:")) {
+    params.set("reask", reask.conceptId);
+    params.set("reaskSkill", reask.skill);
+  }
   return `/interview/cv-score?${params.toString()}`;
 }
 
@@ -567,4 +579,78 @@ export function filteredGaps(progress: PracticeProgress, filters: ProgressFilter
     (filters.jobId === "all" || item.lastSeen.jobId === filters.jobId) &&
     (filters.resumeId === "all" || item.lastSeen.resumeId === filters.resumeId);
   return { open: (progress.gaps?.open ?? []).filter(keep), fixed: (progress.gaps?.fixed ?? []).filter(keep) };
+}
+
+// --------------------------------------------------------------------------
+// Ladder view (research 24/10, "PROGRESS_TRACKING_PATTERNS"): each round has
+// a level Bắt đầu → Cơ bản → Vững → Thành thạo with written rules (Khan
+// mastery), a headline of rounds at Vững, "Tuần này" (Garmin training
+// status), records (Strava PRs) and what changed after each session.
+// --------------------------------------------------------------------------
+
+/** Score floors of the ladder (backend progress.LADDER_BASIC / LADDER_SOLID). */
+export const LADDER_BASIC = 5.5;
+export const LADDER_SOLID = 7.0;
+export const LADDER_SOLID_RUN = 2;
+/** A round at Vững and above counts as ready. */
+export const ROUND_READY_LEVEL = 2;
+
+/** Rounds at Vững or above; from the backend when it sent the number. */
+export function readyCountOf(job: JobReadiness): number {
+  return job.readyCount ?? job.rounds.filter((round) => (round.level ?? 0) >= ROUND_READY_LEVEL).length;
+}
+
+/** The score under which one more session moves the round down. */
+export function ladderFloor(level: number): number {
+  return level >= 3 ? LADDER_SOLID : LADDER_BASIC;
+}
+
+/**
+ * The round to practise next: one at risk of going down first, then the
+ * lowest level (the lower last score breaks ties). Rounds not asked yet come
+ * after the ones with a level, and none when every asked round is Vững.
+ */
+export function adviceRoundOf(job: JobReadiness | null): { round: RoundReadiness; reason: "risk" | "lowest" } | null {
+  if (!job) return null;
+  const seen = job.rounds.filter((round) => (round.series?.length ?? round.sessions) > 0);
+  const risk = seen.find((round) => round.atRisk);
+  if (risk) return { round: risk, reason: "risk" };
+  const last = (round: RoundReadiness) => round.series?.[round.series.length - 1]?.score ?? round.estimate ?? 0;
+  const low = seen
+    .filter((round) => (round.level ?? 0) < ROUND_READY_LEVEL)
+    .sort((a, b) => (a.level ?? 0) - (b.level ?? 0) || last(a) - last(b))[0];
+  if (low) return { round: low, reason: "lowest" };
+  const unseen = job.rounds.find((round) => (round.series?.length ?? round.sessions) === 0 && FOCUSABLE_AREAS.includes(round.area));
+  return unseen ? { round: unseen, reason: "lowest" } : null;
+}
+
+/** The skill of a round with the longest same-tier history (the matched chart). */
+export function matchedSkillOf(round: RoundReadiness): RoundReadiness["skills"][number] | null {
+  return (
+    round.skills
+      .filter((skill) => (skill.history?.length ?? 0) > 0)
+      .sort((a, b) => (b.history?.length ?? 0) - (a.history?.length ?? 0))[0] ?? null
+  );
+}
+
+/** Records of the timeline, newest first, with their session. */
+export function recentRecords(
+  timeline: TimelineEntry[],
+  jobId: string | null,
+  limit = 3,
+): (TimelineRecord & { sessionId: string; date: string })[] {
+  return timeline
+    .filter((entry) => !jobId || entry.jobId === jobId)
+    .flatMap((entry) => entry.records.map((record) => ({ ...record, sessionId: entry.sessionId, date: entry.date })))
+    .slice(0, limit);
+}
+
+/** Open points due for review, most missed first, and the next due date when none is due. */
+export function dueOf(open: GapItem[]): { due: GapItem[]; nextAt: string | null } {
+  const due = open.filter((gap) => gap.due).sort((a, b) => b.timesMissed - a.timesMissed);
+  const upcoming = open
+    .filter((gap) => !gap.due && gap.dueAt)
+    .map((gap) => gap.dueAt as string)
+    .sort()[0];
+  return { due, nextAt: due.length === 0 ? upcoming ?? null : null };
 }
