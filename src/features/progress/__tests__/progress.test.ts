@@ -270,3 +270,95 @@ describe("ready for a real interview: rounds, gaps, practice (research 20/10)", 
     expect(notReadyAtTheTime(report)).toEqual(["infra"]);
   });
 });
+
+describe("streak calendar (research 24/10)", () => {
+  it("lays out each streak week as 7 days and marks days after today as future", async () => {
+    const { calendarWeeks } = await import("../components/StreakCard");
+    const week = (weekStart: string, current = false) => ({ weekStart, count: 1, met: false, frozen: false, current });
+    const weeks = calendarWeeks(
+      [week("2026-10-12"), week("2026-10-19", true)],
+      [{ date: "2026-10-14", started: 1, valid: 1, fixed: 1 }],
+      "2026-10-21",
+    );
+    expect(weeks).toHaveLength(2);
+    expect(weeks[0].days.map((d) => d.date)).toEqual([
+      "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18",
+    ]);
+    expect(weeks[0].days[2].activity?.fixed).toBe(1);
+    expect(weeks[1].days.filter((d) => d.future).map((d) => d.date)[0]).toBe("2026-10-22");
+  });
+});
+
+describe("progress page v2: ladder, week, records, timeline (research 24/10)", () => {
+  const round = (area: string, level: 0 | 1 | 2 | 3, scores: number[], extra: Record<string, unknown> = {}) => ({
+    area: area as never,
+    status: "almost" as const,
+    estimate: scores[scores.length - 1] ?? null,
+    sessions: scores.length,
+    skills: [],
+    topGap: null,
+    level,
+    series: scores.map((score, i) => ({ sessionId: `s${i}`, date: `2026-10-0${i + 1}T02:00:00Z`, tier: "standard" as const, score })),
+    next: { kind: "run" as const, score: 7, have: 1, need: 2 },
+    ...extra,
+  });
+  const job = (rounds: ReturnType<typeof round>[]) => ({ jobId: "job-be", jobTitle: "Backend", sessions: 4, rounds });
+
+  it("advises the round about to go down first, then the lowest level", async () => {
+    const { adviceRoundOf, readyCountOf } = await import("../utils/progressModel");
+    const rounds = [round("data", 1, [6, 7.2]), round("infra", 1, [5.8, 5.9]), round("teamwork", 2, [7.5, 5, 7.4], { atRisk: true })];
+    expect(adviceRoundOf(job(rounds))).toMatchObject({ reason: "risk", round: { area: "teamwork" } });
+    expect(adviceRoundOf(job(rounds.slice(0, 2)))).toMatchObject({ reason: "lowest", round: { area: "infra" } });
+    expect(adviceRoundOf(job([round("data", 2, [7.2, 7.4])]))).toBeNull();
+    expect(readyCountOf(job(rounds))).toBe(1);
+  });
+
+  it("writes the rule that moves a round up, with the progress made", async () => {
+    const { ladderRule } = await import("../components/ProgressOverview");
+    expect(ladderRule(round("data", 1, [6, 7.2]), t)).toBe("Để lên Vững: 2 buổi liên tiếp từ 7.0 điểm (đã có 1/2) · lần gần nhất 7.2");
+    expect(ladderRule(round("ai", 0, []), t)).toBe("Chưa được hỏi phần này ở vị trí này.");
+    expect(ladderRule(round("data", 3, [8], { next: { kind: "top", score: 7, have: 0, need: 0 } }), t)).toBe(
+      "Bậc cao nhất. Luyện đều để giữ bậc.",
+    );
+  });
+
+  it("tells what changed after a session, and a first session at a harder tier", async () => {
+    const { timelineChips } = await import("../components/ProgressOverview");
+    const entry = {
+      sessionId: "s3", date: "2026-10-14T02:00:00Z", jobId: "job-be", tier: "challenge" as const, score: 6.1, baseline: null,
+      levelChanges: [{ area: "language" as const, from: 1 as const, to: 2 as const }], kept: 4,
+      records: [{ kind: "first_star_complete" as const, quote: "giảm 40%" }],
+    };
+    const older = [{ ...entry, sessionId: "s2", tier: "standard" as const, levelChanges: [], records: [] }];
+    expect(timelineChips(entry, older, t).map((chip) => chip.text)).toEqual([
+      "↑ Ngôn ngữ lập trình lên Vững",
+      "= 4 phần giữ bậc",
+      "Kỷ lục: Lần đầu kể kinh nghiệm đủ bối cảnh, việc, hành động, kết quả",
+      "Lần đầu ở mức Thử thách, điểm thấp hơn là bình thường",
+    ]);
+  });
+
+  it("lists due points most missed first, records newest first, and opens a re-ask session", async () => {
+    const { dueOf, practiceHref, recentRecords } = await import("../utils/progressModel");
+    const gap = (point: string, missed: number, due: boolean, dueAt?: string) => ({
+      skill: "Redis", skillKey: "redis", area: "data" as const, point, status: "MISSING" as const, timesAsked: missed,
+      timesMissed: missed, due, dueAt,
+      lastSeen: { sessionId: "s1", date: "2026-10-08T02:00:00Z", question: "Q", jobId: "job-be", resumeId: "cv-1" },
+    });
+    expect(dueOf([gap("a", 1, true), gap("b", 3, true)]).due.map((g) => g.point)).toEqual(["b", "a"]);
+    expect(dueOf([gap("a", 1, false, "2026-10-30"), gap("b", 1, false, "2026-10-28")]).nextAt).toBe("2026-10-28");
+    const timeline = [
+      { sessionId: "s2", date: "d2", jobId: "job-be", tier: "standard" as const, score: 7, baseline: null, levelChanges: [], kept: 0,
+        records: [{ kind: "first_full_core" as const }] },
+      { sessionId: "s1", date: "d1", jobId: "other", tier: "standard" as const, score: 7, baseline: null, levelChanges: [], kept: 0,
+        records: [{ kind: "first_no_incorrect" as const }] },
+    ];
+    expect(recentRecords(timeline, "job-be").map((r) => r.sessionId)).toEqual(["s2"]);
+    expect(practiceHref("job-be", "cv-1", "data", { conceptId: "redis", skill: "Redis" })).toBe(
+      "/interview/cv-score?candidateId=cv-1&jobId=job-be&focus=data&reask=redis&reaskSkill=Redis",
+    );
+    expect(practiceHref("job-be", "cv-1", "project", { conceptId: "label:kể dự án", skill: "Dự án" })).toBe(
+      "/interview/cv-score?candidateId=cv-1&jobId=job-be",
+    );
+  });
+});
