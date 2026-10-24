@@ -165,6 +165,8 @@ export type CreateInterviewRuntimeSessionRequest = {
   durationMinutes?: number;
   /** "Luyện vòng này" on the progress page: half the technical questions come from this round. */
   focusArea?: FocusArea;
+  /** "Luyện lại ý này": the planner asks this skill again with a question not met before. */
+  reaskConceptId?: string;
 };
 
 /** Rounds made of technical questions (backend interview_rounds.FOCUSABLE_AREAS). */
