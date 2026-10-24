@@ -500,6 +500,9 @@ function ScorePageContent() {
   const urlJobTitle = params.get("jobTitle")?.trim() || "";
   // "Luyện vòng này" on the progress page: the round this session focuses on.
   const focusArea = asFocusArea(params.get("focus"));
+  // "Luyện lại ý này": the skill the planner must ask again, with a question not met before.
+  const reaskConceptId = params.get("reask")?.trim().slice(0, 120) || undefined;
+  const reaskSkill = params.get("reaskSkill")?.trim().slice(0, 120) || "";
 
   const [activeContext, setActiveContext] = useState<{
     candidateId: string;
@@ -784,6 +787,7 @@ function ScorePageContent() {
         jobId,
         durationMinutes,
         focusArea,
+        reaskConceptId,
       });
       setStartStage(2);
       router.push(targetUrl);
@@ -970,6 +974,11 @@ function ScorePageContent() {
                   </button>
                 </div>
                 <div className="border-b border-[#EAEFF8] bg-[#F8FAFC] px-6 py-4 sm:px-7">
+                  {reaskConceptId && reaskSkill && (
+                    <p className="mb-3 rounded-xl bg-[#EEF3FF] px-3 py-2 text-xs font-semibold text-[#204195] ring-1 ring-[#C9D6F5]">
+                      {fmt(t("practiceProgress.reask.banner"), { skill: reaskSkill })}
+                    </p>
+                  )}
                   {focusArea && (
                     <p className="mb-3 rounded-xl bg-[#EEF3FF] px-3 py-2 text-xs font-semibold text-[#204195] ring-1 ring-[#C9D6F5]">
                       {fmt(t("practiceProgress.focus.banner"), { round: t(`practiceProgress.area.${focusArea}`) })}
