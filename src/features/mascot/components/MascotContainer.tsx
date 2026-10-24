@@ -261,7 +261,9 @@ export function MascotContainer({
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         className={cn(
-          "group flex h-14 items-center gap-2.5 rounded-full bg-white pl-1 pr-4 shadow-[0_12px_30px_-14px_rgba(20,36,75,0.5)] transition-transform duration-200 ease-out hover:-translate-y-0.5 active:scale-95 motion-reduce:transition-none",
+          // Phones: only the avatar (and the count), so the button does not sit on
+          // the page's content; the name and status show from sm up.
+          "group relative flex h-14 items-center gap-2.5 rounded-full bg-white px-1 shadow-[0_12px_30px_-14px_rgba(20,36,75,0.5)] sm:pl-1 sm:pr-4 transition-transform duration-200 ease-out hover:-translate-y-0.5 active:scale-95 motion-reduce:transition-none",
           status === "error"
             ? "bg-[#FFF5F5] ring-2 ring-[#C43B3B]"
             : status === "open"
@@ -273,7 +275,7 @@ export function MascotContainer({
         )}
       >
         <FoxAvatar size={60} pose={pose} className="-mt-3.5" />
-        <span className="flex flex-col items-start leading-tight">
+        <span className="hidden flex-col items-start leading-tight sm:flex">
           <span className="text-[13px] font-bold text-[#14244B]">{t("guide.name")}</span>
           <span
             className={cn(
@@ -291,7 +293,7 @@ export function MascotContainer({
         {pending > 0 ? (
           <span
             aria-hidden="true"
-            className="grid h-6 min-w-6 place-items-center rounded-full bg-[#C2410C] px-1.5 text-[12px] font-bold text-white"
+            className="absolute -right-1 -top-1 grid h-6 min-w-6 place-items-center rounded-full bg-[#C2410C] px-1.5 text-[12px] font-bold text-white ring-2 ring-white sm:static sm:ring-0"
           >
             {pending}
           </span>
