@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useState } from "react";
-import { ArrowRight, Check, Plus } from "lucide-react";
+import { useEffect, useId, useState, type ReactNode } from "react";
+import { ArrowRight, Check, ChevronDown, Plus, Sparkles } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { localeOf } from "@/i18n/format";
 import { cn } from "@/utils";
@@ -19,6 +19,8 @@ import {
   type RealInterviewStage,
   type RoundStatus,
   type SkillArea,
+  type Trend,
+  type Win,
 } from "../services/progress.service";
 import { fill, shortDate } from "../utils/progressFormat";
 import { FOCUSABLE_AREAS, lastResumeFor, practiceHref } from "../utils/progressModel";
@@ -48,9 +50,24 @@ function StatusChip({ status }: { status: RoundStatus }) {
   );
 }
 
-/** "Sẵn sàng đi phỏng vấn thật chưa?": one row per interview round of the position. */
-export function RoundsCard({ progress, job }: { progress: PracticeProgress; job: JobReadiness | null }) {
+/**
+ * "Sẵn sàng đi phỏng vấn thật chưa?": one row per interview round of the
+ * position. A row opens to the skills of that round (their charts and the
+ * questions asked), so the page has one place per round instead of a second
+ * skill list further down (UX review 20/10).
+ */
+export function RoundsCard({
+  progress,
+  job,
+  renderSkills,
+}: {
+  progress: PracticeProgress;
+  job: JobReadiness | null;
+  /** The detail of a round's skills; the page renders the skill cards. */
+  renderSkills?: (conceptIds: string[]) => ReactNode;
+}) {
   const { t } = useLanguage();
+  const [openArea, setOpenArea] = useState<SkillArea | null>(null);
   if (!job) {
     return (
       <section className="min-w-0 rounded-2xl border border-[#DCE4F3] bg-white p-5 sm:p-6">
@@ -92,19 +109,41 @@ export function RoundsCard({ progress, job }: { progress: PracticeProgress; job:
                       skills: round.skills.map((skill) => skill.label).join(", "),
                     })}
               </p>
+              {round.first != null && round.estimate != null && round.sessions >= 2 && (
+                <RoundChange first={round.first} now={round.estimate} trend={round.trend ?? null} />
+              )}
               {round.topGap && (
                 <p className="mt-1 text-xs text-[#8A5A0B]">
                   {fill(t("practiceProgress.rounds.topGap"), { point: round.topGap.point, n: round.topGap.timesMissed })}
                 </p>
               )}
-              {focusable && (
-                <Link
-                  href={practiceHref(job.jobId, resumeId, round.area)}
-                  className="mt-1.5 inline-flex items-center gap-1 text-xs font-bold text-[#204195] hover:underline"
-                >
-                  {t("practiceProgress.rounds.practice")}
-                  <ArrowRight className="size-3.5" aria-hidden="true" />
-                </Link>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+                {focusable && (
+                  <Link
+                    href={practiceHref(job.jobId, resumeId, round.area)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-[#204195] hover:underline"
+                  >
+                    {t("practiceProgress.rounds.practice")}
+                    <ArrowRight className="size-3.5" aria-hidden="true" />
+                  </Link>
+                )}
+                {renderSkills && round.skills.length > 0 && (
+                  <button
+                    type="button"
+                    aria-expanded={openArea === round.area}
+                    onClick={() => setOpenArea((area) => (area === round.area ? null : round.area))}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#4A5878] hover:text-[#14244B]"
+                  >
+                    {t(openArea === round.area ? "practiceProgress.rounds.hideDetail" : "practiceProgress.rounds.showDetail")}
+                    <ChevronDown
+                      className={cn("size-3.5 transition-transform", openArea === round.area && "rotate-180")}
+                      aria-hidden="true"
+                    />
+                  </button>
+                )}
+              </div>
+              {renderSkills && openArea === round.area && (
+                <div className="mt-3">{renderSkills(round.skills.map((skill) => skill.conceptId))}</div>
               )}
             </li>
           );
@@ -117,13 +156,104 @@ export function RoundsCard({ progress, job }: { progress: PracticeProgress; job:
   );
 }
 
-const GAPS_SHOWN = 6;
+/**
+ * "Lần đầu → hiện tại" of a round on a 0-10 track: a hollow dot where it
+ * started, a filled dot where it is now. Drawn faint and labelled "chưa rõ"
+ * when the change is within the session noise (no reliable trend), so a lucky
+ * session does not read as progress (research 24/10; radar charts avoided).
+ */
+export function RoundChange({ first, now, trend }: { first: number; now: number; trend: Trend | null }) {
+  const { t } = useLanguage();
+  const clear = trend?.status === "up" || trend?.status === "down";
+  const left = Math.min(first, now) * 10;
+  const width = Math.abs(now - first) * 10;
+  const tone = !clear ? "#9AA6C2" : trend?.status === "up" ? "#287A4B" : "#B4572E";
+  return (
+    <div className="mt-2 flex items-center gap-3">
+      <div className="relative h-3 min-w-0 flex-1" aria-hidden="true">
+        <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[#E3E8F2]" />
+        <span className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full" style={{ left: `${left}%`, width: `${width}%`, background: tone, opacity: clear ? 0.8 : 0.4 }} />
+        <span
+          className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white"
+          style={{ left: `${first * 10}%`, borderColor: tone }}
+        />
+        <span
+          className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{ left: `${now * 10}%`, background: tone, opacity: clear ? 1 : 0.55 }}
+        />
+      </div>
+      <span className={cn("shrink-0 text-[11px] tabular-nums", clear ? "font-semibold text-[#14244B]" : "text-[#607096]")}>
+        {fill(t(clear ? "practiceProgress.rounds.change" : "practiceProgress.rounds.changeUnclear"), {
+          first: first.toFixed(1),
+          now: now.toFixed(1),
+        })}
+      </span>
+    </div>
+  );
+}
 
-/** "Sổ ôn tập": key points the candidate keeps leaving out, and the ones they fixed. */
-export function GapNotebookCard({ gaps }: { gaps: { open: GapItem[]; fixed: GapItem[] } }) {
+/** "Ghi nhận nhỏ": concrete things done for the first time, newest first. */
+export function WinsCard({ wins }: { wins: Win[] }) {
   const { t, lang } = useLanguage();
   const locale = localeOf(lang);
-  const [shown, setShown] = useState(GAPS_SHOWN);
+  const [all, setAll] = useState(false);
+  if (wins.length === 0) return null;
+  const shown = all ? wins : wins.slice(0, 4);
+  return (
+    <section className="min-w-0 rounded-2xl border border-[#DCE4F3] bg-white p-5 sm:p-6 [overflow-wrap:anywhere]">
+      <h2 className="font-display text-lg font-bold text-[#14244B]">{t("practiceProgress.wins.title")}</h2>
+      <p className="mt-1 text-xs text-[#607096]">{t("practiceProgress.wins.desc")}</p>
+      <ol className="mt-3 space-y-2.5">
+        {shown.map((win) => (
+          <li key={`${win.kind}-${win.sessionId}-${win.point ?? ""}`} className="flex items-start gap-2.5">
+            <Sparkles className="mt-0.5 size-4 shrink-0 text-[#D99A19]" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-sm text-[#14244B]">
+                {win.kind === "fixed"
+                  ? fill(t("practiceProgress.wins.fixed"), { point: win.point ?? "", skill: win.skill ?? "" })
+                  : t(`practiceProgress.compare.${win.kind.replace("first_", "first.")}`)}
+              </p>
+              <Link href={`/interview/results/${win.sessionId}`} className="text-[11px] text-[#607096] hover:underline">
+                {shortDate(win.date, locale)}
+              </Link>
+            </div>
+          </li>
+        ))}
+      </ol>
+      {wins.length > 4 && (
+        <button
+          type="button"
+          onClick={() => setAll((value) => !value)}
+          className="mt-2 text-xs font-semibold text-[#204195] hover:underline"
+        >
+          {all ? t("practiceProgress.rounds.hideDetail") : fill(t("practiceProgress.gaps.more"), { n: wins.length - 4 })}
+        </button>
+      )}
+    </section>
+  );
+}
+
+const GAPS_FIRST = 3;
+const FIXED_SHOWN = 4;
+const GAPS_MORE = 6;
+
+/**
+ * "Sổ ôn tập": key points the candidate keeps leaving out, and the ones they
+ * fixed. The three most missed show first; each point can be practised again.
+ */
+export function GapNotebookCard({
+  gaps,
+  progress,
+  showFixed = true,
+}: {
+  gaps: { open: GapItem[]; fixed: GapItem[] };
+  progress: PracticeProgress;
+  /** Off when the "Ghi nhận nhỏ" card already lists the fixed points. */
+  showFixed?: boolean;
+}) {
+  const { t, lang } = useLanguage();
+  const locale = localeOf(lang);
+  const [shown, setShown] = useState(GAPS_FIRST);
   if (gaps.open.length === 0 && gaps.fixed.length === 0) return null;
   return (
     <section className="min-w-0 rounded-2xl border border-[#DCE4F3] bg-white p-5 sm:p-6 [overflow-wrap:anywhere]">
@@ -132,10 +262,18 @@ export function GapNotebookCard({ gaps }: { gaps: { open: GapItem[]; fixed: GapI
       {gaps.open.length === 0 ? (
         <p className="mt-4 text-sm text-[#287A4B]">{t("practiceProgress.gaps.none")}</p>
       ) : (
-        <ol className="mt-4 grid gap-3 md:grid-cols-2">
+        <ol className="mt-4 space-y-3">
           {gaps.open.slice(0, shown).map((gap) => (
             <li key={`${gap.skillKey}-${gap.point}`} className="rounded-xl p-3 ring-1 ring-[#EAEFF8]">
-              <p className="text-sm font-semibold text-[#14244B]">{gap.point}</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8A5A0B]">{t("practiceProgress.gaps.pointLabel")}</p>
+                {gap.due && (
+                  <span className="rounded-full bg-[#EEF3FF] px-2 py-0.5 text-[10px] font-bold text-[#204195] ring-1 ring-[#C9D6F5]">
+                    {t("practiceProgress.gaps.due")}
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-sm font-semibold text-[#14244B]">{gap.point}</p>
               <p className="mt-1 text-[11px] text-[#607096]">
                 {fill(t("practiceProgress.gaps.meta"), {
                   round: t(`practiceProgress.area.${gap.area}`),
@@ -149,9 +287,22 @@ export function GapNotebookCard({ gaps }: { gaps: { open: GapItem[]; fixed: GapI
                   {fill(t("practiceProgress.gaps.question"), { question: gap.lastSeen.question })}
                 </p>
               )}
-              <Link href={`/interview/results/${gap.lastSeen.sessionId}`} className="mt-1 inline-block text-[11px] font-semibold hover:underline">
-                {fill(t("practiceProgress.skills.openReport"), { date: shortDate(gap.lastSeen.date, locale) })}
-              </Link>
+              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-semibold">
+                <Link
+                  href={practiceHref(
+                    gap.lastSeen.jobId,
+                    gap.lastSeen.resumeId ?? (gap.lastSeen.jobId ? lastResumeFor(progress, gap.lastSeen.jobId) : null),
+                    gap.area,
+                  )}
+                  className="inline-flex items-center gap-1 text-[#204195] hover:underline"
+                >
+                  {t("practiceProgress.gaps.practice")}
+                  <ArrowRight className="size-3" aria-hidden="true" />
+                </Link>
+                <Link href={`/interview/results/${gap.lastSeen.sessionId}`} className="text-[#4A5878] hover:underline">
+                  {fill(t("practiceProgress.skills.openReport"), { date: shortDate(gap.lastSeen.date, locale) })}
+                </Link>
+              </div>
             </li>
           ))}
         </ol>
@@ -159,17 +310,17 @@ export function GapNotebookCard({ gaps }: { gaps: { open: GapItem[]; fixed: GapI
       {gaps.open.length > shown && (
         <button
           type="button"
-          onClick={() => setShown((n) => n + GAPS_SHOWN)}
+          onClick={() => setShown((n) => n + GAPS_MORE)}
           className="mt-3 inline-flex h-9 items-center rounded-xl px-4 text-xs font-bold text-[#204195] ring-1 ring-[#DCE4F3] hover:bg-[#F0F4FC]"
         >
-          {fill(t("practiceProgress.skills.showMore"), { n: Math.min(GAPS_SHOWN, gaps.open.length - shown) })}
+          {fill(t("practiceProgress.gaps.more"), { n: gaps.open.length - shown })}
         </button>
       )}
-      {gaps.fixed.length > 0 && (
+      {showFixed && gaps.fixed.length > 0 && (
         <div className="mt-5">
           <p className="text-xs font-bold text-[#1F5C3A]">{t("practiceProgress.gaps.fixed")}</p>
           <ul className="mt-2 flex flex-wrap gap-2">
-            {gaps.fixed.map((gap) => (
+            {gaps.fixed.slice(0, FIXED_SHOWN).map((gap) => (
               <li
                 key={`${gap.skillKey}-${gap.point}`}
                 className="inline-flex items-center gap-1 rounded-full bg-[#E7F5EC] px-3 py-1 text-xs text-[#1F5C3A] ring-1 ring-[#BFE3CC]"
@@ -178,6 +329,11 @@ export function GapNotebookCard({ gaps }: { gaps: { open: GapItem[]; fixed: GapI
                 {fill(t("practiceProgress.gaps.fixedItem"), { point: gap.point, skill: gap.skill })}
               </li>
             ))}
+            {gaps.fixed.length > FIXED_SHOWN && (
+              <li className="inline-flex items-center px-1 text-xs text-[#1F5C3A]">
+                {fill(t("practiceProgress.gaps.fixedMore"), { n: gaps.fixed.length - FIXED_SHOWN })}
+              </li>
+            )}
           </ul>
         </div>
       )}
