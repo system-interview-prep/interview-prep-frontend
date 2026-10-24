@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, Flag, Flame, Loader2, Snowflake, Target, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { ArrowRight, ChevronDown, Flag, Loader2, Target, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { localeOf } from "@/i18n/format";
 import { cn } from "@/utils";
@@ -46,9 +46,19 @@ import {
   type SkillView,
 } from "../utils/progressModel";
 import { ScoreLineChart, type ScorePoint } from "./ScoreLineChart";
-import { GapNotebookCard, RealInterviewsCard, RoundsCard } from "./ReadinessCards";
+import { GapNotebookCard, RealInterviewsCard, RoundsCard, WinsCard } from "./ReadinessCards";
+import { WeeklyStreakCard } from "./StreakCard";
+import {
+  DueCard,
+  FirstSessionView,
+  LadderCard,
+  MoreSection,
+  ReadyHeadline,
+  RecordsCard,
+  TimelineCard,
+  WeekCard,
+} from "./ProgressOverview";
 
-const GOALS = [1, 2, 3, 4, 5, 6, 7];
 const SKILL_CHARTS = 6;
 
 /** Unique x labels: two interviews on the same day must not share a category. */
@@ -96,97 +106,6 @@ function Card({ title, desc, children, className }: { title: string; desc?: stri
       {desc && <p className="mt-1 text-xs leading-relaxed text-[#607096]">{desc}</p>}
       <div className="mt-4">{children}</div>
     </section>
-  );
-}
-
-function WeeklyStreakCard({ progress, onGoal, savingGoal }: { progress: PracticeProgress; onGoal: (goal: number) => void; savingGoal: boolean }) {
-  const { t, lang } = useLanguage();
-  const locale = localeOf(lang);
-  const { streak } = progress;
-  return (
-    <Card title={t("practiceProgress.streak.title")}>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex items-baseline gap-2">
-          <Flame className="size-6 self-center text-orange-500" aria-hidden="true" />
-          <span className="font-display text-3xl font-extrabold tabular-nums text-[#14244B] sm:text-4xl">{streak.weeks}</span>
-          <span className="text-sm font-semibold text-[#607096]">{t("practiceProgress.streak.unit")}</span>
-        </div>
-        <div className="min-w-0 text-right text-xs text-[#607096]">
-          <p className="font-semibold text-[#14244B]">
-            {fill(t("practiceProgress.streak.thisWeek"), { count: streak.thisWeekCount, goal: streak.goal })}
-          </p>
-          <p>
-            {streak.thisWeekRemaining > 0
-              ? fill(t("practiceProgress.streak.remaining"), { n: streak.thisWeekRemaining })
-              : t("practiceProgress.streak.met")}
-          </p>
-        </div>
-      </div>
-      <ol className="mt-4 grid grid-cols-8 gap-1 sm:gap-1.5" aria-label={t("practiceProgress.streak.title")}>
-        {streak.history.map((week) => {
-          const state = week.current
-            ? "current"
-            : week.met
-              ? "met"
-              : week.frozen
-                ? "frozen"
-                : "missed";
-          const label = `${shortDate(week.weekStart, locale)}: ${t(`practiceProgress.streak.week.${state}`)} (${week.count})`;
-          return (
-            <li key={week.weekStart} title={label} className="flex min-w-0 flex-col items-center gap-1">
-              <span
-                className={cn(
-                  "grid h-9 w-full place-items-center rounded-lg text-xs font-bold",
-                  state === "met" && "bg-[#204195] text-white",
-                  state === "frozen" && "bg-[#E8F1FB] text-[#2C6CB0] ring-1 ring-[#BBD3EE]",
-                  state === "missed" && "bg-[#F8FAFC] text-[#9AA6C2] ring-1 ring-[#EAEFF8]",
-                  state === "current" &&
-                    (week.met ? "bg-[#204195] text-white ring-2 ring-[#FCB625]" : "bg-white text-[#204195] ring-2 ring-[#204195]"),
-                )}
-              >
-                {state === "met" || (state === "current" && week.met) ? (
-                  <Check className="size-4" aria-hidden="true" />
-                ) : state === "frozen" ? (
-                  <Snowflake className="size-4" aria-hidden="true" />
-                ) : (
-                  week.count
-                )}
-                <span className="sr-only">{label}</span>
-              </span>
-              <span className="whitespace-nowrap text-[9px] tabular-nums text-[#8B98B5] sm:text-[10px]">{shortDate(week.weekStart, locale)}</span>
-            </li>
-          );
-        })}
-      </ol>
-      <p className="mt-3 flex items-center gap-1.5 text-xs text-[#607096]">
-        <Snowflake className="size-3.5 shrink-0" aria-hidden="true" />
-        {streak.freezeAvailableThisMonth ? t("practiceProgress.streak.freezeAvailable") : t("practiceProgress.streak.freezeUsed")}
-      </p>
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#EAEFF8] pt-4">
-        <span className="text-xs font-semibold text-[#14244B]">{t("practiceProgress.streak.goal")}</span>
-        <div className="flex gap-1" role="radiogroup" aria-label={t("practiceProgress.streak.goal")}>
-          {GOALS.map((goal) => (
-            <button
-              key={goal}
-              type="button"
-              role="radio"
-              aria-checked={progress.weeklyGoal === goal}
-              disabled={savingGoal}
-              onClick={() => onGoal(goal)}
-              className={cn(
-                "size-8 rounded-lg text-xs font-bold transition-colors disabled:opacity-60",
-                progress.weeklyGoal === goal
-                  ? "bg-[#204195] text-white"
-                  : "bg-[#F8FAFC] text-[#14244B] ring-1 ring-[#DCE4F3] hover:bg-[#F0F4FC]",
-              )}
-            >
-              {goal}
-            </button>
-          ))}
-        </div>
-        <span className="text-xs text-[#607096]">{t("practiceProgress.streak.goalUnit")}</span>
-      </div>
-    </Card>
   );
 }
 
@@ -449,6 +368,22 @@ function SkillAreaGroup({ area, skills, now }: { area: SkillArea; skills: SkillV
   );
 }
 
+/** The skill cards of one round, opened from the readiness card (filtered skills only). */
+function RoundSkills({ conceptIds, skills, now }: { conceptIds: string[]; skills: SkillView[]; now: Date }) {
+  const { t } = useLanguage();
+  const inRound = conceptIds
+    .map((id) => skills.find((skill) => skill.conceptId === id))
+    .filter((skill): skill is SkillView => Boolean(skill));
+  if (inRound.length === 0) return <p className="text-xs text-[#607096]">{t("practiceProgress.rounds.noDetail")}</p>;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {inRound.map((skill) => (
+        <SkillCardItem key={skill.conceptId} skill={skill} now={now} />
+      ))}
+    </div>
+  );
+}
+
 /** What was asked under a skill, the score, and the key points the answer missed. */
 function SkillQuestions({ skill }: { skill: SkillView }) {
   const { t, lang } = useLanguage();
@@ -461,8 +396,9 @@ function SkillQuestions({ skill }: { skill: SkillView }) {
         {fill(t("practiceProgress.skills.questions"), { n: questions.length })}
       </summary>
       <ol className="mt-2 space-y-3">
-        {questions.map((item) => (
-          <li key={`${item.sessionId}-${item.question}`} className="text-xs">
+        {questions.map((item, index) => (
+          // The same question can come twice in a session (asked again after a skip).
+          <li key={`${item.sessionId}-${item.question}-${index}`} className="text-xs">
             <div className="flex items-start justify-between gap-2">
               <p className="min-w-0 text-[#14244B] [overflow-wrap:anywhere]">{item.question || t("practiceProgress.skills.questionUnknown")}</p>
               <span className="shrink-0 font-bold tabular-nums text-[#14244B]">{item.score.toFixed(1)}</span>
@@ -710,26 +646,25 @@ function SummaryCard({
   const evidence = evidenceOf(sessions)
     .filter((m) => m.status === "improved" && m.before !== null && m.now !== null)
     .sort((a, b) => Math.abs((b.now ?? 0) - (b.before ?? 0)) - Math.abs((a.now ?? 0) - (a.before ?? 0)))[0];
-  const sentences = [
-    evidence
-      ? fill(t("practiceProgress.summary.evidence"), {
-          what: t(`practiceProgress.evidence.${evidence.key}`),
-          before: `${Math.round((evidence.before ?? 0) * 100)}%`,
-          now: `${Math.round((evidence.now ?? 0) * 100)}%`,
-        })
-      : null,
-    streak.weeks > 0
-      ? fill(t("practiceProgress.summary.streak"), { n: streak.weeks })
-      : fill(t("practiceProgress.summary.streakNone"), { count: streak.thisWeekCount, goal: streak.goal }),
-    summary.improving.length === 0
-      ? t("practiceProgress.summary.improvingNone")
-      : summary.improving.length === 1
-        ? fill(t("practiceProgress.summary.improvingOne"), { skill: summary.improving[0].label })
-        : fill(t("practiceProgress.summary.improvingMany"), {
+  // One supporting sentence (UX review 20/10: three unrelated facts in one
+  // line were hard to read): the clearest change in answers, else the skills
+  // going up, else the week. The streak card has the week in full.
+  const supporting = evidence
+    ? fill(t("practiceProgress.summary.evidence"), {
+        what: t(`practiceProgress.evidence.${evidence.key}`),
+        before: `${Math.round((evidence.before ?? 0) * 100)}%`,
+        now: `${Math.round((evidence.now ?? 0) * 100)}%`,
+      })
+    : summary.improving.length === 1
+      ? fill(t("practiceProgress.summary.improvingOne"), { skill: summary.improving[0].label })
+      : summary.improving.length > 1
+        ? fill(t("practiceProgress.summary.improvingMany"), {
             skill: summary.improving[0].label,
             n: summary.improving.length - 1,
-          }),
-  ];
+          })
+        : streak.weeks > 0
+          ? fill(t("practiceProgress.summary.streak"), { n: streak.weeks })
+          : fill(t("practiceProgress.summary.streakNone"), { count: streak.thisWeekCount, goal: streak.goal });
   // With readiness by round: the round to practise next, the point missed most
   // there, and a link that opens a session focused on that round.
   const round = nextRound(job);
@@ -763,11 +698,11 @@ function SummaryCard({
       className="flex flex-col gap-4 rounded-2xl border border-[#C9D6F5] bg-[#F5F8FF] p-4 sm:flex-row sm:items-center sm:p-5"
     >
       <div className="min-w-0 flex-1 space-y-1.5">
-        <p className="text-sm leading-6 text-[#14244B]">{sentences.filter(Boolean).join(" ")}</p>
-        <p className="flex items-start gap-2 text-sm font-semibold leading-6 text-[#14244B]">
-          <Target className="mt-1 size-4 shrink-0 text-[#204195]" aria-hidden="true" />
+        <p className="flex items-start gap-2 text-base font-bold leading-7 text-[#14244B]">
+          <Target className="mt-1.5 size-4 shrink-0 text-[#204195]" aria-hidden="true" />
           <span>{focusLine}</span>
         </p>
+        <p className="pl-6 text-sm leading-6 text-[#4A5878]">{supporting}</p>
       </div>
       <Link
         href={href}
@@ -993,12 +928,38 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
   // Readiness by interview round (newer backends); the skill list card is the fallback.
   const job = useMemo(() => (progress ? jobReadinessOf(progress, filters.jobId) : null), [progress, filters.jobId]);
   const byRound = Boolean(progress?.readiness);
+  // Page v2 (research 24/10): ladder, week, records and timeline from newer backends.
+  const ladderJob = useMemo(
+    () => (progress ? (jobReadinessOf(progress, filters.jobId) ?? jobReadinessOf(progress, "all")) : null),
+    [progress, filters.jobId],
+  );
+  const v2 = Boolean(progress?.week && progress?.timeline && ladderJob?.rounds.some((round) => round.level !== undefined));
+  const jobChoices = progress?.readiness ?? [];
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="font-display text-xl font-black tracking-tight text-[#14244B] sm:text-2xl">{t("practiceProgress.title")}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-[#607096]">{t("practiceProgress.subtitle")}</p>
+    // Bottom room on phones for the assistant button fixed in the corner.
+    <div className="space-y-6 pb-20 sm:pb-0">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="font-display text-xl font-black tracking-tight text-[#14244B] sm:text-2xl">{t("practiceProgress.title")}</h1>
+          <p className="mt-1 max-w-3xl text-sm text-[#607096]">{t(v2 ? "practiceProgress.v2.subtitle" : "practiceProgress.subtitle")}</p>
+        </div>
+        {v2 && hasSessions && ladderJob && jobChoices.length > 1 && (
+          <label className="flex w-full flex-col gap-1 text-xs font-semibold text-[#607096] sm:w-auto">
+            {t("practiceProgress.v2.job")}
+            <select
+              className="h-11 w-full min-w-0 rounded-xl border border-[#DCE4F3] bg-white px-3 text-sm font-semibold text-[#14244B] focus:outline-none focus:ring-2 focus:ring-[#204195]/30 sm:w-72"
+              value={ladderJob.jobId}
+              onChange={(e) => setFilters({ ...filters, jobId: e.target.value })}
+            >
+              {jobChoices.map((choice) => (
+                <option key={choice.jobId} value={choice.jobId}>
+                  {choice.jobTitle ?? choice.jobId}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </header>
 
       {failed ? (
@@ -1013,17 +974,53 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
           <Loader2 className="size-4 animate-spin" aria-hidden="true" />
           {t("practiceProgress.loading")}
         </div>
-      ) : (
+      ) : !hasSessions || !view ? (
         <>
-          {hasSessions && view && (
-            <SummaryCard progress={progress} skills={view.skills} sessions={view.sessions} now={now} job={job} />
-          )}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {byRound ? <RoundsCard progress={progress} job={job} /> : <GoalsCard readiness={readiness} />}
-            <WeeklyStreakCard progress={progress} onGoal={changeGoal} savingGoal={savingGoal} />
+          <div className="rounded-2xl border border-dashed border-[#C9D7F1] bg-white p-8 text-center">
+            <p className="text-base font-bold text-[#14244B]">{t("practiceProgress.empty.title")}</p>
+            <p className="mt-1 text-sm text-[#607096]">{t("practiceProgress.empty.desc")}</p>
+            <Link
+              href="/interview/select"
+              className="mt-4 inline-flex h-10 items-center rounded-xl bg-[#204195] px-4 text-sm font-semibold text-white hover:bg-[#183275]"
+            >
+              {t("practiceProgress.empty.cta")}
+            </Link>
           </div>
-          {hasSessions && view ? (
+          <WeeklyStreakCard progress={progress} onGoal={changeGoal} savingGoal={savingGoal} />
+        </>
+      ) : v2 && ladderJob ? (
+        <>
+          {ladderJob.sessions <= 1 ? (
+            <FirstSessionView
+              progress={progress}
+              job={ladderJob}
+              gaps={(progress.gaps?.open ?? []).filter((gap) => gap.lastSeen.jobId === ladderJob.jobId)}
+            />
+          ) : (
             <>
+              <div className="flex flex-wrap items-stretch gap-6">
+                <ReadyHeadline job={ladderJob} />
+                <WeekCard progress={progress} job={ladderJob} />
+              </div>
+              <LadderCard progress={progress} job={ladderJob} />
+              <div className="flex flex-wrap items-stretch gap-6">
+                <DueCard
+                  progress={progress}
+                  gaps={(progress.gaps?.open ?? []).filter((gap) => gap.lastSeen.jobId === ladderJob.jobId)}
+                />
+                <RecordsCard timeline={progress.timeline ?? []} jobId={ladderJob.jobId} />
+              </div>
+              <TimelineCard timeline={progress.timeline ?? []} jobId={ladderJob.jobId} />
+            </>
+          )}
+          <div className="space-y-3">
+            <MoreSection title={t("practiceProgress.more.real")} desc={t("practiceProgress.more.realDesc")}>
+              <RealInterviewsCard progress={progress} />
+            </MoreSection>
+            <MoreSection title={t("practiceProgress.more.calendar")} desc={t("practiceProgress.more.calendarDesc")}>
+              <WeeklyStreakCard progress={progress} onGoal={changeGoal} savingGoal={savingGoal} />
+            </MoreSection>
+            <MoreSection title={t("practiceProgress.detail.title")} desc={t("practiceProgress.detail.desc")}>
               <FilterBar progress={progress} filters={filters} onChange={setFilters} />
               {view.sessions.length === 0 ? (
                 <p className="rounded-2xl border border-dashed border-[#C9D7F1] bg-white p-6 text-center text-sm text-[#607096]">
@@ -1031,28 +1028,80 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
                 </p>
               ) : (
                 <>
-                  <GapNotebookCard gaps={filteredGaps(progress, filters)} />
-                  {byRound && <RealInterviewsCard progress={progress} />}
+                  <GapNotebookCard gaps={filteredGaps(progress, filters)} progress={progress} />
                   <EvidenceCard sessions={view.sessions} />
                   <SkillsCard skills={view.skills} filters={filters} onChange={setFilters} now={now} />
                   <JobsCard jobs={view.jobs} />
                   <CalibrationNote progress={progress} />
+                  <MilestonesCard progress={progress} />
+                  <SessionsTable sessions={view.sessions} />
                 </>
               )}
-              <MilestonesCard progress={progress} />
-              <SessionsTable sessions={view.sessions} />
-            </>
+            </MoreSection>
+          </div>
+        </>
+      ) : (
+        <>
+          {/*
+            UX review 20/10: three tiers. 1) where you stand and what to do now
+            (summary, readiness by round, the points to review); 2) the real
+            interviews and the weekly habit; 3) the detail, closed by default.
+            The filters sit on top and apply to everything but the week and
+            the real interviews.
+          */}
+          <FilterBar progress={progress} filters={filters} onChange={setFilters} />
+          {view.sessions.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-[#C9D7F1] bg-white p-6 text-center text-sm text-[#607096]">
+              {t("practiceProgress.filter.empty")}
+            </p>
           ) : (
-            <div className="rounded-2xl border border-dashed border-[#C9D7F1] bg-white p-8 text-center">
-              <p className="text-base font-bold text-[#14244B]">{t("practiceProgress.empty.title")}</p>
-              <p className="mt-1 text-sm text-[#607096]">{t("practiceProgress.empty.desc")}</p>
-              <Link
-                href="/interview/select"
-                className="mt-4 inline-flex h-10 items-center rounded-xl bg-[#204195] px-4 text-sm font-semibold text-white hover:bg-[#183275]"
-              >
-                {t("practiceProgress.empty.cta")}
-              </Link>
-            </div>
+            <>
+              <SummaryCard progress={progress} skills={view.skills} sessions={view.sessions} now={now} job={job} />
+              {byRound ? (
+                <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+                  <RoundsCard
+                    progress={progress}
+                    job={job}
+                    renderSkills={(conceptIds) => <RoundSkills conceptIds={conceptIds} skills={view.skills} now={now} />}
+                  />
+                  <div className="grid gap-6">
+                    <WinsCard
+                      wins={(progress.wins ?? []).filter((win) => filters.jobId === "all" || win.jobId === filters.jobId)}
+                    />
+                    <GapNotebookCard
+                      gaps={filteredGaps(progress, filters)}
+                      progress={progress}
+                      showFixed={(progress.wins ?? []).length === 0}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <GoalsCard readiness={readiness} />
+              )}
+            </>
+          )}
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+            {byRound ? <RealInterviewsCard progress={progress} /> : <div className="hidden lg:block" />}
+            <WeeklyStreakCard progress={progress} onGoal={changeGoal} savingGoal={savingGoal} />
+          </div>
+          {view.sessions.length > 0 && (
+            <details className="group rounded-2xl border border-[#DCE4F3] bg-white">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 sm:p-5">
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-[#14244B]">{t("practiceProgress.detail.title")}</span>
+                  <span className="mt-0.5 block text-xs text-[#607096]">{t("practiceProgress.detail.desc")}</span>
+                </span>
+                <ChevronDown className="size-5 shrink-0 text-[#607096] transition-transform group-open:rotate-180" aria-hidden="true" />
+              </summary>
+              <div className="space-y-6 border-t border-[#EAEFF8] p-3 sm:p-5">
+                <EvidenceCard sessions={view.sessions} />
+                <SkillsCard skills={view.skills} filters={filters} onChange={setFilters} now={now} />
+                <JobsCard jobs={view.jobs} />
+                <CalibrationNote progress={progress} />
+                <MilestonesCard progress={progress} />
+                <SessionsTable sessions={view.sessions} />
+              </div>
+            </details>
           )}
         </>
       )}
