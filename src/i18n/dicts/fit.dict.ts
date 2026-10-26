@@ -349,7 +349,7 @@ export const fitVi: Record<string, string> = {
   "fit.reason.evidence_insufficient": "CV có nhắc đến nội dung liên quan nhưng chưa đủ rõ để xác nhận.",
   "fit.reason.career_experience_not_evidenced": "Không tìm thấy kinh nghiệm ngành nghề đáp ứng yêu cầu trong CV hiện tại.",
   "fit.reason.career_experience_has_no_direct_evidence": "CV có nhắc đến kinh nghiệm liên quan nhưng chưa có đoạn mô tả trực tiếp.",
-  "fit.reason.semantic_dense_provider_fallback_to_sparse": "Phân tích ngữ nghĩa đang sử dụng phương án dự phòng dựa trên đối sánh từ khóa.",
+  "fit.reason.semantic_dense_provider_fallback_to_sparse": "Phân tích ngữ nghĩa đang sử dụng phương án dự phòng dựa trên đối chiếu từ khóa.",
   "fit.reason.semantic_input_not_evidenced": "Nội dung văn bản CV hoặc JD chưa đủ để phân tích ngữ nghĩa sâu.",
   "fit.reason.semantic_scorer_unavailable": "Mô hình chấm điểm ngữ nghĩa tạm thời không khả dụng.",
   "fit.reason.work_mode_accepted": "Hình thức làm việc được chấp nhận theo nguyện vọng.",
