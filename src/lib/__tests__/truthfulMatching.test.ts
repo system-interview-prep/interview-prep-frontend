@@ -564,7 +564,7 @@ describe("Truthful Matching UI Remediation — Phase 1 & 1.1 Hardening", () => {
     });
 
     it("maps backend warnings correctly", () => {
-      expect(resolveWarningText("semantic_dense_provider_fallback_to_sparse")).toContain("đối sánh từ khóa");
+      expect(resolveWarningText("semantic_dense_provider_fallback_to_sparse")).toContain("đối chiếu từ khóa");
     });
   });
 
