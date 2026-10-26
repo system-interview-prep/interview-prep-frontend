@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Activity, AlertTriangle, Gauge, MessageSquareWarning, Mic, Repeat, Timer, XCircle } from "lucide-react";
+import { Activity, AlertTriangle, ExternalLink, Gauge, MessageSquareWarning, Mic, Repeat, Timer, XCircle } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipContentProps } from "recharts";
 import type { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -13,8 +13,18 @@ import AdminEmptyState from "@features/admin/components/primitives/AdminEmptySta
 import AdminStatusBadge, { type AdminStatusType } from "@features/admin/components/primitives/AdminStatusBadge";
 import { usePolledResource } from "../hooks/usePolledResource";
 import { pipelineService, type AiHealth, type Rate } from "../services/pipeline.service";
-import { compactNumber, eventLabel, fill, formatMs, percentText, purposeLabel, tr } from "../utils/pipelineFormat";
-import { Muted, TableShell, Th, usePagedRows } from "./ui";
+import {
+  compactNumber,
+  decisionRuleLabel,
+  eventLabel,
+  fill,
+  flagLabel,
+  formatMs,
+  percentText,
+  purposeLabel,
+  tr,
+} from "../utils/pipelineFormat";
+import { Muted, ProgressBar, TableShell, Th, usePagedRows } from "./ui";
 
 const WINDOWS = [1, 7, 30];
 const BAR = "#204195";
@@ -93,7 +103,18 @@ export default function AiHealthClient() {
         { label: t("admin.sidebar.aiOverview") },
       ]}
       primaryAction={
-        <div className="flex items-center gap-1.5" role="group" aria-label={t("aiPipeline.health.window")}>
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t("aiPipeline.health.window")}>
+          {state.status === "ready" && state.data.langfuse?.projectUrl ? (
+            <a
+              href={state.data.langfuse.projectUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mr-1 inline-flex items-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-3 py-1.5 text-xs font-semibold text-[#204195] hover:bg-[#F8FAFC]"
+            >
+              <ExternalLink className="size-3.5" aria-hidden="true" />
+              {t("aiPipeline.llm.openLangfuse")}
+            </a>
+          ) : null}
           {WINDOWS.map((option) => (
             <button
               key={option}
@@ -270,6 +291,60 @@ export default function AiHealthClient() {
           icon={Activity}
         />
       </div>
+
+      <AdminSection title={t("aiPipeline.llm.checksTitle")} description={t("aiPipeline.llm.checksNote")}>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#607096]">{t("aiPipeline.llm.flags")}</p>
+            {health.flags?.length ? (
+              <TableShell minWidth={320}>
+                <thead>
+                  <tr>
+                    <Th>{t("aiPipeline.llm.flag")}</Th>
+                    <Th align="right">{t("aiPipeline.health.count")}</Th>
+                    <Th align="right">{t("aiPipeline.health.sessions")}</Th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#EAEFF8]">
+                  {health.flags.map((row) => (
+                    <tr key={row.flag}>
+                      <td className="py-2 pr-4">
+                        <span className="font-semibold text-[#14244B]">{flagLabel(row.flag, t)}</span>
+                        <span className="block font-mono text-[11px] text-[#8A98B8]">{row.flag}</span>
+                      </td>
+                      <td className="py-2 pr-4 text-right tabular-nums">{row.count}</td>
+                      <td className="py-2 text-right tabular-nums">{row.sessions}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </TableShell>
+            ) : (
+              <div className="mt-2">
+                <Muted>{t("aiPipeline.llm.noFlags")}</Muted>
+              </div>
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#607096]">{t("aiPipeline.llm.rules")}</p>
+            {health.decisionRules?.length ? (
+              <div className="mt-3 space-y-3">
+                {health.decisionRules.map((row) => (
+                  <ProgressBar
+                    key={row.rule}
+                    value={row.count}
+                    total={health.decisionRules!.reduce((sum, r) => sum + r.count, 0)}
+                    label={`${decisionRuleLabel(row.rule, t) ?? row.rule} (${row.count})`}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="mt-2">
+                <Muted>{t("aiPipeline.health.noData")}</Muted>
+              </div>
+            )}
+          </div>
+        </div>
+      </AdminSection>
 
       <AdminSection title={t("aiPipeline.health.stuck")}>
         {health.stuck.length ? (

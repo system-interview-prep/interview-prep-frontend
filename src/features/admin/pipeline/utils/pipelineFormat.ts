@@ -9,6 +9,7 @@ import type {
   PipelineStage,
   Rate,
   SessionPipeline,
+  SpeechCheck,
   StageStatus,
   TurnExchange,
   VoiceIncident,
@@ -170,6 +171,11 @@ export function exchangeReasons(exchange: TurnExchange, t: Translate): string[] 
     );
   }
   if (exchange.hardAnswerTimeout) reasons.push(t("aiPipeline.turn.hardTimeout"));
+  // Turns with the speech-control log show each replaced line in their own block.
+  if (exchange.speechChecks?.length) {
+    if (exchange.repeatsRecent) reasons.push(t("aiPipeline.turn.repeated"));
+    return reasons;
+  }
   if (exchange.ackSource === "fallback") {
     const why = exchange.ackReason ? tr(t, `aiPipeline.ackReason.${exchange.ackReason}`, exchange.ackReason) : null;
     reasons.push(why ? fill(t("aiPipeline.turn.ackReplacedWhy"), { reason: why }) : t("aiPipeline.turn.ackFallback"));
@@ -185,7 +191,8 @@ export function exchangeHasWarning(exchange: TurnExchange): boolean {
     exchange.ackSource === "fallback" ||
     exchange.generatedBy === "fixed_fallback" ||
     Boolean(exchange.repeatsRecent) ||
-    Boolean(exchange.hardAnswerTimeout)
+    Boolean(exchange.hardAnswerTimeout) ||
+    Boolean(exchange.speechChecks?.some((check) => check.outcome === "error"))
   );
 }
 
@@ -407,4 +414,57 @@ export function alertText(alert: AdminAlert, t: Translate): { title: string; det
 /** An alert stays dismissed until it has a newer occurrence. */
 export function alertKey(alert: AdminAlert): string {
   return `${alert.kind}@${alert.lastAt ?? ""}`;
+}
+
+// --- Kiểm soát lời nói (backend core/speech_checks.py) ----------------------------------
+
+/** Why a guard refused or edited a line, in words; "topic_*" is the topic-mode acknowledgement. */
+export function speechReasonLabel(reason: string | null | undefined, t: Translate): string {
+  if (!reason || reason === "-") return "—";
+  if (reason.startsWith("topic_")) {
+    const inner = reason.slice("topic_".length);
+    return fill(t("aiPipeline.speech.reason.topicPrefix"), { reason: tr(t, `aiPipeline.speech.reason.${inner}`, inner) });
+  }
+  return tr(t, `aiPipeline.speech.reason.${reason}`, reason);
+}
+
+/** "Câu hỏi thêm: quá dài" (the outcome is shown beside it as a chip). */
+export function speechCheckLabel(check: SpeechCheck, t: Translate): string {
+  const kind = tr(t, `aiPipeline.speech.kind.${check.kind}`, check.kind);
+  return check.reason ? `${kind}: ${speechReasonLabel(check.reason, t)}` : kind;
+}
+
+export function speechSourceLabel(source: string | null | undefined, t: Translate): string {
+  const code = source || "-";
+  return tr(t, `aiPipeline.speech.source.${code}`, code);
+}
+
+/** The guard decisions worth showing on a turn: everything but a clean pass. */
+export function notableSpeechChecks(exchange: TurnExchange): SpeechCheck[] {
+  return (exchange.speechChecks ?? []).filter((check) => check.outcome !== "pass");
+}
+
+/** Tone of a guard outcome: refused and failed lines stand out, edits less so. */
+export function speechOutcomeTone(outcome: string): "bad" | "warn" | "good" | "neutral" {
+  if (outcome === "error") return "bad";
+  if (outcome === "reject") return "warn";
+  if (outcome === "pass") return "good";
+  return "neutral";
+}
+
+// --- Theo dõi LLM (backend application/llm_checks.py) ------------------------------------
+
+export function decisionRuleLabel(rule: string | null | undefined, t: Translate): string | null {
+  if (!rule) return null;
+  if (rule.startsWith("end_")) return fill(t("aiPipeline.llm.rule.end"), { reason: rule.slice(4) });
+  return tr(t, `aiPipeline.llm.rule.${rule}`, rule);
+}
+
+export function flagLabel(flag: string, t: Translate): string {
+  return tr(t, `aiPipeline.llm.flag.${flag}`, flag);
+}
+
+/** Link to one turn's trace in Langfuse. */
+export function langfuseTraceUrl(projectUrl: string | null | undefined, traceId: string | null | undefined): string | null {
+  return projectUrl && traceId ? `${projectUrl}/traces/${encodeURIComponent(traceId)}` : null;
 }

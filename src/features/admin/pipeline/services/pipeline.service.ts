@@ -47,6 +47,30 @@ export type TurnExchange = {
   interviewer: string | null;
   coreMs: number | null;
   modality: string | null;
+  /** Speech control (backend core/speech_checks.py); missing on turns before 25/10. */
+  ackRaw?: string | null;
+  speechPlan?: SpeechPlanStep[];
+  speechChecks?: SpeechCheck[];
+  newTerms?: string[];
+  transition?: boolean | null;
+  /** LLM monitoring (backend application/llm_checks.py, core/llm_tracing.py). */
+  decisionRule?: string | null;
+  flags?: string[];
+  langfuseTraceId?: string | null;
+};
+
+/** Links into Langfuse; null when Langfuse is not configured or not reachable. */
+export type LangfuseLinks = { projectUrl: string; sessionUrl?: string } | null;
+
+/** Where one part of the reply came from: ACK | TRANSITION | QUESTION. */
+export type SpeechPlanStep = { act: string; source: string };
+
+/** One decision of a speech guard on an AI line. */
+export type SpeechCheck = {
+  kind: "ack" | "probe" | "clarify" | "qna" | "compose" | string;
+  outcome: "pass" | "reject" | "fix" | "error" | string;
+  reason?: string | null;
+  draft?: string | null;
 };
 
 export type RubricPoint = {
@@ -172,7 +196,9 @@ export type SessionPipeline = {
     remainingMs: number | null;
   };
   currentTurnIndex: number | null;
-  turnCounts: { total: number; warmup: number; main: number };
+  /** gradable: answered main questions, what grading scores (absent before 26/10). */
+  turnCounts: { total: number; warmup: number; main: number; gradable?: number };
+  langfuse?: LangfuseLinks;
   voice: VoiceSummary | null;
   stages: PipelineStage[];
   entry: {
@@ -410,8 +436,62 @@ export type AiHealth = {
     jobTitle: string | null;
     updatedAt: string | null;
   }[];
+  /** Rule flags on turns in the window (application/llm_checks.py). */
+  flags?: { flag: string; count: number; sessions: number }[];
+  /** Why the engine acted, per turn. */
+  decisionRules?: { rule: string; count: number }[];
+  langfuse?: LangfuseLinks;
   generatedAt: string;
 };
+
+/** Admin page "Lời nói AI" (GET /admin/ai/speech). */
+export type SpeechControl = {
+  windowDays: number;
+  since: string;
+  truncated: boolean;
+  config: {
+    speechV2: boolean;
+    ackMode: string;
+    dialect: string;
+    maxNhePerTurn: number;
+    interjectionShare: number;
+    interjectionWindow: number;
+    model: string;
+  };
+  turns: { count: number; sessions: number; withChecks: number };
+  guards: {
+    kind: string;
+    turns: number;
+    pass: number;
+    reject: number;
+    fix: number;
+    error: number;
+    rejectRate: Rate;
+    errorRate: Rate;
+  }[];
+  reasons: { kind: string; outcome: string; reason: string; count: number; sessions: number }[];
+  sources: { ack: { source: string; count: number }[]; question: { source: string; count: number }[] };
+  style: { interjectionOpenings: Rate; overNhe: Rate; repeatedAck: Rate; newTermsTurns: Rate };
+  newTerms: { term: string; count: number }[];
+  recent: {
+    at: string | null;
+    sessionId: string;
+    turnIndex: number | null;
+    kind: string;
+    outcome: string;
+    reason: string | null;
+    draft: string | null;
+    said: string | null;
+    eventId: number | null;
+    checkIndex: number;
+    verdict: SpeechVerdict | null;
+  }[];
+  /** Admins' hand checks: a refusal of a good line is a false block. */
+  review?: { falseBlocks: Rate; byKind: { kind: string; falseBlocks: Rate }[] };
+  generatedAt: string;
+};
+
+export type SpeechVerdict = "correct" | "wrong";
 
 export type AiCallFilters = {
   purpose?: string;
@@ -432,6 +512,19 @@ export const pipelineService = {
   async health(days: number): Promise<AiHealth> {
     const response = await apiClient.get<{ success: boolean } & AiHealth>("/admin/ai/health", { params: { days } });
     return response.data;
+  },
+  async speech(days: number): Promise<SpeechControl> {
+    const response = await apiClient.get<{ success: boolean } & SpeechControl>("/admin/ai/speech", { params: { days } });
+    return response.data;
+  },
+  /** Mark a refused or edited line as blocked correctly, a good line blocked, or clear the mark. */
+  async reviewSpeech(eventId: number, checkIndex: number, verdict: SpeechVerdict | "clear"): Promise<SpeechVerdict | null> {
+    const response = await apiClient.post<{ success: boolean; verdict: SpeechVerdict | null }>("/admin/ai/speech/reviews", {
+      eventId,
+      checkIndex,
+      verdict,
+    });
+    return response.data.verdict;
   },
   async calls(filters: AiCallFilters): Promise<{ total: number; summary: AiCallSummary; calls: AiCall[] }> {
     const response = await apiClient.get<{ success: boolean; total: number; summary: AiCallSummary; calls: AiCall[] }>(
@@ -465,10 +558,14 @@ export const pipelineService = {
     );
     return response.data.answers;
   },
-  async accessLogs(limit: number, offset: number): Promise<{ total: number; logs: AccessLog[] }> {
+  async accessLogs(
+    limit: number,
+    offset: number,
+    kind: "all" | "reads" | "changes" = "all",
+  ): Promise<{ total: number; logs: AccessLog[] }> {
     const response = await apiClient.get<{ success: boolean; total: number; logs: AccessLog[] }>(
       "/admin/access-logs",
-      { params: { limit, offset } },
+      { params: { limit, offset, kind } },
     );
     return response.data;
   },

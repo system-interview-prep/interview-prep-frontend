@@ -10,6 +10,7 @@ import { adminUiShellVi } from "./dicts/admin-ui-shell.dict";
 import { adminMatchingVi } from "./dicts/admin-matching.dict";
 import { adminCvParsingVi } from "./dicts/admin-cv-parsing.dict";
 import { adminObserveVi } from "./dicts/admin-observe.dict";
+import { adminOpsVi } from "./dicts/admin-ops.dict";
 import { guideVi } from "./dicts/guide.dict";
 import { adminUiJdVi } from "./dicts/admin-ui-jd.dict";
 import { adminUiQbVi } from "./dicts/admin-ui-qb.dict";
@@ -4515,6 +4516,7 @@ const vi: Dict = {
   ...adminMatchingVi,
   ...adminCvParsingVi,
   ...adminObserveVi,
+  ...adminOpsVi,
   ...guideVi,
 };
 

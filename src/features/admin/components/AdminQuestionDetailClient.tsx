@@ -7,12 +7,37 @@ import AdminPageHeader from "@features/admin/components/primitives/AdminPageHead
 import AdminStatusBadge from "@features/admin/components/primitives/AdminStatusBadge";
 import { lifecycleTone } from "@features/admin/components/primitives/statusTone";
 import AdminEmptyState from "@features/admin/components/primitives/AdminEmptyState";
-import { DIFFICULTY_BANDS, QUESTION_TYPES, questionBankApi, type QuestionDetail, type ReviewDecision, type UpdateDraftPayload } from "@features/admin/services/questionBank.service";
+import { DIFFICULTY_BANDS, QUESTION_TYPES, questionBankApi, type ActionPermission, type QuestionAction, type QuestionDetail, type ReviewDecision, type UpdateDraftPayload } from "@features/admin/services/questionBank.service";
 import { RUBRIC_TEMPLATE_JSON, parseRubricCriteria } from "./questionRubricTemplate";
+import QuestionSuggestionsSection from "./QuestionSuggestionsSection";
 
 const EDITABLE = new Set(["DRAFT", "NEEDS_REVISION"]);
 // Versions that are finished; a change needs a new revision.
 const REVISABLE = new Set(["APPROVED", "CALIBRATED", "REJECTED"]);
+const IN_REVIEW = new Set(["IN_REVIEW", "PILOT_READY"]);
+// Reasons that only mean "this step is not for now" (wrong status or role): hide the button.
+const HIDDEN_REASONS = new Set(["no_role", "not_editable", "not_in_review", "not_finished"]);
+
+/**
+ * Permission of one action. The backend sends it (question_bank/permissions.py);
+ * an older backend without `actions` falls back to the status alone.
+ */
+export function actionPermission(question: Pick<QuestionDetail, "actions" | "currentVersion" | "rubric">, action: QuestionAction): ActionPermission {
+  const fromCore = question.actions?.[action];
+  if (fromCore) return fromCore;
+  const status = question.currentVersion.status;
+  const allowed =
+    action === "edit" ? EDITABLE.has(status)
+      : action === "submit" ? EDITABLE.has(status) && Boolean(question.rubric)
+        : action === "revise" ? REVISABLE.has(status)
+          : IN_REVIEW.has(status);
+  return { allowed, reason: allowed ? null : "not_in_review" };
+}
+
+/** Show the button (maybe disabled with a reason), or hide it because the step does not apply. */
+export function actionVisible(permission: ActionPermission): boolean {
+  return permission.allowed || !HIDDEN_REASONS.has(permission.reason ?? "");
+}
 /** Vietnamese label for a Core enum value (status, type, difficulty, purpose); falls back to the raw value. */
 function useEnumLabel() {
   const { t } = useLanguage();
@@ -37,6 +62,7 @@ export default function AdminQuestionDetailClient({ questionId }: { questionId: 
   const [message, setMessage] = useState<string | null>(null);
   const [rubricJson, setRubricJson] = useState(RUBRIC_TEMPLATE_JSON);
   const [comment, setComment] = useState("");
+  const [reviewType, setReviewType] = useState("CONTENT");
 
   const load = useCallback(async () => {
     try { setQuestion((await questionBankApi.get(questionId)).data); setState("ready"); }
@@ -58,10 +84,17 @@ export default function AdminQuestionDetailClient({ questionId }: { questionId: 
 
   const version = question.currentVersion;
   const versionId = version.questionVersionId;
-  const editable = EDITABLE.has(version.status);
-  const inReview = version.status === "IN_REVIEW";
-  const revisable = REVISABLE.has(version.status);
-  const review = (decision: ReviewDecision, success: string) => run(() => questionBankApi.review(versionId, decision, comment || undefined), success);
+  const perm = (action: QuestionAction) => actionPermission(question, action);
+  const editable = perm("edit").allowed;
+  const canReview = perm("review").allowed;
+  const reasons = (["submit", "review", "approve", "revise"] as const)
+    .map((action) => perm(action))
+    .filter((p) => !p.allowed && actionVisible(p))
+    .map((p) => t(`adminRoles.reason.${p.reason}`));
+  const uniqueReasons = Array.from(new Set(reasons));
+  const review = (decision: ReviewDecision, success: string) => run(() => questionBankApi.review(versionId, decision, comment || undefined, reviewType), success);
+  const reviewTypes = question.reviewTypes ?? ["CONTENT"];
+  const named = (key: string, fallback: string) => { const text = t(key); return text && text !== key ? text : fallback; };
   const attachRubric = () => {
     const parsed = parseRubricCriteria(rubricJson);
     if ("error" in parsed) { setMessage(parsed.error); return; }
@@ -80,6 +113,7 @@ export default function AdminQuestionDetailClient({ questionId }: { questionId: 
       <p className="text-xs text-[#607096]">{t("fixAdmin.qd.stableKey")}: <span className="font-mono font-semibold text-[#14244B] [overflow-wrap:anywhere]">{question.stableKey}</span></p>
       <p className="text-base font-semibold break-words [overflow-wrap:anywhere]">{version.canonicalText}</p>
       <p className="break-words text-[#607096] [overflow-wrap:anywhere]"><span className="font-semibold text-[#14244B]">{t("fixAdmin.qd.objective")}:</span> {version.objective}</p>
+      <p className="text-xs text-[#607096]">{t("adminRoles.author")}: <span className="font-semibold text-[#14244B]">{version.generated ? t("adminRoles.authorAi") : version.createdByName || version.createdBy}</span></p>
       <p className="text-xs text-[#607096]">v{version.version} · {label("type", version.questionType)} · {label("difficulty", version.difficultyBand)} · {version.canonicalLocale} · {fmt(t("fixAdmin.qd.softMeta"), { n: version.softAnswerSeconds })}</p>
       {mappings.length > 0 && <div className="space-y-1.5"><p className="text-xs font-semibold text-[#607096]">{t("fixAdmin.qd.taxonomyMappings")}</p><div className="flex flex-wrap gap-2">{mappings.map(([purpose, conceptId]) => <span key={`${purpose}:${conceptId}`} className="min-w-0 max-w-full rounded-lg bg-[#EEF2FD] px-2 py-1 text-xs [overflow-wrap:anywhere]"><b>{label("purpose", purpose)}</b> · <span className="font-mono">{conceptId}</span></span>)}</div></div>}
       {question.taxonomy.skills.length === 0 && question.taxonomy.roles.length === 0 && <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">{t("fixAdmin.qd.noTargets")}</p>}
@@ -106,15 +140,30 @@ export default function AdminQuestionDetailClient({ questionId }: { questionId: 
     <section className="min-w-0 space-y-3 rounded-2xl border border-[#DCE4F3] bg-white p-4 text-sm text-[#14244B] sm:p-6">
       <h2 className="font-bold">{t("fixAdmin.qd.lifecycle")}</h2>
       <p className="text-xs text-[#607096]">{t("fixAdmin.qd.lifecycleDesc")}</p>
-      {inReview && <input className="w-full rounded-xl border border-[#DCE4F3] p-2 text-sm" placeholder={t("fixAdmin.qd.reviewComment")} value={comment} onChange={(e) => setComment(e.target.value)} />}
+      {canReview && <div className="grid gap-2 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
+        <label className="block text-xs font-semibold">{t("adminRoles.reviewType")}<select className="mt-1 w-full rounded-xl border border-[#DCE4F3] p-2 text-sm" value={reviewType} onChange={(e) => setReviewType(e.target.value)}>{reviewTypes.map((type) => <option key={type} value={type}>{named(`adminRoles.reviewTypeValue.${type}`, type)}</option>)}</select></label>
+        <label className="block text-xs font-semibold">{t("fixAdmin.qd.reviewComment")}<input className="mt-1 w-full rounded-xl border border-[#DCE4F3] p-2 text-sm" value={comment} onChange={(e) => setComment(e.target.value)} /></label>
+      </div>}
       <div className="flex flex-wrap gap-2">
-        {editable && <button type="button" disabled={busy || !question.rubric} onClick={() => run(() => questionBankApi.submit(versionId), t("fixAdmin.qd.submitted"))} className={`${button} bg-[#204195] text-white`}>{t("fixAdmin.qd.submit")}</button>}
-        {inReview && <button type="button" disabled={busy} onClick={() => review("APPROVE", t("fixAdmin.qd.approveRecorded"))} className={`${button} border border-[#DCE4F3] text-[#14244B]`}>{t("fixAdmin.qd.reviewApprove")}</button>}
-        {inReview && <button type="button" disabled={busy} onClick={() => review("REQUEST_CHANGES", t("fixAdmin.qd.changesRequested"))} className={`${button} border border-[#DCE4F3] text-[#14244B]`}>{t("fixAdmin.qd.reviewRequestChanges")}</button>}
-        {inReview && <button type="button" disabled={busy} onClick={() => run(() => questionBankApi.approve(versionId), t("fixAdmin.qd.approved"))} className={`${button} bg-emerald-600 text-white`}>{t("fixAdmin.qd.finalApprove")}</button>}
-        {revisable && <button type="button" disabled={busy} onClick={() => run(() => questionBankApi.revise(versionId), t("fixAdmin.qd.revisionCreated"))} className={`${button} border border-[#DCE4F3] text-[#14244B]`}>{t("fixAdmin.qd.createRevision")}</button>}
+        {actionVisible(perm("submit")) && <button type="button" disabled={busy || !perm("submit").allowed} onClick={() => run(() => questionBankApi.submit(versionId), t("fixAdmin.qd.submitted"))} className={`${button} bg-[#204195] text-white`}>{t("fixAdmin.qd.submit")}</button>}
+        {actionVisible(perm("review")) && <button type="button" disabled={busy || !canReview} onClick={() => review("APPROVE", t("fixAdmin.qd.approveRecorded"))} className={`${button} border border-[#DCE4F3] text-[#14244B]`}>{t("fixAdmin.qd.reviewApprove")}</button>}
+        {actionVisible(perm("review")) && <button type="button" disabled={busy || !canReview} onClick={() => review("REQUEST_CHANGES", t("fixAdmin.qd.changesRequested"))} className={`${button} border border-[#DCE4F3] text-[#14244B]`}>{t("fixAdmin.qd.reviewRequestChanges")}</button>}
+        {actionVisible(perm("review")) && <button type="button" disabled={busy || !canReview} onClick={() => review("REJECT", t("adminRoles.rejected"))} className={`${button} border border-[#F3C9C9] text-[#C43B3B]`}>{t("adminRoles.reject")}</button>}
+        {actionVisible(perm("approve")) && <button type="button" disabled={busy || !perm("approve").allowed} onClick={() => run(() => questionBankApi.approve(versionId), t("fixAdmin.qd.approved"))} className={`${button} bg-emerald-600 text-white`}>{t("fixAdmin.qd.finalApprove")}</button>}
+        {actionVisible(perm("revise")) && <button type="button" disabled={busy || !perm("revise").allowed} onClick={() => run(() => questionBankApi.revise(versionId), t("fixAdmin.qd.revisionCreated"))} className={`${button} border border-[#DCE4F3] text-[#14244B]`}>{t("fixAdmin.qd.createRevision")}</button>}
       </div>
+      {uniqueReasons.length > 0 && <ul className="space-y-1 text-xs text-[#8A5A00]">{uniqueReasons.map((reason) => <li key={reason}>• {reason}</li>)}</ul>}
       {message && <p className="rounded-xl bg-[#EEF2FD] p-3 text-sm break-words [overflow-wrap:anywhere]">{message}</p>}
+    </section>
+    <QuestionSuggestionsSection questionId={questionId} onChanged={() => void load()} />
+    <section className="min-w-0 space-y-3 rounded-2xl border border-[#DCE4F3] bg-white p-4 text-sm text-[#14244B] sm:p-6">
+      <h2 className="font-bold">{t("adminRoles.history")}</h2>
+      {(question.reviews ?? []).length === 0 ? <p className="text-xs text-[#607096]">{t("adminRoles.historyEmpty")}</p> : <ol className="divide-y divide-[#EAEFF8] rounded-xl border border-[#EAEFF8]">
+        {(question.reviews ?? []).map((entry) => <li key={entry.id} className="min-w-0 space-y-0.5 p-3 text-xs">
+          <p><span className="font-semibold">{entry.reviewer || entry.reviewerId}</span> · {named(`adminRoles.decision.${entry.decision}`, entry.decision)} · {named(`adminRoles.reviewTypeValue.${entry.reviewType}`, entry.reviewType)}{entry.reviewedAt ? ` · ${new Date(entry.reviewedAt).toLocaleString("vi-VN")}` : ""}</p>
+          {entry.comment && <p className="text-[#607096] [overflow-wrap:anywhere]">{entry.comment}</p>}
+        </li>)}
+      </ol>}
     </section>
   </div>;
 }

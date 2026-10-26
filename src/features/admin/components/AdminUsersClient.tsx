@@ -1,7 +1,9 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Plus, RefreshCw, Search, Settings2, Shield, UserCheck, Users } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Eye, Plus, RefreshCw, Search, Settings2, Shield, UserCheck, Users } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { fmt, localeOf } from "@/i18n/format";
 import { formatUserRole } from "@/i18n/roles";
@@ -83,7 +85,8 @@ function RolePicker({
     <fieldset>
       <legend className={labelClass}>{legend}</legend>
       <div className="grid gap-2 sm:grid-cols-2">
-        {USER_ROLES.map((role) => (
+        {/* DATA_CURATOR has no permission anywhere in Core: offered only to keep an existing assignment. */}
+        {USER_ROLES.filter((role) => role !== "DATA_CURATOR" || value.includes(role)).map((role) => (
           <label key={role} className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#DCE4F3] p-2 text-xs text-[#14244B]">
             <input type="checkbox" checked={value.includes(role)} onChange={() => toggle(role)} className="accent-[#204195]" />
             {formatUserRole(role, t)}
@@ -96,6 +99,7 @@ function RolePicker({
 
 export default function AdminUsersClient() {
   const { t, lang } = useLanguage();
+  const router = useRouter();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -264,7 +268,7 @@ export default function AdminUsersClient() {
           className="rounded-full border border-[#DCE4F3] bg-white px-3 py-2 text-sm text-[#14244B]"
         >
           <option value="all">{t("fixAdmin.ops.users.allRoles")}</option>
-          {USER_ROLES.map((item) => <option key={item} value={item}>{formatUserRole(item, t)}</option>)}
+          {USER_ROLES.filter((item) => item !== "DATA_CURATOR").map((item) => <option key={item} value={item}>{formatUserRole(item, t)}</option>)}
         </select>
         <label htmlFor="admin-users-status" className="sr-only">{t("fixAdmin.ops.users.statusFilterLabel")}</label>
         <select
@@ -306,7 +310,9 @@ export default function AdminUsersClient() {
             {!loading && users.map((user) => (
               <tr key={user.id}>
                 <td className="min-w-[200px] max-w-[280px] p-4">
-                  <p className="break-words font-semibold text-[#14244B]">{user.name}</p>
+                  <Link href={`/admin/users/${encodeURIComponent(user.id)}`} className="break-words font-semibold text-[#14244B] hover:text-[#204195] hover:underline">
+                    {user.name}
+                  </Link>
                   <p className="text-xs text-[#607096] [overflow-wrap:anywhere]">{user.email}</p>
                 </td>
                 <td className="p-4">
@@ -329,6 +335,12 @@ export default function AdminUsersClient() {
                 <td className="p-4 text-xs text-[#14244B]">{formatDate(user.created_at)}</td>
                 <td className="p-4 text-right">
                   <AdminRowActions>
+                    <AdminRowAction
+                      icon={Eye}
+                      label={t("adminOps.user.view")}
+                      tone="neutral"
+                      onClick={() => router.push(`/admin/users/${encodeURIComponent(user.id)}`)}
+                    />
                     <AdminRowAction
                       icon={Settings2}
                       label={t("fixAdmin.ops.users.manage")}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Check, CheckCircle2, Circle, CircleSlash, Loader2, X, XCircle } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import AdminPageHeader from "@features/admin/components/primitives/AdminPageHeader";
@@ -28,6 +29,7 @@ import {
   formatCount,
 } from "../utils/cvParsingFormat";
 import { AiCallTable, AiPurposeTable, AiSummaryFacts } from "./AiCallTables";
+import ReparseCvButton from "./ReparseCvButton";
 import { Chip, Fact, Muted, TableShell, Th, usePagedRows } from "./ui";
 
 type Translate = (key: string) => string;
@@ -338,6 +340,11 @@ export default function CvParsingRunClient({ cvId }: { cvId: string }) {
           <Chip tone={CV_RUN_TONE[state.data.run.status] ?? "neutral"}>{t(`cvParse.runStatus.${state.data.run.status}`)}</Chip>
         ) : undefined
       }
+      primaryAction={
+        state.status === "ready" && state.data.run.status !== "running" ? (
+          <ReparseCvButton cvId={cvId} onDone={() => void refresh()} />
+        ) : undefined
+      }
     />
   );
 
@@ -379,7 +386,13 @@ export default function CvParsingRunClient({ cvId }: { cvId: string }) {
       <AdminSection title={t("cvParse.detail.overview")}>
         <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           <Fact label={t("cvParse.detail.candidate")} hint={run.user?.email ?? undefined}>
-            {run.user?.name || run.user?.email || "—"}
+            {run.user?.id ? (
+              <Link href={`/admin/users/${encodeURIComponent(run.user.id)}`} className="text-[#204195] hover:underline">
+                {run.user.name || run.user.email || "—"}
+              </Link>
+            ) : (
+              run.user?.name || run.user?.email || "—"
+            )}
           </Fact>
           <Fact label={t("cvParse.detail.file")} hint={`${formatBytes(run.cv.sizeBytes)}${run.cv.contentType ? ` · ${run.cv.contentType}` : ""}`}>
             {run.cv.fileName || "—"}

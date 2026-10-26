@@ -2,26 +2,23 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import AdminAlertsBanner, { AdminAlertsNavBadge } from "@features/admin/pipeline/components/AdminAlertsBanner";
 import AdminNotificationBell from "@features/admin/notifications/AdminNotificationBell";
 import AdminNotificationToasts from "@features/admin/notifications/AdminNotificationToasts";
-import { useCallback, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   LayoutDashboard,
   Users,
   Briefcase,
-  Database,
   FileQuestion,
   ClipboardCheck,
   MessageSquare,
+  MessageSquareQuote,
   Cpu,
   Box,
-  Terminal,
   Activity,
   Target,
-  FlaskConical,
-  GitCompare,
   ScrollText,
   Settings,
   HelpCircle,
@@ -35,6 +32,10 @@ import {
   X,
   GitCompareArrows,
   FileScan,
+  ChartColumn,
+  CalendarCheck,
+  HeartPulse,
+  BookOpenCheck,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { ConfirmDialog } from "@components/shared/ConfirmDialog";
@@ -43,6 +44,8 @@ import { BrandLogo } from "@components/shared/BrandLogo";
 import { usePageTitle } from "@components/shared/usePageTitle";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
 import { performClientLogout } from "@features/auth/services/auth.service";
+import { adminHomePath, canOpenAdminPath, isFullAdmin, primaryAdminRole } from "@features/admin/access";
+import { formatUserRole } from "@/i18n/roles";
 
 const subscribeNothing = () => () => {};
 
@@ -81,6 +84,7 @@ function getSidebarServerSnapshot(): boolean {
 export default function AdminDashboardShell({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
   const pathname = usePathname();
+  const router = useRouter();
 
   const { profile } = useAuthProfile();
   const [avatarError, setAvatarError] = useState(false);
@@ -107,7 +111,18 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
   // server and first client render match (no hydration mismatch on name/initials).
   const clientProfile = navReady ? profile : null;
   const displayName = clientProfile?.name || clientProfile?.email || t("fixAdmin.shell.adminBadge");
-  const roleLabel = t("admin.role.seniorAdmin");
+  // Question authors and reviewers use the console too (access.ts): their menu,
+  // home page and role badge follow their roles. Null until hydrated.
+  const roles = clientProfile?.roles ?? null;
+  const fullAdmin = !roles || roles.length === 0 || isFullAdmin(roles);
+  const homePath = adminHomePath(roles);
+  const mainRole = primaryAdminRole(roles);
+  const roleLabel = mainRole && mainRole !== "ADMIN" ? formatUserRole(mainRole, t) : t("admin.role.seniorAdmin");
+  const pageAllowed = canOpenAdminPath(pathname, roles);
+  useEffect(() => {
+    // The dashboard is where login and "/admin" land; send other roles to their own home.
+    if (!pageAllowed && (pathname === "/admin/dashboard" || pathname === "/admin")) router.replace(homePath);
+  }, [pageAllowed, pathname, homePath, router]);
 
   const isActive = useMemo(
     () => ({
@@ -115,6 +130,9 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
       users: pathname.startsWith("/admin/users"),
       jobProfiles: pathname.startsWith("/admin/job-descriptions") || pathname.startsWith("/admin/job-profiles"),
       questionBank: pathname.startsWith("/admin/question-bank"),
+      questionQuality: pathname.startsWith("/admin/question-quality"),
+      practice: pathname.startsWith("/admin/practice"),
+      systemHealth: pathname.startsWith("/admin/system"),
       taxonomy: pathname.startsWith("/admin/taxonomy"),
       rubrics: pathname.startsWith("/admin/rubrics"),
       knowledgeBase: pathname.startsWith("/admin/knowledge-base"),
@@ -125,6 +143,8 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
       aiModels: pathname.startsWith("/admin/ai/models"),
       aiPrompts: pathname.startsWith("/admin/ai/prompts"),
       aiTraces: pathname.startsWith("/admin/ai/traces"),
+      aiSpeech: pathname.startsWith("/admin/ai/speech"),
+      aiPlaybook: pathname.startsWith("/admin/ai/playbook"),
       evaluation: pathname === "/admin/evaluation",
       evalDatasets: pathname.startsWith("/admin/evaluation/datasets"),
       evalExperiments: pathname.startsWith("/admin/evaluation/experiments"),
@@ -143,6 +163,9 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     "/admin/users": "admin.sidebar.users",
     "/admin/job-descriptions": "admin.sidebar.jobBoard",
     "/admin/question-bank": "admin.sidebar.questionBank",
+    "/admin/question-quality": "adminOps.quality.title",
+    "/admin/practice": "adminOps.practice.title",
+    "/admin/system": "adminOps.health.title",
     "/admin/taxonomy": "fixAdmin.shell.taxonomy",
     "/admin/rubrics": "admin.sidebar.rubrics",
     "/admin/knowledge-base": "admin.sidebar.knowledgeBase",
@@ -151,6 +174,8 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     "/admin/matching": "matching.title",
     "/admin/ai": "admin.sidebar.aiOverview",
     "/admin/ai/traces": "admin.sidebar.aiTraces",
+    "/admin/ai/speech": "admin.sidebar.aiSpeech",
+    "/admin/ai/playbook": "playbook.title",
     "/admin/ai/models": "admin.sidebar.aiModels",
     "/admin/ai/prompts": "admin.sidebar.aiPrompts",
     "/admin/evaluation": "admin.sidebar.evalOverview",
@@ -201,13 +226,16 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
   const navGroupContent: NavItem[] = [
     { href: "/admin/job-descriptions", label: t("admin.sidebar.jobBoard"), Icon: Briefcase, active: isActive.jobProfiles },
     { href: "/admin/question-bank", label: t("admin.sidebar.questionBank"), Icon: FileQuestion, active: isActive.questionBank },
+    { href: "/admin/question-quality", label: t("adminOps.quality.title"), Icon: ChartColumn, active: isActive.questionQuality },
     { href: "/admin/taxonomy", label: t("fixAdmin.shell.taxonomy"), Icon: Tags, active: isActive.taxonomy },
     { href: "/admin/rubrics", label: t("admin.sidebar.rubrics"), Icon: ClipboardCheck, active: isActive.rubrics },
-    { href: "/admin/knowledge-base", label: t("admin.sidebar.knowledgeBase"), Icon: Database, active: isActive.knowledgeBase },
+    // Knowledge base (/admin/knowledge-base) hidden 26/10: it needs a separate RAG service that is not
+    // part of this stack, and nothing in interviews, grading or matching reads it. The page still exists.
   ];
 
   const navGroupInterviews: NavItem[] = [
     { href: "/admin/interviews", label: t("admin.sidebar.interviews"), Icon: MessageSquare, active: isActive.interviews },
+    { href: "/admin/practice", label: t("adminOps.practice.title"), Icon: CalendarCheck, active: isActive.practice },
     { href: "/admin/cv-parsing", label: t("cvParse.title"), Icon: FileScan, active: isActive.cvParsing },
     { href: "/admin/matching", label: t("matching.title"), Icon: GitCompareArrows, active: isActive.matching },
   ];
@@ -215,19 +243,20 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
   const navGroupAiOps: NavItem[] = [
     { href: "/admin/ai", label: t("admin.sidebar.aiOverview"), Icon: Cpu, active: isActive.aiOverview, badge: <AdminAlertsNavBadge /> },
     { href: "/admin/ai/traces", label: t("admin.sidebar.aiTraces"), Icon: Activity, active: isActive.aiTraces },
+    { href: "/admin/ai/speech", label: t("admin.sidebar.aiSpeech"), Icon: MessageSquareQuote, active: isActive.aiSpeech },
+    { href: "/admin/ai/playbook", label: t("playbook.title"), Icon: BookOpenCheck, active: isActive.aiPlaybook },
+    { href: "/admin/evaluation", label: t("admin.sidebar.evalOverview"), Icon: Target, active: isActive.evaluation },
+    { href: "/admin/ai/models", label: t("admin.sidebar.aiModels"), Icon: Box, active: isActive.aiModels },
   ];
 
   /** Placeholder pages (no backend yet), kept together in one collapsed group. */
-  const navGroupSoon: NavItem[] = [
-    { href: "/admin/ai/models", label: t("admin.sidebar.aiModels"), Icon: Box, active: isActive.aiModels, soon: true },
-    { href: "/admin/ai/prompts", label: t("admin.sidebar.aiPrompts"), Icon: Terminal, active: isActive.aiPrompts, soon: true },
-    { href: "/admin/evaluation", label: t("admin.sidebar.evalOverview"), Icon: Target, active: isActive.evaluation, soon: true },
-    { href: "/admin/evaluation/datasets", label: t("admin.sidebar.evalDatasets"), Icon: Database, active: isActive.evalDatasets, soon: true },
-    { href: "/admin/evaluation/experiments", label: t("admin.sidebar.evalExperiments"), Icon: FlaskConical, active: isActive.evalExperiments, soon: true },
-    { href: "/admin/evaluation/regression", label: t("admin.sidebar.evalRegression"), Icon: GitCompare, active: isActive.evalRegression, soon: true },
-  ];
+  // 25/10: the former "coming soon" pages are either real (models, evaluation)
+  // or handled in Langfuse (prompts, datasets, experiments, regression), so
+  // the group is empty and not shown.
+  const navGroupSoon: NavItem[] = [];
 
   const navGroupSystem: NavItem[] = [
+    { href: "/admin/system", label: t("adminOps.health.title"), Icon: HeartPulse, active: isActive.systemHealth },
     { href: "/admin/audit-logs", label: t("admin.sidebar.auditLogs"), Icon: ScrollText, active: isActive.auditLogs },
     { href: "/admin/settings", label: t("admin.sidebar.settings"), Icon: Settings, active: isActive.settings },
   ];
@@ -238,7 +267,7 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     collapsed ? (
       <div className="flex justify-center">
         <Link
-          href="/admin/dashboard"
+          href={homePath}
           onClick={onNavigate}
           className="rounded-xl transition-opacity hover:opacity-90"
           title={t("fixAdmin.shell.brandTitle")}
@@ -250,7 +279,7 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     ) : (
       <div className="flex min-w-0 items-center">
         <Link
-          href="/admin/dashboard"
+          href={homePath}
           onClick={onNavigate}
           className="flex min-w-0 items-center gap-2.5 rounded-xl px-1 py-1 transition-opacity hover:opacity-90"
         >
@@ -275,7 +304,9 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     { title: t("admin.sidebar.group.operations"), items: [...navGroupInterviews, ...navGroupAiOps] },
     { title: t("admin.sidebar.group.system"), items: [...navGroupPeople, ...navGroupSystem] },
     { title: t("admin.sidebar.group.soon"), items: navGroupSoon, collapsible: true },
-  ];
+  ]
+    .map((group) => ({ ...group, items: group.items.filter((item) => canOpenAdminPath(item.href, roles)) }))
+    .filter((group) => group.items.length > 0);
 
 
   const renderNavItem = (item: NavItem, collapsed: boolean, onNavigate?: () => void) => {
@@ -502,7 +533,7 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
             {brandMark(false)}
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <AdminNotificationBell />
+            {fullAdmin ? <AdminNotificationBell /> : null}
             <Link
               href="/admin/profile"
               aria-label={t("fixAdmin.shell.profile")}
@@ -523,7 +554,7 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
           </div>
         </header>
 
-        <AdminNotificationToasts />
+        {fullAdmin ? <AdminNotificationToasts /> : null}
 
         {/* Mobile navigation drawer */}
         {mobileNavOpen && (
@@ -597,12 +628,27 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
         >
           <div className="mx-auto max-w-7xl">
             {/* Desktop: notifications bell (mobile has it in the top bar). */}
-            <div className="-mt-4 mb-3 hidden justify-end lg:flex">
-              <AdminNotificationBell />
-            </div>
+            {fullAdmin ? (
+              <div className="-mt-4 mb-3 hidden justify-end lg:flex">
+                <AdminNotificationBell />
+              </div>
+            ) : null}
             {/* Incidents get the full banner only where they are acted on; elsewhere the bell and the menu count carry them. */}
-            {isActive.dashboard || isActive.aiOverview ? <AdminAlertsBanner /> : null}
-            {children}
+            {fullAdmin && (isActive.dashboard || isActive.aiOverview) ? <AdminAlertsBanner /> : null}
+            {pageAllowed ? (
+              children
+            ) : (
+              <div role="alert" className="mx-auto max-w-lg rounded-3xl border border-[#DCE4F3] bg-white p-8 text-center shadow-xs">
+                <h1 className="text-lg font-bold text-[#14244B]">{t("adminRoles.noAccess.title")}</h1>
+                <p className="mt-2 text-sm text-[#607096]">{t("adminRoles.noAccess.body")}</p>
+                <Link
+                  href={homePath}
+                  className="mt-5 inline-flex rounded-full bg-[#204195] px-4 py-2 text-xs font-semibold text-white hover:bg-[#183275]"
+                >
+                  {t("adminRoles.noAccess.home")}
+                </Link>
+              </div>
+            )}
           </div>
         </main>
       </div>

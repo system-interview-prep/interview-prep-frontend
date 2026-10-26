@@ -1,12 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import type { AdminOverviewData } from "@/lib/apiClient";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { Pagination } from "@components/shared/Pagination";
 import AdminEmptyState from "./primitives/AdminEmptyState";
 
-const COHORT_PAGE_SIZE = 10;
 const EN_MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
 /** API months may arrive as English abbreviations ("May"); show them as "Th5". */
@@ -25,16 +22,23 @@ const percentOf = (part: number | undefined, total: number | undefined) =>
  */
 export default function InterviewTrends({ data }: { data: AdminOverviewData | null }) {
   const { t } = useLanguage();
-  const [cohortPage, setCohortPage] = useState(1);
 
   const monthlyTrend = data?.monthlyTrend || [];
   const maxCount = monthlyTrend.length > 0 ? Math.max(...monthlyTrend.map((m) => m.count), 1) : 1;
-  const cohorts = data?.cohorts || [];
-  const cohortPageCount = Math.max(1, Math.ceil(cohorts.length / COHORT_PAGE_SIZE));
-  const currentCohortPage = Math.min(cohortPage, cohortPageCount);
-  const pagedCohorts = cohorts.slice((currentCohortPage - 1) * COHORT_PAGE_SIZE, currentCohortPage * COHORT_PAGE_SIZE);
-  const completedPct = percentOf(data?.completedSessions, data?.totalSessions);
-  const activePct = percentOf(data?.activeSessions, data?.totalSessions);
+  const total = data?.totalSessions;
+  const graded = data?.gradedSessions ?? 0;
+  const ungraded = Math.max(0, (data?.completedSessions ?? 0) - graded);
+  const breakdown = [
+    { label: t("adminOps.overview.graded"), n: graded, bar: "bg-emerald-600", text: "text-emerald-700" },
+    { label: t("adminOps.overview.ungraded"), n: ungraded, bar: "bg-amber-500", text: "text-amber-700" },
+    { label: t("admin.insights.active"), n: data?.activeSessions ?? 0, bar: "bg-blue-600", text: "text-blue-700" },
+  ];
+  const modes = [
+    { key: "chat", label: t("aiPipeline.mode.chat"), n: data?.modes?.chat ?? 0 },
+    { key: "voice", label: t("aiPipeline.mode.voice"), n: data?.modes?.voice ?? 0 },
+    { key: "video", label: t("aiPipeline.mode.video"), n: data?.modes?.video ?? 0 },
+  ];
+  const modeTotal = modes.reduce((sum, m) => sum + m.n, 0);
 
   return (
     <div className="space-y-6">
@@ -89,17 +93,16 @@ export default function InterviewTrends({ data }: { data: AdminOverviewData | nu
             <h3 className="mb-1 text-base font-bold text-[#14244B]">{t("admin.insights.breakdownTitle")}</h3>
             <p className="mb-6 text-xs text-[#607096]">{t("admin.insights.breakdownSubtitle")}</p>
             <div className="space-y-4">
-              {[
-                { label: t("admin.insights.completed"), pct: completedPct, bar: "bg-emerald-600", text: "text-emerald-700" },
-                { label: t("admin.insights.active"), pct: activePct, bar: "bg-blue-600", text: "text-blue-700" },
-              ].map((row) => (
+              {breakdown.map((row) => (
                 <div key={row.label}>
                   <div className="mb-1 flex justify-between text-xs font-semibold">
                     <span className="text-[#14244B]">{row.label}</span>
-                    <span className={row.text}>{row.pct}%</span>
+                    <span className={row.text}>
+                      {row.n} · {percentOf(row.n, total)}%
+                    </span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-[#F2F5FC]">
-                    <div style={{ width: `${row.pct}%` }} className={`h-full rounded-full transition-all duration-500 ${row.bar}`} />
+                    <div style={{ width: `${percentOf(row.n, total)}%` }} className={`h-full rounded-full transition-all duration-500 ${row.bar}`} />
                   </div>
                 </div>
               ))}
@@ -117,32 +120,22 @@ export default function InterviewTrends({ data }: { data: AdminOverviewData | nu
           <h3 className="text-base font-bold text-[#14244B]">{t("admin.insights.modesTitle")}</h3>
           <p className="mt-0.5 text-xs text-[#607096]">{t("admin.insights.modesDesc")}</p>
         </div>
-        {cohorts.length > 0 ? (
-          <>
-            <div className="divide-y divide-[#F1F5F9]">
-              {pagedCohorts.map((cohort) => (
-                <div key={cohort.id} className="flex items-center justify-between gap-4 py-3">
-                  <div className="min-w-0">
-                    <p className="break-words text-xs font-bold text-[#14244B]">{cohort.name}</p>
-                    <p className="text-[11px] text-[#607096]">{cohort.engagement}</p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <span className="text-xs font-black text-[#204195]">{cohort.avgScore}</span>
-                    <p className="text-[10px] text-[#607096]">{cohort.growth}</p>
-                  </div>
+        {modeTotal > 0 ? (
+          <ul className="space-y-3">
+            {modes.map((mode) => (
+              <li key={mode.key}>
+                <div className="mb-1 flex justify-between text-xs font-semibold">
+                  <span className="text-[#14244B]">{mode.label}</span>
+                  <span className="tabular-nums text-[#607096]">
+                    {mode.n} · {percentOf(mode.n, modeTotal)}%
+                  </span>
                 </div>
-              ))}
-            </div>
-            {cohorts.length > COHORT_PAGE_SIZE ? (
-              <Pagination
-                page={currentCohortPage}
-                pageSize={COHORT_PAGE_SIZE}
-                total={cohorts.length}
-                onPageChange={setCohortPage}
-                className="mt-4 border-t border-[#F1F5F9] pt-4"
-              />
-            ) : null}
-          </>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[#F2F5FC]">
+                  <div style={{ width: `${percentOf(mode.n, modeTotal)}%` }} className="h-full rounded-full bg-[#204195]" />
+                </div>
+              </li>
+            ))}
+          </ul>
         ) : (
           <AdminEmptyState title={t("admin.insights.emptyModesTitle")} description={t("admin.insights.emptyModesDesc")} />
         )}

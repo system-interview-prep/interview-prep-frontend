@@ -114,7 +114,7 @@ export function clearAllAuthCookies(): void {
  * @param data AuthResponse from /auth/login or /auth/register or /auth/google
  * @param expectedRole Optional check. If "ADMIN", verifies the user has the ADMIN role.
  */
-const INTERNAL_ROLES = new Set([
+export const INTERNAL_ROLES = new Set([
   "ADMIN",
   "QUESTION_AUTHOR",
   "QUESTION_REVIEWER",

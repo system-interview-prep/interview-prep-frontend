@@ -104,6 +104,8 @@ export default function KnowledgeBaseClient({
 
   // Document list states
   const [documents, setDocuments] = useState<DocumentInfo[]>([]);
+  // The knowledge base runs as a separate RAG service; null until the first load.
+  const [ragReachable, setRagReachable] = useState<boolean | null>(null);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState("");
 
@@ -193,9 +195,16 @@ export default function KnowledgeBaseClient({
       if (response.data?.success) {
         setDocuments(response.data.data || []);
       }
+      setRagReachable(true);
     } catch (err) {
-      console.error("Error fetching documents:", err);
-      showNotification("error", t("fixAdmin.kb.loadDocsFailed"));
+      // No response at all: the RAG service is not running. Say so once, in the page.
+      if (axios.isAxiosError(err) && !err.response) {
+        setRagReachable(false);
+      } else {
+        console.error("Error fetching documents:", err);
+        setRagReachable(true);
+        showNotification("error", t("fixAdmin.kb.loadDocsFailed"));
+      }
     } finally {
       setIsLoadingDocs(false);
     }
@@ -786,6 +795,20 @@ export default function KnowledgeBaseClient({
               { label: t("admin.knowledgeBase") },
             ]}
           />
+
+          {ragReachable === false ? (
+            <div role="status" className="mb-4 rounded-2xl border border-[#FCE3A6] bg-[#FFF7E3] p-4 text-sm text-[#8A5A00]">
+              <p className="font-bold">{t("adminOps.kb.downTitle")}</p>
+              <p className="mt-1 text-xs leading-5">{fmt(t("adminOps.kb.downBody"), { url: RAG_API_URL })}</p>
+              <button
+                type="button"
+                onClick={() => void fetchDocuments()}
+                className="mt-2 text-xs font-semibold text-[#204195] hover:underline"
+              >
+                {t("adminOps.kb.retry")}
+              </button>
+            </div>
+          ) : null}
 
           {/* Tab Switcher */}
           <div role="tablist" aria-label={t("fixAdmin.kb.tabsLabel")} className="grid grid-cols-2 gap-1 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-1 shadow-xs sm:inline-flex sm:flex-wrap">

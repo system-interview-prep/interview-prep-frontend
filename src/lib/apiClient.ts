@@ -133,6 +133,8 @@ export type AdminOverviewData = {
   totalSessions: number;
   activeSessions: number;
   completedSessions: number;
+  /** Closed sessions with a report (the rest ended without one). */
+  gradedSessions?: number;
   averageScore: number | null;
   averageTurnaround: number | null;
   sentimentScore: number | null;
@@ -166,8 +168,11 @@ export type AdminSessionItem = {
   aiScore: number | null;
   dateLabel: string;
   timeLabel: string;
+  /** completed: closed with a report; action_needed: closed without one; scheduled: not closed. */
   status: 'completed' | 'scheduled' | 'action_needed';
   actionLabel: string;
+  userId?: string | null;
+  endReason?: string | null;
 };
 
 /** Aggregates over every session matching the filters (not just the current page). */
@@ -176,6 +181,7 @@ export type AdminSessionStats = {
   completed: number;
   /** Percentage (0–100); null when nothing has been graded. */
   avgScore: number | null;
+  ungraded?: number;
 };
 
 /** Who wrote a follow-up: the model, or a fixed fallback line. Null on sessions before labelling. */
@@ -236,7 +242,7 @@ export const adminApi = {
     apiClient.get<{ success: boolean } & AdminSessionPlan>(`/admin/sessions/${encodeURIComponent(sessionId)}/plan`),
   getOverview: () =>
     apiClient.get<{ success: boolean; overview: AdminOverviewData }>('/admin/overview'),
-  getSessions: (params?: { mode?: string; search?: string; limit?: number; offset?: number }) =>
+  getSessions: (params?: { mode?: string; search?: string; report?: string; limit?: number; offset?: number }) =>
     apiClient.get<{ success: boolean; total: number; stats?: AdminSessionStats; sessions: AdminSessionItem[] }>('/admin/sessions', {
       params,
     }),

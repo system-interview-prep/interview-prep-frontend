@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { RefreshCw, ShieldAlert } from "lucide-react";
+import { ExternalLink, RefreshCw, ShieldAlert } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import AdminPageHeader from "@features/admin/components/primitives/AdminPageHeader";
 import AdminSection from "@features/admin/components/primitives/AdminSection";
@@ -16,8 +16,10 @@ import { clock, fill, pollInterval, stageSummary, tr } from "../utils/pipelineFo
 import PipelineStepper from "./PipelineStepper";
 import LiveNowPanel from "./LiveNowPanel";
 import RoomObserverPanel from "./RoomObserverPanel";
+import SessionAdminActions from "./SessionAdminActions";
 import { EntrySection, InterviewSection, PlanSection, QuestionsSection, VoiceSection } from "./PipelineOverview";
 import PipelineTurns from "./PipelineTurns";
+import SessionLangfuseSection from "./SessionLangfuseSection";
 import PipelineGrading from "./PipelineGrading";
 import PipelineEvents from "./PipelineEvents";
 import { AiCallTable, AiPurposeTable, AiSummaryFacts } from "./AiCallTables";
@@ -108,17 +110,31 @@ export default function SessionPipelineClient({ sessionId }: { sessionId: string
         ) : null
       }
       primaryAction={
-        <button
-          type="button"
-          onClick={() => void refresh()}
-          className="inline-flex items-center gap-2 rounded-full border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-2xs transition-colors hover:bg-[#F8FAFC]"
-        >
-          <RefreshCw
-            className={`size-3.5 ${state.status === "ready" && state.refreshing ? "animate-spin motion-reduce:animate-none" : ""}`}
-            aria-hidden="true"
-          />
-          {t("aiPipeline.refresh")}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {pipeline ? <SessionAdminActions pipeline={pipeline} onDone={() => void refresh()} /> : null}
+          {pipeline?.langfuse?.sessionUrl ? (
+            <a
+              href={pipeline.langfuse.sessionUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#204195] shadow-2xs transition-colors hover:bg-[#F8FAFC]"
+            >
+              <ExternalLink className="size-3.5" aria-hidden="true" />
+              {t("aiPipeline.llm.openSession")}
+            </a>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            className="inline-flex items-center gap-2 rounded-full border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-2xs transition-colors hover:bg-[#F8FAFC]"
+          >
+            <RefreshCw
+              className={`size-3.5 ${state.status === "ready" && state.refreshing ? "animate-spin motion-reduce:animate-none" : ""}`}
+              aria-hidden="true"
+            />
+            {t("aiPipeline.refresh")}
+          </button>
+        </div>
       }
     />
   );
@@ -214,7 +230,12 @@ export default function SessionPipelineClient({ sessionId }: { sessionId: string
             <VoiceSection pipeline={pipeline} />
           </>
         ) : null}
-        {activeTab === "turns" ? <PipelineTurns turns={pipeline.turns} currentTurnIndex={pipeline.currentTurnIndex} sessionId={sessionId} /> : null}
+        {activeTab === "turns" ? <PipelineTurns
+            turns={pipeline.turns}
+            currentTurnIndex={pipeline.currentTurnIndex}
+            sessionId={sessionId}
+            langfuseProjectUrl={pipeline.langfuse?.projectUrl}
+          /> : null}
         {activeTab === "grading" ? <PipelineGrading pipeline={pipeline} /> : null}
         {activeTab === "ai" ? (
           <>
@@ -237,6 +258,7 @@ export default function SessionPipelineClient({ sessionId }: { sessionId: string
             <AdminSection title={t("aiPipeline.ai.recent")}>
               <AiCallTable calls={pipeline.ai.recent} />
             </AdminSection>
+            <SessionLangfuseSection sessionId={sessionId} projectUrl={pipeline.langfuse?.projectUrl} />
           </>
         ) : null}
         {activeTab === "events" ? (

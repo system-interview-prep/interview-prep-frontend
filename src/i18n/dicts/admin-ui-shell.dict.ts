@@ -9,6 +9,8 @@ export const adminUiShellVi: Record<string, string> = {
   "admin.sidebar.aiModels": "Danh sách mô hình AI",
   "admin.sidebar.aiPrompts": "Câu lệnh cho AI (prompt)",
   "admin.sidebar.aiTraces": "Lịch sử gọi AI",
+  "admin.sidebar.aiSpeech": "Lời nói AI",
+  "admin.sidebar.evalOverview": "Đánh giá AI",
   "admin.sidebar.aiUsage": "Lượng dùng AI",
   "admin.sidebar.aiErrors": "Lỗi khi gọi AI",
   "admin.sidebar.evalDatasets": "Bộ dữ liệu kiểm thử",

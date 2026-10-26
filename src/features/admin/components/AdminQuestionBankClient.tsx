@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Clock, FileQuestion, Filter, Search } from "lucide-react";
+import { FileQuestion, Inbox, Search, Sparkles } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Pagination } from "@components/shared/Pagination";
-import { DIFFICULTY_BANDS, questionBankApi, type QuestionBankItem } from "@features/admin/services/questionBank.service";
+import { DIFFICULTY_BANDS, questionBankApi, type QuestionBankItem, type WorkBucket, type WorkSummary } from "@features/admin/services/questionBank.service";
 import AdminEmptyState from "./primitives/AdminEmptyState";
 import AdminMetricCard from "./primitives/AdminMetricCard";
 import AdminPageHeader from "./primitives/AdminPageHeader";
@@ -13,6 +13,25 @@ import AdminStatusBadge from "./primitives/AdminStatusBadge";
 import { lifecycleTone } from "./primitives/statusTone";
 
 const PAGE_SIZE = 20;
+
+/** "Tất cả", the signed-in person's work buckets, or the system-generated drafts. */
+export type BankView = "all" | WorkBucket | "ai";
+
+export function viewParams(view: BankView): { mine?: WorkBucket; source?: "ai" } {
+  if (view === "all") return {};
+  if (view === "ai") return { source: "ai" };
+  return { mine: view };
+}
+
+/** Roles that may add questions (authoring) or import a file (author or bank admin). */
+export function bankAbilities(roles: readonly string[]): { add: boolean; import: boolean } {
+  const held = new Set(roles.map((role) => role.toUpperCase()));
+  const admin = held.has("ADMIN");
+  return {
+    add: admin || held.has("QUESTION_AUTHOR"),
+    import: admin || held.has("QUESTION_AUTHOR") || held.has("QUESTION_BANK_ADMIN"),
+  };
+}
 
 export default function AdminQuestionBankClient() {
   const { t } = useLanguage();
@@ -29,6 +48,12 @@ export default function AdminQuestionBankClient() {
   const [questions, setQuestions] = useState<QuestionBankItem[]>([]);
   const [total, setTotal] = useState<number | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error" | "forbidden">("loading");
+  const [view, setView] = useState<BankView>("all");
+  const [work, setWork] = useState<WorkSummary | null>(null);
+
+  useEffect(() => {
+    questionBankApi.workSummary().then(({ data }) => setWork(data)).catch(() => setWork(null));
+  }, [reloadToken]);
 
   useEffect(() => {
     const timer = window.setTimeout(async () => {
@@ -37,6 +62,7 @@ export default function AdminQuestionBankClient() {
         const { data } = await questionBankApi.list({
           q: searchQuery || undefined,
           difficultyBand: difficultyFilter === "all" ? undefined : difficultyFilter,
+          ...viewParams(view),
           page,
           pageSize: PAGE_SIZE,
         });
@@ -46,9 +72,17 @@ export default function AdminQuestionBankClient() {
       }
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [searchQuery, difficultyFilter, page, reloadToken]);
+  }, [searchQuery, difficultyFilter, view, page, reloadToken]);
 
   const pending = state === "loading";
+  const abilities = work ? bankAbilities(work.roles) : { add: true, import: true };
+  const buckets = (Object.keys(work?.buckets ?? {}) as WorkBucket[]);
+  const waiting = buckets.reduce((sum, bucket) => sum + (work?.buckets[bucket] ?? 0), 0);
+  const views: { key: BankView; label: string; count?: number }[] = [
+    { key: "all", label: t("admin.common.all") },
+    ...buckets.map((bucket) => ({ key: bucket, label: t(`adminRoles.work.${bucket}`), count: work?.buckets[bucket] })),
+    { key: "ai", label: t("adminRoles.work.ai"), count: work?.generatedInReview },
+  ];
   const th = "px-4 py-4 first:pl-6 last:pr-6";
   return <div className="space-y-6">
     <AdminPageHeader
@@ -57,14 +91,21 @@ export default function AdminQuestionBankClient() {
       breadcrumbs={[{ label: "Quản trị", href: "/admin/dashboard" }, { label: t("admin.sidebar.questionBank") }]}
       statusBadge={<AdminStatusBadge status={state === "error" ? "error" : "info"} label={pending ? t("admin.common.loading") : t("fixAdmin.ops.common.fromCore")} />}
       primaryAction={<div className="flex flex-wrap gap-2">
-        <Link href="/admin/question-bank/import" className="rounded-full border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] hover:bg-[#F8FAFC]">{t("fixAdmin.ops.qb.import")}</Link>
-        <Link href="/admin/question-bank/new" className="rounded-full bg-[#204195] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#183275]">{t("fixAdmin.ops.qb.add")}</Link>
+        <Link href="/admin/question-bank/insights" className="inline-flex items-center gap-1.5 rounded-full border border-[#F3DFB0] bg-[#FFFBF2] px-3.5 py-2 text-xs font-semibold text-[#8A5A00] hover:bg-[#FFF6E0]"><Sparkles className="size-3.5" aria-hidden="true" />{t("bankAi.title")}</Link>
+        {abilities.import && <Link href="/admin/question-bank/import" className="rounded-full border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] hover:bg-[#F8FAFC]">{t("fixAdmin.ops.qb.import")}</Link>}
+        {abilities.add && <Link href="/admin/question-bank/new" className="rounded-full bg-[#204195] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#183275]">{t("fixAdmin.ops.qb.add")}</Link>}
       </div>}
     />
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <AdminMetricCard title={t("fixAdmin.ops.qb.stat.total")} value={total} subtitle={t("fixAdmin.ops.qb.stat.totalSub")} icon={FileQuestion} isPending={pending} pendingText={t("admin.common.loading")} />
-      <AdminMetricCard title={t("fixAdmin.ops.qb.stat.competency")} value={null} subtitle={t("fixAdmin.ops.qb.stat.competencySub")} icon={Filter} isPending pendingText={t("fixAdmin.ops.qb.stat.inDetail")} />
-      <AdminMetricCard title={t("fixAdmin.ops.qb.stat.duration")} value={null} subtitle={t("fixAdmin.ops.qb.stat.durationSub")} icon={Clock} isPending pendingText={t("fixAdmin.ops.qb.stat.inDetail")} />
+      <AdminMetricCard title={t("adminRoles.stat.waiting")} value={work ? waiting : null} subtitle={t("adminRoles.stat.waitingSub")} icon={Inbox} isPending={!work} pendingText={t("admin.common.loading")} />
+      <AdminMetricCard title={t("adminRoles.stat.ai")} value={work ? work.generatedInReview : null} subtitle={t("adminRoles.stat.aiSub")} icon={Sparkles} isPending={!work} pendingText={t("admin.common.loading")} />
+    </div>
+    <div className="flex flex-wrap gap-2" role="group" aria-label={t("adminRoles.work.label")}>
+      {views.map((item) => <button key={item.key} type="button" aria-pressed={view === item.key} onClick={() => { setView(item.key); setPage(1); }} className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold ${view === item.key ? "bg-[#204195] text-white" : "border border-[#DCE4F3] bg-white text-[#607096] hover:text-[#204195]"}`}>
+        {item.label}
+        {item.count !== undefined && <span className={`rounded-full px-1.5 text-[11px] tabular-nums ${view === item.key ? "bg-white/20" : "bg-[#EEF2FD] text-[#204195]"}`}>{item.count}</span>}
+      </button>)}
     </div>
     <div className="flex flex-col gap-3 rounded-3xl border border-[#DCE4F3] bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
       <div className="relative min-w-0 flex-1 sm:max-w-md">
@@ -92,7 +133,10 @@ export default function AdminQuestionBankClient() {
           : questions.map((question) => <tr key={question.questionId} className="hover:bg-[#F8FAFC]">
             <td className="px-4 py-4 align-top"><div className="min-w-0 space-y-1">
               <Link href={`/admin/question-bank/${question.questionId}`} title={question.stableKey} className="block font-bold text-[#14244B] [overflow-wrap:anywhere] hover:underline">{question.stableKey}</Link>
-              <span className="inline-flex rounded-md bg-[#EEF2FD] px-1.5 py-0.5 text-[11px] font-semibold text-[#204195]" title={`${t("fixAdmin.ops.qb.versionPrefix")} ${question.currentVersion.version}`}>v{question.currentVersion.version}</span>
+              <span className="flex flex-wrap gap-1.5">
+                <span className="inline-flex rounded-md bg-[#EEF2FD] px-1.5 py-0.5 text-[11px] font-semibold text-[#204195]" title={`${t("fixAdmin.ops.qb.versionPrefix")} ${question.currentVersion.version}`}>v{question.currentVersion.version}</span>
+                {question.currentVersion.generated && <span className="inline-flex rounded-md bg-[#FFF6E0] px-1.5 py-0.5 text-[11px] font-semibold text-[#8A5A00]">{t("adminRoles.aiBadge")}</span>}
+              </span>
               <p className="line-clamp-2 break-words text-[#607096]" title={question.currentVersion.canonicalText}>{question.currentVersion.canonicalText}</p>
             </div></td>
             <td className="px-4 py-4 align-top text-[#14244B] [overflow-wrap:anywhere]">{question.taxonomy.primaryCompetency?.conceptId || "—"}</td>

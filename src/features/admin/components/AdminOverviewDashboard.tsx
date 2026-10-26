@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Server, Activity, MessageSquare, Target, ArrowUpRight, RefreshCw, Clock, Cpu } from "lucide-react";
+import { Server, Activity, MessageSquare, Target, ArrowUpRight, RefreshCw, Clock, Cpu, HeartPulse } from "lucide-react";
 import { adminApi, AdminOverviewData } from "@/lib/apiClient";
 import { jobProfileApi } from "../services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -12,6 +12,9 @@ import AdminPageHeader from "./primitives/AdminPageHeader";
 import AdminMetricCard from "./primitives/AdminMetricCard";
 import { type AdminStatusType } from "./primitives/AdminStatusBadge";
 import InterviewTrends from "./InterviewTrends";
+import { adminOpsService, type HealthStatus } from "@features/admin/services/adminOps.service";
+
+const HEALTH_PILL: Record<HealthStatus, AdminStatusType> = { ok: "healthy", warn: "warning", down: "error", off: "unavailable" };
 
 const DOT: Partial<Record<AdminStatusType, string>> = {
   healthy: "bg-emerald-500",
@@ -67,6 +70,7 @@ export default function AdminOverviewDashboard() {
   const [overviewData, setOverviewData] = useState<AdminOverviewData | null>(null);
   const [jobProfileCount, setJobProfileCount] = useState<number | null>(null);
   const [backendStatus, setBackendStatus] = useState<"healthy" | "unavailable" | "unknown">("unknown");
+  const [infra, setInfra] = useState<HealthStatus | null>(null);
 
   const loadDashboardData = async () => {
     try {
@@ -79,6 +83,11 @@ export default function AdminOverviewDashboard() {
       }
     } catch {
       setBackendStatus("unavailable");
+    }
+    try {
+      setInfra((await adminOpsService.systemHealth()).overall);
+    } catch {
+      setInfra(null);
     }
     try {
       const jpRes = await jobProfileApi.list({ limit: 1 });
@@ -137,6 +146,13 @@ export default function AdminOverviewDashboard() {
           statusLabel={healthy ? t("fixAdmin.status.healthy") : backendStatus === "unknown" ? t("admin.common.loading") : t("fixAdmin.status.offline")}
         />
         <ServicePill icon={Cpu} title={t("overview2.services.ai")} status={aiStatus} statusLabel={aiLabel} href="/admin/ai" />
+        <ServicePill
+          icon={HeartPulse}
+          title={t("adminOps.health.pill")}
+          status={infra ? HEALTH_PILL[infra] : "unknown"}
+          statusLabel={infra ? t(`adminOps.health.overall.${infra}`) : loading ? t("admin.common.loading") : t("adminOps.health.unknown")}
+          href="/admin/system"
+        />
       </div>
 
 
@@ -171,10 +187,17 @@ export default function AdminOverviewDashboard() {
             pendingText={t("admin.common.loading")}
           />
           <AdminMetricCard
-            title={t("admin.dashboard.completedSessions")}
+            title={t("adminOps.overview.ended")}
             value={overviewData?.completedSessions}
             unit={t("admin.interviews.sessionUnit")}
-            subtitle={t("admin.dashboard.completedSessionsSub")}
+            subtitle={
+              overviewData?.gradedSessions !== undefined
+                ? fmt(t("adminOps.overview.endedSub"), {
+                    graded: overviewData.gradedSessions,
+                    ungraded: Math.max(0, overviewData.completedSessions - overviewData.gradedSessions),
+                  })
+                : t("admin.dashboard.completedSessionsSub")
+            }
             icon={Clock}
             isPending={pending}
             pendingText={t("admin.common.loading")}

@@ -2,17 +2,18 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Info, Settings, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Info, Settings, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import AdminPageHeader from "./primitives/AdminPageHeader";
 import AdminStatusBadge from "./primitives/AdminStatusBadge";
 import AdminSection from "./primitives/AdminSection";
+import SystemConfigPanel from "./SystemConfigPanel";
 import { useLanguage } from "@/i18n/LanguageProvider";
 
-type SettingsTab = "general" | "security";
+type SettingsTab = "config" | "general" | "security";
 
 export default function AdminSettingsClient() {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("config");
 
   return (
     <div className="min-w-0 space-y-6">
@@ -53,6 +54,7 @@ export default function AdminSettingsClient() {
       {/* Tabs Navigation */}
       <div className="flex items-center gap-2 border-b border-[#DCE4F3] pb-2 overflow-x-auto">
         {[
+          { id: "config" as const, label: t("adminOps.config.tab"), icon: SlidersHorizontal },
           { id: "general" as const, label: t("admin.settings.tab.general"), icon: Settings },
           { id: "security" as const, label: t("admin.settings.tab.security"), icon: ShieldCheck },
         ].map((tab) => {
@@ -75,6 +77,8 @@ export default function AdminSettingsClient() {
           );
         })}
       </div>
+
+      {activeTab === "config" && <SystemConfigPanel />}
 
       {/* Tab: Security */}
       {activeTab === "security" && (

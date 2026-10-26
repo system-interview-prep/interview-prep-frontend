@@ -9,10 +9,17 @@ import {
   exchangeHasWarning,
   exchangeReasons,
   formatMs,
+  notableSpeechChecks,
   percentText,
   pollInterval,
   purposeKey,
   purposeLabel,
+  decisionRuleLabel,
+  flagLabel,
+  langfuseTraceUrl,
+  speechCheckLabel,
+  speechReasonLabel,
+  speechSourceLabel,
 } from "../utils/pipelineFormat";
 
 const dict: Record<string, string> = {
@@ -151,5 +158,45 @@ describe("AI call purposes", () => {
         payload: { error_type: "Timeout", error_message: "slow", other: 1 },
       }),
     ).toBe("error_type=Timeout · error_message=slow");
+  });
+});
+
+describe("speech control", () => {
+  it("names guard reasons in words, including topic-mode codes", () => {
+    expect(speechReasonLabel("parroting", t)).toBe("nhại lại lời ứng viên");
+    expect(speechReasonLabel("topic_not_from_answer", t)).toBe("chủ đề không lấy từ câu trả lời");
+    expect(speechReasonLabel("NewReason", t)).toBe("NewReason");
+    for (const code of ["hints_answer", "leading_question", "verdict_hint", "not_question", "unsupported_claim"]) {
+      expect(speechReasonLabel(code, t)).not.toBe(code);
+    }
+    expect(speechCheckLabel({ kind: "probe", outcome: "reject", reason: "too_long" }, t)).toBe("Câu hỏi thêm: quá dài");
+    expect(speechSourceLabel("pregenerated", t)).toBe("Bản nói soạn trước buổi");
+    expect(speechSourceLabel(null, t)).toBe("Không rõ");
+  });
+
+  it("shows only non-pass checks and does not repeat the replaced acknowledgement", () => {
+    const logged = exchange({
+      ackSource: "fallback",
+      ackReason: "parroting",
+      speechChecks: [
+        { kind: "ack", outcome: "reject", reason: "parroting", draft: "Bạn khoá dòng." },
+        { kind: "probe", outcome: "pass" },
+      ],
+    });
+    expect(notableSpeechChecks(logged)).toHaveLength(1);
+    expect(exchangeReasons(logged, t)).toEqual(["Trả lời · đủ ý"]);
+    expect(exchangeHasWarning(exchange({ speechChecks: [{ kind: "ack", outcome: "error", reason: "TimeoutError" }] }))).toBe(true);
+  });
+});
+
+describe("LLM monitoring", () => {
+  it("names the engine rule and the flags, and links a turn to Langfuse", () => {
+    expect(decisionRuleLabel("insufficient_answer", t)).toBe("chưa đủ ý → hỏi thêm");
+    expect(decisionRuleLabel("end_hard_timeout", t)).toBe("kết thúc buổi (hard_timeout)");
+    expect(decisionRuleLabel(null, t)).toBeNull();
+    expect(flagLabel("probe_off_target", t)).toBe("Hỏi thêm không trúng chỗ thiếu");
+    expect(flagLabel("new_flag", t)).toBe("new_flag");
+    expect(langfuseTraceUrl("http://lf/project/p1", "abc")).toBe("http://lf/project/p1/traces/abc");
+    expect(langfuseTraceUrl(null, "abc")).toBeNull();
   });
 });

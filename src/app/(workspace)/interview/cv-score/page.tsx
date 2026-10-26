@@ -394,6 +394,8 @@ export function CompactMatchSummary({
             <div>
               <span className="text-4xl font-semibold leading-none text-[#9AA6C2]">—</span>
               <p className="mt-2 text-sm font-medium text-[#607096]">{scoreLabel}</p>
+              {/* Say why there is no number instead of leaving a bare dash. */}
+              <p className="mt-1 text-xs leading-5 text-[#8A98B8]">{t("fit.summary.noScore")}</p>
             </div>
           )}
         </div>

@@ -15,7 +15,9 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { BrandLogo } from "@components/shared/BrandLogo";
+import { adminHomePath } from "@features/admin/access";
 import {
+  INTERNAL_ROLES,
   completeAuthSession,
   getAuthErrorMessage,
   getCookie,
@@ -80,9 +82,10 @@ export default function AdminLoginForm() {
       setLoading(true);
       const response = await authApi.login(trimmedEmail, password);
 
-      // Verify that this user has ADMIN role
-      const isAdmin = response.data.user.roles.some((role) => role.toUpperCase() === "ADMIN");
-      if (!isAdmin) {
+      // Any internal actor (ADMIN or a question-bank role) may use the console;
+      // completeAuthSession rejects candidates before storing anything.
+      const roles = response.data.user.roles;
+      if (!roles.some((role) => INTERNAL_ROLES.has(role.toUpperCase()))) {
         setErrorMessage(
           t("admin.login.error.notAdmin") ||
           "Tài khoản này không có quyền truy cập hệ thống quản trị."
@@ -90,9 +93,8 @@ export default function AdminLoginForm() {
         return;
       }
 
-      // Complete session as ADMIN
       completeAuthSession(response.data, "ADMIN");
-      router.replace(nextUrl);
+      router.replace(searchParams.get("next") ? nextUrl : adminHomePath(roles));
     } catch (error) {
       const fallback =
         t("admin.login.error.invalidCredentials") ||

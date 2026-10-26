@@ -17,6 +17,7 @@ import { adminApi, AdminSessionItem, type AdminSessionStats } from "@/lib/apiCli
 import AdminPageHeader from "./primitives/AdminPageHeader";
 import AdminEmptyState from "./primitives/AdminEmptyState";
 import LiveSessionsBoard from "@features/admin/pipeline/components/LiveSessionsBoard";
+import BatchGradeButton from "@features/admin/pipeline/components/BatchGradeButton";
 
 const PAGE_SIZE = 10;
 
@@ -36,7 +37,7 @@ function statusPill(status: InterviewStatus, t: (key: string) => string) {
   if (status === "completed") {
     return {
       className: `${PILL_BASE} bg-[#EEF7F1] text-[#287A4B] border-[#CFE6D8]`,
-      label: t("fixAdmin.ops.interviews.status.completed"),
+      label: t("adminOps.sessions.status.graded"),
     };
   }
   if (status === "scheduled") {
@@ -47,7 +48,7 @@ function statusPill(status: InterviewStatus, t: (key: string) => string) {
   }
   return {
     className: `${PILL_BASE} bg-[#FFF7E3] text-[#8A5A00] border-[#FCE3A6]`,
-    label: t("fixAdmin.ops.interviews.status.actionNeeded"),
+    label: t("adminOps.sessions.status.missing"),
   };
 }
 
@@ -69,15 +70,17 @@ export default function AdminInterviewsClient({
   const [page, setPage] = useState(1);
 
   const [selectedMode, setSelectedMode] = useState<string>("all");
+  const [reportFilter, setReportFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  const fetchSessions = useCallback(async (mode: string, search: string, pageNumber = 1) => {
+  const fetchSessions = useCallback(async (mode: string, search: string, pageNumber = 1, report = "all") => {
     try {
       setIsLoading(true);
       setLoadError(false);
       const res = await adminApi.getSessions({
         mode,
         search: search.trim() || undefined,
+        report: report === "all" ? undefined : report,
         limit: PAGE_SIZE,
         offset: (pageNumber - 1) * PAGE_SIZE,
       });
@@ -98,13 +101,13 @@ export default function AdminInterviewsClient({
   }, []);
 
   useEffect(() => {
-    fetchSessions(selectedMode, searchQuery, 1);
+    fetchSessions(selectedMode, searchQuery, 1, reportFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchSessions, selectedMode]);
+  }, [fetchSessions, selectedMode, reportFilter]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchSessions(selectedMode, searchQuery, 1);
+    fetchSessions(selectedMode, searchQuery, 1, reportFilter);
   };
 
   // Stats cover every matching session (computed by the API), not just this page.
@@ -123,13 +126,22 @@ export default function AdminInterviewsClient({
           { label: t("admin.sidebar.interviews") || "Phiên phỏng vấn" },
         ]}
         primaryAction={
+          <div className="flex flex-wrap items-center gap-2">
+          {/* Counts every user only when no filter narrows the list. */}
+          {selectedMode === "all" && !searchQuery.trim() && (reportFilter === "all" || reportFilter === "missing") ? (
+            <BatchGradeButton
+              pending={stats?.ungraded ?? 0}
+              onFinished={() => fetchSessions(selectedMode, searchQuery, page, reportFilter)}
+            />
+          ) : null}
           <button
-            onClick={() => fetchSessions(selectedMode, searchQuery)}
+            onClick={() => fetchSessions(selectedMode, searchQuery, page, reportFilter)}
             className="inline-flex items-center gap-2 rounded-full border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-2xs hover:bg-[#F8FAFC] transition-all cursor-pointer"
           >
             <RefreshCw className={`size-3.5 ${isLoading ? "animate-spin text-[#204195]" : "text-[#607096]"}`} />
             <span>{t("admin.common.refresh") || "Làm mới"}</span>
           </button>
+          </div>
         }
       />
 
@@ -198,6 +210,21 @@ export default function AdminInterviewsClient({
           >
             {t("admin.filter.voiceOnly") || "Thoại (Voice)"}
           </button>
+          <label className="sr-only" htmlFor="admin-interviews-report">
+            {t("adminOps.sessions.reportFilter")}
+          </label>
+          <select
+            id="admin-interviews-report"
+            value={reportFilter}
+            onChange={(e) => setReportFilter(e.target.value)}
+            className="rounded-full border border-[#DCE4F3] bg-white px-3 py-1.5 text-xs font-semibold text-[#14244B]"
+          >
+            {["all", "missing", "graded", "open"].map((value) => (
+              <option key={value} value={value}>
+                {t(`adminOps.sessions.report.${value}`)}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -209,6 +236,7 @@ export default function AdminInterviewsClient({
             active: activeSessionsCount,
             completed: completedSessionsCount,
           })}
+          {stats.ungraded ? ` · ${fmt(t("adminOps.sessions.ungradedCount"), { n: stats.ungraded })}` : ""}
           {avgScore > 0 ? ` · ${fmt(t("interviews2.filterAvg"), { score: avgScore })}` : ""}
         </p>
       ) : null}
@@ -244,7 +272,7 @@ export default function AdminInterviewsClient({
                       variant="error"
                       title={t("fixAdmin.ops.interviews.errorTitle")}
                       description={t("fixAdmin.ops.interviews.errorDesc")}
-                      onRetry={() => fetchSessions(selectedMode, searchQuery)}
+                      onRetry={() => fetchSessions(selectedMode, searchQuery, page, reportFilter)}
                     />
                   </td>
                 </tr>
@@ -266,9 +294,19 @@ export default function AdminInterviewsClient({
                             {row.candidateInitials}
                           </div>
                           <div className="min-w-0">
-                            <p className="line-clamp-2 font-bold text-[#14244B]" title={row.candidateName}>
-                              {row.candidateName}
-                            </p>
+                            {row.userId ? (
+                              <Link
+                                href={`/admin/users/${encodeURIComponent(row.userId)}`}
+                                className="line-clamp-2 font-bold text-[#14244B] hover:text-[#204195] hover:underline"
+                                title={row.candidateName}
+                              >
+                                {row.candidateName}
+                              </Link>
+                            ) : (
+                              <p className="line-clamp-2 font-bold text-[#14244B]" title={row.candidateName}>
+                                {row.candidateName}
+                              </p>
+                            )}
                             <p className="truncate text-[11px] text-[#607096]" title={row.candidateEmail}>
                               {row.candidateEmail}
                             </p>
@@ -302,6 +340,13 @@ export default function AdminInterviewsClient({
                       </td>
                       <td className="px-3 py-4">
                         <span className={`${pill.className} whitespace-nowrap`}>{pill.label}</span>
+                        {row.endReason && row.status !== "scheduled" ? (
+                          <span className="mt-1 block text-[11px] text-[#607096]">
+                            {hookT(`aiPipeline.endReason.${row.endReason}`) !== `aiPipeline.endReason.${row.endReason}`
+                              ? hookT(`aiPipeline.endReason.${row.endReason}`)
+                              : row.endReason}
+                          </span>
+                        ) : null}
                         <Link
                           href={`/admin/interviews/${encodeURIComponent(row.id)}`}
                           className="mt-1 block text-[11px] font-semibold text-[#204195] hover:underline"
@@ -325,7 +370,7 @@ export default function AdminInterviewsClient({
                 page={page}
                 pageSize={PAGE_SIZE}
                 total={totalCount}
-                onPageChange={(next) => fetchSessions(selectedMode, searchQuery, next)}
+                onPageChange={(next) => fetchSessions(selectedMode, searchQuery, next, reportFilter)}
               />
             ) : (
               <p className="text-[13px] text-[#607096] tabular-nums">
