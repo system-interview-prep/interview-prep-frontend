@@ -44,4 +44,5 @@ next-env.d.ts
 tmp/
 temp/
 *.tmp
-
+.dev_md5.txt
+.dev_*.txt
