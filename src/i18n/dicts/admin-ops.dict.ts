@@ -58,13 +58,13 @@ export const adminOpsVi: Record<string, string> = {
   "adminOps.config.group.runtime": "Buổi phỏng vấn",
   "adminOps.config.group.speech": "Lời nói của người phỏng vấn AI",
   "adminOps.config.groupNote.speech": "Giới hạn mà bộ kiểm tra lời nói áp dụng; số liệu chặn/sửa xem ở trang Kiểm soát lời nói.",
-  "adminOps.config.group.documents": "CV, JD và đối sánh",
+  "adminOps.config.group.documents": "CV, JD và đối chiếu",
   "adminOps.config.group.monitoring": "Giám sát LLM (Langfuse)",
   "adminOps.config.group.system": "Hệ thống",
   "adminOps.config.item.minMatchPercent": "Độ phù hợp tối thiểu để vào phòng",
   "adminOps.config.note.minMatchPercent": "0% nghĩa là không chặn.",
-  "adminOps.config.item.blockNotEligible": "Chặn khi đối sánh kết luận “chưa đủ điều kiện”",
-  "adminOps.config.item.requireMatchScore": "Bắt buộc có điểm đối sánh",
+  "adminOps.config.item.blockNotEligible": "Chặn khi đối chiếu kết luận “chưa đủ điều kiện”",
+  "adminOps.config.item.requireMatchScore": "Bắt buộc có điểm phù hợp",
   "adminOps.config.item.lowFitPercent": "Dưới mức này: cảnh báo độ phù hợp thấp",
   "adminOps.config.item.challengePercent": "Từ mức này: tăng độ khó",
   "adminOps.config.item.llmModel": "Mô hình LLM",
@@ -144,7 +144,7 @@ export const adminOpsVi: Record<string, string> = {
   // User detail
   "adminOps.user.view": "Xem chi tiết",
   "adminOps.user.title": "Chi tiết người dùng",
-  "adminOps.user.subtitle": "Tài khoản, CV, buổi phỏng vấn và đối sánh của một người dùng.",
+  "adminOps.user.subtitle": "Tài khoản, CV, buổi phỏng vấn và đối chiếu của một người dùng.",
   "adminOps.user.notFound": "Không tìm thấy người dùng.",
   "adminOps.user.loadError": "Không tải được thông tin người dùng.",
   "adminOps.user.account": "Tài khoản",
@@ -163,7 +163,7 @@ export const adminOpsVi: Record<string, string> = {
   "adminOps.user.metric.noScore": "chưa có buổi nào được chấm",
   "adminOps.user.metric.cvs": "CV đã tải lên",
   "adminOps.user.metric.cvsSub": "{n} CV phân tích lỗi",
-  "adminOps.user.metric.matching": "Lượt đối sánh",
+  "adminOps.user.metric.matching": "Lượt đối chiếu",
   "adminOps.user.metric.reportsSub": "{n} lần báo kết quả phỏng vấn thật",
   "adminOps.user.sessions": "Buổi phỏng vấn",
   "adminOps.user.sessionsUngraded": "{n} buổi đã kết thúc nhưng chưa có báo cáo: mở buổi để chấm điểm (buổi chưa trả lời câu chuyên môn nào thì không chấm được).",
@@ -183,8 +183,8 @@ export const adminOpsVi: Record<string, string> = {
   "adminOps.user.noSessions": "Chưa có buổi phỏng vấn nào.",
   "adminOps.user.cvs": "CV",
   "adminOps.user.noCvs": "Chưa tải CV nào.",
-  "adminOps.user.matching": "Đối sánh CV – JD",
-  "adminOps.user.noMatching": "Chưa có lượt đối sánh nào được ghi.",
+  "adminOps.user.matching": "Đối chiếu CV – JD",
+  "adminOps.user.noMatching": "Chưa có lượt đối chiếu nào được ghi.",
   "adminOps.user.runStatus.done": "Hoàn tất",
   "adminOps.user.runStatus.error": "Có lỗi",
   "adminOps.user.runStatus.running": "Chưa xong",
@@ -224,7 +224,7 @@ export const adminOpsVi: Record<string, string> = {
   "adminOps.health.check.voiceAgent": "Voice-agent",
   "adminOps.health.check.langfuse": "Langfuse",
   "adminOps.health.what.database": "PostgreSQL: dữ liệu phiên, CV, JD, kết quả chấm.",
-  "adminOps.health.what.rabbitmq": "RabbitMQ và worker Celery: phân tích CV, phân tích JD, đối sánh.",
+  "adminOps.health.what.rabbitmq": "RabbitMQ và worker Celery: phân tích CV, phân tích JD, đối chiếu.",
   "adminOps.health.what.livekit": "Máy chủ phòng voice/video.",
   "adminOps.health.what.voiceAgent": "Người phỏng vấn AI trong phòng voice/video; suy ra từ sự kiện gần nhất nó ghi.",
   "adminOps.health.what.langfuse": "Theo dõi và đánh giá lệnh gọi LLM.",
@@ -259,7 +259,7 @@ export const adminOpsVi: Record<string, string> = {
   "adminOps.health.col.workers": "Worker",
   "adminOps.health.queue.cv": "Phân tích CV",
   "adminOps.health.queue.jd": "Phân tích JD",
-  "adminOps.health.queue.matching": "Đối sánh",
+  "adminOps.health.queue.matching": "Đối chiếu",
   "adminOps.health.queueMissing": "chưa tạo",
   "adminOps.health.checkedAt": "Kiểm tra lúc {time}.",
 
@@ -365,7 +365,7 @@ export const adminOpsVi: Record<string, string> = {
   "adminOps.help.topic.cvFailed.title": "CV phân tích lỗi hoặc thiếu kỹ năng, kinh nghiệm",
   "adminOps.help.topic.cvFailed.body":
     "Mở Xử lý CV, chọn CV đó để xem bước hỏng (trích văn bản, phân tích, kiểm tra chất lượng) và lý do. Sửa nguyên nhân (ví dụ OCR, worker) rồi bấm \"Phân tích lại\".",
-  "adminOps.help.topic.workerDown.title": "CV, JD hoặc đối sánh không chạy (đứng ở \"vào hàng đợi\")",
+  "adminOps.help.topic.workerDown.title": "CV, JD hoặc đối chiếu không chạy (đứng ở \"vào hàng đợi\")",
   "adminOps.help.topic.workerDown.body":
     "Mở Trạng thái hệ thống: hàng đợi có 0 worker nghĩa là worker đang tắt. Khởi động lại bằng lệnh docker compose restart worker trong thư mục interview-prep-core, rồi tải lại trang để kiểm tra.",
   "adminOps.help.topic.voice.title": "Phòng voice/video không có tiếng AI",
@@ -380,9 +380,9 @@ export const adminOpsVi: Record<string, string> = {
   "adminOps.help.topic.questions.title": "Thêm, duyệt hoặc sửa câu hỏi và tiêu chí chấm",
   "adminOps.help.topic.questions.body":
     "Ngân hàng câu hỏi: soạn mới, nhập CSV/XLSX, gửi duyệt và phê duyệt. Tiêu chí chấm sửa trong trang từng câu hỏi. Chất lượng câu hỏi cho biết nhóm câu nào bị bỏ qua nhiều, lặp lại hoặc điểm không phân hoá.",
-  "adminOps.help.topic.jobs.title": "Thêm vị trí tuyển dụng (JD) và kiểm tra đối sánh",
+  "adminOps.help.topic.jobs.title": "Thêm vị trí tuyển dụng (JD) và kiểm tra đối chiếu",
   "adminOps.help.topic.jobs.body":
-    "Hồ sơ công việc: tải JD lên, kiểm tra phần phân tích, rồi công bố một phiên bản. Đối chiếu CV–JD cho thấy từng lượt đối sánh đi qua những bước nào và vì sao ra điểm đó.",
+    "Hồ sơ công việc: tải JD lên, kiểm tra phần phân tích, rồi công bố một phiên bản. Đối chiếu CV–JD cho thấy từng lượt đối chiếu đi qua những bước nào và vì sao ra điểm đó.",
   "adminOps.help.topic.privacy.title": "Ai đã xem hoặc thay đổi dữ liệu",
   "adminOps.help.topic.privacy.body":
     "Nhật ký thao tác ghi mỗi lần admin xem câu trả lời của ứng viên, vào xem phòng, mở trang chi tiết người dùng, cùng các thay đổi như duyệt câu hỏi, công bố JD, đổi vai trò, chấm điểm và phân tích lại CV.",
@@ -456,7 +456,7 @@ export const adminOpsVi: Record<string, string> = {
   // Knowledge base
   "adminOps.kb.downTitle": "Dịch vụ kho tri thức đang không chạy",
   "adminOps.kb.downBody":
-    "Kho tri thức là một dịch vụ RAG riêng ở {url}, không nằm trong docker-compose của backend. Khi dịch vụ này tắt, trang không tải hay nạp được tài liệu. Phỏng vấn, chấm điểm và đối sánh CV–JD không dùng kho này nên vẫn chạy bình thường.",
+    "Kho tri thức là một dịch vụ RAG riêng ở {url}, không nằm trong docker-compose của backend. Khi dịch vụ này tắt, trang không tải hay nạp được tài liệu. Phỏng vấn, chấm điểm và đối chiếu CV–JD không dùng kho này nên vẫn chạy bình thường.",
   "adminOps.kb.retry": "Thử kết nối lại",
 
   // Batch grading
