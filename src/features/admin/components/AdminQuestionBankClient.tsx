@@ -23,13 +23,13 @@ export function viewParams(view: BankView): { mine?: WorkBucket; source?: "ai" }
   return { mine: view };
 }
 
-/** Roles that may add questions (authoring) or import a file (author or bank admin). */
+/** Roles that may add questions or import a file (author or ADMIN; ADMIN commits the import). */
 export function bankAbilities(roles: readonly string[]): { add: boolean; import: boolean } {
   const held = new Set(roles.map((role) => role.toUpperCase()));
   const admin = held.has("ADMIN");
   return {
     add: admin || held.has("QUESTION_AUTHOR"),
-    import: admin || held.has("QUESTION_AUTHOR") || held.has("QUESTION_BANK_ADMIN"),
+    import: admin || held.has("QUESTION_AUTHOR"),
   };
 }
 
