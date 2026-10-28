@@ -12,7 +12,7 @@ import {
   type LangfuseScore,
   type LangfuseTrace,
 } from "@features/admin/services/langfuse.service";
-import { fill, tr } from "../utils/pipelineFormat";
+import { fill, formatUsd, tr } from "../utils/pipelineFormat";
 
 type Translate = (key: string) => string;
 
@@ -229,6 +229,7 @@ function TraceBody({
             calls: trace.totals.calls,
             tokens: trace.totals.tokens.toLocaleString("vi-VN"),
             seconds: (trace.totals.latencyMs / 1000).toFixed(1),
+            cost: formatUsd(trace.totals.cost),
           })}
         </span>
         {traceUrl ? (
@@ -251,6 +252,7 @@ function TraceBody({
                     {fill(t("langfuseUi.tokens"), { input: call.inputTokens ?? "?", output: call.outputTokens ?? "?" })}
                   </span>
                 ) : null}
+                {call.cost != null ? <span className="tabular-nums text-[#8A98B8]">{formatUsd(call.cost)}</span> : null}
                 {call.prompt ? <span className="font-mono text-[11px] text-[#8A98B8]">{call.prompt}</span> : null}
                 {call.level === "WARNING" || call.level === "ERROR" ? (
                   <span className="font-semibold text-[#C43B3B]">{call.statusMessage || call.level}</span>
