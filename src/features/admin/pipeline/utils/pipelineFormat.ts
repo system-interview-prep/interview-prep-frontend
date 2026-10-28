@@ -50,6 +50,15 @@ export function percentText(rate: Rate | null | undefined): string {
   return `${Math.round(rate.rate * 1000) / 10}%`;
 }
 
+/** USD cost: small LLM amounts keep enough digits to differ ($0.0085, $0.128, $12.40). */
+export function formatUsd(n: number | null | undefined): string {
+  if (n === null || n === undefined) return "—";
+  if (n === 0) return "$0";
+  if (n >= 1) return `$${n.toFixed(2)}`;
+  if (n >= 0.01) return `$${n.toFixed(3)}`;
+  return `$${n.toFixed(4)}`;
+}
+
 export function compactNumber(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
