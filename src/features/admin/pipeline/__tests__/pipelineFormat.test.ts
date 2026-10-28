@@ -9,6 +9,7 @@ import {
   exchangeHasWarning,
   exchangeReasons,
   formatMs,
+  formatUsd,
   notableSpeechChecks,
   percentText,
   pollInterval,
@@ -198,5 +199,15 @@ describe("LLM monitoring", () => {
     expect(flagLabel("new_flag", t)).toBe("new_flag");
     expect(langfuseTraceUrl("http://lf/project/p1", "abc")).toBe("http://lf/project/p1/traces/abc");
     expect(langfuseTraceUrl(null, "abc")).toBeNull();
+  });
+});
+
+describe("formatUsd", () => {
+  it("keeps enough digits for small LLM costs", () => {
+    expect(formatUsd(null)).toBe("—");
+    expect(formatUsd(0)).toBe("$0");
+    expect(formatUsd(0.0085306)).toBe("$0.0085");
+    expect(formatUsd(0.128216)).toBe("$0.128");
+    expect(formatUsd(12.4)).toBe("$12.40");
   });
 });
