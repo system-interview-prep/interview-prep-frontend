@@ -11,6 +11,12 @@ export const USER_ROLES = [
 
 export type UserRole = (typeof USER_ROLES)[number];
 
+/** Folded into ADMIN on 28/10: still stored on old accounts, grant nothing, cannot be assigned. */
+export const RETIRED_ROLES: readonly UserRole[] = ["QUESTION_REVIEWER", "QUESTION_BANK_ADMIN"];
+
+/** Roles an admin can give (Core rejects the retired ones). */
+export const ASSIGNABLE_ROLES: readonly UserRole[] = USER_ROLES.filter((role) => !RETIRED_ROLES.includes(role));
+
 export type AdminUser = {
   id: string;
   email: string;
