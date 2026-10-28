@@ -6,8 +6,9 @@ describe("bank suggestions", () => {
   it("lets authors take revisions and bank admins take retirements and variants", () => {
     expect(suggestionAbilities("RUBRIC_GAP", ["QUESTION_AUTHOR"])).toEqual({ accept: true, dismiss: false });
     expect(suggestionAbilities("RETIRE", ["QUESTION_AUTHOR"])).toEqual({ accept: false, dismiss: false });
-    expect(suggestionAbilities("VARIANT", ["QUESTION_BANK_ADMIN"])).toEqual({ accept: true, dismiss: true });
-    expect(suggestionAbilities("REVISE", ["QUESTION_REVIEWER"])).toEqual({ accept: false, dismiss: true });
+    // Retired roles (folded into ADMIN on 28/10) decide nothing.
+    expect(suggestionAbilities("VARIANT", ["QUESTION_BANK_ADMIN"])).toEqual({ accept: false, dismiss: false });
+    expect(suggestionAbilities("REVISE", ["QUESTION_REVIEWER"])).toEqual({ accept: false, dismiss: false });
     expect(suggestionAbilities("DUPLICATE", ["ADMIN"])).toEqual({ accept: true, dismiss: true });
   });
 
