@@ -15,7 +15,7 @@ import {
   type AdminUser,
   type CreateAdminUserPayload,
   type UserRole,
-  USER_ROLES,
+  ASSIGNABLE_ROLES,
 } from "@features/admin/services/adminUsers.service";
 import AdminEmptyState from "./primitives/AdminEmptyState";
 import AdminMetricCard from "./primitives/AdminMetricCard";
@@ -86,7 +86,7 @@ function RolePicker({
       <legend className={labelClass}>{legend}</legend>
       <div className="grid gap-2 sm:grid-cols-2">
         {/* DATA_CURATOR has no permission anywhere in Core: offered only to keep an existing assignment. */}
-        {USER_ROLES.filter((role) => role !== "DATA_CURATOR" || value.includes(role)).map((role) => (
+        {ASSIGNABLE_ROLES.filter((role) => role !== "DATA_CURATOR" || value.includes(role)).map((role) => (
           <label key={role} className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#DCE4F3] p-2 text-xs text-[#14244B]">
             <input type="checkbox" checked={value.includes(role)} onChange={() => toggle(role)} className="accent-[#204195]" />
             {formatUserRole(role, t)}
@@ -95,6 +95,12 @@ function RolePicker({
       </div>
     </fieldset>
   );
+}
+
+/** Drops roles that can no longer be assigned, so saving does not fail; never leaves the list empty. */
+export function assignableOf(roles: readonly UserRole[]): UserRole[] {
+  const kept = roles.filter((role) => ASSIGNABLE_ROLES.includes(role));
+  return kept.length ? kept : ["CANDIDATE"];
 }
 
 export default function AdminUsersClient() {
@@ -268,7 +274,7 @@ export default function AdminUsersClient() {
           className="rounded-full border border-[#DCE4F3] bg-white px-3 py-2 text-sm text-[#14244B]"
         >
           <option value="all">{t("fixAdmin.ops.users.allRoles")}</option>
-          {USER_ROLES.filter((item) => item !== "DATA_CURATOR").map((item) => <option key={item} value={item}>{formatUserRole(item, t)}</option>)}
+          {ASSIGNABLE_ROLES.filter((item) => item !== "DATA_CURATOR").map((item) => <option key={item} value={item}>{formatUserRole(item, t)}</option>)}
         </select>
         <label htmlFor="admin-users-status" className="sr-only">{t("fixAdmin.ops.users.statusFilterLabel")}</label>
         <select
@@ -344,7 +350,7 @@ export default function AdminUsersClient() {
                     <AdminRowAction
                       icon={Settings2}
                       label={t("fixAdmin.ops.users.manage")}
-                      onClick={() => { setManageError(null); setSelected({ ...user, roles: [...user.roles] }); }}
+                      onClick={() => { setManageError(null); setSelected({ ...user, roles: assignableOf(user.roles) }); }}
                     />
                   </AdminRowActions>
                 </td>
