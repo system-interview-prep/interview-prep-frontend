@@ -27,7 +27,7 @@ const POLL_MS = 3000;
 export default function AdminBankInsightsClient() {
   const { t } = useLanguage();
   const roles = useAdminRoles();
-  const canRun = roles.some((role) => ["ADMIN", "QUESTION_BANK_ADMIN"].includes(role.toUpperCase()));
+  const canRun = roles.some((role) => role.toUpperCase() === "ADMIN");
   const [status, setStatus] = useState<SuggestionStatus>("OPEN");
   const [kind, setKind] = useState<SuggestionKind | "all">("all");
   const [items, setItems] = useState<BankSuggestion[] | null>(null);
