@@ -83,17 +83,15 @@ export const bankInsightsApi = {
     ),
 };
 
-/** Kinds whose acceptance needs the bank admin (the others: the author, who gets a revision draft). */
+/** Kinds only ADMIN accepts (the others: the author too, who gets a revision draft). */
 export const ADMIN_KINDS: ReadonlySet<SuggestionKind> = new Set(["VARIANT", "RETIRE", "DUPLICATE"]);
 
 /** Whether these roles can accept / dismiss this kind (mirrors question_bank/insights.can_decide). */
 export function suggestionAbilities(kind: SuggestionKind, roles: readonly string[]): { accept: boolean; dismiss: boolean } {
   const held = new Set(roles.map((role) => role.toUpperCase()));
   if (held.has("ADMIN")) return { accept: true, dismiss: true };
-  return {
-    accept: ADMIN_KINDS.has(kind) ? held.has("QUESTION_BANK_ADMIN") : held.has("QUESTION_AUTHOR"),
-    dismiss: held.has("QUESTION_REVIEWER") || held.has("QUESTION_BANK_ADMIN"),
-  };
+  // Reviewer and bank-manager duties belong to ADMIN since 28/10.
+  return { accept: !ADMIN_KINDS.has(kind) && held.has("QUESTION_AUTHOR"), dismiss: false };
 }
 
 /** "45%" for a 0-1 rate, "—" when unknown. */
