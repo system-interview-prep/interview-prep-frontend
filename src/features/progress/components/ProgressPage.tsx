@@ -51,10 +51,10 @@ import { WeeklyStreakCard } from "./StreakCard";
 import {
   DueCard,
   FirstSessionView,
-  LadderCard,
   MoreSection,
   ReadyHeadline,
   RecordsCard,
+  StrengthsCard,
   TimelineCard,
   WeekCard,
 } from "./ProgressOverview";
@@ -272,7 +272,7 @@ function FilterBar({
   );
 }
 
-function SkillCardItem({ skill, now }: { skill: SkillView; now: Date }) {
+function SkillCardItem({ skill, now, hideLevel = false }: { skill: SkillView; now: Date; hideLevel?: boolean }) {
   const { t, lang } = useLanguage();
   const locale = localeOf(lang);
   const last = skill.points[skill.points.length - 1];
@@ -300,9 +300,9 @@ function SkillCardItem({ skill, now }: { skill: SkillView; now: Date }) {
         <p className="min-w-0 text-sm font-bold text-[#14244B] [overflow-wrap:anywhere]">{skill.label}</p>
         <TrendBadge trend={skill.trend} />
       </div>
-      <SkillLevel skill={skill} />
+      {!hideLevel && <SkillLevel skill={skill} />}
       <p className="mt-1.5 text-[11px] text-[#607096]">
-        {skill.estimate != null && (
+        {skill.estimate != null && !hideLevel && (
           <>
             {fill(t("practiceProgress.skills.estimate"), { score: skill.estimate.toFixed(1) })} ·{" "}
           </>
@@ -337,7 +337,7 @@ export function groupByArea<T extends { area?: SkillArea }>(skills: T[]): { area
 }
 
 /** One area (databases, infrastructure, projects…): its skills, a few at a time. */
-function SkillAreaGroup({ area, skills, now }: { area: SkillArea; skills: SkillView[]; now: Date }) {
+function SkillAreaGroup({ area, skills, now, hideLevel }: { area: SkillArea; skills: SkillView[]; now: Date; hideLevel?: boolean }) {
   const { t } = useLanguage();
   const [shown, setShown] = useState(AREA_SHOWN);
   const improving = skills.filter((skill) => skill.trend.status === "up").length;
@@ -352,7 +352,7 @@ function SkillAreaGroup({ area, skills, now }: { area: SkillArea; skills: SkillV
       <p className="mb-3 text-[11px] leading-relaxed text-[#607096]">{t(`practiceProgress.area.${area}.desc`)}</p>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {skills.slice(0, shown).map((skill) => (
-          <SkillCardItem key={skill.conceptId} skill={skill} now={now} />
+          <SkillCardItem key={skill.conceptId} skill={skill} now={now} hideLevel={hideLevel} />
         ))}
       </div>
       {skills.length > shown && (
@@ -435,8 +435,11 @@ function SkillsCard({
   filters,
   onChange,
   now,
+  hideLevel,
 }: {
   now: Date;
+  /** Under the ladder (page v2) the round level is the only level shown. */
+  hideLevel?: boolean;
   skills: SkillView[];
   filters: ProgressFilters;
   onChange: (next: ProgressFilters) => void;
@@ -475,7 +478,7 @@ function SkillsCard({
       ) : (
         <div className="space-y-6">
           {groupByArea(charted).map(({ area, skills: inArea }) => (
-            <SkillAreaGroup key={area} area={area} skills={inArea} now={now} />
+            <SkillAreaGroup key={area} area={area} skills={inArea} now={now} hideLevel={hideLevel} />
           ))}
         </div>
       )}
@@ -998,22 +1001,29 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
             />
           ) : (
             <>
-              <div className="flex flex-wrap items-stretch gap-6">
-                <ReadyHeadline job={ladderJob} />
+              {/*
+                Review 28/10: the candidate could not tell strong from weak parts.
+                Top: strong and weak on the ladder only, beside this week's plan;
+                then the points due. History and records are opened on demand.
+              */}
+              <div className="flex flex-wrap items-start gap-6">
+                <StrengthsCard progress={progress} job={ladderJob} />
                 <WeekCard progress={progress} job={ladderJob} />
               </div>
-              <LadderCard progress={progress} job={ladderJob} />
-              <div className="flex flex-wrap items-stretch gap-6">
-                <DueCard
-                  progress={progress}
-                  gaps={(progress.gaps?.open ?? []).filter((gap) => gap.lastSeen.jobId === ladderJob.jobId)}
-                />
-                <RecordsCard timeline={progress.timeline ?? []} jobId={ladderJob.jobId} />
-              </div>
-              <TimelineCard timeline={progress.timeline ?? []} jobId={ladderJob.jobId} />
+              <DueCard
+                progress={progress}
+                gaps={(progress.gaps?.open ?? []).filter((gap) => gap.lastSeen.jobId === ladderJob.jobId)}
+              />
             </>
           )}
           <div className="space-y-3">
+            {ladderJob.sessions > 1 && (
+              <MoreSection title={t("practiceProgress.more.history")} desc={t("practiceProgress.more.historyDesc")}>
+                <ReadyHeadline job={ladderJob} />
+                <RecordsCard timeline={progress.timeline ?? []} jobId={ladderJob.jobId} />
+                <TimelineCard timeline={progress.timeline ?? []} jobId={ladderJob.jobId} />
+              </MoreSection>
+            )}
             <MoreSection title={t("practiceProgress.more.real")} desc={t("practiceProgress.more.realDesc")}>
               <RealInterviewsCard progress={progress} />
             </MoreSection>
@@ -1030,7 +1040,7 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
                 <>
                   <GapNotebookCard gaps={filteredGaps(progress, filters)} progress={progress} />
                   <EvidenceCard sessions={view.sessions} />
-                  <SkillsCard skills={view.skills} filters={filters} onChange={setFilters} now={now} />
+                  <SkillsCard skills={view.skills} filters={filters} onChange={setFilters} now={now} hideLevel />
                   <JobsCard jobs={view.jobs} />
                   <CalibrationNote progress={progress} />
                   <MilestonesCard progress={progress} />
