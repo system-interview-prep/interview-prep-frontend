@@ -11,6 +11,7 @@ import AdminSection from "@features/admin/components/primitives/AdminSection";
 import AdminMetricCard from "@features/admin/components/primitives/AdminMetricCard";
 import AdminEmptyState from "@features/admin/components/primitives/AdminEmptyState";
 import AdminStatusBadge, { type AdminStatusType } from "@features/admin/components/primitives/AdminStatusBadge";
+import AiCostSection from "@features/admin/ai/components/AiCostSection";
 import { usePolledResource } from "../hooks/usePolledResource";
 import { pipelineService, type AiHealth, type Rate } from "../services/pipeline.service";
 import {
@@ -291,6 +292,8 @@ export default function AiHealthClient() {
           icon={Activity}
         />
       </div>
+
+      <AiCostSection days={days} />
 
       <AdminSection title={t("aiPipeline.llm.checksTitle")} description={t("aiPipeline.llm.checksNote")}>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
