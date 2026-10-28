@@ -29,6 +29,7 @@ import {
   practiceHref,
   readyCountOf,
   recentRecords,
+  strengthsOf,
 } from "../utils/progressModel";
 
 /*
@@ -40,7 +41,6 @@ import {
  * baseline). Every number on this page has a sentence saying what moves it.
  */
 
-const LEVELS = [0, 1, 2, 3] as const;
 type Translate = (key: string) => string;
 
 const panel = "min-w-0 rounded-2xl border border-[#DCE4F3] bg-white p-5 sm:p-6 [overflow-wrap:anywhere]";
@@ -96,34 +96,6 @@ export function ladderRule(round: RoundReadiness, t: Translate): string {
   return last && next.kind !== "top"
     ? `${line} · ${fill(t("practiceProgress.ladder.last"), { score: last.score.toFixed(1) })}`
     : line;
-}
-
-/** Four segments, the current one strong, the passed ones lighter. */
-function LadderSteps({ level, unseen, compact = false }: { level: number; unseen?: boolean; compact?: boolean }) {
-  const { t } = useLanguage();
-  return (
-    <span className="grid w-full grid-cols-4 gap-1" aria-hidden="true">
-      {LEVELS.map((step) => (
-        <span key={step} className="flex min-w-0 flex-col gap-1">
-          <span
-            className={cn(
-              "rounded-full",
-              compact ? "h-1.5" : "h-2",
-              unseen ? "bg-[#E3E8F2]" : step < level ? "bg-[#7F9BE0]" : step === level ? "bg-[#204195]" : "bg-[#E3E8F2]",
-            )}
-          />
-          <span
-            className={cn(
-              "truncate text-[11px]",
-              !unseen && step === level ? "font-extrabold text-[#14244B]" : "font-medium text-[#607096]",
-            )}
-          >
-            {levelName(step, t)}
-          </span>
-        </span>
-      ))}
-    </span>
-  );
 }
 
 /** "2/5 phần đạt Vững trở lên" and a staircase of that number by week. */
@@ -376,8 +348,7 @@ function RoundDetail({ progress, job, round }: { progress: PracticeProgress; job
           <ul className="mt-2 flex flex-wrap gap-2">
             {round.skills.map((skill) => (
               <li key={skill.conceptId} className="rounded-full bg-white px-3 py-1 text-xs text-[#14244B] ring-1 ring-[#DCE4F3]">
-                {skill.label}{" "}
-                <span className="text-[#607096]">· {fill(t("practiceProgress.ladder.skillScore"), { score: skill.estimate.toFixed(1) })}</span>
+                {skill.label}
               </li>
             ))}
           </ul>
@@ -421,63 +392,126 @@ function RoundDetail({ progress, job, round }: { progress: PracticeProgress; job
   );
 }
 
-/** "Bậc của từng phần": one row per round, the rule to move up, opened in place. */
-export function LadderCard({ progress, job }: { progress: PracticeProgress; job: JobReadiness }) {
+/** One part in the strengths card: level, what moves it, the point it misses; opens its detail in place. */
+function StrengthRow({
+  progress,
+  job,
+  round,
+  strong,
+  habits,
+  open,
+  onToggle,
+}: {
+  progress: PracticeProgress;
+  job: JobReadiness;
+  round: RoundReadiness;
+  strong: boolean;
+  habits: Set<string>;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const { t } = useLanguage();
+  const level = round.level ?? 0;
+  const gap = !strong && round.topGap && !habits.has(round.topGap.point) ? round.topGap.point : null;
+  return (
+    <li className="border-t border-[#EEF2F8] first:border-t-0">
+      <button type="button" aria-expanded={open} onClick={onToggle} className="flex w-full items-start gap-3 py-3 text-left">
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-[15px] font-bold text-[#14244B]">{areaName(round.area, t)}</span>
+            <span
+              className={cn(
+                "whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold",
+                strong && !round.atRisk ? "bg-[#E7F5EC] text-[#1F5C3A]" : "bg-[#FFF4E0] text-[#8A5A0B]",
+              )}
+            >
+              {levelName(level, t)}
+            </span>
+            {round.atRisk && <span className="text-[11px] font-semibold text-[#8A5A0B]">{t("practiceProgress.strengths.atRisk")}</span>}
+          </span>
+          <span className="mt-0.5 block text-xs text-[#33415F]">
+            {round.atRisk ? fill(t("practiceProgress.ladder.atRisk"), { score: ladderFloor(level).toFixed(1) }) : ladderRule(round, t)}
+          </span>
+          {gap && <span className="mt-0.5 block text-xs text-[#8A5A0B]">{fill(t("practiceProgress.strengths.missed"), { point: gap })}</span>}
+        </span>
+        <ChevronDown className={cn("mt-1 size-4 shrink-0 text-[#204195] transition-transform", open && "rotate-180")} aria-hidden="true" />
+        <span className="sr-only">{t(open ? "practiceProgress.ladder.close" : "practiceProgress.ladder.open")}</span>
+      </button>
+      {open && (
+        <div className="pb-4">
+          <RoundDetail progress={progress} job={job} round={round} />
+        </div>
+      )}
+    </li>
+  );
+}
+
+/**
+ * "Mạnh ở đâu, yếu ở đâu": every part of the position on one scale (the ladder
+ * level, moved by whole sessions), weak parts first with what moves them up.
+ * A point missed in several parts is shown once, as an answering habit.
+ */
+export function StrengthsCard({ progress, job }: { progress: PracticeProgress; job: JobReadiness }) {
   const { t } = useLanguage();
   const [open, setOpen] = useState<string | null>(null);
-  return (
-    <section className={panel}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-display text-lg font-bold text-[#14244B] sm:text-xl">{t("practiceProgress.ladder.title")}</h2>
-        <p className="text-xs text-[#607096]">{t("practiceProgress.ladder.scale")}</p>
+  const split = strengthsOf(job);
+  const habits = new Set(split.habits.map((habit) => habit.point));
+  const column = (strong: boolean) => {
+    const rounds = strong ? split.strong : split.weak;
+    return (
+      <div className="min-w-0">
+        <h3 className={cn("text-sm font-bold", strong ? "text-[#1F5C3A]" : "text-[#8A5A0B]")}>
+          {fill(t(strong ? "practiceProgress.strengths.strong" : "practiceProgress.strengths.weak"), { n: rounds.length })}
+        </h3>
+        {rounds.length === 0 ? (
+          <p className="mt-2 text-sm text-[#607096]">
+            {strong
+              ? fill(t("practiceProgress.strengths.strongEmpty"), { score: LADDER_SOLID.toFixed(1), need: LADDER_SOLID_RUN })
+              : t("practiceProgress.strengths.weakEmpty")}
+          </p>
+        ) : (
+          <ul className="mt-1">
+            {rounds.map((round) => (
+              <StrengthRow
+                key={round.area}
+                progress={progress}
+                job={job}
+                round={round}
+                strong={strong}
+                habits={habits}
+                open={open === round.area}
+                onToggle={() => setOpen(open === round.area ? null : round.area)}
+              />
+            ))}
+          </ul>
+        )}
       </div>
-      <ul className="mt-3">
-        {job.rounds.map((round) => {
-          const unseen = (round.series?.length ?? 0) === 0;
-          const level = round.level ?? 0;
-          const isOpen = open === round.area;
-          const up = !unseen && level >= 2;
-          return (
-            <li key={round.area} className="border-t border-[#EEF2F8]">
-              <button
-                type="button"
-                aria-expanded={isOpen}
-                onClick={() => setOpen(isOpen ? null : round.area)}
-                className="flex w-full flex-wrap items-center gap-x-4 gap-y-2.5 px-1 py-3.5 text-left"
-              >
-                <span className="min-w-0 flex-[1_1_220px]">
-                  <span className="block text-[15px] font-bold text-[#14244B]">{areaName(round.area, t)}</span>
-                  <span className={cn("mt-0.5 block text-xs", up ? "text-[#1F5C3A]" : "text-[#33415F]")}>{ladderRule(round, t)}</span>
-                  {round.atRisk && (
-                    <span className="mt-0.5 block text-xs font-semibold text-[#8A5A0B]">
-                      {fill(t("practiceProgress.ladder.atRisk"), { score: ladderFloor(level).toFixed(1) })}
-                    </span>
-                  )}
-                </span>
-                <span
-                  className="flex min-w-0 flex-[0_1_300px]"
-                  role="img"
-                  aria-label={fill(t("practiceProgress.ladder.aria"), {
-                    round: areaName(round.area, t),
-                    level: unseen ? t("practiceProgress.start.notAsked") : levelName(level, t),
-                  })}
-                >
-                  <LadderSteps level={level} unseen={unseen} />
-                </span>
-                <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-[#204195]">
-                  <span className="sr-only sm:not-sr-only">{t(isOpen ? "practiceProgress.ladder.close" : "practiceProgress.ladder.open")}</span>
-                  <ChevronDown className={cn("size-4 transition-transform", isOpen && "rotate-180")} aria-hidden="true" />
-                </span>
-              </button>
-              {isOpen && (
-                <div className="pb-4">
-                  <RoundDetail progress={progress} job={job} round={round} />
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+    );
+  };
+  return (
+    <section className={cn(panel, "flex-[3_1_520px]")}>
+      <p className="text-xs font-bold text-[#607096]">{fill(t("practiceProgress.headline.for"), { job: job.jobTitle ?? job.jobId })}</p>
+      <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="font-display text-lg font-bold text-[#14244B] sm:text-xl">{t("practiceProgress.strengths.title")}</h2>
+        <p className="text-sm font-bold tabular-nums text-[#14244B]">
+          {fill(t("practiceProgress.strengths.ready"), { ready: readyCountOf(job), total: job.rounds.length })}
+        </p>
+      </div>
+      <p className="mt-1 text-xs text-[#607096]">{t("practiceProgress.strengths.note")}</p>
+      <div className="mt-4 grid gap-x-8 gap-y-5 md:grid-cols-2">
+        {column(false)}
+        {column(true)}
+      </div>
+      {split.habits.length > 0 && (
+        <p className="mt-4 rounded-xl bg-[#FFF8EC] px-3 py-2 text-sm text-[#5C3D06]">
+          {fill(t("practiceProgress.strengths.habit"), { point: split.habits[0].point, n: split.habits[0].rounds })}
+        </p>
+      )}
+      {split.unseen.length > 0 && (
+        <p className="mt-3 text-xs text-[#607096]">
+          {fill(t("practiceProgress.strengths.unseen"), { rounds: split.unseen.map((round) => areaName(round.area, t)).join(", ") })}
+        </p>
+      )}
     </section>
   );
 }
