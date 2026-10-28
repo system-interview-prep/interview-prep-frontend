@@ -55,7 +55,30 @@ export type AiEvaluation =
       generatedAt: string;
     };
 
+/** One slice of LLM cost: USD as Langfuse prices it, over model calls (generations). */
+export type CostRow = { cost: number; tokens: number; calls: number };
+
+/** LLM cost read from the Langfuse Metrics API (GET /admin/ai/cost). */
+export type AiCost =
+  | { windowDays: number; connected: false; reason: "not_configured" | "client_unavailable" | "unreachable"; error?: string }
+  | {
+      windowDays: number;
+      connected: true;
+      currency: "USD";
+      total: CostRow;
+      byModel: ({ model: string | null } & CostRow)[];
+      /** interview_turn, session_grading, judge, experiment, playbook, or a raw trace name. */
+      byFeature: ({ feature: string } & CostRow)[];
+      daily: { day: string; cost: number; calls: number }[];
+      dashboardUrl: string | null;
+      generatedAt: string;
+    };
+
 export const aiAdminService = {
+  async cost(days = 7, refresh = false): Promise<AiCost> {
+    const response = await apiClient.get<{ success: boolean } & AiCost>("/admin/ai/cost", { params: { days, refresh } });
+    return response.data;
+  },
   async models(days = 30): Promise<AiModels> {
     const response = await apiClient.get<{ success: boolean } & AiModels>("/admin/ai/models", { params: { days } });
     return response.data;
