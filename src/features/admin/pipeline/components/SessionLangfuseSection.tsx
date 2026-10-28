@@ -7,11 +7,11 @@ import AdminSection from "@features/admin/components/primitives/AdminSection";
 import { langfuseService, scoreValueText, type LangfuseOff, type LangfuseSession } from "@features/admin/services/langfuse.service";
 import { Muted } from "./ui";
 import TurnAiPanel from "./TurnAiPanel";
-import { clock, fill, tr } from "../utils/pipelineFormat";
+import { clock, fill, formatUsd, tr } from "../utils/pipelineFormat";
 
 /**
  * The interview as Langfuse sees it: every trace (turns and grading) with its
- * model calls and tokens, the session scores, and each trace openable here
+ * model calls, tokens and cost, the session scores, and each trace openable here
  * (TurnAiPanel) or in Langfuse.
  */
 export default function SessionLangfuseSection({ sessionId, projectUrl }: { sessionId: string; projectUrl?: string | null }) {
@@ -40,6 +40,15 @@ export default function SessionLangfuseSection({ sessionId, projectUrl }: { sess
     const data = state.data;
     body = (
       <div className="space-y-3">
+        {data.totals ? (
+          <p className="text-xs tabular-nums text-[#475569]">
+            {fill(t("langfuseUi.session.totals"), {
+              calls: data.totals.calls,
+              tokens: data.totals.tokens.toLocaleString("vi-VN"),
+              cost: formatUsd(data.totals.cost),
+            })}
+          </p>
+        ) : null}
         {data.scores.length ? (
           <div className="flex flex-wrap gap-1.5 text-[11px]">
             {data.scores.map((score, i) => (
@@ -56,7 +65,11 @@ export default function SessionLangfuseSection({ sessionId, projectUrl }: { sess
                 <span className="font-semibold text-[#14244B]">{tr(t, `langfuseUi.step.${trace.name}`, trace.name ?? "—")}</span>
                 <span className="tabular-nums text-[#8A98B8]">{clock(trace.startTime)}</span>
                 <span className="tabular-nums text-[#607096]">
-                  {fill(t("langfuseUi.session.trace"), { calls: trace.calls, tokens: trace.tokens.toLocaleString("vi-VN") })}
+                  {fill(t("langfuseUi.session.trace"), {
+                    calls: trace.calls,
+                    tokens: trace.tokens.toLocaleString("vi-VN"),
+                    cost: formatUsd(trace.cost ?? 0),
+                  })}
                 </span>
                 {trace.warnings ? <span className="font-semibold text-[#C43B3B]">{fill(t("langfuseUi.session.warnings"), { n: trace.warnings })}</span> : null}
               </div>
