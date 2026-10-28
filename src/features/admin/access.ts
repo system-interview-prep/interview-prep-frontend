@@ -2,13 +2,15 @@
  * Which admin pages a signed-in internal actor can use.
  *
  * Core checks every endpoint's roles; this only shapes the console so a
- * question author or reviewer is not dropped on pages that answer 403
- * (dashboard, users, system…). ADMIN sees everything.
+ * question author is not dropped on pages that answer 403 (dashboard, users,
+ * system…). ADMIN sees everything and also reviews and approves questions:
+ * the QUESTION_REVIEWER and QUESTION_BANK_ADMIN roles were folded into ADMIN
+ * on 28/10 and no longer open anything.
  */
 
-export const QUESTION_BANK_ROLES = ["QUESTION_AUTHOR", "QUESTION_REVIEWER", "QUESTION_BANK_ADMIN"] as const;
+export const QUESTION_BANK_ROLES = ["QUESTION_AUTHOR"] as const;
 
-/** Pages the question-bank roles can use (their APIs accept those roles). */
+/** Pages the question author can use (their APIs accept that role). */
 const QUESTION_BANK_PAGES = ["/admin/question-bank", "/admin/rubrics", "/admin/profile"];
 
 const upper = (roles: readonly string[] | null | undefined) => (roles ?? []).map((role) => role.toUpperCase());
@@ -41,7 +43,7 @@ export function adminHomePath(roles: readonly string[] | null | undefined): stri
 /** The most senior role, for the badge under the name. */
 export function primaryAdminRole(roles: readonly string[] | null | undefined): string | null {
   const held = upper(roles);
-  for (const role of ["ADMIN", "QUESTION_BANK_ADMIN", "QUESTION_REVIEWER", "QUESTION_AUTHOR"]) {
+  for (const role of ["ADMIN", "QUESTION_AUTHOR"]) {
     if (held.includes(role)) return role;
   }
   return null;
