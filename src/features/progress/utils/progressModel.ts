@@ -624,6 +624,49 @@ export function adviceRoundOf(job: JobReadiness | null): { round: RoundReadiness
   return unseen ? { round: unseen, reason: "lowest" } : null;
 }
 
+/** A round's mean in its latest session (the ladder's input), else its estimate. */
+export function lastRoundScore(round: RoundReadiness): number | null {
+  return round.series?.[round.series.length - 1]?.score ?? round.estimate ?? null;
+}
+
+export type Strengths = {
+  /** Vững or above (the headline's count), at risk first, then highest level. */
+  strong: RoundReadiness[];
+  /** Asked but below Vững: at risk first, then lowest level and last score. */
+  weak: RoundReadiness[];
+  /** Not asked for this position yet. */
+  unseen: RoundReadiness[];
+  /** A missed point that is the top gap of two rounds or more: an answering habit, not one round's weakness. */
+  habits: { point: string; rounds: number }[];
+};
+
+/**
+ * Strong and weak parts on one scale only: the ladder level, with the latest
+ * session's score (the estimate and the 5-step skill level are left to the
+ * detail, so a part never reads "Vững" here and "Cơ bản" there).
+ */
+export function strengthsOf(job: JobReadiness): Strengths {
+  const asked = (round: RoundReadiness) => (round.series?.length ?? round.sessions) > 0;
+  const seen = job.rounds.filter(asked);
+  const level = (round: RoundReadiness) => round.level ?? 0;
+  const last = (round: RoundReadiness) => lastRoundScore(round) ?? 0;
+  // Same rule as readyCountOf, so "2/4 đạt Vững" and the strong column always agree;
+  // a part about to go down stays here with its warning.
+  const isStrong = (round: RoundReadiness) => level(round) >= ROUND_READY_LEVEL;
+  const risk = (a: RoundReadiness, b: RoundReadiness) => Number(Boolean(b.atRisk)) - Number(Boolean(a.atRisk));
+  const counts = new Map<string, number>();
+  for (const round of seen) if (round.topGap) counts.set(round.topGap.point, (counts.get(round.topGap.point) ?? 0) + 1);
+  return {
+    strong: seen.filter(isStrong).sort((a, b) => risk(a, b) || level(b) - level(a) || last(b) - last(a)),
+    weak: seen.filter((round) => !isStrong(round)).sort((a, b) => risk(a, b) || level(a) - level(b) || last(a) - last(b)),
+    unseen: job.rounds.filter((round) => !asked(round)),
+    habits: [...counts.entries()]
+      .filter(([, rounds]) => rounds >= 2)
+      .map(([point, rounds]) => ({ point, rounds }))
+      .sort((a, b) => b.rounds - a.rounds),
+  };
+}
+
 /** The skill of a round with the longest same-tier history (the matched chart). */
 export function matchedSkillOf(round: RoundReadiness): RoundReadiness["skills"][number] | null {
   return (
