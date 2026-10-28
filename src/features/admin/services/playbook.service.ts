@@ -20,6 +20,11 @@ export type PlaybookEntry = {
   note: string | null;
   decidedAt: string | null;
   createdAt: string | null;
+  /** Who wrote a hand-written lesson (null for one the AI proposed) and who decided it. */
+  createdBy?: string | null;
+  decidedBy?: string | null;
+  /** The viewing admin wrote it: they cannot approve it (four-eyes rule). */
+  mine?: boolean;
 };
 
 export type PlaybookRun = {
@@ -57,6 +62,20 @@ export const playbookService = {
     return response.data;
   },
 };
+
+/** Order of the statuses on the page, and the colour of each badge. */
+export const STATUS_ORDER: PlaybookStatus[] = ["PROPOSED", "ACTIVE", "REJECTED", "RETIRED"];
+export const STATUS_TONE: Record<PlaybookStatus, string> = {
+  PROPOSED: "bg-[#FFF6E0] text-[#8A5A00]",
+  ACTIVE: "bg-[#E3F4EA] text-[#1F7A4D]",
+  REJECTED: "bg-[#FDECEC] text-[#A3312A]",
+  RETIRED: "bg-[#EEF1F6] text-[#475569]",
+};
+
+/** Whether the viewing admin may approve this proposal, and why not. */
+export function approveLock(entry: PlaybookEntry): "own_entry" | null {
+  return entry.mine ? "own_entry" : null;
+}
 
 /** Entries by status, active ones with the most net-helpful first. */
 export function groupEntries(entries: PlaybookEntry[]): Record<PlaybookStatus, PlaybookEntry[]> {
