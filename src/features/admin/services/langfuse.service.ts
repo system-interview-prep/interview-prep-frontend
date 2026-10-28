@@ -47,7 +47,8 @@ export type LangfuseTrace = {
 export type LangfuseSession = {
   connected: true;
   sessionUrl: string | null;
-  traces: { traceId: string; name: string | null; startTime: string | null; calls: number; tokens: number; warnings: number }[];
+  traces: { traceId: string; name: string | null; startTime: string | null; calls: number; tokens: number; cost: number; warnings: number }[];
+  totals: { calls: number; tokens: number; cost: number };
   scores: LangfuseScore[];
   syncing: boolean;
 };
