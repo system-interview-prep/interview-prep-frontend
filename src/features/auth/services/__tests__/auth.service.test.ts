@@ -11,7 +11,7 @@ const session = (roles: string[]) => ({
 
 describe("completeAuthSession", () => {
   it("routes question-bank actors to the admin console", () => {
-    for (const role of ["QUESTION_AUTHOR", "QUESTION_REVIEWER", "QUESTION_BANK_ADMIN", "ADMIN"]) {
+    for (const role of ["QUESTION_AUTHOR", "ADMIN"]) {
       expect(completeAuthSession(session([role]), "ADMIN").isAdmin).toBe(true);
     }
   });
@@ -19,5 +19,7 @@ describe("completeAuthSession", () => {
   it("keeps candidates out of the admin console", () => {
     expect(completeAuthSession(session(["CANDIDATE"])).isAdmin).toBe(false);
     expect(() => completeAuthSession(session(["CANDIDATE"]), "ADMIN")).toThrow();
+    // Retired roles (folded into ADMIN on 28/10) no longer open the console.
+    expect(completeAuthSession(session(["QUESTION_REVIEWER"])).isAdmin).toBe(false);
   });
 });
