@@ -117,9 +117,7 @@ export function clearAllAuthCookies(): void {
 export const INTERNAL_ROLES = new Set([
   "ADMIN",
   "QUESTION_AUTHOR",
-  "QUESTION_REVIEWER",
   "DATA_CURATOR",
-  "QUESTION_BANK_ADMIN",
 ]);
 
 export function completeAuthSession(
