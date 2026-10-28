@@ -313,6 +313,31 @@ describe("progress page v2: ladder, week, records, timeline (research 24/10)", (
     expect(readyCountOf(job(rounds))).toBe(1);
   });
 
+  it("splits strong and weak parts on the ladder only, and lifts a point missed in many parts out as a habit", async () => {
+    const { strengthsOf, lastRoundScore, readyCountOf } = await import("../utils/progressModel");
+    const context = { point: "Bối cảnh", skill: "x", timesMissed: 3 };
+    // Real case 28/10: Node.js at Vững after 9.2 and 7.5, its smoothed estimate still 4.3.
+    const node = round("framework", 2, [0, 3.5, 9.2, 7.5], { estimate: 4.3, status: "practice", topGap: context });
+    const split = strengthsOf(
+      job([
+        round("project", 1, [5.8, 3], { atRisk: true }),
+        node,
+        round("data", 0, [0.5, 2.5], { topGap: context }),
+        round("teamwork", 0, [0.5, 0], { topGap: { point: "Kết quả đo được", skill: "y", timesMissed: 2 } }),
+        round("ai", 0, []),
+      ]),
+    );
+    expect(split.strong.map((r) => r.area)).toEqual(["framework"]);
+    expect(split.weak.map((r) => r.area)).toEqual(["project", "teamwork", "data"]);
+    expect(split.unseen.map((r) => r.area)).toEqual(["ai"]);
+    expect(split.habits).toEqual([{ point: "Bối cảnh", rounds: 2 }]);
+    expect(lastRoundScore(node)).toBe(7.5);
+    // A Vững part about to go down stays strong (with its warning): the count above the columns must match.
+    const withRisk = job([round("data", 2, [7.2, 7.4, 5], { atRisk: true }), round("infra", 2, [7.5, 7.6]), round("api", 1, [6])]);
+    expect(strengthsOf(withRisk).strong.map((r) => r.area)).toEqual(["data", "infra"]);
+    expect(strengthsOf(withRisk).strong).toHaveLength(readyCountOf(withRisk));
+  });
+
   it("writes the rule that moves a round up, with the progress made", async () => {
     const { ladderRule } = await import("../components/ProgressOverview");
     expect(ladderRule(round("data", 1, [6, 7.2]), t)).toBe("Để lên Vững: 2 buổi liên tiếp từ 7.0 điểm (đã có 1/2) · lần gần nhất 7.2");
