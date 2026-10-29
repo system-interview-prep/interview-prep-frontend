@@ -20,7 +20,7 @@ import {
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { fmt } from "@/i18n/format";
 import { useJpUploadStatus } from "@features/resume/hooks/useJpUploadStatus";
-import { ArrowLeft, UploadCloud, FileText, Building2, MapPin, Briefcase, Clock, Coins, Globe, Upload, Trash2, CheckCircle2, Eye, LoaderCircle } from "lucide-react";
+import { ArrowLeft, UploadCloud, FileText, Building2, MapPin, Briefcase, Clock, Coins, Globe, Upload, Trash2, CheckCircle2, Eye, LoaderCircle, Gift, ListChecks, ChevronDown, Plus } from "lucide-react";
 import { getCompanyInitials } from "@/components/jobs/job-card.utils";
 import { humanizeKey } from "@/utils";
 import CanonicalJdReview from "./job-description/CanonicalJdReview";
@@ -66,6 +66,101 @@ function setAtPath(root: any, path: (string | number)[], nextValue: unknown) {
   return out;
 }
 
+const EDITABLE_JD_ROOT_FIELDS = new Set([
+  "jobtitle",
+  "title",
+  "companyname",
+  "seniority",
+  "employmenttype",
+  "workmode",
+  "location",
+  "experienceminyears",
+  "experiencemaxyears",
+  "salarymin",
+  "salarymax",
+  "salarycurrency",
+  "salaryperiod",
+  "salarynegotiable",
+  "responsibilities",
+  "requirements",
+  "benefits",
+]);
+
+const EDITABLE_REQUIREMENT_FIELDS = new Set(["rawlabel", "priority", "minimumexperiencemonths"]);
+
+function normalizedFieldName(key: string): string {
+  return key.toLowerCase().replace(/[_-]/g, "");
+}
+
+/** Keep the editor focused on job content; parser/evidence metadata stays in the stored object. */
+function editableJdView(value: any, parentField = "", isRoot = true): any {
+  if (isLabeledNode(value)) {
+    return { ...value, value: editableJdView(value.value, parentField, false) };
+  }
+  if (Array.isArray(value)) return value.map((item) => editableJdView(item, parentField, false));
+  if (!value || typeof value !== "object") return value;
+
+  const parent = normalizedFieldName(parentField);
+  let allowedFields: Set<string> | null = null;
+  if (isRoot) allowedFields = EDITABLE_JD_ROOT_FIELDS;
+  else if (parent === "requirements") allowedFields = EDITABLE_REQUIREMENT_FIELDS;
+  else if (parent === "responsibilities" || parent === "benefits") allowedFields = new Set(["text"]);
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !allowedFields || allowedFields.has(normalizedFieldName(key)))
+      .map(([key, child]) => [key, editableJdView(child, key, false)]),
+  );
+}
+
+/** Apply visible edits while preserving hidden parser IDs, evidence and status fields. */
+function editableItemIdentity(item: any): string | null {
+  if (isLabeledNode(item)) return `label:${String(item.label || "")}`;
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    return typeof item === "string" ? `text:${item}` : null;
+  }
+  const rawLabelKey = Object.keys(item).find((key) => normalizedFieldName(key) === "rawlabel");
+  if (rawLabelKey) return `rawlabel:${String(item[rawLabelKey] ?? "")}`;
+  const textKey = Object.keys(item).find((key) => normalizedFieldName(key) === "text");
+  return textKey ? `text:${String(item[textKey] ?? "")}` : null;
+}
+
+function mergeJdEdits(original: any, edited: any, isRoot = true): any {
+  if (isLabeledNode(original) && isLabeledNode(edited)) {
+    return { ...original, value: mergeJdEdits(original.value, edited.value, false) };
+  }
+  if (Array.isArray(original) && Array.isArray(edited)) {
+    const used = new Set<number>();
+    return edited.map((item, index) => {
+      const identity = editableItemIdentity(item);
+      let originalIndex = identity
+        ? original.findIndex((candidate, candidateIndex) => !used.has(candidateIndex) && editableItemIdentity(candidate) === identity)
+        : -1;
+      if (originalIndex < 0 && original.length === edited.length && !used.has(index)) originalIndex = index;
+      if (originalIndex < 0) return item;
+      used.add(originalIndex);
+      return mergeJdEdits(original[originalIndex], item, false);
+    });
+  }
+  if (
+    original && edited &&
+    typeof original === "object" && typeof edited === "object" &&
+    !Array.isArray(original) && !Array.isArray(edited)
+  ) {
+    const merged = { ...original };
+    if (isRoot) {
+      for (const key of Object.keys(merged)) {
+        if (EDITABLE_JD_ROOT_FIELDS.has(normalizedFieldName(key)) && !(key in edited)) delete merged[key];
+      }
+    }
+    for (const [key, value] of Object.entries(edited)) {
+      merged[key] = key in original ? mergeJdEdits(original[key], value, false) : value;
+    }
+    return merged;
+  }
+  return edited;
+}
+
 function isEmptyValue(v: unknown): boolean {
   if (v === null || v === undefined) return true;
   if (typeof v === "string") return v.trim().length === 0;
@@ -79,6 +174,17 @@ function isEmptyValue(v: unknown): boolean {
   return false;
 }
 
+function hasJdContent(value: unknown): boolean {
+  if (isLabeledNode(value)) return hasJdContent(value.value);
+  if (Array.isArray(value)) return value.some(hasJdContent);
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => normalizedFieldName(key) !== "priority")
+      .some(([, child]) => hasJdContent(child));
+  }
+  return !isEmptyValue(value);
+}
+
 function shouldHideKey(key: string): boolean {
   const k = String(key || "").trim().toLowerCase();
   return (
@@ -89,6 +195,26 @@ function shouldHideKey(key: string): boolean {
     k === "userid" ||
     k === "owner_user_id"
   );
+}
+
+function editableFieldLabel(key: string, t: (key: string) => string): string {
+  const translationKey = `fixAdmin.jp.ai.field.${normalizedFieldName(key)}`;
+  const translated = t(translationKey);
+  return translated === translationKey ? humanizeKey(key) : translated;
+}
+
+function makeBlankLike(value: any): any {
+  if (isLabeledNode(value)) return { ...value, value: makeBlankLike(value.value) };
+  if (Array.isArray(value)) return [];
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [
+      key,
+      normalizedFieldName(key) === "priority" ? "must_have" : makeBlankLike(child),
+    ]));
+  }
+  if (typeof value === "number") return null;
+  if (typeof value === "boolean") return false;
+  return "";
 }
 
 function labeledJsonToText(input: unknown, indent = 0): string {
@@ -353,11 +479,18 @@ function ValueEditor(props: {
   label: string;
   value: unknown;
   onChange: (v: unknown) => void;
+  fieldKey?: string;
+  showEmpty?: boolean;
+  objectLayout?: "requirement";
 }) {
-  const { label, value, onChange } = props;
+  const { label, value, onChange, fieldKey = "", showEmpty = false, objectLayout } = props;
   const { t } = useLanguage();
+  const placeholder = `${t("fixAdmin.jp.ai.placeholderPrefix")} ${label.toLocaleLowerCase()}`;
+  const [collapsedRequirementItems, setCollapsedRequirementItems] = useState<Record<number, boolean>>({});
+  const [visibleEmptyItems, setVisibleEmptyItems] = useState<Record<number, boolean>>({});
 
   if (typeof value === "string") {
+    if (!value.trim() && !showEmpty) return null;
     const multiline = value.length > 80 || value.includes("\n");
     return (
       <div className="space-y-2">
@@ -367,12 +500,14 @@ function ValueEditor(props: {
             value={value}
             onChange={(e) => onChange(e.target.value)}
             rows={4}
+            placeholder={placeholder}
             className="w-full rounded-xl border border-outline-variant/30 bg-surface px-4 py-3 text-sm text-on-surface"
           />
         ) : (
           <input
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
             className="w-full rounded-xl border border-outline-variant/30 bg-surface px-4 py-3 text-sm text-on-surface"
           />
         )}
@@ -388,6 +523,7 @@ function ValueEditor(props: {
           type="number"
           value={Number.isFinite(value) ? String(value) : ""}
           onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+          placeholder={placeholder}
           className="w-full rounded-xl border border-outline-variant/30 bg-surface px-4 py-3 text-sm text-on-surface"
         />
       </div>
@@ -409,13 +545,14 @@ function ValueEditor(props: {
   }
 
   if (value === null || value === undefined) {
+    if (!showEmpty) return null;
     return (
       <div className="space-y-2">
         <div className="text-sm font-bold text-on-surface">{label}</div>
         <input
           value={""}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={t("fixAdmin.jp.editor.empty")}
+          placeholder={placeholder}
           className="w-full rounded-xl border border-outline-variant/30 bg-surface px-4 py-3 text-sm text-on-surface"
         />
       </div>
@@ -423,45 +560,164 @@ function ValueEditor(props: {
   }
 
   if (Array.isArray(value)) {
-    const allStrings = value.every((x) => typeof x === "string");
-    const allObjects = value.every((x) => x && typeof x === "object" && !Array.isArray(x));
+    const isKnownJdList = ["requirements", "responsibilities", "benefits"].includes(normalizedFieldName(fieldKey));
+    const isRequirementList = normalizedFieldName(fieldKey) === "requirements";
+    const allStrings = value.length === 0 ? !isKnownJdList : value.every((x) => typeof x === "string");
+    const allObjects = value.length === 0 ? isKnownJdList : value.every((x) => x && typeof x === "object" && !Array.isArray(x));
+    const removeItem = (index: number) => {
+      onChange((value as any[]).filter((_, itemIndex) => itemIndex !== index));
+      setVisibleEmptyItems((current) => {
+        const next: Record<number, boolean> = {};
+        Object.entries(current).forEach(([itemIndex, isVisible]) => {
+          const currentIndex = Number(itemIndex);
+          if (currentIndex !== index) next[currentIndex > index ? currentIndex - 1 : currentIndex] = isVisible;
+        });
+        return next;
+      });
+      setCollapsedRequirementItems((current) => {
+        const next: Record<number, boolean> = {};
+        Object.entries(current).forEach(([itemIndex, isCollapsed]) => {
+          const currentIndex = Number(itemIndex);
+          if (currentIndex !== index) next[currentIndex > index ? currentIndex - 1 : currentIndex] = isCollapsed;
+        });
+        return next;
+      });
+    };
+    const addItem = () => {
+      const nextIndex = value.length + 1;
+      let newItem: any;
+      if (value.length > 0) {
+        const sample = value[0] as any;
+        if (isLabeledNode(sample)) {
+          newItem = { ...sample, label: `${label} #${nextIndex}`, value: makeBlankLike(sample.value) };
+        } else if (sample && typeof sample === "object" && !Array.isArray(sample)) {
+          newItem = Object.fromEntries(Object.entries(sample).map(([key, child]) => {
+            if (normalizedFieldName(key) === "priority") return [key, "must_have"];
+            return [key, makeBlankLike(child)];
+          }));
+        } else {
+          newItem = "";
+        }
+      } else if (normalizedFieldName(fieldKey) === "requirements") {
+        newItem = { rawlabel: "", priority: "must_have" };
+      } else {
+        newItem = { label: `${label} #${nextIndex}`, value: { text: "" } };
+      }
+      onChange([...value, newItem]);
+      setVisibleEmptyItems((current) => ({ ...current, [value.length]: true }));
+    };
     return (
       <div className="space-y-2">
         <div className="text-sm font-bold text-on-surface">{label}</div>
         {allStrings ? (
-          <textarea
-            value={(value as string[]).join("\n")}
-            onChange={(e) =>
-              onChange(
-                e.target.value
-                  .split("\n")
-                  .map((s) => s.trim())
-                  .filter(Boolean)
+          <div className="space-y-2">
+            {(value as string[]).map((item, idx) => (
+              !hasJdContent(item) && !visibleEmptyItems[idx] ? null : (
+              <div key={idx} className={isRequirementList ? "rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-3" : "flex items-start gap-2"}>
+                {isRequirementList && (
+                  <div className="mb-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-expanded={!collapsedRequirementItems[idx]}
+                      aria-controls={`jd-requirement-item-${idx}`}
+                      onClick={() => setCollapsedRequirementItems((current) => ({ ...current, [idx]: !current[idx] }))}
+                      className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-white"
+                    >
+                      <span className="truncate text-xs font-bold text-on-surface-variant">{label} #{idx + 1}</span>
+                      <ChevronDown className={`ml-auto size-4 shrink-0 transition-transform ${collapsedRequirementItems[idx] ? "" : "rotate-180"}`} />
+                    </button>
+                    <button type="button" onClick={() => removeItem(idx)} className="rounded-lg p-2 text-[#64748B] hover:bg-red-50 hover:text-red-600" aria-label={`${t("fixAdmin.jp.ai.removeItem")} ${label} #${idx + 1}`} title={t("fixAdmin.jp.ai.removeItem")}>
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                )}
+                <div id={`jd-requirement-item-${idx}`} className={isRequirementList && collapsedRequirementItems[idx] ? "hidden" : "flex items-start gap-2"}>
+                  <textarea
+                    value={item}
+                    onChange={(event) => {
+                      const next = (value as string[]).map((current, itemIndex) => itemIndex === idx ? event.target.value : current);
+                      if (!hasJdContent(next[idx])) setVisibleEmptyItems((current) => ({ ...current, [idx]: true }));
+                      onChange(next);
+                    }}
+                    rows={2}
+                    placeholder={placeholder}
+                    aria-label={`${label} #${idx + 1}`}
+                    className="min-w-0 flex-1 rounded-xl border border-outline-variant/30 bg-surface px-4 py-3 text-sm text-on-surface"
+                  />
+                  {!isRequirementList && (
+                    <button type="button" onClick={() => removeItem(idx)} className="rounded-lg p-2 text-[#64748B] hover:bg-red-50 hover:text-red-600" aria-label={`${t("fixAdmin.jp.ai.removeItem")} ${label} #${idx + 1}`} title={t("fixAdmin.jp.ai.removeItem")}>
+                      <Trash2 className="size-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
               )
-            }
-            rows={Math.min(10, Math.max(3, value.length + 1))}
-            className="w-full rounded-xl border border-outline-variant/30 bg-surface px-4 py-3 text-sm text-on-surface"
-          />
+            ))}
+            <button type="button" onClick={addItem} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-[#204195] hover:bg-[#EEF2FD]">
+              <Plus className="size-4" /> {t("fixAdmin.jp.ai.addItem")}
+            </button>
+          </div>
         ) : allObjects ? (
           <div className="space-y-3">
             {(value as any[]).map((item, idx) => (
+              !hasJdContent(item) && !visibleEmptyItems[idx] ? null : (
               <div
                 key={idx}
                 className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-4"
               >
-                <div className="mb-2 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                  {label} #{idx + 1}
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  {isRequirementList ? (
+                    <button
+                      type="button"
+                      aria-expanded={!collapsedRequirementItems[idx]}
+                      aria-controls={`jd-requirement-item-${idx}`}
+                      onClick={() => setCollapsedRequirementItems((current) => ({ ...current, [idx]: !current[idx] }))}
+                      className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-white"
+                    >
+                      <span className="truncate text-xs font-bold text-on-surface-variant">{label} #{idx + 1}</span>
+                      <ChevronDown className={`ml-auto size-4 shrink-0 transition-transform ${collapsedRequirementItems[idx] ? "" : "rotate-180"}`} />
+                    </button>
+                  ) : (
+                    <span className="text-xs font-bold text-on-surface-variant">{label} #{idx + 1}</span>
+                  )}
+                  <button type="button" onClick={() => removeItem(idx)} className="rounded-lg p-2 text-[#64748B] hover:bg-red-50 hover:text-red-600" aria-label={`${t("fixAdmin.jp.ai.removeItem")} ${label} #${idx + 1}`} title={t("fixAdmin.jp.ai.removeItem")}>
+                    <Trash2 className="size-4" />
+                  </button>
                 </div>
-                <ObjectEditor
-                  value={item as Record<string, unknown>}
-                  onChange={(next) => {
-                    const nextArr = [...(value as any[])];
-                    nextArr[idx] = next;
-                    onChange(nextArr);
-                  }}
-                />
+                <div id={`jd-requirement-item-${idx}`} className={isRequirementList && collapsedRequirementItems[idx] ? "hidden" : ""}>
+                  {isLabeledNode(item) ? (
+                    <ValueEditor
+                      label={label}
+                      value={item.value}
+                      showEmpty={showEmpty || Boolean(visibleEmptyItems[idx])}
+                      objectLayout={isRequirementList ? "requirement" : undefined}
+                      onChange={(next) => {
+                        const nextArr = [...(value as any[])];
+                        nextArr[idx] = { ...item, value: next };
+                        if (!hasJdContent(nextArr[idx])) setVisibleEmptyItems((current) => ({ ...current, [idx]: true }));
+                        onChange(nextArr);
+                      }}
+                    />
+                  ) : (
+                    <ObjectEditor
+                      value={item as Record<string, unknown>}
+                      showEmpty={showEmpty || Boolean(visibleEmptyItems[idx])}
+                      layout={isRequirementList ? "requirement" : undefined}
+                      onChange={(next) => {
+                        const nextArr = [...(value as any[])];
+                        nextArr[idx] = next;
+                        if (!hasJdContent(nextArr[idx])) setVisibleEmptyItems((current) => ({ ...current, [idx]: true }));
+                        onChange(nextArr);
+                      }}
+                    />
+                  )}
+                </div>
               </div>
+              )
             ))}
+            <button type="button" onClick={addItem} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-[#204195] hover:bg-[#EEF2FD]">
+              <Plus className="size-4" /> {t("fixAdmin.jp.ai.addItem")}
+            </button>
           </div>
         ) : (
           <div className="rounded-xl border border-outline-variant/20 bg-surface px-4 py-3 text-sm text-on-surface-variant">
@@ -480,6 +736,7 @@ function ValueEditor(props: {
         <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-4">
           <ObjectEditor
             value={value as Record<string, unknown>}
+            layout={objectLayout}
             onChange={(next) => onChange(next)}
           />
         </div>
@@ -493,12 +750,14 @@ function ValueEditor(props: {
 function ObjectEditor(props: {
   value: Record<string, unknown>;
   onChange: (v: Record<string, unknown>) => void;
+  showEmpty?: boolean;
+  layout?: "requirement";
 }) {
-  const { value, onChange } = props;
+  const { value, onChange, showEmpty = false, layout } = props;
   const { t } = useLanguage();
   const entries = Object.entries(value || {})
     .filter(([k]) => !shouldHideKey(k))
-    .filter(([, v]) => !isEmptyValue(v));
+    .filter(([, v]) => showEmpty || hasJdContent(v));
 
   if (entries.length === 0) {
     return (
@@ -508,19 +767,41 @@ function ObjectEditor(props: {
     );
   }
 
+  const orderedEntries = layout === "requirement"
+    ? [...entries].sort(([left], [right]) => {
+        const rank = (key: string) => normalizedFieldName(key) === "priority" ? 0 : normalizedFieldName(key) === "rawlabel" ? 1 : 2;
+        return rank(left) - rank(right);
+      })
+    : entries;
+
   return (
-    <div className="space-y-4">
-      {entries.map(([k, v]) => {
-        const fieldLabel = humanizeKey(k);
+    <div className={layout === "requirement" ? "grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,4fr)]" : "space-y-4"}>
+      {orderedEntries.map(([k, v]) => {
+        const fieldLabel = editableFieldLabel(k, t);
         return (
-          <div key={k} className="space-y-2">
-            <ValueEditor
-              label={fieldLabel}
-              value={v}
-              onChange={(nextVal) => {
-                onChange({ ...value, [k]: nextVal });
-              }}
-            />
+          <div key={k} className={`min-w-0 space-y-2 ${layout === "requirement" && !["priority", "rawlabel"].includes(normalizedFieldName(k)) ? "sm:col-span-2" : ""}`}>
+            {normalizedFieldName(k) === "priority" ? (
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-on-surface">{fieldLabel}</label>
+                <select
+                  value={String(v)}
+                  onChange={(event) => onChange({ ...value, [k]: event.target.value })}
+                  className="w-full rounded-xl border border-outline-variant/30 bg-surface px-4 py-3 text-sm text-on-surface"
+                >
+                  <option value="must_have">{t("fixAdmin.jp.ai.priority.mustHave")}</option>
+                  <option value="preferred">{t("fixAdmin.jp.ai.priority.preferred")}</option>
+                </select>
+              </div>
+            ) : (
+              <ValueEditor
+                label={fieldLabel}
+                value={v}
+                showEmpty={showEmpty}
+                onChange={(nextVal) => {
+                  onChange({ ...value, [k]: nextVal });
+                }}
+              />
+            )}
           </div>
         );
       })}
@@ -535,18 +816,29 @@ function LabeledJsonForm(props: {
 }) {
   const { title, data, onChange } = props;
   const { t } = useLanguage();
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [visibleEmptyFields, setVisibleEmptyFields] = useState<Set<string>>(() => new Set());
 
-  const renderNode = (node: any, path: (string | number)[], fallbackLabel: string) => {
+  const keepFieldVisibleAfterEdit = (fieldKey: string) => {
+    if (!fieldKey) return;
+    const normalizedKey = normalizedFieldName(fieldKey);
+    setVisibleEmptyFields((current) => new Set(current).add(normalizedKey));
+  };
+
+  const renderNode = (node: any, path: (string | number)[], fallbackLabel: string, fieldKey = "", showEmpty = false) => {
     if (isLabeledNode(node)) {
       const label = String(node.label || fallbackLabel || t("fixAdmin.jp.editor.field"));
       const v = (node as any).value;
-      if (isEmptyValue(v)) return null;
+      if (!hasJdContent(v) && !showEmpty) return null;
       return (
         <div className="rounded-2xl border border-outline-variant/15 bg-surface p-4">
           <ValueEditor
             label={label}
             value={v}
+            fieldKey={fieldKey}
+            showEmpty={showEmpty}
             onChange={(nextVal) => {
+              keepFieldVisibleAfterEdit(fieldKey);
               onChange(setAtPath(data, [...path, "value"], nextVal));
             }}
           />
@@ -556,13 +848,18 @@ function LabeledJsonForm(props: {
 
     if (Array.isArray(node) || node === null || typeof node !== "object") {
       // Not labeled → edit this node directly as a single value
-      if (isEmptyValue(node)) return null;
+      if (!hasJdContent(node) && !showEmpty) return null;
       return (
         <div className="rounded-2xl border border-outline-variant/15 bg-surface p-4">
           <ValueEditor
             label={fallbackLabel}
             value={node}
-            onChange={(nextVal) => onChange(setAtPath(data, path, nextVal))}
+            fieldKey={fieldKey}
+            showEmpty={showEmpty}
+            onChange={(nextVal) => {
+              keepFieldVisibleAfterEdit(fieldKey);
+              onChange(setAtPath(data, path, nextVal));
+            }}
           />
         </div>
       );
@@ -570,10 +867,7 @@ function LabeledJsonForm(props: {
 
     const entries = Object.entries(node as Record<string, any>)
       .filter(([k]) => !shouldHideKey(k))
-      .filter(([, v]) => {
-        if (isLabeledNode(v)) return !isEmptyValue((v as any).value);
-        return !isEmptyValue(v);
-      });
+      .filter(([, value]) => showEmpty || hasJdContent(value));
     if (entries.length === 0) return null;
     return (
       <div className="space-y-3">
@@ -582,10 +876,10 @@ function LabeledJsonForm(props: {
             {/* If node is already labeled, avoid rendering a duplicate heading */}
             {!isLabeledNode(v) && (
               <div className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                {humanizeKey(k)}
+                {editableFieldLabel(k, t)}
               </div>
             )}
-            {renderNode(v, [...path, k], humanizeKey(k))}
+            {renderNode(v, [...path, k], editableFieldLabel(k, t), fieldKey, showEmpty)}
           </div>
         ))}
       </div>
@@ -593,11 +887,150 @@ function LabeledJsonForm(props: {
   };
 
   return (
-    <section className="rounded-2xl border border-outline-variant/20 bg-surface p-4">
-      <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-        {title}
-      </h3>
-      {renderNode(data, [], title)}
+    <section className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] p-4 sm:p-5">
+      <h3 className="mb-4 text-sm font-bold text-[#14244B]">{title}</h3>
+      <div className="space-y-4">
+        {[
+          {
+            id: "basics",
+            titleKey: "fixAdmin.jp.ai.group.basics",
+            icon: FileText,
+            keys: ["jobtitle", "title", "companyname"],
+            layout: "grid-cols-1 md:grid-cols-2",
+          },
+          {
+            id: "arrangement",
+            titleKey: "fixAdmin.jp.ai.group.arrangement",
+            icon: MapPin,
+            keys: ["seniority", "employmenttype", "workmode", "location"],
+            layout: "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4",
+          },
+          {
+            id: "compensation",
+            titleKey: "fixAdmin.jp.ai.group.compensation",
+            icon: Coins,
+            keys: ["experienceminyears", "experiencemaxyears", "salarymin", "salarymax", "salarycurrency", "salaryperiod", "salarynegotiable"],
+            layout: "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4",
+          },
+          {
+            id: "responsibilities",
+            titleKey: "fixAdmin.jp.ai.group.responsibilities",
+            icon: ListChecks,
+            keys: ["responsibilities"],
+            layout: "grid-cols-1",
+          },
+          {
+            id: "requirements",
+            titleKey: "fixAdmin.jp.ai.group.requirements",
+            icon: CheckCircle2,
+            keys: ["requirements"],
+            layout: "grid-cols-1",
+          },
+          {
+            id: "benefits",
+            titleKey: "fixAdmin.jp.ai.group.benefits",
+            icon: Gift,
+            keys: ["benefits"],
+            layout: "grid-cols-1",
+          },
+        ].map((group) => {
+          const fields = Object.entries(data as Record<string, unknown>)
+            .filter(([key]) => group.keys.includes(normalizedFieldName(key)))
+            .filter(([key, value]) => hasJdContent(value) || visibleEmptyFields.has(normalizedFieldName(key)));
+          const Icon = group.icon;
+          const fieldCount = fields.reduce((total, [, fieldValue]) => {
+            let value = fieldValue;
+            while (isLabeledNode(value)) value = value.value;
+            return total + (Array.isArray(value) ? value.length : 1);
+          }, 0);
+          const isCollapsed = collapsedGroups[group.id] ?? true;
+          const contentId = `editable-jd-group-${group.id}`;
+          return (
+            <section key={group.id} className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-2xs">
+              <button
+                type="button"
+                aria-expanded={!isCollapsed}
+                aria-controls={contentId}
+                onClick={() => setCollapsedGroups((current) => ({ ...current, [group.id]: !isCollapsed }))}
+                className={`flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-[#F8FAFC] sm:px-5 ${isCollapsed ? "" : "border-b border-[#EAEFF8]"}`}
+              >
+                <span className="flex size-8 items-center justify-center rounded-xl bg-[#EEF2FD] text-[#204195]">
+                  <Icon className="size-4" />
+                </span>
+                <h4 className="text-sm font-bold text-[#14244B]">{t(group.titleKey)}</h4>
+                <span className="ml-auto text-[11px] font-medium text-[#8A98B8]">{fieldCount}</span>
+                <ChevronDown className={`size-4 shrink-0 text-[#64748B] transition-transform ${isCollapsed ? "" : "rotate-180"}`} />
+              </button>
+              <div id={contentId} className={isCollapsed ? "hidden" : ""}>
+                <div className={`grid gap-3 p-3 sm:gap-4 sm:p-4 ${group.layout}`}>
+                  {fields.map(([key, value]) => (
+                    <div key={key} className="min-w-0">
+                      <div className="mb-2 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = { ...(data as Record<string, unknown>) };
+                            delete next[key];
+                            onChange(next);
+                            setVisibleEmptyFields((current) => {
+                              const updated = new Set(current);
+                              updated.delete(normalizedFieldName(key));
+                              return updated;
+                            });
+                          }}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-[#64748B] hover:bg-red-50 hover:text-red-600"
+                          aria-label={`${t("fixAdmin.jp.ai.removeField")} ${editableFieldLabel(key, t)}`}
+                          title={t("fixAdmin.jp.ai.removeField")}
+                        >
+                          <Trash2 className="size-3.5" /> {t("fixAdmin.jp.ai.removeField")}
+                        </button>
+                      </div>
+                      {renderNode(value, [key], editableFieldLabel(key, t), key, visibleEmptyFields.has(normalizedFieldName(key)))}
+                    </div>
+                  ))}
+                </div>
+                {group.keys.some((key) => !fields.some(([existingKey]) => normalizedFieldName(existingKey) === key)) && (
+                  <details className="mx-3 mb-3 rounded-xl border border-dashed border-[#C9D5EB] sm:mx-4 sm:mb-4">
+                    <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-semibold text-[#204195]">
+                      <Plus className="size-4" /> {t("fixAdmin.jp.ai.addField")}
+                    </summary>
+                    <div className="flex flex-wrap gap-2 border-t border-[#EAEFF8] p-3">
+                      {group.keys.filter((key) => !fields.some(([existingKey]) => normalizedFieldName(existingKey) === key)).map((key) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            const normalizedKey = normalizedFieldName(key);
+                            const initialValue = ["responsibilities", "requirements", "benefits"].includes(normalizedKey)
+                              ? []
+                              : normalizedKey === "salarynegotiable"
+                                ? false
+                                : ["experienceminyears", "experiencemaxyears", "salarymin", "salarymax"].includes(normalizedKey)
+                                  ? 0
+                                  : "";
+                            const usesLabeledFields = fields.some(([, fieldValue]) => isLabeledNode(fieldValue));
+                            const next = { ...(data as Record<string, unknown>) };
+                            Object.keys(next).forEach((existingKey) => {
+                              if (normalizedFieldName(existingKey) === normalizedKey) delete next[existingKey];
+                            });
+                            next[key] = usesLabeledFields ? { label: editableFieldLabel(key, t), value: initialValue } : initialValue;
+                            onChange(next);
+                            setVisibleEmptyFields((current) => new Set(current).add(normalizedKey));
+                            setCollapsedGroups((current) => ({ ...current, [group.id]: false }));
+                          }}
+                          className="rounded-lg bg-[#EEF2FD] px-3 py-2 text-xs font-medium text-[#204195] hover:bg-[#E2E9FC]"
+                        >
+                          {editableFieldLabel(key, t)}
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+            </section>
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -1082,8 +1515,9 @@ export default function AdminJobProfileCreateView() {
     if (!uploadId || jpStatus !== "DONE") return null;
 
     const hasCanonical = editableCanonicalUi && typeof editableCanonicalUi === "object";
-    const hasExtras = editableExtras && typeof editableExtras === "object";
-    if (!hasCanonical && !hasExtras) return null;
+    if (!hasCanonical) return null;
+    const editableCanonicalFields = editableJdView(editableCanonicalUi);
+    const hasEditableFields = Object.keys(editableCanonicalFields || {}).length > 0;
 
     return (
       <div className="space-y-3">
@@ -1110,28 +1544,23 @@ export default function AdminJobProfileCreateView() {
           </div>
         </div>
 
-        {aiViewMode === "review" && hasCanonical ? (
+        {aiViewMode === "review" ? (
           <CanonicalJdReview data={editableCanonicalUi as Record<string, unknown>} />
         ) : (
           <>
-            {hasCanonical && (
+            <p className="rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-3.5 py-2.5 text-xs leading-5 text-[#607096]">
+              {t("fixAdmin.jp.ai.editableFieldsHint")}
+            </p>
+            {hasEditableFields ? (
               <LabeledJsonForm
                 title={t("fixAdmin.jp.ai.structuredTitle")}
-                data={editableCanonicalUi}
-                onChange={(next) => setEditableCanonicalUi(next)}
+                data={editableCanonicalFields}
+                onChange={(next) => setEditableCanonicalUi((current: any) => mergeJdEdits(current, next))}
               />
-            )}
-            {hasExtras && (
-              <details className="rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-2xs">
-                <summary className="cursor-pointer text-sm font-bold text-[#14244B]">{t("fixAdmin.jp.ai.technicalTitle")}</summary>
-                <div className="mt-4">
-                  <LabeledJsonForm
-                    title={t("fixAdmin.jp.ai.technicalTitle")}
-                    data={editableExtras}
-                    onChange={(next) => setEditableExtras(next)}
-                  />
-                </div>
-              </details>
+            ) : (
+              <p className="rounded-xl border border-[#DCE4F3] bg-white px-4 py-3 text-sm text-[#607096]">
+                {t("fixAdmin.jp.ai.noEditableFields")}
+              </p>
             )}
           </>
         )}
@@ -1882,7 +2311,7 @@ export default function AdminJobProfileCreateView() {
   )}
 
   {/* Description Markdown Editor */}
-  <div className="rounded-2xl border border-[#DCE4F3] overflow-hidden shadow-2xs bg-white">
+  {/* <div className="rounded-2xl border border-[#DCE4F3] overflow-hidden shadow-2xs bg-white">
     <div className="flex items-center justify-between border-b border-[#EAEFF8] bg-[#F8FAFC] px-4 py-3">
       <span className="text-xs sm:text-sm font-bold text-[#14244B]">{t("fixAdmin.jp.candidateContent")}</span>
     </div>
@@ -1895,7 +2324,7 @@ export default function AdminJobProfileCreateView() {
         textareaProps={{ placeholder: t("fixAdmin.jp.ph.description") }}
       />
     </div>
-  </div>
+  </div> */}
 
   {/* Actions */}
   <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-[#EAEFF8] pt-6">
