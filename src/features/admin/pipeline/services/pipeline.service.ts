@@ -493,6 +493,18 @@ export type SpeechControl = {
 
 export type SpeechVerdict = "correct" | "wrong";
 
+export type SpeechTestConfig = {
+  sttProvider: string;
+  sttReady: boolean;
+  ttsProvider: string;
+  ttsReady: boolean;
+  ttsModel: string;
+  sttModel: string;
+  ttsVoice: string;
+  sttAdapters: string[];
+  ttsAdapters: string[];
+};
+
 export type AiCallFilters = {
   purpose?: string;
   status?: "ok" | "error";
@@ -515,6 +527,30 @@ export const pipelineService = {
   },
   async speech(days: number): Promise<SpeechControl> {
     const response = await apiClient.get<{ success: boolean } & SpeechControl>("/admin/ai/speech", { params: { days } });
+    return response.data;
+  },
+  async speechTestConfig(): Promise<SpeechTestConfig> {
+    const response = await apiClient.get<{ success: boolean } & SpeechTestConfig>("/admin/ai/speech/test/config");
+    return response.data;
+  },
+  async testSpeechSynthesis(text: string): Promise<{ audio: Blob; elapsedMs: number | null; provider: string | null; model: string | null }> {
+    const response = await apiClient.post<Blob>("/admin/ai/speech/test/speak", { text }, { responseType: "blob" });
+    const rawElapsed = response.headers["x-voice-lab-elapsed-ms"];
+    const elapsedMs = Number(rawElapsed);
+    return {
+      audio: response.data,
+      elapsedMs: Number.isFinite(elapsedMs) ? elapsedMs : null,
+      provider: response.headers["x-speech-provider"] ?? null,
+      model: response.headers["x-speech-model"] ?? null,
+    };
+  },
+  async testSpeechTranscription(audio: File): Promise<{ text: string; elapsedMs: number; provider: string; model: string }> {
+    const form = new FormData();
+    form.append("audio", audio);
+    const response = await apiClient.post<{ text: string; elapsedMs: number; provider: string; model: string }>(
+      "/admin/ai/speech/test/transcribe",
+      form,
+    );
     return response.data;
   },
   /** Mark a refused or edited line as blocked correctly, a good line blocked, or clear the mark. */

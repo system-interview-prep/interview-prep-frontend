@@ -443,6 +443,8 @@ export const jobProfileApi = {
   /** Khớp BE: GET /admin/job-descriptions/uploads/{id} */
   getUpload: (id: string) =>
     api.get<JobProfileUpload>(`/admin/job-descriptions/uploads/${encodeURIComponent(id)}`),
+  listUploads: (limit = 100, config?: { signal?: AbortSignal }) =>
+    api.get<{ items: JobProfileUpload[] }>("/admin/job-descriptions/uploads", { params: { limit }, ...config }),
   deleteUpload: (id: string) =>
     api.delete<void>(`/admin/job-descriptions/uploads/${encodeURIComponent(id)}`),
   /** Khớp BE: POST /admin/job-descriptions/uploads/{id}/reparse */
