@@ -7,9 +7,10 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { fmt } from "@/i18n/format";
 import AdminPageHeader from "./primitives/AdminPageHeader";
 import ConceptPicker from "./ConceptPicker";
-import { DIFFICULTY_BANDS, QUESTION_TYPES, questionBankApi, type CreateQuestionDraftPayload } from "@features/admin/services/questionBank.service";
+import RubricEditor, { validateRubric } from "./RubricEditor";
+import { DIFFICULTY_BANDS, QUESTION_TYPES, questionBankApi, type CreateQuestionDraftPayload, type RubricCriterionInput } from "@features/admin/services/questionBank.service";
 import { taxonomyApi, type ActiveTaxonomy, type TaxonomyConcept } from "@features/admin/services/taxonomy.service";
-import { RUBRIC_TEMPLATE_JSON, parseRubricCriteria } from "./questionRubricTemplate";
+import { RUBRIC_TEMPLATE } from "./questionRubricTemplate";
 
 // Mirrors Core `_MAPPING_KINDS` (question_bank/service.py): career codes are seeded
 // as kind `competency`, so TARGET_ROLE accepts both `job_role` and `competency`.
@@ -25,14 +26,15 @@ const errorMessage = (error: unknown, fallback: string) => {
 type FormState = {
   stableKey: string; canonicalText: string; objective: string; primaryCompetency: string;
   skillIds: string[]; roleIds: string[]; questionType: string; difficultyBand: string;
-  thinking: string; soft: string; hard: string; rubric: string; contextPolicy: string; personalizationPolicy: string;
+  thinking: string; soft: string; hard: string;
 };
-type FieldKey = "stableKey" | "canonicalText" | "objective" | "primaryCompetency" | "targets" | "thinking" | "soft" | "hard" | "rubric" | "contextPolicy" | "personalizationPolicy";
+type FieldKey = "stableKey" | "canonicalText" | "objective" | "primaryCompetency" | "targets" | "thinking" | "soft" | "hard" | "rubric";
 type TaxonomyState = { status: "loading" } | { status: "ready"; taxonomy: ActiveTaxonomy } | { status: "error"; forbidden: boolean };
 
 export default function AdminQuestionAuthoringClient() {
   const { t } = useLanguage();
-  const [form, setForm] = useState<FormState>({ stableKey: "", canonicalText: "", objective: "", primaryCompetency: "", skillIds: [], roleIds: [], questionType: "technical", difficultyBand: "intermediate", thinking: "30", soft: "180", hard: "300", rubric: RUBRIC_TEMPLATE_JSON, contextPolicy: "{}", personalizationPolicy: "{}" });
+  const [form, setForm] = useState<FormState>({ stableKey: "", canonicalText: "", objective: "", primaryCompetency: "", skillIds: [], roleIds: [], questionType: "technical", difficultyBand: "intermediate", thinking: "30", soft: "180", hard: "300" });
+  const [rubric, setRubric] = useState<RubricCriterionInput[]>(() => RUBRIC_TEMPLATE.map((criterion) => ({ ...criterion, anchors: criterion.anchors.map((anchor) => ({ ...anchor })) })));
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [message, setMessage] = useState<{ tone: "info" | "error"; text: string } | null>(null);
   const [createdQuestionId, setCreatedQuestionId] = useState<string | null>(null);
@@ -88,16 +90,10 @@ export default function AdminQuestionAuthoringClient() {
     if (soft === null) next.soft = t("fixAdmin.ops.qb.author.secondsPositive");
     if (hard === null) next.hard = t("fixAdmin.ops.qb.author.secondsPositive");
     else if (soft !== null && hard < soft) next.hard = t("fixAdmin.ops.qb.author.hardBelowSoft");
-    const parseObject = (raw: string): Record<string, unknown> | null => {
-      try { const value: unknown = JSON.parse(raw); return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null; } catch { return null; }
-    };
-    const contextPolicy = parseObject(form.contextPolicy); const personalizationPolicy = parseObject(form.personalizationPolicy);
-    if (!contextPolicy) next.contextPolicy = t("fixAdmin.ops.qb.author.policyInvalid");
-    if (!personalizationPolicy) next.personalizationPolicy = t("fixAdmin.ops.qb.author.policyInvalid");
-    const rubric = parseRubricCriteria(form.rubric);
-    if ("error" in rubric) next.rubric = rubric.error;
+    const rubricError = validateRubric(rubric);
+    if (rubricError) next.rubric = t(rubricError);
     setErrors(next);
-    if (Object.keys(next).length > 0 || "error" in rubric || !contextPolicy || !personalizationPolicy || thinking === null || soft === null || hard === null) {
+    if (Object.keys(next).length > 0 || rubricError || thinking === null || soft === null || hard === null) {
       setMessage({ tone: "error", text: t("fixAdmin.ops.qb.author.fixErrors") });
       return;
     }
@@ -109,11 +105,11 @@ export default function AdminQuestionAuthoringClient() {
     setSaving(true);
     let draft: { questionId: string; questionVersionId: string };
     try {
-      draft = (await questionBankApi.createDraft({ stableKey: form.stableKey.trim(), version: "1.0.0", taxonomyVersion, questionType: form.questionType, difficultyBand: form.difficultyBand, canonicalLocale: "vi-VN", canonicalText: form.canonicalText, objective: form.objective, thinkingSeconds: thinking, softAnswerSeconds: soft, hardAnswerSeconds: hard, contextPolicy, personalizationPolicy, changeSummary: "", taxonomyMappings })).data;
+      draft = (await questionBankApi.createDraft({ stableKey: form.stableKey.trim(), version: "1.0.0", taxonomyVersion, questionType: form.questionType, difficultyBand: form.difficultyBand, canonicalLocale: "vi-VN", canonicalText: form.canonicalText, objective: form.objective, thinkingSeconds: thinking, softAnswerSeconds: soft, hardAnswerSeconds: hard, contextPolicy: {}, personalizationPolicy: {}, changeSummary: "", taxonomyMappings })).data;
     } catch (error: unknown) { setMessage({ tone: "error", text: errorMessage(error, t("fixAdmin.ops.qb.author.createFailed")) }); setSaving(false); return; }
     setCreatedQuestionId(draft.questionId);
     try {
-      await questionBankApi.attachRubric(draft.questionVersionId, { criteria: rubric.criteria });
+      await questionBankApi.attachRubric(draft.questionVersionId, { criteria: rubric });
       setMessage({ tone: "info", text: t("fixAdmin.ops.qb.author.created") });
     } catch (error: unknown) {
       setMessage({ tone: "error", text: fmt(t("fixAdmin.ops.qb.author.rubricFailed"), { error: errorMessage(error, t("fixAdmin.ops.qb.author.unknownError")) }) });
@@ -165,9 +161,7 @@ export default function AdminQuestionAuthoringClient() {
       </div>
       <Field label={t("fixAdmin.ops.qb.author.canonicalText")} value={form.canonicalText} onChange={(v) => update("canonicalText", v)} multiline error={errors.canonicalText} />
       <Field label={t("fixAdmin.ops.qb.author.objective")} value={form.objective} onChange={(v) => update("objective", v)} multiline error={errors.objective} />
-      <Field label={t("fixAdmin.ops.qb.author.rubric")} value={form.rubric} onChange={(v) => update("rubric", v)} multiline rows={12} error={errors.rubric} />
-      <Field label={t("fixAdmin.ops.qb.author.contextPolicy")} value={form.contextPolicy} onChange={(v) => update("contextPolicy", v)} multiline mono error={errors.contextPolicy} />
-      <Field label={t("fixAdmin.ops.qb.author.personalizationPolicy")} value={form.personalizationPolicy} onChange={(v) => update("personalizationPolicy", v)} multiline mono error={errors.personalizationPolicy} />
+      <RubricEditor criteria={rubric} onChange={(criteria) => { setRubric(criteria); setErrors((current) => current.rubric ? { ...current, rubric: undefined } : current); }} error={errors.rubric} disabled={saving} />
       {message && <p role={message.tone === "error" ? "alert" : "status"} className={`rounded-xl p-3 text-sm break-words [overflow-wrap:anywhere] ${message.tone === "error" ? "bg-[#FFF8F8] text-[#B42323]" : "bg-[#EEF2FD] text-[#14244B]"}`}>{message.text}{createdQuestionId && <> <Link href={`/admin/question-bank/${createdQuestionId}`} className="font-semibold text-[#204195] underline">{t("fixAdmin.ops.qb.author.openDetail")}</Link></>}</p>}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <button type="submit" disabled={saving || Boolean(taxonomyBlocker)} aria-describedby={taxonomyBlocker ? "qb-author-submit-blocker" : undefined} className="rounded-xl bg-[#204195] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? t("fixAdmin.ops.qb.author.saving") : t("fixAdmin.ops.qb.author.save")}</button>
