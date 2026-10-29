@@ -21,6 +21,7 @@ import {
   tr,
 } from "../utils/pipelineFormat";
 import { Chip, Fact, Muted, ProgressBar, TableShell, Th, usePagedRows } from "./ui";
+import SpeechTestPanel from "./SpeechTestPanel";
 
 const WINDOWS = [1, 7, 30];
 
@@ -177,6 +178,7 @@ export default function SpeechControlClient() {
     return (
       <div className="space-y-6">
         {header}
+        <SpeechTestPanel />
         {state.status === "loading" ? (
           <div className="h-60 animate-pulse rounded-2xl border border-[#DCE4F3] bg-white motion-reduce:animate-none" role="status">
             <span className="sr-only">{t("aiPipeline.loading")}</span>
@@ -214,6 +216,7 @@ export default function SpeechControlClient() {
   return (
     <div className="space-y-6">
       {header}
+      <SpeechTestPanel />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <AdminMetricCard
