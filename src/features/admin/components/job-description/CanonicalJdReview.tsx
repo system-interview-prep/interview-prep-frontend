@@ -151,14 +151,6 @@ export default function CanonicalJdReview({ data }: { data: Record<string, unkno
               {t("fixAdmin.jdReview.reviewDesc")}
             </p>
           </div>
-          <span className="rounded-full bg-white border border-[#DCE4F3] px-3 py-1 text-xs font-bold text-[#204195] shadow-2xs">
-            {(() => {
-              const raw = valueOf(jd.parsing?.status);
-              const key = `adminUiJd.parsingStatus.${raw}`;
-              const label = t(key);
-              return label === key ? raw : label;
-            })()}
-          </span>
         </div>
         {metadata.length > 0 && (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
