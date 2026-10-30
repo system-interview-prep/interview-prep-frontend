@@ -50,7 +50,10 @@ export type QuestionDetail = QuestionBankItem & {
   reviewTypes?: string[];
   rubric: {
     rubricVersionId: string; stableKey: string; version: string; minimumCoverage: number; approved: boolean;
-    criteria: Array<{ stableKey: string; name: string; description: string; weight: number; critical: boolean }>;
+    criteria: Array<{
+      stableKey: string; name: string; description: string; weight: number; critical: boolean;
+      anchors?: Array<{ level: 0 | 1 | 2 | 3; description: string }>;
+    }>;
   } | null;
 };
 
@@ -93,6 +96,8 @@ export type ImportRow = { rowId: string; rowNumber: number; status: string; payl
 export const questionBankApi = {
   list: (params: QuestionListParams = {}) =>
     api.get<QuestionListResponse>("/admin/question-bank/questions", { params }),
+  retire: (questionIds: string[]) =>
+    api.post<{ retiredQuestionIds: string[]; retiredCount: number }>("/admin/question-bank/questions/retire", { questionIds }),
   get: (questionId: string) =>
     api.get<QuestionDetail>(`/admin/question-bank/questions/${encodeURIComponent(questionId)}`),
   attachRubric: (questionVersionId: string, payload: AttachRubricPayload) =>
