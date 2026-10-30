@@ -20,7 +20,7 @@ describe("Candidate Job Match Details UI — Professional ATS", () => {
     it("maps backend statuses to Vietnamese HR/ATS terminology without using 'FAIL'", () => {
       expect(formatStatusLabel("met")).toBe("Phù hợp");
       expect(formatStatusLabel("not_applicable")).toBe("Không áp dụng");
-      expect(formatStatusLabel("unknown")).toBe("Chưa đủ bằng chứng");
+      expect(formatStatusLabel("unknown")).toBe("Cần xác nhận");
       expect(formatStatusLabel("not_met")).toBe("Chưa đáp ứng");
 
       // Verify "FAIL" is never used
@@ -34,7 +34,7 @@ describe("Candidate Job Match Details UI — Professional ATS", () => {
       expect(htmlMet).not.toContain("AI");
 
       const htmlUnknown = renderToStaticMarkup(React.createElement(MatchStatusBadge, { status: "unknown" }));
-      expect(htmlUnknown).toContain("Chưa đủ bằng chứng");
+      expect(htmlUnknown).toContain("Cần xác nhận");
 
       const htmlNotMet = renderToStaticMarkup(React.createElement(MatchStatusBadge, { status: "not_met" }));
       expect(htmlNotMet).toContain("Chưa đáp ứng");
@@ -135,7 +135,7 @@ describe("Candidate Job Match Details UI — Professional ATS", () => {
         })
       );
 
-      expect(html).toContain("Chưa tìm thấy bằng chứng phù hợp trong CV.");
+      expect(html).toContain("Không tìm thấy thông tin đáp ứng yêu cầu trong CV hiện tại.");
       // Strict constraint: NEVER say "AI could not find..."
       expect(html).not.toContain("AI");
       expect(html).not.toContain("AI could not find");
@@ -150,7 +150,7 @@ describe("Candidate Job Match Details UI — Professional ATS", () => {
         })
       );
 
-      expect(html).toContain("Trong CV hiện chưa tìm thấy thông tin đủ rõ để xác nhận tiêu chí này.");
+      expect(html).toContain("CV có nhắc đến nội dung liên quan nhưng chưa đủ rõ để xác nhận tiêu chí này.");
       expect(html).not.toContain("FAIL");
     });
   });
@@ -185,7 +185,7 @@ describe("Candidate Job Match Details UI — Professional ATS", () => {
         category: "skill",
         priority: "preferred",
         status: "unknown",
-        statusLabel: "Chưa đủ bằng chứng",
+        statusLabel: "Cần xác nhận",
       },
       {
         id: "req-ielts",
@@ -211,7 +211,7 @@ describe("Candidate Job Match Details UI — Professional ATS", () => {
       expect(html).toContain("2 / 2 phù hợp");
       expect(html).toContain("Tất cả");
       expect(html).toContain("Cần xác minh");
-      expect(html).toContain("Chưa đủ bằng chứng");
+      expect(html).toContain("Cần xác nhận");
       expect(html).toContain("Chưa đáp ứng");
       expect(html).toContain("Tiêu chí đang xem");
       expect(html).toContain("Yêu cầu trong JD");
@@ -255,7 +255,7 @@ describe("Candidate Job Match Details UI — Professional ATS", () => {
             category: "skill",
             priority: "must_have",
             status: "unknown",
-            statusLabel: "Chưa đủ bằng chứng",
+            statusLabel: "Cần xác nhận",
           },
         ],
       };
@@ -280,7 +280,7 @@ describe("Candidate Job Match Details UI — Professional ATS", () => {
       label: "Kiến thức cơ bản về NLP, GenAI và LLM",
       priority: "must_have",
       status: "unknown",
-      statusLabel: "Chưa đủ bằng chứng",
+      statusLabel: "Cần xác nhận",
       groupOperator: "all_of",
       conceptResults: [
         {
@@ -307,7 +307,7 @@ describe("Candidate Job Match Details UI — Professional ATS", () => {
 
       expect(html).toContain("Cần đáp ứng tất cả nội dung");
       expect(html).toContain("Có bằng chứng");
-      expect(html).toContain("Chưa đủ bằng chứng");
+      expect(html).toContain("Cần xác nhận");
       expect(html).toContain("Built an NLP pipeline");
       expect(html).toContain("Trang 2");
       expect(html).not.toContain("ALL_OF");
@@ -344,7 +344,7 @@ describe("Candidate Job Match Details UI — Professional ATS", () => {
         })
       );
 
-      expect(html).toContain("Không tìm thấy bằng chứng về nội dung này trong CV hiện tại.");
+      expect(html).toContain("Không tìm thấy “C# / .NET” trong CV hiện tại.");
       expect(html).not.toContain("chưa đủ chi tiết để kết luận");
     });
 

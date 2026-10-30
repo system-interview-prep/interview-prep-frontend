@@ -1,88 +1,85 @@
-# Design System Specification: The Intelligent Dialogue
+# Intervia design system
 
-## 1. Overview & Creative North Star
-### The Creative North Star: "The Digital Curator"
-This design system rejects the cluttered, "dashboard-heavy" aesthetic of traditional HR software. Instead, it adopts the persona of **The Digital Curator**: an interface that feels like a high-end editorial gallery. 
+Goal: a UI that **explains itself**. At a glance the user knows what the
+system is doing right now and which step of the process they are on. It
+should not look AI-generated or icon-heavy. The fox is the app's
+**assistant**, living in one place (the corner), not decoration on every page.
 
-To achieve a "tech-focused" yet "trustworthy" environment, we move beyond generic grids. We utilize **intentional asymmetry**, where large typographic headers (`display-lg`) are offset against breathable, negative space. Elements should feel like they are floating in a pressurized, clean environment—achieved through overlapping layers and sophisticated tonal depth rather than rigid lines.
+## Principles
 
----
+1. **Show the process, once.** The journey pipeline (`JourneySteps`: Tải CV →
+   Chọn vị trí → Phỏng vấn → Nhận báo cáo) appears only on the dashboard
+   overview. Other pages say their next step in one plain sentence; don't
+   repeat the pipeline on every page. Work that takes time shows `ProcessStatus`, phase by phase,
+   instead of a bare spinner ("Đang tạo phiên…", "Đang chấm từng câu…").
+   Every result says what happened and what to do next.
+2. **Never claim what didn't happen.** No fake success toasts, invented
+   devices/IPs/stats, buttons that do nothing, or features the backend doesn't
+   have. If something isn't available yet, say so ("chưa hỗ trợ", "sắp có").
+3. **Words over icons.** No icon in a tinted square next to every heading,
+   no Sparkles/"magic" icons. Keep an icon only when it is the whole control
+   (close, mic, camera, send, the collapsed sidebar rail) or a status tick.
+4. **Original colours stay.**
+   - Brand blue `#204195` (hover `#183275`) for primary actions.
+   - Yellow `#FCB625` for the current step and highlights.
+   - Text `#14244B` / `#607096`.
+   - Surfaces `#FFFFFF` / `#F8FAFC` / `#F0F4FC`; borders `#DCE4F3` / `#EAEFF8`.
+   - Green `#287A4B` (tint `#EAF5EE`) and red `#C43B3B` (hover `#A93232`, tint `#FDF2F2`) for success and error.
+   - No purple, indigo, violet or rose; no glow blobs.
+   - Older Material-style class names (`text-primary`, `bg-error-container`…) are aliases of these in `globals.css`.
+5. **Type.** Titles in Fraunces (`h1`, `.font-display`), body text in Be Vietnam Pro (both support Vietnamese).
+6. **Shapes.** Cards are `rounded-3xl` with a `border-[#DCE4F3]`; buttons are `rounded-full`.
+7. **Motion is quiet.** Transform and opacity only; 150–300 ms, ease-out in,
+   shorter out; no bounce. Entrances play once (refreshes update in place).
+   Everything respects `prefers-reduced-motion`. Utilities in `globals.css`:
+   - `anim-rise`: entrance fade + 8px rise; stagger with `style={{ "--i": n }}` (capped).
+   - `anim-pop`: popovers, bubbles, dialogs.
+   - `anim-grow-y` / `anim-grow-x`: bars growing from the baseline / meters filling.
+   - `anim-shimmer`: skeleton placeholders.
+   - `press`: subtle scale on press.
 
-## 2. Colors & Surface Philosophy
-The palette is anchored in authoritative `primary` blues and `tertiary` purples for AI-driven insights.
+## The fox
 
-### The "No-Line" Rule
-**Strict Mandate:** Designers are prohibited from using 1px solid borders for sectioning. Structural boundaries must be defined solely through background color shifts. 
-*   **Implementation:** A `surface-container-low` (#f2f4f6) sidebar sitting against a `surface` (#f7f9fb) main stage.
+- **Corner assistant** (`GlobalMascot` → `MascotContainer`): a round launcher
+  bottom-right that opens a small panel of tips for the current page, with
+  links to start an interview and to help. It speaks up by itself at most once
+  per page per session; users can turn automatic tips off. Hidden in rooms,
+  admin and auth. `triggerMascot({ mood, speechKey | speechText, durationMs })`
+  shows a short bubble for app events.
+- **Logo**: `FoxAvatar` next to the word "Intervia" (sidebar, top bars, marketing nav/footer).
+- **Nowhere else**: not in page heroes, empty/loading/error states, modals or
+  notes. In interview rooms the interviewer's face is `InterviewerAvatar` (a
+  neutral "AI" badge), not the fox.
 
-### Surface Hierarchy & Nesting
-Treat the UI as a series of physical layers. Use the surface tiers to create "nested" depth:
-*   **Base:** `surface` (#f7f9fb)
-*   **Sectioning:** `surface-container-low` (#f2f4f6)
-*   **Primary Interaction Cards:** `surface-container-lowest` (#ffffff)
-*   **Overlays/Popovers:** `surface-bright` (#f7f9fb) with Glassmorphism.
+## Components
 
-### The "Glass & Gradient" Rule
-For AI-related elements (transcriptions, real-time analysis), use the **Signature AI Texture**:
-*   **Background:** `tertiary_container` (#7029e1) at 85% opacity with a `backdrop-blur` of 20px.
-*   **Gradient:** A subtle linear transition from `primary` (#003d9b) to `tertiary` (#5600be) at a 45-degree angle for CTA buttons to provide "visual soul."
+- `@components/shared/PageHero`: the page intro card: `h1`, body, actions (children), optional `aside` and `steps`.
+- `@components/shared/ProcessSteps`
+  - `ProcessSteps`: where the user is in the journey (done / current / todo, plus a hint).
+  - `JourneySteps`: `ProcessSteps` for the one shared journey (`JOURNEY_STEPS`). Used on the dashboard overview only, and only until the journey is done (first report); after that the hero's next step is the weakest skill of the latest report. CV–JD matching counts as part of "Chọn vị trí", not as a step of its own.
+  - `ProcessStatus`: what the system is doing now (running / done / error, plus a message).
+- `@components/shared/StatusNote`: one-line status next to what just happened (info / success / error), coloured edge + words.
+- `@components/shared/Pagination`: "Hiển thị 11–20 / 37" plus page buttons. Any list that can grow past ~10–20 items is paginated.
+- `@components/shared/ConfirmDialog`: replaces `window.confirm`; `@components/shared/useDialogA11y` gives every custom dialog Escape, focus-in, a focus trap and focus restore.
+- `@components/shared/CountUp`: a number that counts up once on first appearance (final value for screen readers / reduced motion).
 
----
+## Navigation
 
-## 3. Typography
-We use a dual-sans-serif approach to balance editorial authority with functional clarity.
+The user nav is: Trang chủ · Phỏng vấn · Việc làm · CV của tôi · Lịch sử, plus Cài đặt and Trợ giúp.
 
-*   **Display & Headlines (Manrope):** Chosen for its geometric precision. Use `display-lg` (3.5rem) for hero moments and `headline-md` (1.75rem) for interview categories. These should be set with tight letter-spacing (-0.02em) to feel premium.
-*   **Body & Labels (Inter):** The workhorse. Use `body-md` (0.875rem) for candidate bios and `label-md` (0.75rem) for metadata. 
-*   **Tonal Authority:** Always use `on_surface_variant` (#434654) for secondary body text to reduce visual vibration, keeping the focus on `on_surface` (#191c1e) titles.
+The desktop sidebar collapses to an icon rail (the panel button next to the logo, or Ctrl/⌘+B; remembered per browser). Icons appear only on the collapsed rail, where each icon is the whole control and has a tooltip; the expanded sidebar stays words-only. On mobile, the bottom tab bar's last item opens a "Thêm" sheet with the remaining destinations and logout.
 
----
+There is no separate "Luyện tập" section, because practice *is* the chat, voice or video interview.
+- `/practice` redirects to `/interview/select`.
+- `/practice/room/[id]` still serves question-practice sessions.
 
-## 4. Elevation & Depth
+## Candidate home (dashboard overview)
 
-### The Layering Principle
-Forget drop shadows for standard cards. Achieve "lift" by placing a `surface-container-lowest` (#ffffff) card on a `surface-container` (#eceef0) background. This creates a soft, architectural edge.
+Built for long-term practice, from real data only (sessions, CV count, roles, saved roles, the weekly goal):
 
-### Ambient Shadows
-When an element must float (e.g., a recording controls bar), use **Ambient Light Shadows**:
-*   **Blur:** 40px to 60px.
-*   **Color:** `on_surface` (#191c1e) at **4% opacity**. It should be felt, not seen.
+1. **Today** (`PageHero`): one next step and one primary action. An open session appears here once (an old one can also be closed here). The aside is `WeekGoal`: the weekly goal the candidate chose leads, and the streak is a plain fact under it, never loss-pressure copy.
+2. **Progress**: `ScoreTrend` + `CompetencyFocus` (or `RecentActivity` before there are competency scores).
+3. **Consistency**: `PracticeCalendar` (12 weeks, one brand-blue scale) + `Milestones` (computed from finished sessions, fixed order, the first unreached one is "Tiếp theo"; nothing is stored or awarded).
+4. `RecentActivity`, then `SuggestedJobs`.
 
-### The "Ghost Border" Fallback
-If contrast testing requires a boundary (e.g., in high-glare environments), use a **Ghost Border**:
-*   **Stroke:** 1px `outline-variant` (#c3c6d6) at 20% opacity. 100% opaque borders are strictly forbidden.
-
----
-
-## 5. Components
-
-### Buttons
-*   **Primary (The Lead):** Background `primary` (#003d9b), rounded `md` (0.75rem). On hover, transition to `primary_container` (#0052cc).
-*   **AI-Accent:** Use a gradient from `tertiary` to `tertiary_container`. Reserved exclusively for "Generate Insights" or "Start AI Analysis."
-*   **Secondary:** No fill. Use `on_primary_fixed_variant` (#0040a2) text with a Ghost Border.
-
-### Input Fields
-*   **Resting:** `surface-container-highest` (#e0e3e5) background, no border.
-*   **Focus:** `surface-container-lowest` (#ffffff) background with a 2px `surface_tint` (#0c56d0) Ghost Border. This "glow" indicates the AI is listening.
-
-### Cards & Lists
-*   **Constraint:** Forbid the use of divider lines. 
-*   **Separation:** Use the **Spacing Scale `6` (2rem)** to separate list items. For history logs, alternate background colors between `surface` and `surface-container-low`.
-
-### Specialized Components
-*   **The Pulse Indicator:** A small, `tertiary` colored dot with a repeating scale animation (1.0 to 1.2) to indicate active AI processing.
-*   **Glass Mic-Tray:** A floating `backdrop-blur` bar at the bottom of the screen containing thin-line communication icons.
-
----
-
-## 6. Do’s and Don'ts
-
-### Do
-*   **DO** use `xl` (1.5rem) rounding for large "AI Insights" containers to make them feel friendly and distinct from "Standard Data" (`md` rounding).
-*   **DO** use `surface-dim` (#d8dadc) for disabled states to maintain the tonal aesthetic.
-*   **DO** utilize the Spacing Scale `12` (4rem) for page margins to ensure the "Editorial" feel.
-
-### Don’t
-*   **DON'T** use pure black (#000000) for text. Always use `on_surface` (#191c1e).
-*   **DON'T** stack more than three layers of surfaces. If you need more depth, use a Glassmorphism overlay.
-*   **DON'T** use "Standard" blue (#0000FF). Only use the refined `primary` (#003d9b) to maintain professional trust.
+No XP, levels, leaderboards, badges or daily challenges: the backend has none of them.

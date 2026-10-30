@@ -1,6 +1,12 @@
 import api from "@/lib/apiClient";
 
-export type QuestionStatus = "DRAFT" | "IN_REVIEW" | "NEEDS_REVISION" | "APPROVED" | "CALIBRATED" | "RETIRED";
+export type QuestionStatus = "DRAFT" | "IN_REVIEW" | "NEEDS_REVISION" | "APPROVED" | "CALIBRATED" | "RETIRED" | "REJECTED";
+
+// Vocabularies the interview selector matches on. Any other value is rejected by Core.
+export const DIFFICULTY_BANDS = ["foundational", "intermediate", "advanced"] as const;
+export const QUESTION_TYPES = ["technical", "conceptual", "system_design", "coding"] as const;
+// Taxonomy version that holds skill and specialization concepts.
+export const DEFAULT_TAXONOMY_VERSION = "internal-career-2026.1";
 
 export type QuestionBankItem = {
   questionId: string;
@@ -14,6 +20,8 @@ export type QuestionBankItem = {
     questionType: string;
     difficultyBand: string;
     softAnswerSeconds: number;
+    /** Drafted by the system for a skill the bank lacked (question_generation). */
+    generated?: boolean;
   };
   taxonomy: {
     roles: Array<{ conceptId: string; relevance: number }>;
@@ -23,8 +31,53 @@ export type QuestionBankItem = {
   updatedAt: string;
 };
 
+export type RubricCriterionInput = {
+  stableKey: string; name: string; description: string; weight: number; critical?: boolean;
+  anchors: Array<{ level: 0 | 1 | 2 | 3; description: string }>;
+};
+export type AttachRubricPayload = { rubricVersionId: string } | { minimumCoverage?: number; criteria: RubricCriterionInput[] };
+
+export type QuestionDetail = QuestionBankItem & {
+  currentVersion: QuestionBankItem["currentVersion"] & {
+    objective: string; createdBy: string; thinkingSeconds: number; hardAnswerSeconds: number;
+    createdByName?: string | null;
+  };
+  approvedVersionId: string | null;
+  /** Review history of the current version, oldest first. */
+  reviews?: QuestionReviewEntry[];
+  /** What the signed-in person may do, and why not (question_bank/permissions.py). */
+  actions?: Record<QuestionAction, ActionPermission>;
+  reviewTypes?: string[];
+  rubric: {
+    rubricVersionId: string; stableKey: string; version: string; minimumCoverage: number; approved: boolean;
+    criteria: Array<{ stableKey: string; name: string; description: string; weight: number; critical: boolean }>;
+  } | null;
+};
+
+export type UpdateDraftPayload = Partial<{
+  canonicalText: string; objective: string; questionType: string; difficultyBand: string;
+  thinkingSeconds: number; softAnswerSeconds: number; hardAnswerSeconds: number; changeSummary: string;
+}>;
+
+export type ReviewDecision = "APPROVE" | "REQUEST_CHANGES" | "REJECT";
+export type QuestionAction = "edit" | "submit" | "review" | "approve" | "revise";
+export type ActionPermission = { allowed: boolean; reason: string | null };
+export type QuestionReviewEntry = {
+  id: string; reviewerId: string; reviewer: string | null; reviewType: string;
+  decision: string; comment: string | null; reviewedAt: string | null;
+};
+export type WorkBucket = "drafts" | "changes" | "review" | "approve";
+export type WorkSummary = { buckets: Partial<Record<WorkBucket, number>>; generatedInReview: number; roles: string[] };
+type VersionResponse = { questionVersionId: string; questionId: string; version: string; status: QuestionStatus };
+
 export type QuestionListResponse = { items: QuestionBankItem[]; page: number; pageSize: number; total: number };
-export type QuestionListParams = { q?: string; status?: string; difficultyBand?: string; page?: number; pageSize?: number };
+export type QuestionListParams = {
+  q?: string; status?: string; difficultyBand?: string; page?: number; pageSize?: number;
+  /** "My work" bucket of the signed-in person. */
+  mine?: WorkBucket;
+  /** ai: drafts the system generated. */
+  source?: "ai" | "human";
+};
 
 export type CreateQuestionDraftPayload = {
   stableKey: string; version: string; taxonomyVersion: string; questionType: string; difficultyBand: string;
@@ -41,7 +94,20 @@ export const questionBankApi = {
   list: (params: QuestionListParams = {}) =>
     api.get<QuestionListResponse>("/admin/question-bank/questions", { params }),
   get: (questionId: string) =>
-    api.get<QuestionBankItem>(`/admin/question-bank/questions/${encodeURIComponent(questionId)}`),
+    api.get<QuestionDetail>(`/admin/question-bank/questions/${encodeURIComponent(questionId)}`),
+  attachRubric: (questionVersionId: string, payload: AttachRubricPayload) =>
+    api.put<{ questionVersionId: string; rubricVersionId: string }>(`/admin/question-bank/question-versions/${encodeURIComponent(questionVersionId)}/rubric`, payload),
+  revise: (questionVersionId: string) =>
+    api.post<VersionResponse>(`/admin/question-bank/question-versions/${encodeURIComponent(questionVersionId)}/revise`),
+  updateDraft: (questionVersionId: string, payload: UpdateDraftPayload) =>
+    api.patch<VersionResponse>(`/admin/question-bank/question-versions/${encodeURIComponent(questionVersionId)}`, payload),
+  submit: (questionVersionId: string) =>
+    api.post<VersionResponse>(`/admin/question-bank/question-versions/${encodeURIComponent(questionVersionId)}/submit`),
+  review: (questionVersionId: string, decision: ReviewDecision, comment?: string, reviewType = "CONTENT") =>
+    api.post<{ reviewId: string; decision: ReviewDecision }>(`/admin/question-bank/question-versions/${encodeURIComponent(questionVersionId)}/reviews`, { reviewType, decision, comment }),
+  workSummary: () => api.get<WorkSummary>("/admin/question-bank/questions/work-summary"),
+  approve: (questionVersionId: string, approvalPolicyVersion = "qb-approval-v1") =>
+    api.post<VersionResponse>(`/admin/question-bank/question-versions/${encodeURIComponent(questionVersionId)}/approve`, { approvalPolicyVersion }),
   createDraft: (payload: CreateQuestionDraftPayload) =>
     api.post<{ questionId: string; questionVersionId: string; version: string; status: string }>("/admin/question-bank/questions/drafts", payload),
   downloadImportTemplate: (format: "csv" | "xlsx") => api.get(`/admin/question-bank/imports/template?format=${format}`, { responseType: "blob" }),

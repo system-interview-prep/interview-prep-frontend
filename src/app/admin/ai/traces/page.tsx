@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import AdminAiTracesClient from "@features/admin/ai/components/AdminAiTracesClient";
+import AiCallsClient from "@features/admin/pipeline/components/AiCallsClient";
 
-export default function AdminAiTracesPage() {
+export default function Page() {
   return (
     <Suspense
       fallback={
@@ -11,7 +11,7 @@ export default function AdminAiTracesPage() {
         />
       }
     >
-      <AdminAiTracesClient />
+      <AiCallsClient />
     </Suspense>
   );
 }

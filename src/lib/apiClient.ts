@@ -133,10 +133,12 @@ export type AdminOverviewData = {
   totalSessions: number;
   activeSessions: number;
   completedSessions: number;
-  averageScore: number;
-  averageTurnaround: number;
-  sentimentScore: number;
-  monthlyTrend: Array<{ month: string; count: number }>;
+  /** Closed sessions with a report (the rest ended without one). */
+  gradedSessions?: number;
+  averageScore: number | null;
+  averageTurnaround: number | null;
+  sentimentScore: number | null;
+  monthlyTrend: Array<{ month: string; key?: string; count: number }>;
   modes: {
     chat: number;
     voice: number;
@@ -159,21 +161,89 @@ export type AdminSessionItem = {
   candidateName: string;
   candidateEmail: string;
   candidateInitials: string;
-  position: string;
+  /** Job title of the session; null when the JD was deleted. */
+  position: string | null;
   teamAndLocation: string;
   type: 'video' | 'chat' | 'voice';
   aiScore: number | null;
   dateLabel: string;
   timeLabel: string;
+  /** completed: closed with a report; action_needed: closed without one; scheduled: not closed. */
   status: 'completed' | 'scheduled' | 'action_needed';
   actionLabel: string;
+  userId?: string | null;
+  endReason?: string | null;
+};
+
+/** Aggregates over every session matching the filters (not just the current page). */
+export type AdminSessionStats = {
+  active: number;
+  completed: number;
+  /** Percentage (0–100); null when nothing has been graded. */
+  avgScore: number | null;
+  ungraded?: number;
+};
+
+/** Who wrote a follow-up: the model, or a fixed fallback line. Null on sessions before labelling. */
+export type AdminFollowupProvenance = 'llm' | 'fixed_fallback' | null;
+
+export type AdminPlanTurn = {
+  turnId: string;
+  turnIndex: number;
+  status: string;
+  stage: string;
+  /** question_bank, broader_skill, role, generated_unreviewed, *_template, behavioral_star_preset; "~" = inferred for old sessions. */
+  source: string;
+  difficulty: string | null;
+  questionVersionId: string | null;
+  questionText: string | null;
+  objective: string | null;
+  target: string | null;
+  expectedPoints: string[];
+  rubricCriteria: string[];
+  softAnswerSeconds: number | null;
+  hardAnswerSeconds: number | null;
+  answerSeconds: number | null;
+  score: number | null;
+  languageOk: boolean;
+  followups: { type: string; content: string; generatedBy: AdminFollowupProvenance; missingAspect: string | null }[];
+};
+
+export type AdminSessionPlan = {
+  session: {
+    id: string;
+    status: string;
+    mode: string;
+    durationMinutes: number | null;
+    locale: string | null;
+    startedAt: string | null;
+    endReason: string | null;
+    jobTitle: string | null;
+    companyName: string | null;
+    candidateEmail: string | null;
+    candidateName: string | null;
+  };
+  plan: {
+    status: string | null;
+    policyVersion: string | null;
+    questionBudget: number | null;
+    difficulty: { level: string; source: string; seniority?: string | null } | null;
+    sections: { sectionId: string; label: string; durationMinutes: number }[];
+    targets: { label: string; importance: number; questionCount: number; matchStatuses: string[]; priorities: string[] }[];
+    questionSources: Record<string, number>;
+    generatedQuestionCount: number | null;
+    uncoveredTargets: unknown[];
+  };
+  turns: AdminPlanTurn[];
 };
 
 export const adminApi = {
+  getSessionPlan: (sessionId: string) =>
+    apiClient.get<{ success: boolean } & AdminSessionPlan>(`/admin/sessions/${encodeURIComponent(sessionId)}/plan`),
   getOverview: () =>
     apiClient.get<{ success: boolean; overview: AdminOverviewData }>('/admin/overview'),
-  getSessions: (params?: { mode?: string; search?: string; limit?: number; offset?: number }) =>
-    apiClient.get<{ success: boolean; total: number; sessions: AdminSessionItem[] }>('/admin/sessions', {
+  getSessions: (params?: { mode?: string; search?: string; report?: string; limit?: number; offset?: number }) =>
+    apiClient.get<{ success: boolean; total: number; stats?: AdminSessionStats; sessions: AdminSessionItem[] }>('/admin/sessions', {
       params,
     }),
 };

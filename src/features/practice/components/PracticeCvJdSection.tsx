@@ -14,16 +14,24 @@ import {
 } from 'lucide-react';
 import { jobProfileApi, type JobProfile } from '@features/admin/services/jobProfile.service';
 import { userCvApi, type UserCvDto } from '@features/resume/services/userCv.service';
-import { startInterviewSession } from '@features/interview/services/interviewSession.service';
+import {
+  describeStartInterviewError,
+  isQuestionUnavailableError,
+  startInterviewSession,
+} from '@features/interview/services/interviewSession.service';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import { fmt, localeOf } from '@/i18n/format';
 
 export function PracticeCvJdSection() {
   const router = useRouter();
+  const { t, lang } = useLanguage();
 
   // Data lists
   const [jobs, setJobs] = useState<JobProfile[]>([]);
   const [cvs, setCvs] = useState<UserCvDto[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [dataError, setDataError] = useState<string | null>(null);
+  // `message` is the raw error text when there is one; otherwise a translated fallback is shown.
+  const [dataError, setDataError] = useState<{ message: string | null } | null>(null);
 
   // Selections
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -32,7 +40,8 @@ export function PracticeCvJdSection() {
   // Preparation state
   const [isStarting, setIsStarting] = useState(false);
   const [prepStep, setPrepStep] = useState<string>('');
-  const [startError, setStartError] = useState<string | null>(null);
+  // The raw failure is kept so the message follows the UI language.
+  const [startError, setStartError] = useState<{ cause: unknown } | null>(null);
 
   const loadInitialData = useCallback(async () => {
     setLoadingData(true);
@@ -40,7 +49,7 @@ export function PracticeCvJdSection() {
     try {
       const [jobsRes, cvsRes] = await Promise.all([
         jobProfileApi.list({ limit: 50 }),
-        userCvApi.list(50).catch(() => ({ data: { items: [] } })),
+        userCvApi.listAll().catch(() => ({ data: { items: [], total: 0 } })),
       ]);
 
       const activeJobs = (jobsRes.data.items ?? []).filter(
@@ -59,8 +68,7 @@ export function PracticeCvJdSection() {
         setSelectedCvId(availableCvs[0].id);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Không thể tải danh sách công việc và CV.';
-      setDataError(msg);
+      setDataError({ message: err instanceof Error ? err.message : null });
     } finally {
       setLoadingData(false);
     }
@@ -78,38 +86,36 @@ export function PracticeCvJdSection() {
 
     setIsStarting(true);
     setStartError(null);
-    setPrepStep('Đang khởi tạo phiên luyện tập (P0)...');
+    setPrepStep('picker.practice.prep.init');
 
     try {
-      setPrepStep('Đang đối chiếu năng lực và lập kế hoạch câu hỏi theo CV–JD (P1)...');
+      setPrepStep('picker.practice.prep.plan');
       const targetUrl = await startInterviewSession({
         mode: 'chat',
         experience: 'question_practice',
         candidateId: selectedCvId,
         jobId: selectedJobId,
         jobTitle: selectedJob?.title || undefined,
-        lang: 'vi',
+        lang: lang === 'en' ? 'en' : 'vi',
       });
 
-      setPrepStep('Chuẩn bị phòng luyện tập hoàn tất! Đang chuyển hướng...');
+      setPrepStep('picker.practice.prep.done');
       router.push(targetUrl);
     } catch (err: unknown) {
       setIsStarting(false);
       setPrepStep('');
-      const msg = err instanceof Error ? err.message : String(err);
-      setStartError(msg || 'Không thể bắt đầu phiên luyện tập theo CV–JD.');
+      setStartError({ cause: err });
     }
   };
 
-  const isQuestionUnavailable = Boolean(
-    startError && startError.includes('question_unavailable')
-  );
+  const isQuestionUnavailable = Boolean(startError && isQuestionUnavailableError(startError.cause));
+  const startErrorText = startError ? describeStartInterviewError(startError.cause, t) : null;
 
   if (loadingData) {
     return (
       <div className="flex flex-col items-center justify-center rounded-3xl border border-[#DCE4F3] bg-white p-14 text-center shadow-xs">
         <Loader2 className="size-8 animate-spin text-[#204195]" />
-        <p className="mt-3 text-sm font-semibold text-[#14244B]">Đang tải dữ liệu vị trí ứng tuyển và hồ sơ CV...</p>
+        <p className="mt-3 text-sm font-semibold text-[#14244B]">{t('picker.practice.loading')}</p>
       </div>
     );
   }
@@ -118,15 +124,15 @@ export function PracticeCvJdSection() {
     return (
       <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-800">
         <AlertCircle className="mx-auto size-8 text-red-600" />
-        <h3 className="mt-2 text-base font-bold text-red-900">Không thể tải dữ liệu</h3>
-        <p className="mt-1 text-sm text-red-700">{dataError}</p>
+        <h3 className="mt-2 text-base font-bold text-red-900">{t('picker.practice.loadErrorTitle')}</h3>
+        <p className="mt-1 text-sm text-red-700">{dataError.message ?? t('picker.practice.loadErrorFallback')}</p>
         <button
           type="button"
           onClick={() => void loadInitialData()}
           className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700"
         >
           <RefreshCw className="size-3.5" />
-          <span>Thử lại</span>
+          <span>{t('picker.practice.retry')}</span>
         </button>
       </div>
     );
@@ -139,13 +145,13 @@ export function PracticeCvJdSection() {
         <div className="max-w-2xl">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-[#204195]">
             <Sparkles className="size-3.5" />
-            Luyện tập câu hỏi theo CV–JD
+            {t('picker.practice.badge')}
           </span>
           <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-[#14244B] sm:text-3xl">
-            Tự ôn luyện câu hỏi bám sát vị trí ứng tuyển
+            {t('picker.practice.title')}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-[#607096] sm:text-base">
-            Hệ thống đối chiếu hồ sơ CV với bản mô tả công việc (JD) để tạo bộ câu hỏi tự luận có cấu trúc từ Ngân hàng câu hỏi đã được kiểm duyệt. Bạn trả lời từng câu bằng văn bản và xem lại sau phiên.
+            {t('picker.practice.intro')}
           </p>
         </div>
       </div>
@@ -163,12 +169,12 @@ export function PracticeCvJdSection() {
           <AlertCircle className={`mt-0.5 size-5 shrink-0 ${isQuestionUnavailable ? 'text-amber-600' : 'text-red-600'}`} />
           <div className="min-w-0 flex-1 text-sm">
             <p className="font-bold">
-              {isQuestionUnavailable ? 'Ngân hàng câu hỏi chưa đủ cho vị trí này' : 'Không thể bắt đầu phiên luyện tập'}
+              {isQuestionUnavailable ? t('picker.practice.qbTitle') : t('picker.practice.startFailedTitle')}
             </p>
             <p className="mt-1 text-xs leading-relaxed opacity-90">
               {isQuestionUnavailable
-                ? 'Hệ thống chưa có đủ câu hỏi đã phê duyệt và hiệu chuẩn cho vị trí bạn đã chọn. Vui lòng chọn một vị trí tuyển dụng khác bên dưới.'
-                : startError}
+                ? t('picker.practice.qbBody')
+                : startErrorText}
             </p>
           </div>
         </div>
@@ -183,14 +189,14 @@ export function PracticeCvJdSection() {
               <span className="flex size-7 items-center justify-center rounded-lg bg-[#204195] text-xs font-bold text-white">
                 1
               </span>
-              <h3 className="text-base font-bold text-[#14244B]">Chọn vị trí công việc (JD)</h3>
+              <h3 className="text-base font-bold text-[#14244B]">{t('picker.practice.step1Title')}</h3>
             </div>
-            <span className="text-xs font-semibold text-[#607096]">{jobs.length} vị trí khả dụng</span>
+            <span className="text-xs font-semibold text-[#607096]">{fmt(t('picker.practice.jobsAvailable'), { n: jobs.length })}</span>
           </div>
 
           <div className="mt-4 flex-1 space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
             {jobs.length === 0 ? (
-              <p className="py-8 text-center text-xs text-[#607096]">Chưa có vị trí công việc nào sẵn sàng.</p>
+              <p className="py-8 text-center text-xs text-[#607096]">{t('picker.practice.noJobs')}</p>
             ) : (
               jobs.map((job) => {
                 const isSelected = job.id === selectedJobId;
@@ -247,16 +253,16 @@ export function PracticeCvJdSection() {
               <span className="flex size-7 items-center justify-center rounded-lg bg-[#204195] text-xs font-bold text-white">
                 2
               </span>
-              <h3 className="text-base font-bold text-[#14244B]">Chọn hồ sơ ứng viên (CV)</h3>
+              <h3 className="text-base font-bold text-[#14244B]">{t('picker.practice.step2Title')}</h3>
             </div>
-            <span className="text-xs font-semibold text-[#607096]">{cvs.length} hồ sơ</span>
+            <span className="text-xs font-semibold text-[#607096]">{fmt(t('picker.practice.cvCount'), { n: cvs.length })}</span>
           </div>
 
           <div className="mt-4 flex-1 space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
             {cvs.length === 0 ? (
               <div className="py-8 text-center text-xs text-[#607096]">
-                <p>Bạn chưa có hồ sơ CV nào đã phân tích thành công.</p>
-                <p className="mt-1">Vui lòng tải lên CV tại trang CV của tôi.</p>
+                <p>{t('picker.practice.noCvs')}</p>
+                <p className="mt-1">{t('picker.practice.uploadHint')}</p>
               </div>
             ) : (
               cvs.map((cv) => {
@@ -283,7 +289,9 @@ export function PracticeCvJdSection() {
                           <p className="truncate text-sm font-bold text-[#14244B]">{displayName}</p>
                         </div>
                         <p className="mt-1 text-[11px] text-[#607096]">
-                          Cập nhật: {new Date(cv.createdAt).toLocaleDateString('vi-VN')}
+                          {fmt(t('picker.practice.updated'), {
+                            date: new Date(cv.createdAt).toLocaleDateString(localeOf(lang)),
+                          })}
                         </p>
                       </div>
                       <div
@@ -305,16 +313,16 @@ export function PracticeCvJdSection() {
       {/* Bottom Summary & Start CTA */}
       <div className="flex flex-col gap-4 rounded-3xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-7">
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#607096]">Cấu hình phiên luyện tập</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-[#607096]">{t('picker.practice.configTitle')}</p>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-semibold text-[#14244B]">
-            <span>{selectedJob?.title || 'Chưa chọn vị trí'}</span>
+            <span>{selectedJob?.title || t('picker.practice.noJobSelected')}</span>
             <span className="text-[#C9D7F1]">•</span>
-            <span className="text-[#204195]">{selectedCv?.originalName || 'Chưa chọn CV'}</span>
+            <span className="text-[#204195]">{selectedCv?.originalName || t('picker.practice.noCvSelected')}</span>
           </div>
           {isStarting && (
             <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-[#204195] animate-pulse">
               <Loader2 className="size-3.5 animate-spin" />
-              <span>{prepStep}</span>
+              <span>{prepStep ? t(prepStep) : ''}</span>
             </p>
           )}
         </div>
@@ -328,11 +336,11 @@ export function PracticeCvJdSection() {
           {isStarting ? (
             <>
               <Loader2 className="size-4.5 animate-spin" />
-              <span>Đang thiết lập...</span>
+              <span>{t('picker.practice.settingUp')}</span>
             </>
           ) : (
             <>
-              <span>Bắt đầu luyện tập theo CV–JD</span>
+              <span>{t('picker.practice.start')}</span>
               <ArrowRight className="size-4.5" />
             </>
           )}

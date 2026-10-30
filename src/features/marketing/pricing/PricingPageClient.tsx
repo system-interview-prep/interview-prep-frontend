@@ -95,7 +95,7 @@ export default function PricingPageClient() {
                   mt-5
                   max-w-[540px]
                   font-sans
-                  text-[clamp(2.6rem,3.85vw,4.25rem)]
+                  text-[clamp(2.1rem,1.3rem+2.3vw,4.25rem)]
                   font-extrabold
                   leading-[0.99]
                   tracking-[-0.045em]

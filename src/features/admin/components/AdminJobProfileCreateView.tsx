@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import MDEditor from "@uiw/react-md-editor";
-import { taxonomyApi, type TaxonomyConcept } from "@/lib/api/taxonomyApi";
+import { taxonomyApi, type TaxonomyConcept } from "@features/admin/services/taxonomy.service";
 import {
   emptyJobProfileForm,
   jobProfileApi,
@@ -18,11 +18,14 @@ import {
   serializeFinalizePayload,
 } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
 import { useJpUploadStatus } from "@features/resume/hooks/useJpUploadStatus";
-import { ArrowLeft, UploadCloud, FileText, Sparkles, Building2, MapPin, Briefcase, Clock, Coins, Globe, Upload, Trash2, CheckCircle2, Eye, History, LoaderCircle } from "lucide-react";
+import { ArrowLeft, UploadCloud, FileText, Building2, MapPin, Briefcase, Clock, Coins, Globe, Upload, Trash2, CheckCircle2, Eye, LoaderCircle } from "lucide-react";
 import { getCompanyInitials } from "@/components/jobs/job-card.utils";
 import { humanizeKey } from "@/utils";
 import CanonicalJdReview from "./job-description/CanonicalJdReview";
+import AdminPageHeader from "./primitives/AdminPageHeader";
+import { ConfirmDialog } from "@components/shared/ConfirmDialog";
 
 export { type CanonicalFinalizeFormState, initialFinalizeForm };
 
@@ -352,6 +355,7 @@ function ValueEditor(props: {
   onChange: (v: unknown) => void;
 }) {
   const { label, value, onChange } = props;
+  const { t } = useLanguage();
 
   if (typeof value === "string") {
     const multiline = value.length > 80 || value.includes("\n");
@@ -411,7 +415,7 @@ function ValueEditor(props: {
         <input
           value={""}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="(empty)"
+          placeholder={t("fixAdmin.jp.editor.empty")}
           className="w-full rounded-xl border border-outline-variant/30 bg-surface px-4 py-3 text-sm text-on-surface"
         />
       </div>
@@ -461,7 +465,7 @@ function ValueEditor(props: {
           </div>
         ) : (
           <div className="rounded-xl border border-outline-variant/20 bg-surface px-4 py-3 text-sm text-on-surface-variant">
-            Trường dạng danh sách phức tạp. Hãy dùng “JD text view” để xem; hiện tại form không hiển thị JSON.
+            {t("fixAdmin.jp.editor.complexList")}
           </div>
         )}
       </div>
@@ -491,6 +495,7 @@ function ObjectEditor(props: {
   onChange: (v: Record<string, unknown>) => void;
 }) {
   const { value, onChange } = props;
+  const { t } = useLanguage();
   const entries = Object.entries(value || {})
     .filter(([k]) => !shouldHideKey(k))
     .filter(([, v]) => !isEmptyValue(v));
@@ -498,7 +503,7 @@ function ObjectEditor(props: {
   if (entries.length === 0) {
     return (
       <div className="text-sm text-on-surface-variant">
-        (Không có dữ liệu)
+        {t("fixAdmin.jp.editor.noData")}
       </div>
     );
   }
@@ -529,10 +534,11 @@ function LabeledJsonForm(props: {
   onChange: (next: any) => void;
 }) {
   const { title, data, onChange } = props;
+  const { t } = useLanguage();
 
   const renderNode = (node: any, path: (string | number)[], fallbackLabel: string) => {
     if (isLabeledNode(node)) {
-      const label = String(node.label || fallbackLabel || "Field");
+      const label = String(node.label || fallbackLabel || t("fixAdmin.jp.editor.field"));
       const v = (node as any).value;
       if (isEmptyValue(v)) return null;
       return (
@@ -598,6 +604,17 @@ function LabeledJsonForm(props: {
 
 export default function AdminJobProfileCreateView() {
   const { t } = useLanguage();
+  /** Vietnamese name of a taxonomy concept kind ("Kỹ năng", not "skill"). */
+  const kindName = (kind: string) => {
+    const key = `fixAdmin.taxonomy.kind.${kind}`;
+    const text = t(key);
+    return text && text !== key ? text : kind;
+  };
+  const uploadStatusLabel = (status: string) => {
+    const key = `adminUiJd.uploadStatus.${status}`;
+    const label = t(key);
+    return label === key ? status : label;
+  };
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = String(searchParams.get("id") || "").trim();
@@ -612,7 +629,7 @@ export default function AdminJobProfileCreateView() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      setError("Kích thước file ảnh logo không được vượt quá 2MB.");
+      setError(t("fixAdmin.jp.err.logoTooLarge"));
       return;
     }
     const reader = new FileReader();
@@ -680,7 +697,7 @@ export default function AdminJobProfileCreateView() {
     if (!v) {
       return (
         <div className="rounded-xl border border-outline-variant/20 bg-surface p-4 text-sm text-on-surface-variant">
-          Chưa có mô tả để hiển thị.
+          {t("fixAdmin.jp.preview.empty")}
         </div>
       );
     }
@@ -761,7 +778,7 @@ export default function AdminJobProfileCreateView() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await taxonomyApi.getActive();
+        const { data } = await taxonomyApi.active();
         if (cancelled) return;
         const allConcepts = data.concepts ?? [];
         const filtered = allConcepts.filter((concept) =>
@@ -776,7 +793,7 @@ export default function AdminJobProfileCreateView() {
           return f.primaryTaxonomyConceptId ? f : { ...f, primaryTaxonomyConceptId: items[0]?.concept_id ?? "" };
         });
       } catch {
-        if (!cancelled) setError("Unable to load the active taxonomy.");
+        if (!cancelled) setError(t("fixAdmin.jp.err.taxonomy"));
       } finally {
         if (!cancelled) setLoadingTaxonomy(false);
       }
@@ -837,9 +854,9 @@ export default function AdminJobProfileCreateView() {
       const { data } = await jobProfileApi.getVersion(editId, versionId);
       setSelectedVersion(data);
     } catch (err: unknown) {
-      setError(axios.isAxiosError(err) ? String((err.response?.data as any)?.detail ?? err.message) : "Không thể tải nội dung version.");
+      setError(axios.isAxiosError(err) ? String((err.response?.data as any)?.detail ?? err.message) : t("fixAdmin.jp.err.loadVersion"));
     }
-  }, [editId]);
+  }, [editId, t]);
 
   useEffect(() => {
     if (!isEditMode || !versions.some((v) => ["PENDING", "PROCESSING"].includes(v.processingStatus))) return;
@@ -868,14 +885,24 @@ export default function AdminJobProfileCreateView() {
       setSelectedVersion(data);
       await refreshVersions();
     } catch (err: unknown) {
-      setError(axios.isAxiosError(err) ? String((err.response?.data as any)?.detail ?? err.message) : "Khong the tao version moi.");
+      setError(axios.isAxiosError(err) ? String((err.response?.data as any)?.detail ?? err.message) : t("fixAdmin.jp.err.createVersion"));
     } finally {
       setVersionBusy(false);
     }
   };
 
-  const handlePublishVersion = async (versionId: string) => {
-    if (!editId || versionBusy || !window.confirm("Publish version nay cho ung vien?")) return;
+  const [confirmAction, setConfirmAction] = useState<
+    { kind: "publish"; versionId: string } | { kind: "delete" } | null
+  >(null);
+
+  const handlePublishVersion = (versionId: string) => {
+    if (!editId || versionBusy) return;
+    setConfirmAction({ kind: "publish", versionId });
+  };
+
+  const doPublishVersion = async (versionId: string) => {
+    if (!editId || versionBusy) return;
+    setConfirmAction(null);
     setVersionBusy(true);
     setError(null);
     try {
@@ -883,7 +910,7 @@ export default function AdminJobProfileCreateView() {
       await refreshVersions();
       await handleViewVersion(versionId);
     } catch (err: unknown) {
-      setError(axios.isAxiosError(err) ? String((err.response?.data as any)?.detail ?? err.message) : "Khong the publish version.");
+      setError(axios.isAxiosError(err) ? String((err.response?.data as any)?.detail ?? err.message) : t("fixAdmin.jp.err.publishVersion"));
     } finally {
       setVersionBusy(false);
     }
@@ -939,7 +966,7 @@ export default function AdminJobProfileCreateView() {
     if (!uploadId || finalizeBusy) return;
     const title = finalizeForm.title.trim();
     if (!title) {
-      setError("Tiêu đề công việc là bắt buộc.");
+      setError(t("fixAdmin.jp.err.titleRequired"));
       return;
     }
 
@@ -949,7 +976,7 @@ export default function AdminJobProfileCreateView() {
       const minNum = Number(finalizeForm.salaryMin.trim() || 0);
       const maxNum = Number(finalizeForm.salaryMax.trim() || 0);
       if (finalizeForm.salaryMin.trim() && finalizeForm.salaryMax.trim() && minNum > maxNum) {
-        setError("Lương tối thiểu không được lớn hơn lương tối đa.");
+        setError(t("fixAdmin.jp.err.salaryRange"));
         return;
       }
     }
@@ -959,7 +986,7 @@ export default function AdminJobProfileCreateView() {
       const minExp = Number(finalizeForm.experienceMinYears.trim());
       const maxExp = Number(finalizeForm.experienceMaxYears.trim());
       if (minExp > maxExp) {
-        setError("Số năm kinh nghiệm tối thiểu không được lớn hơn số năm tối đa.");
+        setError(t("fixAdmin.jp.err.expRange"));
         return;
       }
     }
@@ -985,9 +1012,16 @@ export default function AdminJobProfileCreateView() {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     const targetId = isEditMode ? editId : uploadId;
-    if (!targetId || !window.confirm("Xóa JD này? Thao tác không thể hoàn tác.")) return;
+    if (!targetId) return;
+    setConfirmAction({ kind: "delete" });
+  };
+
+  const doDelete = async () => {
+    const targetId = isEditMode ? editId : uploadId;
+    setConfirmAction(null);
+    if (!targetId) return;
     setError(null);
     try {
       if (isEditMode) {
@@ -1055,23 +1089,23 @@ export default function AdminJobProfileCreateView() {
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-xs font-semibold text-[#607096]">
-            Dữ liệu JD đã trích xuất{draftSavedAt ? ` • Đã lưu` : ""}
+            {t("fixAdmin.jp.ai.extracted")}{draftSavedAt ? t("fixAdmin.jp.ai.saved") : ""}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setAiViewMode((m) => (m === "review" ? "advanced" : "review"))}
-              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14244B] shadow-2xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all"
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#DCE4F3] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14244B] shadow-2xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all"
             >
-              {aiViewMode === "review" ? "Chỉnh sửa nâng cao" : "Xem minh chứng"}
+              {aiViewMode === "review" ? t("fixAdmin.jp.ai.advanced") : t("fixAdmin.jp.ai.evidence")}
             </button>
             <button
               type="button"
               onClick={handleSaveDraftAiJson}
               disabled={!canSaveDraft}
-              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl bg-[#204195] hover:bg-[#183275] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-50"
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#204195] hover:bg-[#183275] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-50"
             >
-              {draftSaving ? "Đang lưu…" : "Lưu thay đổi"}
+              {draftSaving ? t("fixAdmin.jp.saving") : t("fixAdmin.jp.saveChanges")}
             </button>
           </div>
         </div>
@@ -1082,17 +1116,17 @@ export default function AdminJobProfileCreateView() {
           <>
             {hasCanonical && (
               <LabeledJsonForm
-                title="Chỉnh sửa dữ liệu cấu trúc"
+                title={t("fixAdmin.jp.ai.structuredTitle")}
                 data={editableCanonicalUi}
                 onChange={(next) => setEditableCanonicalUi(next)}
               />
             )}
             {hasExtras && (
               <details className="rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-2xs">
-                <summary className="cursor-pointer text-sm font-bold text-[#14244B]">Thông tin kỹ thuật trích xuất</summary>
+                <summary className="cursor-pointer text-sm font-bold text-[#14244B]">{t("fixAdmin.jp.ai.technicalTitle")}</summary>
                 <div className="mt-4">
                   <LabeledJsonForm
-                    title="Thông tin kỹ thuật trích xuất"
+                    title={t("fixAdmin.jp.ai.technicalTitle")}
                     data={editableExtras}
                     onChange={(next) => setEditableExtras(next)}
                   />
@@ -1106,29 +1140,19 @@ export default function AdminJobProfileCreateView() {
   };
 
   return (
-    <div className="mx-auto min-w-0 max-w-[1400px] space-y-6">
-      <header className="flex min-w-0 flex-col gap-3 border-b border-[#EAEFF8] pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <Link
-            href="/admin/job-descriptions"
-            className="mb-2.5 inline-flex items-center gap-1.5 rounded-full bg-[#204195]/8 border border-[#204195]/15 px-3 py-1 text-xs font-semibold text-[#204195] transition-colors hover:bg-[#204195]/15"
-          >
-            <ArrowLeft className="size-3.5" />
-            {isEditMode ? "Quay lại danh sách" : t("admin.jobProfile.createPage.back")}
-          </Link>
-          <h1 className="font-headline text-2xl font-bold tracking-tight text-[#14244B] md:text-3xl">
-            {isEditMode ? "Chỉnh sửa Job Description" : t("admin.jobProfile.createPage.title")}
-          </h1>
-          <p className="mt-1 max-w-2xl text-xs sm:text-sm text-[#607096]">
-            {isEditMode
-              ? "Cập nhật mô tả công việc (description) để ứng viên xem. Nhấn “Lưu thay đổi” để lưu."
-              : t("admin.jobProfile.createPage.subtitle")}
-          </p>
-        </div>
-      </header>
+    <div className="min-w-0 space-y-6">
+      <AdminPageHeader
+        title={isEditMode ? t("adminUiJd.edit.title") : t("adminUiJd.create.title")}
+        description={isEditMode ? t("fixAdmin.jp.editSubtitle") : t("admin.jobProfile.createPage.subtitle")}
+        breadcrumbs={[
+          { label: t("adminUiJd.breadcrumb.admin"), href: "/admin/dashboard" },
+          { label: t("adminUiJd.list.title"), href: "/admin/job-descriptions" },
+          { label: isEditMode ? t("adminUiJd.edit.title") : t("adminUiJd.create.title") },
+        ]}
+      />
 
       {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-xs" role="alert">
+        <div className="rounded-2xl border border-[#C43B3B]/30 bg-[#FDF2F2] px-4 py-3 text-sm text-[#C43B3B] shadow-xs" role="alert">
           {error}
         </div>
       )}
@@ -1144,19 +1168,18 @@ export default function AdminJobProfileCreateView() {
                   <section className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
                     <div className="border-b border-[#DCE4F3] bg-gradient-to-r from-[#EEF2FD] to-white p-5 md:p-6">
                       <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div className="flex gap-3">
-                          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#204195] text-white"><History className="size-5" /></div>
-                          <div>
-                            <h2 className="font-headline text-lg font-bold text-[#14244B]">Lịch sử file JD</h2>
-                            <p className="mt-1 max-w-xl text-sm text-[#607096]">File mới luôn được phân tích thành bản nháp. Ứng viên vẫn sử dụng bản đang hoạt động cho đến khi bạn chủ động xuất bản.</p>
+                        <div className="flex min-w-0 gap-3">
+                          <div className="min-w-0">
+                            <h2 className="text-base font-bold text-[#14244B]">{t("fixAdmin.jp.versions.title")}</h2>
+                            <p className="mt-1 max-w-xl text-sm text-[#607096]">{t("fixAdmin.jp.versions.hint")}</p>
                           </div>
                         </div>
                         <label className="group cursor-pointer rounded-xl border-2 border-dashed border-[#AFC0E5] bg-white px-4 py-3 transition hover:border-[#204195] hover:bg-[#F8FAFF]">
                           <div className="flex items-center gap-3">
                             <UploadCloud className="size-5 text-[#204195]" />
                             <div>
-                              <div className="text-xs font-bold text-[#14244B]">{versionFile?.name || "Chọn file JD mới"}</div>
-                              <div className="text-[11px] text-[#607096]">PDF, DOCX hoặc hình ảnh</div>
+                              <div className="text-xs font-bold text-[#14244B]">{versionFile?.name || t("fixAdmin.jp.versions.chooseFile")}</div>
+                              <div className="text-[11px] text-[#607096]">{t("fixAdmin.jp.versions.fileTypes")}</div>
                             </div>
                           </div>
                           <input type="file" accept=".pdf,.docx,.png,.jpg,.jpeg,.webp" onChange={(e) => setVersionFile(e.target.files?.[0] ?? null)} className="hidden" />
@@ -1165,9 +1188,9 @@ export default function AdminJobProfileCreateView() {
                       {versionFile && (
                         <div className="mt-4 flex justify-end">
                           <button type="button" onClick={handleCreateVersion} disabled={versionBusy}
-                            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#204195] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#183275] disabled:opacity-50">
-                            {versionBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-                            {versionBusy ? "Đang tạo và gửi parser…" : "Tạo bản nháp mới"}
+                            className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#204195] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#183275] disabled:opacity-50">
+                            {versionBusy ? <LoaderCircle className="size-4 animate-spin" /> : <UploadCloud className="size-4" />}
+                            {versionBusy ? t("fixAdmin.jp.versions.creating") : t("fixAdmin.jp.versions.create")}
                           </button>
                         </div>
                       )}
@@ -1185,12 +1208,12 @@ export default function AdminJobProfileCreateView() {
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2">
                                     <span className="rounded-md bg-[#14244B] px-2 py-1 text-[11px] font-bold text-white">v{version.versionNumber}</span>
-                                    <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${version.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : version.status === "DRAFT" ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-600"}`}>{version.status}</span>
+                                    <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${version.status === "ACTIVE" ? "bg-[#EAF5EE] text-[#287A4B]" : version.status === "DRAFT" ? "bg-[#FCB625]/15 text-[#7A5600]" : "bg-[#F0F4FC] text-[#607096]"}`}>{version.status === "ACTIVE" ? t("fixAdmin.jp.status.active") : version.status === "DRAFT" ? t("fixAdmin.jp.status.draft") : t("fixAdmin.jp.status.superseded")}</span>
                                   </div>
-                                  <div className="mt-2 truncate text-xs font-semibold text-[#14244B]">{version.filename || "Không có tên file"}</div>
+                                  <div className="mt-2 truncate text-xs font-semibold text-[#14244B]" title={version.filename || undefined}>{version.filename || t("fixAdmin.jp.versions.noFilename")}</div>
                                   <div className="mt-1 flex items-center gap-1.5 text-[11px] text-[#607096]">
-                                    {parsing ? <LoaderCircle className="size-3 animate-spin text-[#204195]" /> : <CheckCircle2 className="size-3 text-emerald-600" />}
-                                    Parser: {version.processingStatus}
+                                    {parsing ? <LoaderCircle className="size-3 animate-spin text-[#204195]" /> : <CheckCircle2 className="size-3 text-[#287A4B]" />}
+                                    {fmt(t("fixAdmin.jp.versions.parser"), { status: uploadStatusLabel(version.processingStatus) })}
                                   </div>
                                 </div>
                                 <Eye className="mt-1 size-4 shrink-0 text-[#607096]" />
@@ -1202,25 +1225,25 @@ export default function AdminJobProfileCreateView() {
 
                       <div className="min-w-0 p-5 md:p-6">
                         {!selectedVersion ? (
-                          <div className="flex min-h-48 items-center justify-center text-sm text-[#607096]">Chọn một version để xem kết quả phân tích.</div>
+                          <div className="flex min-h-48 items-center justify-center text-sm text-[#607096]">{t("fixAdmin.jp.versions.pick")}</div>
                         ) : selectedVersion.processingStatus !== "DONE" ? (
                           <div className="flex min-h-56 flex-col items-center justify-center text-center">
                             <LoaderCircle className="size-8 animate-spin text-[#204195]" />
-                            <div className="mt-3 font-bold text-[#14244B]">Đang phân tích v{selectedVersion.versionNumber}</div>
-                            <p className="mt-1 text-sm text-[#607096]">Kết quả sẽ tự động hiển thị tại đây khi parser hoàn tất.</p>
-                            {selectedVersion.error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{selectedVersion.error}</p>}
+                            <div className="mt-3 font-bold text-[#14244B]">{fmt(t("fixAdmin.jp.versions.parsing"), { n: selectedVersion.versionNumber })}</div>
+                            <p className="mt-1 text-sm text-[#607096]">{t("fixAdmin.jp.versions.parsingHint")}</p>
+                            {selectedVersion.error && <p className="mt-3 rounded-lg bg-[#FDF2F2] px-3 py-2 text-xs text-[#C43B3B]">{selectedVersion.error}</p>}
                           </div>
                         ) : (
                           <div className="space-y-5">
                             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EAEFF8] pb-4">
                               <div>
-                                <div className="text-xs font-bold uppercase tracking-wider text-[#204195]">Nội dung đã phân tích · v{selectedVersion.versionNumber}</div>
-                                <div className="mt-1 text-xs text-[#607096]">Kiểm tra dữ liệu trước khi xuất bản cho ứng viên.</div>
+                                <div className="text-xs font-bold uppercase tracking-wider text-[#204195]">{fmt(t("fixAdmin.jp.versions.parsed"), { n: selectedVersion.versionNumber })}</div>
+                                <div className="mt-1 text-xs text-[#607096]">{t("fixAdmin.jp.versions.parsedHint")}</div>
                               </div>
                               {selectedVersion.status !== "ACTIVE" && (
                                 <button type="button" onClick={() => handlePublishVersion(selectedVersion.id)} disabled={versionBusy}
-                                  className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50">
-                                  <CheckCircle2 className="size-4" /> Xuất bản version này
+                                  className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#287A4B] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#21653E] disabled:opacity-50">
+                                  <CheckCircle2 className="size-4" /> {t("fixAdmin.jp.versions.publish")}
                                 </button>
                               )}
                             </div>
@@ -1229,7 +1252,7 @@ export default function AdminJobProfileCreateView() {
                             ) : selectedVersion.rawText ? (
                               renderDescriptionPreview(selectedVersion.rawText)
                             ) : (
-                              <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">Parser đã hoàn tất nhưng chưa có dữ liệu để xem.</div>
+                              <div className="rounded-xl bg-[#FCB625]/10 p-4 text-sm text-[#7A5600]">{t("fixAdmin.jp.versions.noData")}</div>
                             )}
                           </div>
                         )}
@@ -1239,11 +1262,11 @@ export default function AdminJobProfileCreateView() {
                 )}
                 {!isEditMode && uploadId && (
                   <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-4 py-3 shadow-2xs">
-                    <div className="text-sm font-semibold text-[#14244B]">
-                      Upload ID: <span className="font-mono text-[#607096]">{uploadId}</span>
+                    <div className="min-w-0 text-sm font-semibold text-[#14244B]">
+                      {t("fixAdmin.jp.uploadId")} <span className="font-mono text-xs text-[#607096] [overflow-wrap:anywhere]">{uploadId}</span>
                     </div>
-                    <div className="text-xs font-bold uppercase tracking-widest text-[#607096]">
-                      Status: <span className="text-[#204195]">{jpStatus ?? "—"}</span>
+                    <div className="text-xs font-bold text-[#607096]">
+                      {t("fixAdmin.jp.statusLabel")}: <span className="text-[#204195]">{jpStatus ? uploadStatusLabel(jpStatus) : "—"}</span>
                     </div>
                   </div>
                 )}
@@ -1254,9 +1277,9 @@ export default function AdminJobProfileCreateView() {
                       type="button"
                       onClick={handleReparse}
                       disabled={reparseBusy || jpStatus === "PARSING" || jpStatus === "PENDING"}
-                      className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14244B] shadow-2xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all disabled:opacity-50"
+                      className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#DCE4F3] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14244B] shadow-2xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all disabled:opacity-50"
                     >
-                      {reparseBusy ? "Đang chạy lại..." : "Trích xuất lại"}
+                      {reparseBusy ? t("fixAdmin.jp.reparsing") : t("fixAdmin.jp.reparse")}
                     </button>
                   </div>
                 )}
@@ -1268,10 +1291,10 @@ export default function AdminJobProfileCreateView() {
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-xs font-bold uppercase tracking-widest text-[#204195]">
-                        Upload Job Description
+                        {t("fixAdmin.jp.upload.heading")}
                       </div>
                       <div className="mt-1 text-xs sm:text-sm text-[#607096]">
-                        Upload JD (PDF, DOCX, Image). Hệ thống sẽ trích xuất nội dung và tạo dữ liệu cấu trúc để bạn kiểm tra.
+                        {t("fixAdmin.jp.upload.hint")}
                       </div>
                     </div>
                   </div>
@@ -1284,11 +1307,11 @@ export default function AdminJobProfileCreateView() {
                       </div>
                 
                       <div className="text-sm font-bold text-[#14244B]">
-                        Drag & drop file hoặc click để upload
+                        {t("fixAdmin.jp.upload.drop")}
                       </div>
                 
                       <div className="mt-1 text-xs text-[#607096]">
-                        PDF, DOCX, PNG, JPG, WEBP (max 10MB)
+                        {t("fixAdmin.jp.upload.formats")}
                       </div>
                 
                       <input
@@ -1311,9 +1334,9 @@ export default function AdminJobProfileCreateView() {
                 
                       <button
                         onClick={() => setJdFile(null)}
-                        className="text-xs font-semibold text-[#607096] transition-colors hover:text-red-500"
+                        className="text-xs font-semibold text-[#607096] transition-colors hover:text-[#C43B3B]"
                       >
-                        Remove
+                        {t("fixAdmin.jp.upload.remove")}
                       </button>
                     </div>
                   )}
@@ -1324,10 +1347,10 @@ export default function AdminJobProfileCreateView() {
                       type="button"
                       onClick={handleUploadJd}
                       disabled={!canUpload}
-                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] hover:bg-[#183275] active:bg-[#122557] px-5 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[#204195] hover:bg-[#183275] active:bg-[#122557] px-5 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Sparkles className="size-4" />
-                      {uploading ? "Extracting document..." : "Upload & parse JD"}
+                      {uploading ? <LoaderCircle className="size-4 animate-spin" /> : <UploadCloud className="size-4" />}
+                      {uploading ? t("fixAdmin.jp.upload.busy") : t("fixAdmin.jp.upload.submit")}
                     </button>
                 
                     <button
@@ -1337,9 +1360,9 @@ export default function AdminJobProfileCreateView() {
                         setJdFile(null);
                       }}
                       disabled={uploading}
-                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#14244B] shadow-xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-[#DCE4F3] bg-white px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#14244B] shadow-xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Reset
+                      {t("fixAdmin.jp.upload.reset")}
                     </button>
                   </div>
                 </section>
@@ -1350,13 +1373,13 @@ export default function AdminJobProfileCreateView() {
   <div className="mb-6 flex items-start justify-between">
     <div>
       <div className="text-xs font-bold uppercase tracking-widest text-[#204195]">
-        {isEditMode ? "Chỉnh sửa JD" : "Nội dung JD"}
+        {isEditMode ? t("fixAdmin.jp.content.editTitle") : t("fixAdmin.jp.content.title")}
       </div>
 
       <p className="mt-1 text-xs sm:text-sm text-[#607096]">
         {isEditMode
-          ? "Chỉnh sửa nội dung hiển thị cho ứng viên"
-          : "Nội dung được lấy từ tài liệu đã tải lên. Bạn có thể chỉnh sửa trước khi hoàn tất."}
+          ? t("fixAdmin.jp.content.editHint")
+          : t("fixAdmin.jp.content.hint")}
       </p>
     </div>
   </div>
@@ -1371,34 +1394,35 @@ export default function AdminJobProfileCreateView() {
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
         <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
           <FileText className="size-4" />
-          <span>1. Basic Information</span>
+          <span>{t("fixAdmin.jp.section.basic")}</span>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
             <label className="mb-1.5 block text-xs font-semibold text-[#14244B]">
-              Job Title <span className="text-red-500">*</span>
+              {t("fixAdmin.jp.field.title")} <span className="text-[#C43B3B]">*</span>
             </label>
             <input
               value={finalizeForm.title}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, title: e.target.value }))}
-              placeholder="e.g. Senior Frontend Engineer"
+              placeholder={t("fixAdmin.jp.ph.title")}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             />
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Primary Taxonomy
+              {t("fixAdmin.jp.field.taxonomy")}
             </label>
             <select
               value={finalizeForm.primaryTaxonomyConceptId}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, primaryTaxonomyConceptId: e.target.value }))}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             >
-              <option value="">No taxonomy classification</option>
+              <option value="">{t("fixAdmin.jp.opt.noTaxonomy")}</option>
               {taxonomyConcepts.map((concept) => (
                 <option key={concept.concept_id} value={concept.concept_id}>
-                  {concept.label} {concept.kind ? `(${concept.kind})` : ""}
+                  {concept.label}
+                  {concept.kind ? ` · ${kindName(concept.kind)}` : ""}
                 </option>
               ))}
             </select>
@@ -1406,12 +1430,12 @@ export default function AdminJobProfileCreateView() {
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Keywords (comma-separated)
+              {t("fixAdmin.jp.field.keywords")}
             </label>
             <input
               value={finalizeForm.keywords}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, keywords: e.target.value }))}
-              placeholder="e.g. react, typescript, nextjs"
+              placeholder={t("fixAdmin.jp.ph.keywords")}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             />
           </div>
@@ -1422,30 +1446,29 @@ export default function AdminJobProfileCreateView() {
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
         <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
           <Building2 className="size-4" />
-          <span>2. Company Information</span>
+          <span>{t("fixAdmin.jp.section.company")}</span>
         </div>
         <div className="grid gap-6 md:grid-cols-2">
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-[#14244B]">
-              Company Name <span className="text-[#607096] font-normal">(Tên công ty)</span>
+              {t("fixAdmin.jp.field.companyName")}
             </label>
             <input
               value={finalizeForm.companyName}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, companyName: e.target.value }))}
-              placeholder="e.g. NSTAGE"
+              placeholder={t("fixAdmin.jp.ph.company")}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             />
             {parserEvidence.company && (
               <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-[#EEF2FD] border border-[#204195]/15 px-2.5 py-1 text-[11px] font-semibold text-[#204195]">
-                <Sparkles className="size-3 shrink-0" />
-                <span className="truncate">Gợi ý từ JD: &ldquo;{parserEvidence.company}&rdquo;</span>
+                <span className="truncate">{fmt(t("fixAdmin.jp.suggestion"), { text: parserEvidence.company })}</span>
               </div>
             )}
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-[#14244B]">
-              Company Logo <span className="text-[#607096] font-normal">(Ảnh logo công ty)</span>
+              {t("fixAdmin.jp.field.companyLogo")}
             </label>
 
             <div className="flex items-start gap-4">
@@ -1455,7 +1478,7 @@ export default function AdminJobProfileCreateView() {
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={finalizeForm.companyLogoUrl}
-                    alt="Company logo preview"
+                    alt={t("fixAdmin.jp.logoPreviewAlt")}
                     className="h-full w-full object-cover"
                   />
                 ) : finalizeForm.companyName ? (
@@ -1482,10 +1505,10 @@ export default function AdminJobProfileCreateView() {
                   <button
                     type="button"
                     onClick={() => logoFileInputRef.current?.click()}
-                    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14244B] shadow-2xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all active:scale-95"
+                    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#DCE4F3] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14244B] shadow-2xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all active:scale-95"
                   >
                     <Upload className="size-3.5 text-[#204195]" />
-                    <span>Chọn ảnh từ máy tính</span>
+                    <span>{t("fixAdmin.jp.logo.choose")}</span>
                   </button>
 
                   {finalizeForm.companyLogoUrl && (
@@ -1495,10 +1518,10 @@ export default function AdminJobProfileCreateView() {
                         setFinalizeForm((f) => ({ ...f, companyLogoUrl: "" }));
                         if (logoFileInputRef.current) logoFileInputRef.current.value = "";
                       }}
-                      className="inline-flex min-h-9 items-center justify-center gap-1 rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-2xs hover:bg-red-50 transition-all"
+                      className="inline-flex min-h-9 items-center justify-center gap-1 rounded-full border border-[#C43B3B]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#C43B3B] shadow-2xs hover:bg-[#FDF2F2] transition-all"
                     >
                       <Trash2 className="size-3.5" />
-                      <span>Xóa ảnh</span>
+                      <span>{t("fixAdmin.jp.logo.remove")}</span>
                     </button>
                   )}
                 </div>
@@ -1508,13 +1531,13 @@ export default function AdminJobProfileCreateView() {
                   onChange={(e) => setFinalizeForm((f) => ({ ...f, companyLogoUrl: e.target.value }))}
                   placeholder={
                     finalizeForm.companyLogoUrl.startsWith("data:")
-                      ? "(Đã tải ảnh lên từ máy tính)"
-                      : "Hoặc dán URL: https://example.com/logo.png"
+                      ? t("fixAdmin.jp.logo.uploaded")
+                      : t("fixAdmin.jp.logo.urlPlaceholder")
                   }
                   className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
                 />
                 <p className="text-[11px] text-[#607096]">
-                  Hỗ trợ PNG, JPG, WebP, SVG (tối đa 2MB). Ảnh hiển thị trên thẻ công việc.
+                  {t("fixAdmin.jp.logo.hint")}
                 </p>
               </div>
             </div>
@@ -1526,58 +1549,57 @@ export default function AdminJobProfileCreateView() {
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
         <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
           <MapPin className="size-4" />
-          <span>3. Work Arrangement</span>
+          <span>{t("fixAdmin.jp.section.work")}</span>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-[#14244B]">
-              Location
+              {t("fixAdmin.jp.field.location")}
             </label>
             <input
               value={finalizeForm.location}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, location: e.target.value }))}
-              placeholder="e.g. Hà Nội, Việt Nam"
+              placeholder={t("fixAdmin.jp.ph.location")}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             />
             {parserEvidence.location && (
               <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-[#EEF2FD] border border-[#204195]/15 px-2.5 py-1 text-[11px] font-semibold text-[#204195]">
-                <Sparkles className="size-3 shrink-0" />
-                <span className="truncate">Gợi ý từ JD: &ldquo;{parserEvidence.location}&rdquo;</span>
+                <span className="truncate">{fmt(t("fixAdmin.jp.suggestion"), { text: parserEvidence.location })}</span>
               </div>
             )}
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Work Mode
+              {t("fixAdmin.jp.field.workMode")}
             </label>
             <select
               value={finalizeForm.workMode}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, workMode: e.target.value as any }))}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             >
-              <option value="">Chưa xác định (null)</option>
-              <option value="remote">Remote (Từ xa)</option>
-              <option value="hybrid">Hybrid (Linh hoạt)</option>
-              <option value="on_site">On-site (Tại văn phòng)</option>
+              <option value="">{t("fixAdmin.jp.opt.unset")}</option>
+              <option value="remote">{t("fixAdmin.jp.opt.remote")}</option>
+              <option value="hybrid">{t("fixAdmin.jp.opt.hybrid")}</option>
+              <option value="on_site">{t("fixAdmin.jp.opt.onSite")}</option>
             </select>
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Employment Type
+              {t("fixAdmin.jp.field.employmentType")}
             </label>
             <select
               value={finalizeForm.employmentType}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, employmentType: e.target.value as any }))}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             >
-              <option value="">Chưa xác định (null)</option>
-              <option value="full_time">Full-time (Toàn thời gian)</option>
-              <option value="part_time">Part-time (Bán thời gian)</option>
-              <option value="internship">Internship (Thực tập)</option>
-              <option value="contract">Contract (Hợp đồng)</option>
-              <option value="temporary">Temporary (Tạm thời)</option>
+              <option value="">{t("fixAdmin.jp.opt.unset")}</option>
+              <option value="full_time">{t("fixAdmin.jp.emp.fullTime")}</option>
+              <option value="part_time">{t("fixAdmin.jp.emp.partTime")}</option>
+              <option value="internship">{t("fixAdmin.jp.emp.internship")}</option>
+              <option value="contract">{t("fixAdmin.jp.emp.contract")}</option>
+              <option value="temporary">{t("fixAdmin.jp.emp.temporary")}</option>
             </select>
           </div>
         </div>
@@ -1587,59 +1609,58 @@ export default function AdminJobProfileCreateView() {
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
         <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
           <Briefcase className="size-4" />
-          <span>4. Experience Requirements</span>
+          <span>{t("fixAdmin.jp.section.experience")}</span>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Seniority
+              {t("fixAdmin.jp.field.seniority")}
             </label>
             <select
               value={finalizeForm.seniority}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, seniority: e.target.value as any }))}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             >
-              <option value="">Chưa xác định (null)</option>
-              <option value="intern">Intern</option>
-              <option value="fresher">Fresher</option>
-              <option value="junior">Junior</option>
-              <option value="mid">Mid-level</option>
-              <option value="senior">Senior</option>
-              <option value="lead">Lead</option>
-              <option value="manager">Manager</option>
+              <option value="">{t("fixAdmin.jp.opt.unset")}</option>
+              <option value="intern">{t("fixAdmin.jp.seniority.intern")}</option>
+              <option value="fresher">{t("fixAdmin.jp.seniority.fresher")}</option>
+              <option value="junior">{t("fixAdmin.jp.seniority.junior")}</option>
+              <option value="mid">{t("fixAdmin.jp.seniority.mid")}</option>
+              <option value="senior">{t("fixAdmin.jp.seniority.senior")}</option>
+              <option value="lead">{t("fixAdmin.jp.seniority.lead")}</option>
+              <option value="manager">{t("fixAdmin.jp.seniority.manager")}</option>
             </select>
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Min Experience (years)
+              {t("fixAdmin.jp.field.expMin")}
             </label>
             <input
               type="number"
               min="0"
               value={finalizeForm.experienceMinYears}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, experienceMinYears: e.target.value }))}
-              placeholder="e.g. 2"
+              placeholder={t("fixAdmin.jp.ph.expMin")}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             />
             {parserEvidence.experience && (
               <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-[#EEF2FD] border border-[#204195]/15 px-2.5 py-1 text-[11px] font-semibold text-[#204195]">
-                <Sparkles className="size-3 shrink-0" />
-                <span className="truncate">Gợi ý từ JD: &ldquo;{parserEvidence.experience}&rdquo;</span>
+                <span className="truncate">{fmt(t("fixAdmin.jp.suggestion"), { text: parserEvidence.experience })}</span>
               </div>
             )}
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Max Experience (years)
+              {t("fixAdmin.jp.field.expMax")}
             </label>
             <input
               type="number"
               min="0"
               value={finalizeForm.experienceMaxYears}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, experienceMaxYears: e.target.value }))}
-              placeholder="e.g. 5"
+              placeholder={t("fixAdmin.jp.ph.expMax")}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             />
           </div>
@@ -1650,12 +1671,12 @@ export default function AdminJobProfileCreateView() {
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
         <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
           <Coins className="size-4" />
-          <span>5. Compensation</span>
+          <span>{t("fixAdmin.jp.section.compensation")}</span>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-5">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Salary Min
+              {t("fixAdmin.jp.field.salaryMin")}
             </label>
             <input
               type="number"
@@ -1667,15 +1688,14 @@ export default function AdminJobProfileCreateView() {
             />
             {parserEvidence.salary && (
               <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-[#EEF2FD] border border-[#204195]/15 px-2.5 py-1 text-[11px] font-semibold text-[#204195]">
-                <Sparkles className="size-3 shrink-0" />
-                <span className="truncate">Gợi ý từ JD: &ldquo;{parserEvidence.salary}&rdquo;</span>
+                <span className="truncate">{fmt(t("fixAdmin.jp.suggestion"), { text: parserEvidence.salary })}</span>
               </div>
             )}
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Salary Max
+              {t("fixAdmin.jp.field.salaryMax")}
             </label>
             <input
               type="number"
@@ -1689,7 +1709,7 @@ export default function AdminJobProfileCreateView() {
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Currency
+              {t("fixAdmin.jp.field.currency")}
             </label>
             <select
               value={finalizeForm.salaryCurrency}
@@ -1706,32 +1726,32 @@ export default function AdminJobProfileCreateView() {
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Period
+              {t("fixAdmin.jp.field.period")}
             </label>
             <select
               value={finalizeForm.salaryPeriod}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, salaryPeriod: e.target.value as any }))}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             >
-              <option value="">Chưa chọn</option>
-              <option value="month">Tháng (month)</option>
-              <option value="year">Năm (year)</option>
-              <option value="hour">Giờ (hour)</option>
+              <option value="">{t("fixAdmin.jp.period.unset")}</option>
+              <option value="month">{t("fixAdmin.jp.period.month")}</option>
+              <option value="year">{t("fixAdmin.jp.period.year")}</option>
+              <option value="hour">{t("fixAdmin.jp.period.hour")}</option>
             </select>
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Negotiable
+              {t("fixAdmin.jp.field.negotiable")}
             </label>
             <select
               value={finalizeForm.salaryNegotiable}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, salaryNegotiable: e.target.value as any }))}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             >
-              <option value="unknown">Chưa rõ (null)</option>
-              <option value="yes">Thỏa thuận (true)</option>
-              <option value="no">Cố định (false)</option>
+              <option value="unknown">{t("fixAdmin.jp.opt.negUnknown")}</option>
+              <option value="yes">{t("fixAdmin.jp.opt.negYes")}</option>
+              <option value="no">{t("fixAdmin.jp.opt.negNo")}</option>
             </select>
           </div>
         </div>
@@ -1741,30 +1761,30 @@ export default function AdminJobProfileCreateView() {
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
         <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
           <Globe className="size-4" />
-          <span>6. Source Metadata</span>
+          <span>{t("fixAdmin.jp.section.source")}</span>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Source Type
+              {t("fixAdmin.jp.field.sourceType")}
             </label>
             <select
               value={finalizeForm.sourceType}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, sourceType: e.target.value }))}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             >
-              <option value="internal_upload">Internal Upload</option>
-              <option value="manual">Manual Entry</option>
+              <option value="internal_upload">{t("fixAdmin.jp.opt.srcInternal")}</option>
+              <option value="manual">{t("fixAdmin.jp.opt.srcManual")}</option>
               <option value="greenhouse">Greenhouse</option>
               <option value="lever">Lever</option>
-              <option value="company_career">Company Career Page</option>
-              <option value="other">Other</option>
+              <option value="company_career">{t("fixAdmin.jp.opt.srcCareer")}</option>
+              <option value="other">{t("fixAdmin.jp.opt.srcOther")}</option>
             </select>
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Source Key
+              {t("fixAdmin.jp.field.sourceKey")}
             </label>
             <input
               value={finalizeForm.sourceKey}
@@ -1776,19 +1796,19 @@ export default function AdminJobProfileCreateView() {
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Source Name
+              {t("fixAdmin.jp.field.sourceName")}
             </label>
             <input
               value={finalizeForm.sourceName}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, sourceName: e.target.value }))}
-              placeholder="e.g. Careers portal"
+              placeholder={t("fixAdmin.jp.ph.sourceName")}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             />
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Source URL
+              {t("fixAdmin.jp.field.sourceUrl")}
             </label>
             <input
               value={finalizeForm.sourceUrl}
@@ -1800,7 +1820,7 @@ export default function AdminJobProfileCreateView() {
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Apply URL
+              {t("fixAdmin.jp.field.applyUrl")}
             </label>
             <input
               value={finalizeForm.applyUrl}
@@ -1812,12 +1832,12 @@ export default function AdminJobProfileCreateView() {
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              External Job ID
+              {t("fixAdmin.jp.field.externalId")}
             </label>
             <input
               value={finalizeForm.externalJobId}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, externalJobId: e.target.value }))}
-              placeholder="Optional external ID"
+              placeholder={t("fixAdmin.jp.ph.externalId")}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] placeholder:text-[#8A9ABA] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             />
           </div>
@@ -1828,26 +1848,26 @@ export default function AdminJobProfileCreateView() {
       <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC]/60 p-5 md:p-6 shadow-2xs">
         <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
           <Clock className="size-4" />
-          <span>7. Publishing & Lifecycle</span>
+          <span>{t("fixAdmin.jp.section.publishing")}</span>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-[#14244B]">
-              Listing Status <span className="text-red-500">*</span>
+              {t("fixAdmin.jp.field.listingStatus")} <span className="text-[#C43B3B]">*</span>
             </label>
             <select
               value={finalizeForm.listingStatus}
               onChange={(e) => setFinalizeForm((f) => ({ ...f, listingStatus: e.target.value as any }))}
               className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-[#14244B] shadow-2xs focus:border-[#204195] focus:outline-none focus:ring-2 focus:ring-[#204195]/15 transition-all"
             >
-              <option value="ACTIVE">ACTIVE (Hiển thị ngay cho ứng viên)</option>
-              <option value="DRAFT">DRAFT (Lưu bản nháp - chưa hiển thị)</option>
+              <option value="ACTIVE">{t("fixAdmin.jp.opt.listActive")}</option>
+              <option value="DRAFT">{t("fixAdmin.jp.opt.listDraft")}</option>
             </select>
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-[#607096]">
-              Posted At (Optional original date)
+              {t("fixAdmin.jp.field.postedAt")}
             </label>
             <input
               type="datetime-local"
@@ -1864,7 +1884,7 @@ export default function AdminJobProfileCreateView() {
   {/* Description Markdown Editor */}
   <div className="rounded-2xl border border-[#DCE4F3] overflow-hidden shadow-2xs bg-white">
     <div className="flex items-center justify-between border-b border-[#EAEFF8] bg-[#F8FAFC] px-4 py-3">
-      <span className="text-xs sm:text-sm font-bold text-[#14244B]">Nội dung hiển thị cho ứng viên</span>
+      <span className="text-xs sm:text-sm font-bold text-[#14244B]">{t("fixAdmin.jp.candidateContent")}</span>
     </div>
     <div data-color-mode="light" className="p-1">
       <MDEditor
@@ -1872,7 +1892,7 @@ export default function AdminJobProfileCreateView() {
         onChange={(v) => setDescriptionHtml(String(v || ""))}
         preview="edit"
         height={260}
-        textareaProps={{ placeholder: "Nội dung JD từ tài liệu đã tải lên" }}
+        textareaProps={{ placeholder: t("fixAdmin.jp.ph.description") }}
       />
     </div>
   </div>
@@ -1881,48 +1901,48 @@ export default function AdminJobProfileCreateView() {
   <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-[#EAEFF8] pt-6">
     <button
       onClick={handleCancel}
-      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-5 py-2.5 text-xs sm:text-sm font-semibold text-[#14244B] shadow-xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all"
+      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-[#DCE4F3] bg-white px-5 py-2.5 text-xs sm:text-sm font-semibold text-[#14244B] shadow-xs hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] transition-all"
     >
-      Hủy
+      {t("fixAdmin.jp.cancel")}
     </button>
 
     {isEditMode ? (
       <>
       <button
         onClick={handleDelete}
-        className="inline-flex min-h-10 items-center justify-center rounded-xl border border-red-200 bg-white px-5 py-2.5 text-xs sm:text-sm font-semibold text-red-700 hover:bg-red-50"
+        className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#C43B3B]/30 bg-white px-5 py-2.5 text-xs sm:text-sm font-semibold text-[#C43B3B] hover:bg-[#FDF2F2]"
       >
-        Xóa JD
+        {t("fixAdmin.jp.deleteJd")}
       </button>
       <button
         onClick={handleSaveEdit}
         disabled={!canSaveEdit}
-        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] hover:bg-[#183275] active:bg-[#122557] px-6 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[#204195] hover:bg-[#183275] active:bg-[#122557] px-6 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {editBusy ? "Đang lưu..." : "Lưu thay đổi"}
+        {editBusy ? t("fixAdmin.jp.saving") : t("fixAdmin.jp.saveChanges")}
       </button>
       </>
     ) : (
       <>
         <button
           onClick={handleDelete}
-          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-red-200 bg-white px-5 py-2.5 text-xs sm:text-sm font-semibold text-red-700 hover:bg-red-50"
+          className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#C43B3B]/30 bg-white px-5 py-2.5 text-xs sm:text-sm font-semibold text-[#C43B3B] hover:bg-[#FDF2F2]"
         >
-          Xóa JD
+          {t("fixAdmin.jp.deleteJd")}
         </button>
         <button
           onClick={() => handleFinalize("DRAFT")}
           disabled={!canFinalize}
-          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#204195] bg-white px-5 py-2.5 text-xs sm:text-sm font-bold text-[#204195] disabled:opacity-50"
+          className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#204195] bg-white px-5 py-2.5 text-xs sm:text-sm font-bold text-[#204195] disabled:opacity-50"
         >
-          {finalizeBusy ? "Đang lưu..." : "Lưu nháp"}
+          {finalizeBusy ? t("fixAdmin.jp.saving") : t("fixAdmin.jp.saveDraft")}
         </button>
         <button
           onClick={() => handleFinalize("ACTIVE")}
           disabled={!canFinalize}
-          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] hover:bg-[#183275] active:bg-[#122557] px-6 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[#204195] hover:bg-[#183275] active:bg-[#122557] px-6 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {finalizeBusy ? "Đang đăng..." : "Đăng job"}
+          {finalizeBusy ? t("fixAdmin.jp.publishing") : t("fixAdmin.jp.publishJd")}
         </button>
       </>
     )}
@@ -1933,7 +1953,21 @@ export default function AdminJobProfileCreateView() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmAction !== null}
+        title={confirmAction?.kind === "publish" ? t("fixAdmin.jp.publishConfirm.title") : t("fixAdmin.jp.deleteConfirm.title")}
+        body={confirmAction?.kind === "publish" ? t("fixAdmin.jp.publishConfirm.body") : t("fixAdmin.jp.deleteConfirm.body")}
+        confirmLabel={confirmAction?.kind === "publish" ? t("fixAdmin.jp.publishConfirm.confirm") : t("fixAdmin.jp.deleteConfirm.confirm")}
+        cancelLabel={t("fixAdmin.jp.cancel")}
+        tone={confirmAction?.kind === "delete" ? "danger" : "default"}
+        busy={versionBusy}
+        onConfirm={() => {
+          if (confirmAction?.kind === "publish") void doPublishVersion(confirmAction.versionId);
+          else if (confirmAction?.kind === "delete") void doDelete();
+        }}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   );
 }
- 

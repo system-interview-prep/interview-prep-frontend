@@ -2,6 +2,7 @@ import {
   EmploymentType,
   JobCardData,
   JobCardMatch,
+  JobCardFit,
   JobCardSalary,
   SeniorityLevel,
   WorkplaceType,
@@ -201,6 +202,7 @@ export function mapJobToJobCard(
   options?: {
     savedJobIds?: Set<string>;
     match?: JobCardMatch;
+    fit?: JobCardFit;
   }
 ): JobCardData {
   if (!raw) {
@@ -398,6 +400,7 @@ export function mapJobToJobCard(
     postedAt,
     source,
     match,
+    fit: options?.fit,
     saved,
   };
 }

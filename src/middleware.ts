@@ -11,6 +11,8 @@ function isAdminProtectedRequest(req: NextRequest) {
 
 function isUserProtectedRequest(req: NextRequest) {
   const p = req.nextUrl.pathname;
+  // Allow unauthenticated guests to view the Dashboard demo/preview
+  if (p === "/dashboard") return false;
   return (
     p.startsWith("/dashboard") ||
     p.startsWith("/interview") ||

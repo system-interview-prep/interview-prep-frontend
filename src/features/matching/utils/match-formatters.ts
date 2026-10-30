@@ -7,57 +7,69 @@ import type {
   HumanizedRequirement,
   RequirementGroup,
 } from "../types/match-details.types";
+import { mergeEvidenceSources } from "./cv-highlight";
+import { fitVi } from "@/i18n/dicts/fit.dict";
+import { fmt } from "@/i18n/format";
 
-export function formatStatusLabel(status: RequirementStatus): string {
+type Translate = (key: string) => string;
+/** Vietnamese lookup used when a caller does not pass the active translator. */
+const viT: Translate = (key) => fitVi[key] ?? key;
+
+export function formatStatusLabel(status: RequirementStatus, t: Translate = viT): string {
   switch (status) {
     case "met":
-      return "Phù hợp";
+      return t("fit.status.met");
     case "not_met":
-      return "Chưa đáp ứng";
+      return t("fit.status.notMet");
     case "not_applicable":
-      return "Không áp dụng";
+      return t("fit.status.notApplicable");
     case "unknown":
     default:
-      return "Chưa đủ bằng chứng";
+      return t("fit.status.unknown");
   }
 }
 
-export function formatExperienceDuration(months?: number | null): string {
+export function formatExperienceDuration(months?: number | null, t: Translate = viT): string {
   if (months == null || months <= 0) return "";
   const years = Math.floor(months / 12);
   const remainingMonths = months % 12;
+  const yearText = fmt(t(years === 1 ? "fit.duration.year" : "fit.duration.years"), { n: years });
+  const monthText = fmt(t(remainingMonths === 1 ? "fit.duration.month" : "fit.duration.months"), {
+    n: remainingMonths,
+  });
 
   if (years > 0 && remainingMonths > 0) {
-    return `${years} năm ${remainingMonths} tháng`;
+    return `${yearText} ${monthText}`;
   }
   if (years > 0) {
-    return `${years} năm`;
+    return yearText;
   }
-  return `${remainingMonths} tháng`;
+  return monthText;
 }
 
 export function formatExperienceCondition(
   months?: number | null,
-  operator?: string | null
+  operator?: string | null,
+  t: Translate = viT
 ): string {
   if (months == null || months <= 0) return "";
-  const duration = formatExperienceDuration(months);
+  const duration = formatExperienceDuration(months, t);
   const op = (operator || "gte").toLowerCase();
 
   switch (op) {
     case "gte":
     case "required":
-      return `Tối thiểu ${duration} kinh nghiệm`;
+      return fmt(t("fit.cond.gte"), { d: duration });
     case "gt":
-      return `Trên ${duration} kinh nghiệm`;
+      return fmt(t("fit.cond.gt"), { d: duration });
     case "lte":
-      return `Tối đa ${duration} kinh nghiệm`;
+      return fmt(t("fit.cond.lte"), { d: duration });
     case "lt":
-      return `Dưới ${duration} kinh nghiệm`;
+      return fmt(t("fit.cond.lt"), { d: duration });
     case "eq":
-      return `Đúng ${duration} kinh nghiệm`;
+      return fmt(t("fit.cond.eq"), { d: duration });
     default:
-      return `Tối thiểu ${duration} kinh nghiệm`;
+      return fmt(t("fit.cond.gte"), { d: duration });
   }
 }
 
@@ -74,7 +86,8 @@ export function formatLanguageCondition(
     | null,
   thresholdArg?: number | null,
   operatorArg?: string | null,
-  equivalentAllowedArg?: boolean | null
+  equivalentAllowedArg?: boolean | null,
+  t: Translate = viT
 ): string {
   let credential: string | null | undefined;
   let threshold: number | null | undefined;
@@ -95,7 +108,7 @@ export function formatLanguageCondition(
 
   if (!credential && threshold == null) return "";
 
-  const cred = credential || "Chứng chỉ ngoại ngữ";
+  const cred = credential || t("fit.lang.credential");
   let opSymbol = "≥";
   const op = (operator || "gte").toLowerCase();
   if (op === "gt") opSymbol = ">";
@@ -104,7 +117,7 @@ export function formatLanguageCondition(
   else if (op === "eq" || op === "equal") opSymbol = "=";
 
   const scoreText = threshold != null ? ` ${opSymbol} ${threshold}` : "";
-  const equivText = equivalentAllowed ? " hoặc chứng chỉ tương đương" : "";
+  const equivText = equivalentAllowed ? t("fit.lang.equivalent") : "";
 
   return `${cred}${scoreText}${equivText}`;
 }
@@ -154,10 +167,16 @@ export function formatCvDate(raw?: { value?: string; precision?: string } | stri
 /**
  * Format employment date range
  */
-export function formatEmploymentDateRange(start?: unknown, end?: unknown, isCurrent?: boolean): string {
+export function formatEmploymentDateRange(
+  start?: unknown,
+  end?: unknown,
+  isCurrent?: boolean,
+  t: Translate = viT
+): string {
   const startStr = formatCvDate(start as { value?: string; precision?: string } | string | null);
   if (isCurrent) {
-    return startStr ? `${startStr} – Hiện tại` : "Hiện tại";
+    const present = t("fit.date.present");
+    return startStr ? `${startStr} – ${present}` : present;
   }
   const endStr = formatCvDate(end as { value?: string; precision?: string } | string | null);
   if (startStr && endStr) {
@@ -188,8 +207,12 @@ export function buildHumanizedRequirementsAndGroups(params: {
   }>;
   jobStructuredData?: Record<string, unknown> | null;
   cvParsedData?: Record<string, unknown> | null;
+  /** Spans returned by the match itself (MatchResult.evidence); override parsed-CV spans. */
+  matchEvidence?: unknown;
   requirementsMap?: Map<string, { label: string; kind?: string; priority?: string }>;
   resolveReasonCodeText?: (code?: string) => string;
+  /** Active translator for generated labels; defaults to Vietnamese. */
+  t?: Translate;
 }): {
   requirements: HumanizedRequirement[];
   groups: RequirementGroup[];
@@ -198,8 +221,10 @@ export function buildHumanizedRequirementsAndGroups(params: {
     requirementResults,
     jobStructuredData,
     cvParsedData,
+    matchEvidence,
     requirementsMap,
     resolveReasonCodeText,
+    t = viT,
   } = params;
 
   // 1. Build JD Evidence map
@@ -216,8 +241,8 @@ export function buildHumanizedRequirementsAndGroups(params: {
 
   // 2. Build CV Evidence map
   const cvEvidenceMap = new Map<string, CvEvidenceItem>();
-  if (cvParsedData && Array.isArray(cvParsedData.evidence)) {
-    for (const ev of cvParsedData.evidence as Array<Record<string, unknown>>) {
+  {
+    for (const ev of mergeEvidenceSources(cvParsedData?.evidence, matchEvidence)) {
       const id = String(ev.evidenceId || ev.evidence_id || "");
       const text = String(ev.text || ev.snippet || "");
       const page = typeof ev.pageNumber === "number" ? ev.pageNumber : typeof ev.page === "number" ? ev.page : null;
@@ -268,7 +293,7 @@ export function buildHumanizedRequirementsAndGroups(params: {
     } else {
       const cat = humanizeCategoryFromId(reqId);
       const cleanId = reqId.replace(/^req-/, "").replaceAll("-", " ");
-      label = cleanId ? `${cleanId.charAt(0).toUpperCase() + cleanId.slice(1)}` : `Yêu cầu về ${cat}`;
+      label = cleanId ? `${cleanId.charAt(0).toUpperCase() + cleanId.slice(1)}` : fmt(t("fit.req.fallback"), { cat });
     }
 
     // Priority determination
@@ -295,7 +320,7 @@ export function buildHumanizedRequirementsAndGroups(params: {
     const op = typeof jdReq?.operator === "string" ? jdReq.operator : null;
 
     if (minMonths != null && minMonths > 0) {
-      conditionText = formatExperienceCondition(minMonths, op);
+      conditionText = formatExperienceCondition(minMonths, op, t);
     } else if (jdReq?.credential || jdReq?.threshold != null) {
       conditionText = formatLanguageCondition({
         credential: jdReq.credential ? String(jdReq.credential) : null,
@@ -303,7 +328,7 @@ export function buildHumanizedRequirementsAndGroups(params: {
         scale: typeof jdReq.scale === "number" ? jdReq.scale : null,
         operator: op,
         equivalentAllowed: Boolean(jdReq.equivalent_allowed || jdReq.equivalentAllowed),
-      });
+      }, null, null, null, t);
     }
 
     // Status mapping: strictly met | not_met | unknown | not_applicable (no "partial")
@@ -389,7 +414,10 @@ export function buildHumanizedRequirementsAndGroups(params: {
       priority,
       conditionText: conditionText || undefined,
       status,
-      statusLabel: formatStatusLabel(status),
+      statusLabel:
+        status === "not_met" && !(res.evidenceRefs?.length)
+          ? t("fit.status.notFound")
+          : formatStatusLabel(status, t),
       reasonText: reasonText || undefined,
       reasonCode: res.reasonCode,
       evidenceExplanation: res.evidenceExplanation,
@@ -419,13 +447,13 @@ export function buildHumanizedRequirementsAndGroups(params: {
     const operator = first.groupOperator === "any_of" ? "any_of" : "all_of";
 
     // Group title: join labels with " hoặc " for any_of, or " và " for all_of
-    const separator = operator === "any_of" ? " hoặc " : " và ";
+    const separator = operator === "any_of" ? t("fit.group.or") : t("fit.group.and");
     const title = items.map((i) => i.label).join(separator);
 
     const subtext =
       operator === "any_of"
-        ? "Chỉ cần đáp ứng một trong các tiêu chí"
-        : "Cần đáp ứng tất cả tiêu chí";
+        ? t("fit.group.anyOf")
+        : t("fit.group.allOf");
 
     // Matching backend currently does NOT expose GroupRequirementResult.
     // Frontend MUST NOT conclude or compute parent status (Truthful UI contract).

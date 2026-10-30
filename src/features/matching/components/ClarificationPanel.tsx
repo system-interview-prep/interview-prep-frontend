@@ -1,55 +1,77 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
 import type { HumanizedRequirement } from "../types/match-details.types";
 import type {
+  CandidateClarificationAnswer,
+  ClarificationAnswerOutcome,
   ClarificationRequest,
-  MissingEvidenceDimension,
 } from "../services/clarification.service";
-
-const DIMENSION_LABELS: Record<MissingEvidenceDimension, string> = {
-  duration: "thời gian kinh nghiệm",
-  proficiency: "mức độ thành thạo",
-  scale: "quy mô hệ thống hoặc dự án",
-  responsibility: "vai trò và trách nhiệm trực tiếp",
-  education: "thông tin học vấn",
-  language_level: "trình độ ngoại ngữ",
-  certification: "chứng chỉ",
-  experience_context: "bối cảnh kinh nghiệm thực tế",
-  other: "thông tin bổ sung",
-};
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
 
 export interface ClarificationPanelProps {
   requests: ClarificationRequest[];
   requirements: HumanizedRequirement[];
   loading?: boolean;
+  submitting?: boolean;
   error?: string | null;
+  submissionError?: string | null;
+  processedAnswers?: ClarificationAnswerOutcome[];
+  onSubmit?: (answers: CandidateClarificationAnswer[]) => void;
+  /** Shown as "Thử lại" when loading the questions failed. */
+  onRetry?: () => void;
 }
 
-export function clarificationPromptText(
-  request: ClarificationRequest,
-  requirement?: HumanizedRequirement
-): string {
-  const label = requirement?.label?.trim() || "tiêu chí này";
-  const dimension = DIMENSION_LABELS[request.missingDimension];
-  return `Vui lòng bổ sung ${dimension} để làm rõ “${label}”.`;
-}
+const STATUS_LABEL_KEYS: Record<ClarificationAnswerOutcome["status"], string> = {
+  met: "fit.clar.outcome.met",
+  not_met: "fit.clar.outcome.notMet",
+  unknown: "fit.clar.outcome.unknown",
+  not_applicable: "fit.status.notApplicable",
+};
 
 export function ClarificationPanel({
   requests,
   requirements,
   loading = false,
+  submitting = false,
   error = null,
+  submissionError = null,
+  processedAnswers = [],
+  onSubmit,
+  onRetry,
 }: ClarificationPanelProps) {
+  const { t } = useLanguage();
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+
   if (loading) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-800">
-        Đang kiểm tra các tiêu chí chưa đủ bằng chứng…
+      <div className="rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] px-4 py-3 text-sm text-[#607096]" role="status">
+        {t("fit.clar.loading")}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-        Chưa thể phân tích thông tin cần bổ sung lúc này. Kết quả matching hiện tại vẫn được giữ nguyên.
+      <div
+        className="flex flex-col gap-2 rounded-2xl bg-[#F8FAFC] px-4 py-3 text-sm text-[#607096] ring-1 ring-[#DCE4F3] sm:flex-row sm:items-center sm:justify-between"
+        role="status"
+      >
+        <span>
+          {error === "clarification_generation_unavailable"
+            ? t("fit.clar.genUnavailable")
+            : t("fit.clar.loadError")}
+        </span>
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex h-9 w-fit shrink-0 items-center rounded-full bg-white px-4 text-[13px] font-semibold text-[#14244B] ring-1 ring-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
+          >
+            {t("fixApp.common.retry")}
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -57,42 +79,85 @@ export function ClarificationPanel({
   if (requests.length === 0) return null;
 
   const byId = new Map(requirements.map((item) => [item.id, item]));
+  const outcomeById = new Map(processedAnswers.map((item) => [item.requirementId, item]));
+  const readyAnswers = requests.flatMap((request) => {
+    const answerText = (answers[request.requirementId] ?? "").trim();
+    return answerText ? [{ requirementId: request.requirementId, answerText }] : [];
+  });
+
+  const submitAnswers = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!submitting && readyAnswers.length > 0) onSubmit?.(readyAnswers);
+  };
 
   return (
     <section
-      className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/50 p-4"
-      aria-label="Thông tin cần bổ sung"
+      className="space-y-4 rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] p-4"
+      aria-label={t("fit.clar.aria")}
     >
       <div>
-        <h3 className="text-sm font-semibold text-amber-950">Có thể bổ sung để xác minh tốt hơn</h3>
-        <p className="mt-1 text-xs leading-5 text-amber-800">
-          Các gợi ý này chỉ xác định dữ liệu đang thiếu; chúng không thay đổi điểm hoặc kết luận matching hiện tại.
-        </p>
+        <h3 className="text-sm font-semibold text-[#14244B]">{t("fit.clar.title")}</h3>
+        <p className="mt-1 text-[11px] text-[#8A99B8]">{t("fit.clar.selfReported")}</p>
       </div>
 
-      <div className="space-y-2">
+      {submissionError && (
+        <p className="rounded-2xl bg-[#FDF2F2] px-3 py-2 text-xs text-[#C43B3B]" role="alert">
+          {submissionError}
+        </p>
+      )}
+
+      <form className="space-y-3" onSubmit={submitAnswers}>
         {requests.map((request) => {
           const requirement = byId.get(request.requirementId);
+          const outcome = outcomeById.get(request.requirementId);
           return (
             <div
               key={request.requirementId}
-              className="rounded-md border border-amber-200 bg-white/80 px-3 py-2.5"
+              className="rounded-xl border border-[#DCE4F3] bg-white p-3"
             >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium text-slate-900">
-                  {requirement?.label || request.requirementId}
-                </p>
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
-                  {Math.round(request.confidence * 100)}% confidence
-                </span>
-              </div>
-              <p className="mt-1 text-xs leading-5 text-slate-600">
-                {clarificationPromptText(request, requirement)}
+              <label
+                htmlFor={`clarification-answer-${request.requirementId}`}
+                className="block text-xs font-semibold text-[#607096]"
+              >
+                {requirement?.label || request.requirementId}
+              </label>
+              <p className="mt-2 text-sm font-medium leading-6 text-[#14244B]">
+                {request.questionText}
               </p>
+              <textarea
+                id={`clarification-answer-${request.requirementId}`}
+                value={answers[request.requirementId] ?? ""}
+                onChange={(event) =>
+                  setAnswers((current) => ({
+                    ...current,
+                    [request.requirementId]: event.target.value,
+                  }))
+                }
+                rows={3}
+                maxLength={5000}
+                placeholder={t("fit.clar.placeholder")}
+                disabled={submitting}
+                className="mt-2 w-full resize-y rounded-xl border border-[#DCE4F3] bg-white px-3 py-2 text-sm text-[#14244B] outline-none transition focus:border-[#204195] focus:ring-2 focus:ring-[#204195]/10 disabled:opacity-60"
+              />
+              {outcome && (
+                <p className="mt-2 text-xs text-[#607096]" role="status">
+                  {fmt(t("fit.clar.outcomeLine"), { status: t(STATUS_LABEL_KEYS[outcome.status]) })}
+                </p>
+              )}
             </div>
           );
         })}
-      </div>
+
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={submitting || readyAnswers.length === 0}
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting ? t("fit.clar.submitting") : t("fit.clar.submit")}
+          </button>
+        </div>
+      </form>
     </section>
   );
 }

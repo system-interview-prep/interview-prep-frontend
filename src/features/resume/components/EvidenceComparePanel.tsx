@@ -1,6 +1,5 @@
 "use client";
 
-import { AlertCircle, CheckCircle2, FileSearch, Lightbulb, Search } from "lucide-react";
 import { useState } from "react";
 
 interface EvidenceItem {
@@ -53,24 +52,24 @@ export default function EvidenceComparePanel({ evidence, onSnippetClick }: Evide
   const totalCount = mustHave.length + niceToHave.length + constraints.length;
 
   return (
-    <div className="flex flex-col w-full h-full min-h-[35rem] max-h-[45rem] bg-white border border-slate-200/80 rounded-3xl overflow-hidden shadow-sm">
+    <div className="flex flex-col w-full h-full min-h-[35rem] max-h-[45rem] bg-white ring-1 ring-[#DCE4F3] rounded-3xl overflow-hidden">
       {/* Header */}
-      <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-        <div className="flex items-center justify-between">
-          <h3 className="font-headline text-lg font-black tracking-tight text-slate-900">
+      <div className="p-5 border-b border-[#EAEFF8]">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-xl font-semibold text-[#14244B]">
             Minh chứng Đối chiếu JD - CV
           </h3>
-          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+          <span className="rounded-full bg-[#EAF5EE] px-3 py-1 text-xs font-semibold text-[#287A4B]">
             Khớp {matchedCount}/{totalCount}
           </span>
         </div>
-        <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+        <p className="mt-1 text-xs text-[#607096] leading-relaxed">
           Nhấp vào các từ khóa minh chứng màu xanh để định vị trực tiếp vị trí trên bản vẽ PDF của CV.
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-100 p-2 gap-1 bg-slate-50/30">
+      <div className="flex flex-wrap border-b border-[#EAEFF8] p-2 gap-1 bg-[#F8FAFC]">
         {(
           [
             { id: "all", label: "Tất cả" },
@@ -83,10 +82,10 @@ export default function EvidenceComparePanel({ evidence, onSnippetClick }: Evide
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 text-xs font-semibold py-2 px-3 rounded-lg transition-all ${
+            className={`flex-1 whitespace-nowrap text-xs font-semibold py-2 px-3 rounded-full transition-all ${
               activeTab === tab.id
-                ? "bg-slate-900 text-white shadow-sm"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                ? "bg-[#14244B] text-white"
+                : "text-[#607096] hover:bg-[#F0F4FC] hover:text-[#14244B]"
             }`}
           >
             {tab.label}
@@ -95,11 +94,10 @@ export default function EvidenceComparePanel({ evidence, onSnippetClick }: Evide
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/10">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8FAFC]">
         {filteredItems.length === 0 ? (
           <div className="text-center py-12">
-            <FileSearch className="size-9 text-slate-300 mx-auto" />
-            <p className="mt-2 text-sm text-slate-500 font-semibold">Không tìm thấy yêu cầu nào.</p>
+            <p className="mt-2 text-sm text-[#607096] font-semibold">Không tìm thấy yêu cầu nào.</p>
           </div>
         ) : (
           filteredItems.map((item, idx) => {
@@ -107,65 +105,58 @@ export default function EvidenceComparePanel({ evidence, onSnippetClick }: Evide
             return (
               <div
                 key={`${item.requirement}-${idx}`}
-                className={`p-4 rounded-2xl border transition-all ${
+                className={`p-4 rounded-2xl bg-white ring-1 transition-all ${
                   isMatched
-                    ? "border-emerald-100 bg-emerald-50/20"
-                    : "border-amber-100 bg-amber-50/20"
+                    ? "ring-[#287A4B]/25"
+                    : "ring-[#FCB625]/40"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                     item.category === "Bắt buộc"
-                      ? "bg-red-50 text-red-600 border border-red-100"
+                      ? "bg-[#FDF2F2] text-[#C43B3B]"
                       : item.category === "Khuyến khích"
-                        ? "bg-sky-50 text-sky-600 border border-sky-100"
-                        : "bg-purple-50 text-purple-600 border border-purple-100"
+                        ? "bg-sky-50 text-sky-600"
+                        : "bg-[#F0F4FC] text-[#607096]"
                   }`}>
                     {item.category}
                   </span>
                   
-                  <div className="flex items-center gap-1">
-                    {isMatched ? (
-                      <CheckCircle2 className="size-4.5 text-emerald-600" />
-                    ) : (
-                      <AlertCircle className="size-4.5 text-amber-600" />
-                    )}
-                    <span className={`text-xs font-bold ${
-                      isMatched ? "text-emerald-700" : "text-amber-700"
+                  <div className="flex items-center">
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      isMatched ? "bg-[#EAF5EE] text-[#287A4B]" : "bg-[#FFF8E6] text-[#8A5A00]"
                     }`}>
                       {isMatched ? "ĐÃ KHỚP" : "THIẾU"}
                     </span>
                   </div>
                 </div>
 
-                <p className="mt-2 text-sm font-semibold text-slate-800 leading-relaxed">
+                <p className="mt-2 text-sm font-semibold text-[#14244B] leading-relaxed">
                   {item.requirement}
                 </p>
 
                 {isMatched ? (
                   <div className="mt-3">
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Từ khóa tìm thấy trong CV:</p>
+                    <p className="text-xs font-semibold text-[#607096]">Từ khóa tìm thấy trong CV:</p>
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
                       {item.snippets.map((snip, sIdx) => (
                         <button
                           key={sIdx}
                           type="button"
                           onClick={() => onSnippetClick(snip)}
-                          className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-100/70 border border-emerald-200/50 hover:bg-emerald-200/90 py-1 px-2.5 rounded-lg transition"
+                          className="inline-flex items-center text-xs font-semibold text-[#287A4B] bg-[#EAF5EE] hover:bg-[#287A4B]/25 py-1 px-3 rounded-full transition"
                         >
-                          <Search className="size-3.5" />
                           {snip}
                         </button>
                       ))}
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-3 text-xs text-amber-800 leading-relaxed bg-amber-50/50 border border-amber-100 p-2.5 rounded-xl">
-                    <p className="font-bold flex items-center gap-1">
-                      <Lightbulb className="size-3.5 text-amber-600" />
+                  <div className="mt-3 text-xs text-[#8A5A00] leading-relaxed bg-[#FFF8E6] p-2.5 rounded-xl">
+                    <p className="font-semibold">
                       Gợi ý:
                     </p>
-                    <p className="mt-0.5 text-amber-700">
+                    <p className="mt-0.5 text-[#8A5A00]">
                       Hãy bổ sung thông tin chứng minh cho yêu cầu này vào CV nếu bạn đã có kinh nghiệm thực tế.
                     </p>
                   </div>

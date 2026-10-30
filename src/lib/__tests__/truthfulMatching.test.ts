@@ -331,8 +331,8 @@ describe("Truthful Matching UI Remediation — Phase 1 & 1.1 Hardening", () => {
       expect(resolveFitBandGaugeColor("not_eligible", true)).toBe("#DC2626");
       expect(resolveFitBandGaugeColor("strong_fit", true)).toBe("#16A34A");
       expect(resolveFitBandGaugeColor("partial_fit", true)).toBe("#2563EB");
-      expect(resolveFitBandGaugeColor("insufficient_evidence", true)).toBe("#94A3B8");
-      expect(resolveFitBandGaugeColor("strong_fit", false)).toBe("#94A3B8");
+      expect(resolveFitBandGaugeColor("insufficient_evidence", true)).toBe("#9AA6C2");
+      expect(resolveFitBandGaugeColor("strong_fit", false)).toBe("#9AA6C2");
     });
   });
 
@@ -557,14 +557,14 @@ describe("Truthful Matching UI Remediation — Phase 1 & 1.1 Hardening", () => {
 
   describe("Reason code & warning mappings", () => {
     it("maps backend reason codes to friendly Vietnamese explanations without raw snake_case", () => {
-      expect(resolveReasonCodeText("skill_not_evidenced")).toContain("Không tìm thấy bằng chứng");
+      expect(resolveReasonCodeText("skill_not_found")).toContain("Không tìm thấy kỹ năng");
       expect(resolveReasonCodeText("skill_level_below_minimum")).toContain("Cấp độ kỹ năng");
       expect(resolveReasonCodeText("education_requirement_needs_specialized_evaluator")).toContain("học vấn");
       expect(resolveReasonCodeText("certificate_requirement_needs_specialized_evaluator")).toContain("chuyên viên nhân sự xác minh");
     });
 
     it("maps backend warnings correctly", () => {
-      expect(resolveWarningText("semantic_dense_provider_fallback_to_sparse")).toContain("đối sánh từ khóa");
+      expect(resolveWarningText("semantic_dense_provider_fallback_to_sparse")).toContain("đối chiếu từ khóa");
     });
   });
 

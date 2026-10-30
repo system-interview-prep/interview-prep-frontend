@@ -114,25 +114,25 @@ export function JobMetadata({
     <div className="space-y-1.5 text-xs text-[#607096]">
       {/* Row 1: Location & Workplace Type */}
       {hasLocationRow && (
-        <div className="flex items-center gap-1.5">
-          <MapPin className="size-3.5 shrink-0 text-[#94A3B8]" aria-hidden="true" />
-          <span className="truncate">{locationParts.join(" · ")}</span>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <MapPin className="size-3.5 shrink-0 text-[#9AA6C2]" aria-hidden="true" />
+          <span className="min-w-0 truncate" title={locationParts.join(" · ")}>{locationParts.join(" · ")}</span>
         </div>
       )}
 
       {/* Row 2: Experience */}
       {hasExperienceRow && (
-        <div className="flex items-center gap-1.5">
-          <Clock className="size-3.5 shrink-0 text-[#94A3B8]" aria-hidden="true" />
-          <span className="truncate">{experienceText}</span>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Clock className="size-3.5 shrink-0 text-[#9AA6C2]" aria-hidden="true" />
+          <span className="min-w-0 truncate" title={experienceText ?? undefined}>{experienceText}</span>
         </div>
       )}
 
       {/* Row 3: Employment Type & Seniority */}
       {hasJobTypeRow && (
-        <div className="flex items-center gap-1.5">
-          <Briefcase className="size-3.5 shrink-0 text-[#94A3B8]" aria-hidden="true" />
-          <span className="truncate">{jobTypeParts.join(" · ")}</span>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Briefcase className="size-3.5 shrink-0 text-[#9AA6C2]" aria-hidden="true" />
+          <span className="min-w-0 truncate" title={jobTypeParts.join(" · ")}>{jobTypeParts.join(" · ")}</span>
         </div>
       )}
     </div>

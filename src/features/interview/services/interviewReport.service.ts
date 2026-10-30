@@ -27,6 +27,25 @@ export interface TurnEvaluation {
   strengths?: string[];
   weaknesses?: string[];
   feedback?: string;
+  /**
+   * SKIPPED: the candidate skipped the question or said they could not answer; scored 0.
+   * NOT_GRADABLE: unreadable voice transcript or a system failure; left out of the score.
+   */
+  outcome?: 'ANSWERED' | 'SKIPPED' | 'NOT_GRADABLE';
+  /** Checklist verdicts; empty when the question has no expected points (graded holistically). */
+  rubric_points?: RubricPoint[];
+  rubricPoints?: RubricPoint[];
+}
+
+export interface RubricPoint {
+  key: string;
+  description: string;
+  importance: 'CORE' | 'BONUS';
+  status: 'COVERED' | 'PARTIAL' | 'INCORRECT' | 'MISSING';
+  /** Verbatim from the answer; checked by the server, empty when MISSING. */
+  quote: string;
+  /** Why the server changed the grader's label (e.g. unverified_quote). */
+  adjusted: string;
 }
 
 export interface CompetencyScore {
@@ -59,7 +78,34 @@ export interface EvaluationReport {
   evaluatedAt?: string;
 }
 
+export interface SessionReflection {
+  sessionId: string;
+  /** turnId → 1..4 (Còn yếu · Tạm được · Khá · Tốt) */
+  selfRatings: Record<string, number>;
+  takeaway: string | null;
+  submitted: boolean;
+  updatedAt: string | null;
+}
+
 export const interviewReportApi = {
+  getReflection: async (sessionId: string): Promise<SessionReflection> => {
+    const res = await apiClient.get<SessionReflection>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/reflection`
+    );
+    return res.data;
+  },
+
+  saveReflection: async (
+    sessionId: string,
+    payload: { selfRatings: Record<string, number>; takeaway?: string | null }
+  ): Promise<SessionReflection> => {
+    const res = await apiClient.put<SessionReflection>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/reflection`,
+      payload
+    );
+    return res.data;
+  },
+
   getEvaluation: async (sessionId: string): Promise<EvaluationReport> => {
     const res = await apiClient.get<EvaluationReport>(
       `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/evaluation`

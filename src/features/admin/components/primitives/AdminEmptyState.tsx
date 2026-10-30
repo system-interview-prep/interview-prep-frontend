@@ -2,6 +2,7 @@
 
 import React, { type ReactNode } from "react";
 import { FolderSearch, AlertCircle, RefreshCw } from "lucide-react";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 export interface AdminEmptyStateProps {
   title: string;
@@ -22,6 +23,7 @@ export default function AdminEmptyState({
   onRetry,
   className = "",
 }: AdminEmptyStateProps) {
+  const { t } = useLanguage();
   const Icon =
     CustomIcon ||
     (variant === "error"
@@ -32,9 +34,9 @@ export default function AdminEmptyState({
 
   const iconBg =
     variant === "error"
-      ? "bg-rose-50 text-rose-600 border-rose-200"
+      ? "bg-[#FDF2F2] text-[#C43B3B] border-[#F5C2C2]"
       : variant === "pending"
-      ? "bg-amber-50 text-amber-600 border-amber-200"
+      ? "bg-[#FFF8E6] text-[#8A5A00] border-[#FCE3A6]"
       : "bg-[#EEF2FD] text-[#204195] border-[#DCE4F3]";
 
   return (
@@ -58,10 +60,10 @@ export default function AdminEmptyState({
             <button
               type="button"
               onClick={onRetry}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-4 py-2 text-xs font-semibold text-[#14244B] shadow-2xs hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-full border border-[#DCE4F3] bg-white px-4 py-2 text-xs font-semibold text-[#14244B] shadow-2xs hover:bg-[#F8FAFC] transition-colors cursor-pointer"
             >
               <RefreshCw className="size-3.5" />
-              <span>Thử lại</span>
+              <span>{t("room.common.retry")}</span>
             </button>
           )}
           {action}

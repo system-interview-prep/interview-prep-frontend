@@ -1,235 +1,141 @@
 "use client";
 
-import {
-  Search,
-  BookOpen,
-  Terminal,
-  ShieldAlert,
-  Headphones,
-  CheckCircle,
-  AlertCircle,
-  ChevronRight,
-  Mail,
-  FileCode,
-  Zap,
-} from "lucide-react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowUpRight, ChevronDown, HeartPulse, Search } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import AdminPageHeader from "./primitives/AdminPageHeader";
+import AdminSection from "./primitives/AdminSection";
+import { usePolledResource } from "@features/admin/pipeline/hooks/usePolledResource";
+import { Chip } from "@features/admin/pipeline/components/ui";
+import { adminOpsService } from "@features/admin/services/adminOps.service";
+import { HEALTH_TONE } from "./SystemHealthClient";
 
-type SupportCategory = {
-  id: string;
-  icon: React.ComponentType<{ className?: string }>;
-  titleKey: string;
-  descriptionKey: string;
-};
+/** One how-to: what to do in the admin when something specific happens. Text lives in the dictionary. */
+export type HelpTopic = { id: string; links: { href: string; labelKey: string }[] };
 
-type FeaturedArticle = {
-  id: string;
-  icon: React.ComponentType<{ className?: string }>;
-  iconClass: string;
-  titleKey: string;
-};
-
-type SystemStatusItem = {
-  id: string;
-  labelKey: string;
-  status: "operational" | "degraded";
-};
-
-const categories: SupportCategory[] = [
+export const HELP_TOPICS: HelpTopic[] = [
   {
-    id: "scoring",
-    icon: BookOpen,
-    titleKey: "admin.help.cat.scoring",
-    descriptionKey: "admin.help.cat.scoring.desc",
+    id: "stuckSession",
+    links: [
+      { href: "/admin/interviews", labelKey: "admin.sidebar.interviews" },
+      { href: "/admin/ai", labelKey: "admin.sidebar.aiOverview" },
+    ],
   },
-  {
-    id: "webhooks",
-    icon: Terminal,
-    titleKey: "admin.help.cat.webhooks",
-    descriptionKey: "admin.help.cat.webhooks.desc",
-  },
-  {
-    id: "compliance",
-    icon: ShieldAlert,
-    titleKey: "admin.help.cat.compliance",
-    descriptionKey: "admin.help.cat.compliance.desc",
-  },
-  {
-    id: "troubleshooting",
-    icon: Headphones,
-    titleKey: "admin.help.cat.troubleshooting",
-    descriptionKey: "admin.help.cat.troubleshooting.desc",
-  },
+  { id: "ungraded", links: [{ href: "/admin/interviews", labelKey: "admin.sidebar.interviews" }] },
+  { id: "cvFailed", links: [{ href: "/admin/cv-parsing", labelKey: "cvParse.title" }] },
+  { id: "workerDown", links: [{ href: "/admin/system", labelKey: "adminOps.health.title" }] },
+  { id: "voice", links: [{ href: "/admin/system", labelKey: "adminOps.health.title" }, { href: "/admin/ai/speech", labelKey: "admin.sidebar.aiSpeech" }] },
+  { id: "aiQuality", links: [{ href: "/admin/evaluation", labelKey: "admin.sidebar.evalOverview" }, { href: "/admin/ai/speech", labelKey: "admin.sidebar.aiSpeech" }] },
+  { id: "changeConfig", links: [{ href: "/admin/settings", labelKey: "admin.sidebar.settings" }, { href: "/admin/ai/models", labelKey: "admin.sidebar.aiModels" }] },
+  { id: "questions", links: [{ href: "/admin/question-bank", labelKey: "admin.sidebar.questionBank" }, { href: "/admin/question-quality", labelKey: "adminOps.quality.title" }] },
+  { id: "jobs", links: [{ href: "/admin/job-descriptions", labelKey: "admin.sidebar.jobBoard" }, { href: "/admin/matching", labelKey: "matching.title" }] },
+  { id: "privacy", links: [{ href: "/admin/audit-logs", labelKey: "admin.sidebar.auditLogs" }, { href: "/admin/users", labelKey: "admin.sidebar.users" }] },
 ];
 
-const articles: FeaturedArticle[] = [
-  {
-    id: "calibrate",
-    icon: FileCode,
-    iconClass: "text-[#234196]",
-    titleKey: "admin.help.article.calibrate",
-  },
-  {
-    id: "latency",
-    icon: Zap,
-    iconClass: "text-amber-600",
-    titleKey: "admin.help.article.latency",
-  },
-  {
-    id: "export-pdf",
-    icon: FileCode,
-    iconClass: "text-[#234196]",
-    titleKey: "admin.help.article.exportPdf",
-  },
-];
+/** Topics whose title or body contains every word of the query (accents ignored). */
+export function filterTopics(topics: HelpTopic[], query: string, t: (key: string) => string): HelpTopic[] {
+  const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d").toLowerCase();
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  if (!words.length) return topics;
+  return topics.filter((topic) => {
+    const text = fold(`${t(`adminOps.help.topic.${topic.id}.title`)} ${t(`adminOps.help.topic.${topic.id}.body`)}`);
+    return words.every((word) => text.includes(word));
+  });
+}
 
-const statuses: SystemStatusItem[] = [
-  { id: "ai-core", labelKey: "admin.help.system.aiCoreEngine", status: "operational" },
-  { id: "api", labelKey: "admin.help.system.apiServices", status: "operational" },
-  { id: "indexing", labelKey: "admin.help.system.indexingPipeline", status: "degraded" },
-];
-
+/** Admin help: how to handle the situations this admin is for, and the live system state. */
 export default function AdminHelpClient() {
   const { t } = useLanguage();
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState<string | null>(HELP_TOPICS[0].id);
+  const { state } = usePolledResource(() => adminOpsService.systemHealth(), () => 60_000, []);
+  const topics = useMemo(() => filterTopics(HELP_TOPICS, query, t), [query, t]);
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <AdminPageHeader
-        title={t("admin.help.title") || "Trợ giúp & Tài liệu Kỹ thuật"}
-        description={t("admin.help.subtitle") || "Tra cứu hướng dẫn kỹ thuật, tài liệu vận hành AI và liên hệ đội ngũ hỗ trợ"}
+        title={t("adminOps.help.title")}
+        description={t("adminOps.help.subtitle")}
         breadcrumbs={[
-          { label: "Admin", href: "/admin/dashboard" },
-          { label: t("admin.sidebar.help") || "Trợ giúp & Tài liệu" },
+          { label: t("fixAdmin.detail.breadcrumbAdmin"), href: "/admin/dashboard" },
+          { label: t("adminOps.help.title") },
         ]}
       />
 
-      {/* Hero Banner */}
-      <div className="rounded-2xl border border-[#204195]/20 bg-gradient-to-r from-[#204195] to-[#14244B] p-8 text-white shadow-xs">
-        <div className="max-w-2xl">
-          <h2 className="font-headline text-2xl sm:text-3xl font-bold tracking-tight text-white">
-            {t("admin.help.heroTitle") || "Chúng tôi có thể hỗ trợ gì cho bạn?"}
-          </h2>
-          <p className="mt-2 text-sm text-white/80">
-            {t("admin.help.heroSubtitle") || "Tìm kiếm tài liệu, hướng dẫn huấn luyện AI và tài liệu xử lý sự cố hệ thống."}
-          </p>
-
-          <div className="relative mt-6 max-w-xl">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-[#607096] pointer-events-none" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
+        <div className="min-w-0 space-y-4 lg:col-span-2">
+          <div className="relative">
+            <label htmlFor="admin-help-search" className="sr-only">
+              {t("adminOps.help.search")}
+            </label>
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#8A9ABA]" aria-hidden="true" />
             <input
-              className="w-full rounded-xl border border-white/20 bg-white/10 py-3 pl-11 pr-28 text-xs font-medium text-white placeholder-white/60 focus:bg-white focus:text-[#14244B] focus:outline-none transition-colors"
-              placeholder={t("admin.help.searchExample") || "Tìm kiếm 'RAG Latency', 'Chu kỳ thanh toán', 'Token usage'..."}
-              type="text"
+              id="admin-help-search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("adminOps.help.searchPlaceholder")}
+              className="w-full rounded-full border border-[#DCE4F3] bg-white py-2.5 pl-10 pr-4 text-sm text-[#14244B] focus:border-[#204195] focus:outline-none"
             />
-            <button
-              type="button"
-              className="absolute right-1.5 top-1.5 rounded-lg bg-[#204195] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#183377] transition-all cursor-pointer"
-            >
-              {t("admin.help.searchCta") || "TÌM KIẾM"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Grid: Support Topics & Status */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Left Column: Knowledge Topics */}
-        <div className="space-y-6 lg:col-span-8">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {categories.map((c) => {
-              const IconComp = c.icon;
-              return (
-                <div
-                  key={c.id}
-                  className="rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs hover:border-[#204195]/40 hover:shadow-md transition-all cursor-pointer"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EEF2FD] text-[#204195] mb-4">
-                    <IconComp className="size-5" />
-                  </div>
-                  <h3 className="font-headline text-base font-bold text-[#14244B]">
-                    {t(c.titleKey)}
-                  </h3>
-                  <p className="mt-1 text-xs text-[#607096] leading-relaxed">
-                    {t(c.descriptionKey)}
-                  </p>
-                </div>
-              );
-            })}
           </div>
 
-          {/* Featured Guides */}
-          <div className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs">
-            <h3 className="font-headline text-base font-bold text-[#14244B] mb-4">
-              {t("admin.help.featuredArticles") || "Tài liệu & Hướng dẫn nổi bật"}
-            </h3>
-            <div className="divide-y divide-[#EAEFF8]">
-              {articles.map((art) => {
-                const Icon = art.icon;
+          {topics.length ? (
+            <ul className="space-y-3">
+              {topics.map((topic) => {
+                const expanded = open === topic.id || query.trim().length > 0;
                 return (
-                  <div
-                    key={art.id}
-                    className="flex items-center justify-between py-3.5 hover:bg-[#F8FAFC] px-2 rounded-lg transition-colors cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon className={`size-4 ${art.iconClass}`} />
-                      <span className="text-xs font-semibold text-[#14244B] group-hover:text-[#204195] transition-colors">
-                        {t(art.titleKey)}
-                      </span>
-                    </div>
-                    <ChevronRight className="size-4 text-[#607096] group-hover:translate-x-0.5 transition-transform" />
-                  </div>
+                  <li key={topic.id} className="rounded-2xl border border-[#DCE4F3] bg-white shadow-2xs">
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      onClick={() => setOpen(open === topic.id ? null : topic.id)}
+                      className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+                    >
+                      <span className="text-sm font-bold text-[#14244B]">{t(`adminOps.help.topic.${topic.id}.title`)}</span>
+                      <ChevronDown className={`size-4 shrink-0 text-[#607096] transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+                    </button>
+                    {expanded ? (
+                      <div className="border-t border-[#EAEFF8] px-5 py-4">
+                        <p className="whitespace-pre-line text-sm leading-6 text-[#475569]">{t(`adminOps.help.topic.${topic.id}.body`)}</p>
+                        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+                          {topic.links.map((link) => (
+                            <Link key={link.href} href={link.href} className="inline-flex items-center gap-1 text-xs font-semibold text-[#204195] hover:underline">
+                              {t(link.labelKey)}
+                              <ArrowUpRight className="size-3" aria-hidden="true" />
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </li>
                 );
               })}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: System Status & Support Contact */}
-        <div className="space-y-6 lg:col-span-4">
-          {/* System Health */}
-          <div className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs">
-            <h3 className="font-headline text-sm font-bold text-[#14244B] mb-4">
-              {t("admin.help.systemHealth") || "Trạng thái Hệ thống"}
-            </h3>
-            <div className="space-y-3">
-              {statuses.map((s) => (
-                <div key={s.id} className="flex items-center justify-between text-xs py-2 border-b border-[#EAEFF8] last:border-b-0">
-                  <span className="text-[#607096]">{t(s.labelKey)}</span>
-                  {s.status === "operational" ? (
-                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
-                      <CheckCircle className="size-3.5 text-emerald-600" />
-                      {t("admin.help.status.operational") || "HOẠT ĐỘNG TỐT"}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
-                      <AlertCircle className="size-3.5 text-amber-600" />
-                      {t("admin.help.status.degraded") || "BỊ CHẬM / SUY GIẢM"}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Contact Support Card */}
-          <div className="rounded-2xl border border-[#DCE4F3] bg-gradient-to-br from-[#EEF2FD] to-white p-6 shadow-xs">
-            <div className="flex items-center gap-2 mb-3">
-              <Mail className="size-5 text-[#204195]" />
-              <h4 className="font-headline text-sm font-bold text-[#14244B]">
-                {t("admin.help.supportChannelTitle") || "Kênh Hỗ trợ Kỹ thuật"}
-              </h4>
-            </div>
-            <p className="text-xs text-[#607096] leading-relaxed mb-4">
-              {t("admin.help.supportChannelDesc") || "Cần hỗ trợ tích hợp API, mở rộng quota LLM hoặc cấu hình Docker? Liên hệ đội ngũ kỹ sư vận hành INTERVIA."}
+            </ul>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-[#DCE4F3] bg-white p-6 text-center text-sm text-[#607096]">
+              {t("adminOps.help.noResult")}
             </p>
-            <a
-              href={`mailto:${t("admin.help.supportEmail") || "support@intervia.io"}`}
-              className="inline-block w-full rounded-xl bg-[#204195] py-2.5 text-center text-xs font-semibold text-white shadow-xs hover:bg-[#183377] transition-all"
-            >
-              {t("admin.help.supportEmail") || "support@intervia.io"}
-            </a>
-          </div>
+          )}
         </div>
+
+        <AdminSection title={t("adminOps.health.title")} description={t("adminOps.help.healthNote")}>
+          {state.status === "ready" ? (
+            <ul className="space-y-2 text-xs">
+              {state.data.checks.map((check) => (
+                <li key={check.key} className="flex items-center justify-between gap-3">
+                  <span className="text-[#14244B]">{t(`adminOps.health.check.${check.key}`)}</span>
+                  <Chip tone={HEALTH_TONE[check.status]}>{t(`adminOps.health.status.${check.status}`)}</Chip>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-[#607096]">{state.status === "loading" ? t("admin.common.loading") : t("adminOps.health.loadError")}</p>
+          )}
+          <Link href="/admin/system" className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-[#204195] hover:underline">
+            <HeartPulse className="size-3.5" aria-hidden="true" />
+            {t("adminOps.help.openHealth")}
+          </Link>
+        </AdminSection>
       </div>
     </div>
   );

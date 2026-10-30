@@ -7,5 +7,6 @@ export * from "./JobMatchSummary";
 export * from "./JobCardFooter";
 export * from "./JobCardSkeleton";
 export * from "./JobCardEmptyState";
+export * from "./JobFitBadge";
 export * from "./JobCard";
 export { default } from "./JobCard";

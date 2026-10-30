@@ -2,40 +2,50 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import AdminAlertsBanner, { AdminAlertsNavBadge } from "@features/admin/pipeline/components/AdminAlertsBanner";
+import AdminNotificationBell from "@features/admin/notifications/AdminNotificationBell";
+import AdminNotificationToasts from "@features/admin/notifications/AdminNotificationToasts";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
-  Plus,
   LayoutDashboard,
   Users,
   Briefcase,
-  Database,
   FileQuestion,
   ClipboardCheck,
   MessageSquare,
-  Sparkles,
+  MessageSquareQuote,
+  Cpu,
   Box,
-  Terminal,
   Activity,
-  Coins,
-  AlertOctagon,
   Target,
-  FlaskConical,
-  GitCompare,
-  TrendingUp,
   ScrollText,
   Settings,
   HelpCircle,
   LogOut,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Shield,
   Tags,
+  Menu,
+  X,
+  GitCompareArrows,
+  FileScan,
+  ChartColumn,
+  CalendarCheck,
+  HeartPulse,
+  BookOpenCheck,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { ConfirmDialog } from "@components/shared/ConfirmDialog";
+import { useDialogA11y } from "@components/shared/useDialogA11y";
+import { BrandLogo } from "@components/shared/BrandLogo";
+import { usePageTitle } from "@components/shared/usePageTitle";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
 import { performClientLogout } from "@features/auth/services/auth.service";
-import LanguageToggleButton from "@components/shared/LanguageToggleButton";
+import { adminHomePath, canOpenAdminPath, isFullAdmin, primaryAdminRole } from "@features/admin/access";
+import { formatUserRole } from "@/i18n/roles";
 
 const subscribeNothing = () => () => {};
 
@@ -74,10 +84,16 @@ function getSidebarServerSnapshot(): boolean {
 export default function AdminDashboardShell({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
   const pathname = usePathname();
+  const router = useRouter();
 
   const { profile } = useAuthProfile();
   const [avatarError, setAvatarError] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  // Mobile navigation drawer (the desktop sidebar is hidden below md).
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [soonOpen, setSoonOpen] = useState(false);
+  const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
+  const drawerRef = useDialogA11y<HTMLDivElement>(mobileNavOpen, closeMobileNav);
   const isCollapsed = useSyncExternalStore(subscribeSidebar, getSidebarSnapshot, getSidebarServerSnapshot);
 
   const toggleSidebar = () => {
@@ -90,39 +106,49 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     }
   };
 
-  const displayName = profile?.name || profile?.email || "Admin";
-  const roleLabel = t("admin.role.seniorAdmin") || "Senior Administrator";
   const navReady = useIsClient();
+  // The profile comes from browser storage: read it only after hydration so the
+  // server and first client render match (no hydration mismatch on name/initials).
+  const clientProfile = navReady ? profile : null;
+  const displayName = clientProfile?.name || clientProfile?.email || t("fixAdmin.shell.adminBadge");
+  // Question authors and reviewers use the console too (access.ts): their menu,
+  // home page and role badge follow their roles. Null until hydrated.
+  const roles = clientProfile?.roles ?? null;
+  const fullAdmin = !roles || roles.length === 0 || isFullAdmin(roles);
+  const homePath = adminHomePath(roles);
+  const mainRole = primaryAdminRole(roles);
+  const roleLabel = mainRole && mainRole !== "ADMIN" ? formatUserRole(mainRole, t) : t("admin.role.seniorAdmin");
+  const pageAllowed = canOpenAdminPath(pathname, roles);
+  useEffect(() => {
+    // The dashboard is where login and "/admin" land; send other roles to their own home.
+    if (!pageAllowed && (pathname === "/admin/dashboard" || pathname === "/admin")) router.replace(homePath);
+  }, [pageAllowed, pathname, homePath, router]);
 
   const isActive = useMemo(
     () => ({
       dashboard: pathname === "/admin/dashboard" || pathname === "/admin",
       users: pathname.startsWith("/admin/users"),
-      jobProfiles:
-        pathname === "/admin/job-descriptions" ||
-        pathname === "/admin/job-profiles" ||
-        ((pathname.startsWith("/admin/job-descriptions/") || pathname.startsWith("/admin/job-profiles/")) &&
-          !pathname.startsWith("/admin/job-descriptions/create") &&
-          !pathname.startsWith("/admin/job-profiles/create")),
-      createJob:
-        pathname.startsWith("/admin/job-descriptions/create") ||
-        pathname.startsWith("/admin/job-profiles/create"),
+      jobProfiles: pathname.startsWith("/admin/job-descriptions") || pathname.startsWith("/admin/job-profiles"),
       questionBank: pathname.startsWith("/admin/question-bank"),
+      questionQuality: pathname.startsWith("/admin/question-quality"),
+      practice: pathname.startsWith("/admin/practice"),
+      systemHealth: pathname.startsWith("/admin/system"),
       taxonomy: pathname.startsWith("/admin/taxonomy"),
       rubrics: pathname.startsWith("/admin/rubrics"),
       knowledgeBase: pathname.startsWith("/admin/knowledge-base"),
       interviews: pathname.startsWith("/admin/interviews"),
+      matching: pathname.startsWith("/admin/matching"),
+      cvParsing: pathname.startsWith("/admin/cv-parsing"),
       aiOverview: pathname === "/admin/ai",
       aiModels: pathname.startsWith("/admin/ai/models"),
       aiPrompts: pathname.startsWith("/admin/ai/prompts"),
       aiTraces: pathname.startsWith("/admin/ai/traces"),
-      aiUsage: pathname.startsWith("/admin/ai/usage"),
-      aiErrors: pathname.startsWith("/admin/ai/errors"),
+      aiSpeech: pathname.startsWith("/admin/ai/speech"),
+      aiPlaybook: pathname.startsWith("/admin/ai/playbook"),
       evaluation: pathname === "/admin/evaluation",
       evalDatasets: pathname.startsWith("/admin/evaluation/datasets"),
       evalExperiments: pathname.startsWith("/admin/evaluation/experiments"),
       evalRegression: pathname.startsWith("/admin/evaluation/regression"),
-      insights: pathname.startsWith("/admin/insights"),
       auditLogs: pathname.startsWith("/admin/audit-logs"),
       settings: pathname.startsWith("/admin/settings"),
       help: pathname.startsWith("/admin/help"),
@@ -130,6 +156,39 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     }),
     [pathname]
   );
+
+  // Browser tab "<menu item> | INTERVIA" on menu pages; nested pages keep their own metadata.
+  const TAB_TITLE_KEYS: Record<string, string> = {
+    "/admin/dashboard": "admin.sidebar.dashboard",
+    "/admin/users": "admin.sidebar.users",
+    "/admin/job-descriptions": "admin.sidebar.jobBoard",
+    "/admin/question-bank": "admin.sidebar.questionBank",
+    "/admin/question-quality": "adminOps.quality.title",
+    "/admin/practice": "adminOps.practice.title",
+    "/admin/system": "adminOps.health.title",
+    "/admin/taxonomy": "fixAdmin.shell.taxonomy",
+    "/admin/rubrics": "admin.sidebar.rubrics",
+    "/admin/knowledge-base": "admin.sidebar.knowledgeBase",
+    "/admin/interviews": "admin.sidebar.interviews",
+    "/admin/cv-parsing": "cvParse.title",
+    "/admin/matching": "matching.title",
+    "/admin/ai": "admin.sidebar.aiOverview",
+    "/admin/ai/traces": "admin.sidebar.aiTraces",
+    "/admin/ai/speech": "admin.sidebar.aiSpeech",
+    "/admin/ai/playbook": "playbook.title",
+    "/admin/ai/models": "admin.sidebar.aiModels",
+    "/admin/ai/prompts": "admin.sidebar.aiPrompts",
+    "/admin/evaluation": "admin.sidebar.evalOverview",
+    "/admin/evaluation/datasets": "admin.sidebar.evalDatasets",
+    "/admin/evaluation/experiments": "admin.sidebar.evalExperiments",
+    "/admin/evaluation/regression": "admin.sidebar.evalRegression",
+    "/admin/audit-logs": "admin.sidebar.auditLogs",
+    "/admin/settings": "admin.sidebar.settings",
+    "/admin/help": "common.helpCenter",
+    "/admin/profile": "fixAdmin.shell.profile",
+  };
+  const tabKey = TAB_TITLE_KEYS[pathname];
+  usePageTitle(tabKey ? t(tabKey) : null);
 
   if (pathname === "/admin/login") {
     return <>{children}</>;
@@ -150,53 +209,294 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     label: string;
     Icon: React.ComponentType<{ className?: string }>;
     active: boolean;
-    badge?: string;
+    /** Placeholder page: the backend is not connected yet. */
+    soon?: boolean;
+    /** Live count shown next to the label (active alerts on the AI overview). */
+    badge?: ReactNode;
   };
 
   const navGroupOverview: NavItem[] = [
-    { href: "/admin/dashboard", label: t("admin.sidebar.dashboard") || "Dashboard Overview", Icon: LayoutDashboard, active: isActive.dashboard },
+    { href: "/admin/dashboard", label: t("admin.sidebar.dashboard"), Icon: LayoutDashboard, active: isActive.dashboard },
   ];
 
   const navGroupPeople: NavItem[] = [
-    { href: "/admin/users", label: t("admin.sidebar.users") || "Users & Candidates", Icon: Users, active: isActive.users },
+    { href: "/admin/users", label: t("admin.sidebar.users"), Icon: Users, active: isActive.users },
   ];
 
   const navGroupContent: NavItem[] = [
-    { href: "/admin/job-descriptions", label: t("admin.sidebar.jobBoard") || "Job Descriptions (JD)", Icon: Briefcase, active: isActive.jobProfiles },
-    { href: "/admin/question-bank", label: t("admin.sidebar.questionBank") || "Question Bank", Icon: FileQuestion, active: isActive.questionBank },
-    { href: "/admin/taxonomy", label: "Taxonomy", Icon: Tags, active: isActive.taxonomy },
-    { href: "/admin/rubrics", label: t("admin.sidebar.rubrics") || "Scoring Rubrics", Icon: ClipboardCheck, active: isActive.rubrics },
-    { href: "/admin/knowledge-base", label: t("admin.sidebar.knowledgeBase") || "Knowledge Base (RAG)", Icon: Database, active: isActive.knowledgeBase },
+    { href: "/admin/job-descriptions", label: t("admin.sidebar.jobBoard"), Icon: Briefcase, active: isActive.jobProfiles },
+    { href: "/admin/question-bank", label: t("admin.sidebar.questionBank"), Icon: FileQuestion, active: isActive.questionBank },
+    { href: "/admin/question-quality", label: t("adminOps.quality.title"), Icon: ChartColumn, active: isActive.questionQuality },
+    { href: "/admin/taxonomy", label: t("fixAdmin.shell.taxonomy"), Icon: Tags, active: isActive.taxonomy },
+    { href: "/admin/rubrics", label: t("admin.sidebar.rubrics"), Icon: ClipboardCheck, active: isActive.rubrics },
+    // Knowledge base (/admin/knowledge-base) hidden 26/10: it needs a separate RAG service that is not
+    // part of this stack, and nothing in interviews, grading or matching reads it. The page still exists.
   ];
 
   const navGroupInterviews: NavItem[] = [
-    { href: "/admin/interviews", label: t("admin.sidebar.interviews") || "Interview Sessions", Icon: MessageSquare, active: isActive.interviews },
+    { href: "/admin/interviews", label: t("admin.sidebar.interviews"), Icon: MessageSquare, active: isActive.interviews },
+    { href: "/admin/practice", label: t("adminOps.practice.title"), Icon: CalendarCheck, active: isActive.practice },
+    { href: "/admin/cv-parsing", label: t("cvParse.title"), Icon: FileScan, active: isActive.cvParsing },
+    { href: "/admin/matching", label: t("matching.title"), Icon: GitCompareArrows, active: isActive.matching },
   ];
 
   const navGroupAiOps: NavItem[] = [
-    { href: "/admin/ai", label: t("admin.sidebar.aiOverview") || "AI Overview", Icon: Sparkles, active: isActive.aiOverview },
-    { href: "/admin/ai/models", label: t("admin.sidebar.aiModels") || "Model Registry", Icon: Box, active: isActive.aiModels },
-    { href: "/admin/ai/prompts", label: t("admin.sidebar.aiPrompts") || "Prompt Management", Icon: Terminal, active: isActive.aiPrompts },
-    { href: "/admin/ai/traces", label: t("admin.sidebar.aiTraces") || "Traces & Logs", Icon: Activity, active: isActive.aiTraces },
-    { href: "/admin/ai/usage", label: t("admin.sidebar.aiUsage") || "Token & Cost Usage", Icon: Coins, active: isActive.aiUsage },
-    { href: "/admin/ai/errors", label: t("admin.sidebar.aiErrors") || "AI Incidents & Errors", Icon: AlertOctagon, active: isActive.aiErrors },
+    { href: "/admin/ai", label: t("admin.sidebar.aiOverview"), Icon: Cpu, active: isActive.aiOverview, badge: <AdminAlertsNavBadge /> },
+    { href: "/admin/ai/traces", label: t("admin.sidebar.aiTraces"), Icon: Activity, active: isActive.aiTraces },
+    { href: "/admin/ai/speech", label: t("admin.sidebar.aiSpeech"), Icon: MessageSquareQuote, active: isActive.aiSpeech },
+    { href: "/admin/ai/playbook", label: t("playbook.title"), Icon: BookOpenCheck, active: isActive.aiPlaybook },
+    { href: "/admin/evaluation", label: t("admin.sidebar.evalOverview"), Icon: Target, active: isActive.evaluation },
+    { href: "/admin/ai/models", label: t("admin.sidebar.aiModels"), Icon: Box, active: isActive.aiModels },
   ];
 
-  const navGroupEvaluation: NavItem[] = [
-    { href: "/admin/evaluation", label: t("admin.sidebar.evalOverview") || "Evaluation Overview", Icon: Target, active: isActive.evaluation },
-    { href: "/admin/evaluation/datasets", label: t("admin.sidebar.evalDatasets") || "Test Datasets", Icon: Database, active: isActive.evalDatasets },
-    { href: "/admin/evaluation/experiments", label: t("admin.sidebar.evalExperiments") || "A/B Experiments", Icon: FlaskConical, active: isActive.evalExperiments },
-    { href: "/admin/evaluation/regression", label: t("admin.sidebar.evalRegression") || "Regression Testing", Icon: GitCompare, active: isActive.evalRegression },
-  ];
-
-  const navGroupAnalytics: NavItem[] = [
-    { href: "/admin/insights", label: t("admin.sidebar.insights") || "Operational Analytics", Icon: TrendingUp, active: isActive.insights },
-  ];
+  /** Placeholder pages (no backend yet), kept together in one collapsed group. */
+  // 25/10: the former "coming soon" pages are either real (models, evaluation)
+  // or handled in Langfuse (prompts, datasets, experiments, regression), so
+  // the group is empty and not shown.
+  const navGroupSoon: NavItem[] = [];
 
   const navGroupSystem: NavItem[] = [
-    { href: "/admin/audit-logs", label: t("admin.sidebar.auditLogs") || "Audit Logs", Icon: ScrollText, active: isActive.auditLogs },
-    { href: "/admin/settings", label: t("admin.sidebar.settings") || "System Settings", Icon: Settings, active: isActive.settings },
+    { href: "/admin/system", label: t("adminOps.health.title"), Icon: HeartPulse, active: isActive.systemHealth },
+    { href: "/admin/audit-logs", label: t("admin.sidebar.auditLogs"), Icon: ScrollText, active: isActive.auditLogs },
+    { href: "/admin/settings", label: t("admin.sidebar.settings"), Icon: Settings, active: isActive.settings },
   ];
+
+
+
+  const brandMark = (collapsed: boolean, onNavigate?: () => void) =>
+    collapsed ? (
+      <div className="flex justify-center">
+        <Link
+          href={homePath}
+          onClick={onNavigate}
+          className="rounded-xl transition-opacity hover:opacity-90"
+          title={t("fixAdmin.shell.brandTitle")}
+          aria-label={t("fixAdmin.shell.brandTitle")}
+        >
+          <BrandLogo size={40} />
+        </Link>
+      </div>
+    ) : (
+      <div className="flex min-w-0 items-center">
+        <Link
+          href={homePath}
+          onClick={onNavigate}
+          className="flex min-w-0 items-center gap-2.5 rounded-xl px-1 py-1 transition-opacity hover:opacity-90"
+        >
+          <BrandLogo size={38} />
+          <span className="min-w-0">
+            <span className="flex items-center gap-1.5">
+              <span className="truncate font-display text-base font-bold tracking-[0.08em] text-[#14244B]">INTERVIA</span>
+              <span className="rounded-full bg-[#F0F4FC] px-1.5 py-0.5 text-[9px] font-bold uppercase text-[#204195]">
+                {t("fixAdmin.shell.adminBadge")}
+              </span>
+            </span>
+            <span className="block truncate text-[10.5px] font-medium text-[#607096]">{t("fixAdmin.shell.console")}</span>
+          </span>
+        </Link>
+      </div>
+    );
+
+  // Fewer, larger groups: single-item groups only repeated their item's name.
+  const groups: { title: string; items: NavItem[]; collapsible?: boolean }[] = [
+    { title: "", items: navGroupOverview },
+    { title: t("admin.sidebar.group.content"), items: navGroupContent },
+    { title: t("admin.sidebar.group.operations"), items: [...navGroupInterviews, ...navGroupAiOps] },
+    { title: t("admin.sidebar.group.system"), items: [...navGroupPeople, ...navGroupSystem] },
+    { title: t("admin.sidebar.group.soon"), items: navGroupSoon, collapsible: true },
+  ]
+    .map((group) => ({ ...group, items: group.items.filter((item) => canOpenAdminPath(item.href, roles)) }))
+    .filter((group) => group.items.length > 0);
+
+
+  const renderNavItem = (item: NavItem, collapsed: boolean, onNavigate?: () => void) => {
+    const active = item.active;
+    const label = item.soon ? `${item.label} (${t("fixAdmin.shell.soon")})` : item.label;
+    if (collapsed) {
+      return (
+        <li key={item.href}>
+          <Link
+            href={item.href}
+            onClick={onNavigate}
+            title={label}
+            aria-label={label}
+            aria-current={navReady && active ? "page" : undefined}
+            className={`relative mx-auto flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-150 ${
+              navReady && active
+                ? "bg-[#EEF2FD] text-[#204195]"
+                : item.soon
+                  ? "text-[#A3AFC8] hover:bg-[#F2F5FC] hover:text-[#607096]"
+                  : "text-[#667085] hover:bg-[#F2F5FC] hover:text-[#204195]"
+            }`}
+          >
+            <item.Icon className="size-4" />
+            {item.badge ? <span className="absolute -right-1 -top-1">{item.badge}</span> : null}
+          </Link>
+        </li>
+      );
+    }
+    return (
+      <li key={item.href}>
+        <Link
+          href={item.href}
+          onClick={onNavigate}
+          aria-current={navReady && active ? "page" : undefined}
+          className={linkClass(active)}
+        >
+          <item.Icon className="size-3.5 shrink-0" />
+          <span className={`flex-1 truncate text-xs ${item.soon && !(navReady && active) ? "text-[#8A98B8]" : ""}`}>
+            {item.label}
+          </span>
+          {item.badge ?? null}
+        </Link>
+      </li>
+    );
+  };
+
+  const navGroups = (collapsed: boolean, onNavigate?: () => void) => (
+    <nav className="space-y-3 pt-1" aria-label={t("fixAdmin.shell.menuTitle")}>
+      {groups.map((group, groupIdx) => {
+        const groupActive = navReady && group.items.some((item) => item.active);
+        // The "coming soon" group stays folded (one row) unless opened or one of its pages is open.
+        const folded = group.collapsible && !soonOpen && !groupActive;
+        if (group.collapsible && collapsed && !groupActive) return null;
+        return (
+          <div key={group.title || "home"}>
+            {groupIdx > 0 && <div className={`${collapsed ? "mx-auto my-2 w-6" : "mx-2 my-2"} h-px bg-[#EAEFF8]`} />}
+            {!collapsed && group.collapsible ? (
+              <button
+                type="button"
+                onClick={() => setSoonOpen((open) => !open)}
+                aria-expanded={!folded}
+                className="flex w-full items-center gap-1.5 rounded-lg px-2.5 pb-1 text-left text-[10px] font-bold uppercase tracking-wider text-[#8A98B8] hover:text-[#607096]"
+              >
+                <span className="flex-1">{group.title}</span>
+                <span className="rounded-full bg-[#F0F4FC] px-1.5 py-0.5 text-[9px] font-semibold normal-case tracking-normal text-[#607096]">
+                  {group.items.length}
+                </span>
+                <ChevronDown className={`size-3 transition-transform ${folded ? "" : "rotate-180"}`} aria-hidden="true" />
+              </button>
+            ) : !collapsed && group.title ? (
+              <p className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-[#8A98B8]">{group.title}</p>
+            ) : null}
+            {folded ? null : (
+              <ul className="space-y-0.5">{group.items.map((item) => renderNavItem(item, collapsed, onNavigate))}</ul>
+            )}
+          </div>
+        );
+      })}
+    </nav>
+  );
+
+  const avatar = (
+    <>
+      {clientProfile?.picture && !avatarError ? (
+        <img
+          alt=""
+          src={clientProfile.picture}
+          referrerPolicy="no-referrer"
+          onError={() => setAvatarError(true)}
+          className="h-8 w-8 shrink-0 rounded-full border border-[#DCE4F3] object-cover shadow-2xs"
+        />
+      ) : (
+        <div
+          aria-hidden="true"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#DCE4F3] bg-[#204195] text-xs font-bold text-[#FCB625] shadow-2xs"
+        >
+          {displayName ? initialsFromName(displayName) : "A"}
+        </div>
+      )}
+    </>
+  );
+
+  const sidebarFooter = (collapsed: boolean, onNavigate?: () => void) => (
+    <div className={`shrink-0 space-y-2 border-t border-[#EAEFF8] bg-white ${collapsed ? "p-2" : "p-3"}`}>
+      {!collapsed ? (
+        <>
+          <div className="flex items-center justify-between px-1">
+            <Link
+              href="/admin/help"
+              onClick={onNavigate}
+              className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold transition-colors ${
+                isActive.help ? "bg-[#204195]/10 text-[#204195]" : "text-[#607096] hover:bg-[#F7F9FD] hover:text-[#204195]"
+              }`}
+            >
+              <HelpCircle className="size-3.5" />
+              <span>{t("common.helpCenter")}</span>
+            </Link>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] p-1.5 transition-colors hover:border-[#C5D2E7] hover:bg-[#FAFBFE]">
+            <Link
+              href="/admin/profile"
+              onClick={onNavigate}
+              className="group flex min-w-0 flex-1 items-center gap-2 overflow-hidden"
+              aria-label={`${t("fixAdmin.shell.profile")}: ${displayName}`}
+              title={displayName}
+            >
+              {avatar}
+              <div className="min-w-0 flex-1 text-left">
+                <p className="truncate text-xs font-bold text-[#14244B] transition-colors group-hover:text-[#204195]">{displayName}</p>
+                <p className="flex items-center gap-1 truncate text-[10px] font-semibold text-[#204195]">
+                  <Shield className="size-3 text-[#204195]" />
+                  {roleLabel}
+                </p>
+              </div>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => {
+                onNavigate?.();
+                setShowLogoutModal(true);
+              }}
+              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#607096] transition-colors hover:bg-[#FDF2F2] hover:text-[#C43B3B]"
+              title={t("common.logout")}
+              aria-label={t("common.logout")}
+            >
+              <LogOut className="size-3.5" />
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col items-center gap-2">
+          <Link
+            href="/admin/help"
+            onClick={onNavigate}
+            className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors ${
+              isActive.help ? "bg-[#204195]/10 text-[#204195]" : "text-[#607096] hover:bg-[#F7F9FD] hover:text-[#204195]"
+            }`}
+            title={t("common.helpCenter")}
+            aria-label={t("common.helpCenter")}
+          >
+            <HelpCircle className="size-4" />
+          </Link>
+
+          <div className="my-0.5 h-px w-8 bg-[#EAEFF8]" />
+
+          <Link
+            href="/admin/profile"
+            onClick={onNavigate}
+            className="flex h-9 w-9 items-center justify-center"
+            title={displayName}
+            aria-label={`${t("fixAdmin.shell.profile")}: ${displayName}`}
+          >
+            {avatar}
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => setShowLogoutModal(true)}
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-[#607096] transition-colors hover:bg-[#FDF2F2] hover:text-[#C43B3B]"
+            title={t("common.logout")}
+            aria-label={t("common.logout")}
+          >
+            <LogOut className="size-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
 
   const handleLogout = () => {
     setShowLogoutModal(false);
@@ -205,74 +505,45 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
 
   return (
     <>
-      {/* Logout Confirm Modal */}
-      {showLogoutModal && (
-        <div
-          className="fixed inset-0 z-[999] flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="admin-logout-modal-title"
-        >
-          <div
-            className="absolute inset-0 bg-[#14244B]/40 backdrop-blur-sm"
-            onClick={() => setShowLogoutModal(false)}
-            aria-hidden="true"
-          />
-          <div className="relative z-10 w-full max-w-sm rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-[0_20px_60px_rgba(20,36,75,0.15)]">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
-              <LogOut className="size-5 text-red-500" />
-            </div>
-            <h2
-              id="admin-logout-modal-title"
-              className="mb-1.5 text-center text-[17px] font-bold text-[#14244B]"
-            >
-              {t("userDash.logoutModal.title") || "Đăng xuất tài trị?"}
-            </h2>
-            <p className="mb-6 text-center text-sm text-[#607096]">
-              {t("userDash.logoutModal.desc") || "Bạn có chắc chắn muốn đăng xuất khỏi trang quản trị INTERVIA?"}
-            </p>
-            <div className="flex flex-col gap-2.5">
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex h-10 w-full items-center justify-center rounded-xl bg-red-500 text-sm font-semibold text-white transition-all hover:bg-red-600 active:scale-[0.98] cursor-pointer"
-              >
-                {t("userDash.logoutModal.confirm") || "Đăng xuất"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowLogoutModal(false)}
-                className="flex h-10 w-full items-center justify-center rounded-xl border border-[#DCE4F3] bg-white text-sm font-medium text-[#607096] transition-all hover:bg-[#F7F9FD] hover:text-[#14244B] active:scale-[0.98] cursor-pointer"
-              >
-                {t("userDash.logoutModal.cancel") || "Hủy"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={showLogoutModal}
+        title={t("userDash.logoutModal.title")}
+        body={t("fixAdmin.shell.logoutBody")}
+        confirmLabel={t("userDash.logoutModal.confirm")}
+        cancelLabel={t("userDash.logoutModal.cancel")}
+        tone="danger"
+        onConfirm={handleLogout}
+        onCancel={() => setShowLogoutModal(false)}
+      />
 
       <div className="min-h-screen bg-[#F8FAFC] font-body text-[#14244B]">
         {/* Mobile Topbar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#DCE4F3] bg-white px-4 py-2.5 md:hidden">
-          <Link href="/admin/dashboard" className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#204195] text-[#FCB625] shadow-xs">
-              <Sparkles size={16} />
-            </div>
-            <div>
-              <span className="font-headline text-base font-extrabold tracking-tight text-[#14244B]">INTERVIA</span>
-              <span className="ml-1 rounded bg-[#EEF2FD] px-1.5 py-0.5 text-[9px] font-black uppercase text-[#204195]">Admin</span>
-            </div>
-          </Link>
-          <div className="flex items-center gap-2">
+        <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-[#DCE4F3] bg-white px-4 py-2.5 lg:hidden">
+          <div className="flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              aria-label={t("fixAdmin.shell.openMenu")}
+              aria-expanded={mobileNavOpen}
+              aria-controls="admin-mobile-nav"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#14244B] transition-colors hover:bg-[#F0F4FC]"
+            >
+              <Menu className="size-5" />
+            </button>
+            {brandMark(false)}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {fullAdmin ? <AdminNotificationBell /> : null}
             <Link
               href="/admin/profile"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#DCE4F3] bg-[#204195] text-xs font-bold text-[#FCB625] overflow-hidden"
+              aria-label={t("fixAdmin.shell.profile")}
+              className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#DCE4F3] bg-[#204195] text-xs font-bold text-[#FCB625]"
               title={displayName}
             >
-              {profile?.picture && !avatarError ? (
+              {clientProfile?.picture && !avatarError ? (
                 <img
                   alt=""
-                  src={profile.picture}
+                  src={clientProfile.picture}
                   className="h-8 w-8 rounded-full object-cover"
                   onError={() => setAvatarError(true)}
                 />
@@ -280,14 +551,46 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
                 initialsFromName(displayName)
               )}
             </Link>
-            <div className="h-4 w-px bg-[#DCE4F3]" />
-            <LanguageToggleButton placement="bottom" className="h-8 rounded-xl px-2 text-xs" />
           </div>
         </header>
 
+        {fullAdmin ? <AdminNotificationToasts /> : null}
+
+        {/* Mobile navigation drawer */}
+        {mobileNavOpen && (
+          <div className="fixed inset-0 z-[60] lg:hidden">
+            <div className="absolute inset-0 bg-[#14244B]/40" onClick={closeMobileNav} aria-hidden="true" />
+            <div
+              ref={drawerRef}
+              id="admin-mobile-nav"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("fixAdmin.shell.menuTitle")}
+              tabIndex={-1}
+              className="anim-pop absolute inset-y-0 left-0 flex w-[min(18rem,85vw)] flex-col justify-between bg-white shadow-[0_30px_80px_-30px_rgba(20,36,75,0.5)] outline-none"
+            >
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#EAEFF8] px-3.5 py-3">
+                {brandMark(false, closeMobileNav)}
+                <button
+                  type="button"
+                  onClick={closeMobileNav}
+                  aria-label={t("fixAdmin.shell.closeMenu")}
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#607096] transition-colors hover:bg-[#F0F4FC] hover:text-[#14244B]"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+              <div className="admin-nav-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain p-3.5">
+                {navGroups(false, closeMobileNav)}
+              </div>
+              {sidebarFooter(false, closeMobileNav)}
+            </div>
+          </div>
+        )}
+
         {/* Desktop Sidebar */}
         <aside
-          className={`fixed left-0 top-0 z-40 hidden h-dvh flex-col justify-between border-r border-[#DCE4F3] bg-white transition-[width] duration-300 ease-in-out md:flex ${
+          className={`fixed left-0 top-0 z-40 hidden h-dvh flex-col justify-between border-r border-[#DCE4F3] bg-white transition-[width] duration-300 ease-in-out lg:flex ${
             isCollapsed ? "w-[72px]" : "w-64"
           }`}
         >
@@ -306,244 +609,47 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
             )}
           </button>
 
-          <div className={`flex-1 overflow-y-auto overscroll-contain space-y-4 ${isCollapsed ? "p-2.5" : "p-3.5"}`}>
-            {/* Header / Brand */}
-            {!isCollapsed ? (
-              <div className="flex items-center">
-                <Link
-                  href="/admin/dashboard"
-                  className="flex min-w-0 items-center gap-2.5 rounded-xl px-1 py-1 transition-opacity hover:opacity-90"
-                >
-                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#204195] text-[#FCB625] shadow-xs">
-                    <Sparkles size={18} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h1 className="truncate text-base font-extrabold tracking-tight text-[#14244B]">
-                        INTERVIA
-                      </h1>
-                      <span className="rounded bg-[#EEF2FD] px-1.5 py-0.5 text-[9px] font-black uppercase text-[#204195]">
-                        Admin
-                      </span>
-                    </div>
-                    <p className="truncate text-[10.5px] font-medium text-[#607096]">Operations Console</p>
-                  </div>
-                </Link>
-              </div>
-            ) : (
-              <div className="flex justify-center">
-                <Link
-                  href="/admin/dashboard"
-                  className="grid h-10 w-10 place-items-center rounded-xl bg-[#204195] text-[#FCB625] shadow-xs hover:opacity-90"
-                  title="INTERVIA Admin"
-                >
-                  <Sparkles size={20} />
-                </Link>
-              </div>
-            )}
-
-            {/* Quick Action: New Job Description */}
-            {!isCollapsed ? (
-              <Link
-                href="/admin/job-descriptions/create"
-                className="flex min-h-9 w-full items-center justify-center gap-2 rounded-xl bg-[#204195] hover:bg-[#183275] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99]"
-              >
-                <Plus className="size-3.5" />
-                <span>{t("admin.sidebar.createProfile") || "Tạo Job Description"}</span>
-              </Link>
-            ) : (
-              <Link
-                href="/admin/job-descriptions/create"
-                className="flex h-9 w-9 mx-auto items-center justify-center rounded-xl bg-[#204195] hover:bg-[#183275] text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99]"
-                title={t("admin.sidebar.createProfile") || "Tạo Job Description"}
-              >
-                <Plus className="size-4" />
-              </Link>
-            )}
-
-            {/* Grouped Nav Items */}
-            <nav className="space-y-3 pt-1">
-              {[
-                { title: t("admin.sidebar.group.overview") || "Overview", items: navGroupOverview },
-                { title: t("admin.sidebar.group.people") || "People", items: navGroupPeople },
-                { title: t("admin.sidebar.group.content") || "Interview Content", items: navGroupContent },
-                { title: t("admin.sidebar.group.interviews") || "Interview Operations", items: navGroupInterviews },
-                { title: t("admin.sidebar.group.aiOps") || "AI Operations", items: navGroupAiOps },
-                { title: t("admin.sidebar.group.evaluation") || "AI Evaluation (Eval)", items: navGroupEvaluation },
-                { title: t("admin.sidebar.group.analytics") || "Product Analytics", items: navGroupAnalytics },
-                { title: t("admin.sidebar.group.system") || "System", items: navGroupSystem },
-              ].map((group, groupIdx) => (
-                <div key={group.title}>
-                  {groupIdx > 0 && (
-                    <div className={`${isCollapsed ? "mx-auto w-6 my-2" : "mx-2 my-2"} h-px bg-[#EAEFF8]`} />
-                  )}
-                  {!isCollapsed && (
-                    <p className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-[#8A98B8]">
-                      {group.title}
-                    </p>
-                  )}
-                  <ul className="space-y-0.5">
-                    {group.items.map((item) => {
-                      const active = item.active;
-                      if (isCollapsed) {
-                        return (
-                          <li key={item.href}>
-                            <Link
-                              href={item.href}
-                              title={item.label}
-                              aria-label={item.label}
-                              className={`flex h-9 w-9 mx-auto items-center justify-center rounded-lg transition-all duration-150 ${
-                                active
-                                  ? "bg-[#EEF2FD] text-[#204195]"
-                                  : "text-[#667085] hover:bg-[#F2F5FC] hover:text-[#204195]"
-                              }`}
-                            >
-                              <item.Icon className="size-4" />
-                            </Link>
-                          </li>
-                        );
-                      }
-                      return (
-                        <li key={item.href}>
-                          <Link href={item.href} className={linkClass(active)}>
-                            <item.Icon className="size-3.5 shrink-0" />
-                            <span className="flex-1 truncate text-xs">{item.label}</span>
-                            {item.badge ? (
-                              <span className="rounded bg-amber-100 px-1.5 py-0.2 text-[9px] font-black uppercase text-amber-800">
-                                {item.badge}
-                              </span>
-                            ) : null}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))}
-            </nav>
+          {/* The brand stays put; only the menu (from "Bảng tổng quan" down) scrolls. */}
+          <div className={`shrink-0 border-b border-[#EAEFF8] ${isCollapsed ? "px-2.5 py-3" : "px-3.5 py-3"}`}>
+            {brandMark(isCollapsed)}
+          </div>
+          <div className={`admin-nav-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain ${isCollapsed ? "p-2.5" : "p-3.5"}`}>
+            {navGroups(isCollapsed)}
           </div>
 
-          {/* Sidebar Footer */}
-          <div className={`shrink-0 border-t border-[#EAEFF8] bg-white space-y-2 ${isCollapsed ? "p-2" : "p-3"}`}>
-            {!isCollapsed ? (
-              <>
-                {/* 1. Utility row: [Help] | [Language] */}
-                <div className="flex items-center justify-between px-1">
-                  <Link
-                    href="/admin/help"
-                    className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold transition-colors ${
-                      isActive.help
-                        ? "bg-[#204195]/10 text-[#204195]"
-                        : "text-[#607096] hover:bg-[#F7F9FD] hover:text-[#204195]"
-                    }`}
-                  >
-                    <HelpCircle className="size-3.5" />
-                    <span>{t("common.helpCenter") || "Trợ giúp"}</span>
-                  </Link>
-
-                  <LanguageToggleButton placement="top" className="h-7 rounded-xl px-2 text-xs" />
-                </div>
-
-                {/* 2. Admin Profile Card */}
-                <div className="flex items-center justify-between gap-2 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-1.5 transition-colors hover:border-[#C5D2E7] hover:bg-[#FAFBFE]">
-                  <Link
-                    href="/admin/profile"
-                    className="group flex min-w-0 flex-1 items-center gap-2 overflow-hidden"
-                    aria-label={t("userDash.nav.profile") || "Hồ sơ"}
-                    title={displayName}
-                  >
-                    {profile?.picture && !avatarError ? (
-                      <img
-                        alt=""
-                        src={profile.picture}
-                        referrerPolicy="no-referrer"
-                        onError={() => setAvatarError(true)}
-                        className="h-8 w-8 shrink-0 rounded-full border border-[#DCE4F3] object-cover shadow-2xs"
-                      />
-                    ) : (
-                      <div
-                        aria-hidden="true"
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#DCE4F3] bg-[#204195] text-xs font-bold text-[#FCB625] shadow-2xs"
-                      >
-                        {displayName ? initialsFromName(displayName) : "A"}
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1 text-left">
-                      <p className="truncate text-xs font-bold text-[#14244B] transition-colors group-hover:text-[#204195]">
-                        {displayName}
-                      </p>
-                      <p className="truncate text-[10px] font-semibold text-[#204195] flex items-center gap-1">
-                        <Shield className="size-3 text-[#204195]" />
-                        {roleLabel}
-                      </p>
-                    </div>
-                  </Link>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowLogoutModal(true)}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#607096] transition-colors hover:bg-red-50 hover:text-red-600 cursor-pointer"
-                    title={t("common.logout") || "Đăng xuất"}
-                    aria-label={t("common.logout") || "Đăng xuất"}
-                  >
-                    <LogOut className="size-3.5" />
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="flex flex-col items-center gap-2">
-                {/* 1. LANGUAGE AND HELP */}
-                <LanguageToggleButton compact placement="top" />
-
-                <Link
-                  href="/admin/help"
-                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors ${
-                    isActive.help
-                      ? "bg-[#204195]/10 text-[#204195]"
-                      : "text-[#607096] hover:bg-[#F7F9FD] hover:text-[#204195]"
-                  }`}
-                  title={t("common.helpCenter") || "Trợ giúp"}
-                >
-                  <HelpCircle className="size-4" />
-                </Link>
-
-                <div className="w-8 h-px bg-[#EAEFF8] my-0.5" />
-
-                {/* 2. PROFILE SECOND */}
-                <Link
-                  href="/admin/profile"
-                  className="flex h-9 w-9 items-center justify-center"
-                  title={displayName}
-                >
-                  {profile?.picture && !avatarError ? (
-                    <img
-                      alt=""
-                      src={profile.picture}
-                      referrerPolicy="no-referrer"
-                      onError={() => setAvatarError(true)}
-                      className="h-8 w-8 shrink-0 rounded-full border border-[#DCE4F3] object-cover shadow-2xs"
-                    />
-                  ) : (
-                    <div
-                      aria-hidden="true"
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#DCE4F3] bg-[#204195] text-xs font-bold text-[#FCB625] shadow-2xs"
-                    >
-                      {displayName ? initialsFromName(displayName) : "A"}
-                    </div>
-                  )}
-                </Link>
-              </div>
-            )}
-          </div>
+          {sidebarFooter(isCollapsed)}
         </aside>
 
         {/* Main Content Area */}
         <main
           className={`min-h-screen transition-[margin] duration-300 ease-in-out px-4 py-8 sm:px-6 md:px-8 lg:px-10 ${
-            isCollapsed ? "md:ml-[72px]" : "md:ml-64"
+            isCollapsed ? "lg:ml-[72px]" : "lg:ml-64"
           }`}
         >
-          <div className="mx-auto max-w-7xl">{children}</div>
+          <div className="mx-auto max-w-7xl">
+            {/* Desktop: notifications bell (mobile has it in the top bar). */}
+            {fullAdmin ? (
+              <div className="-mt-4 mb-3 hidden justify-end lg:flex">
+                <AdminNotificationBell />
+              </div>
+            ) : null}
+            {/* Incidents get the full banner only where they are acted on; elsewhere the bell and the menu count carry them. */}
+            {fullAdmin && (isActive.dashboard || isActive.aiOverview) ? <AdminAlertsBanner /> : null}
+            {pageAllowed ? (
+              children
+            ) : (
+              <div role="alert" className="mx-auto max-w-lg rounded-3xl border border-[#DCE4F3] bg-white p-8 text-center shadow-xs">
+                <h1 className="text-lg font-bold text-[#14244B]">{t("adminRoles.noAccess.title")}</h1>
+                <p className="mt-2 text-sm text-[#607096]">{t("adminRoles.noAccess.body")}</p>
+                <Link
+                  href={homePath}
+                  className="mt-5 inline-flex rounded-full bg-[#204195] px-4 py-2 text-xs font-semibold text-white hover:bg-[#183275]"
+                >
+                  {t("adminRoles.noAccess.home")}
+                </Link>
+              </div>
+            )}
+          </div>
         </main>
       </div>
     </>

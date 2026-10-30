@@ -1,5 +1,7 @@
-import { closeSession, createSession, startVideoCall } from "@/lib/aiService";
-import { interviewRuntimeApi } from "./interviewRuntime.service";
+import { pickerVi } from "@/i18n/dicts/picker.dict";
+import { interviewRuntimeApi, type FocusArea } from "./interviewRuntime.service";
+import { fmt } from "@/i18n/format";
+import { entryBlockFromError, entryBlockMessageKey } from "@features/interview/utils/entryGate";
 
 export type InterviewMode = "chat" | "voice" | "video";
 export type InterviewExperience =
@@ -18,6 +20,10 @@ export type StartInterviewParams = {
   /** Canonical job description id used by the structured interview runtime. */
   jobId?: string;
   durationMinutes?: number;
+  /** Practise one round (from the progress page); ignored when not a technical round. */
+  focusArea?: FocusArea;
+  /** "Luyện lại ý này" on the progress page: the skill asked again with a new question. */
+  reaskConceptId?: string;
 };
 
 /**
@@ -26,121 +32,123 @@ export type StartInterviewParams = {
  * Grounded CV→JD flows use the structured runtime contract:
  * POST /api/v1/interviews/sessions
  *
- * Standalone practice without a selected CV/JD temporarily keeps the legacy
- * /ai/session path for backward compatibility until the planner supports a
- * general-practice context.
+ * Every interview uses the grounded runtime contract. A CV and JD are required
+ * so all modes share CREATE -> PLAN -> LOCK before entering a room.
  */
+type Translate = (key: string) => string;
+
+/** Vietnamese wording used when no UI translator is passed (keeps old callers unchanged). */
+const translateVi: Translate = (key) => pickerVi[key] ?? key;
+
+export const QUESTION_UNAVAILABLE_MESSAGE = translateVi("picker.startError.questionUnavailable");
+
+/** True when startInterviewSession failed because the question bank cannot cover this position. */
+export function isQuestionUnavailableError(error: unknown): boolean {
+  return (error as { code?: string } | null | undefined)?.code === "QUESTION_UNAVAILABLE";
+}
+
+/**
+ * A sentence the candidate can act on for any failure of startInterviewSession.
+ * Never surface raw backend codes or English developer messages.
+ */
+export function describeStartInterviewError(error: unknown, t: Translate = translateVi): string {
+  const code = (error as { code?: string })?.code;
+  const status = (error as { response?: { status?: number } })?.response?.status;
+  if (isQuestionUnavailableError(error)) return t("picker.startError.questionUnavailable");
+  const entryBlock = entryBlockFromError(error);
+  if (entryBlock) {
+    return fmt(t(entryBlockMessageKey(entryBlock.reason)), {
+      score: entryBlock.percentage ?? "",
+      min: entryBlock.minMatchPercent ?? "",
+    });
+  }
+  if (code === "PLAN_NOT_READY") return t("picker.startError.planNotReady");
+  if (status === 401) return t("picker.startError.sessionExpired");
+  if (status === 404) return t("picker.startError.notFound");
+  if (status === 422) return t("picker.startError.notReady");
+  if (code === "MISSING_SELECTION") return t("picker.startError.missingSelection");
+  return t("picker.startError.generic");
+}
+
 export async function startInterviewSession({
   mode,
   experience,
-  lang,
   jobTitle,
   candidateId,
   jobId,
   durationMinutes = 25,
+  focusArea,
+  reaskConceptId,
 }: StartInterviewParams): Promise<string> {
-  const languageParam = lang === "vi" ? "Vietnamese" : "English";
-  const locale = lang === "vi" ? "vi-VN" : "en-US";
+  // Interviews are Vietnamese-only; the backend enforces it as well.
+  const languageParam = "Vietnamese";
+  const locale = "vi-VN";
   const runtimeMode = mode === "chat" ? "text" : mode;
-
-  let sessionId: string;
 
   const normalizedCandidateId = candidateId?.trim() || "";
   const normalizedJobId = jobId?.trim() || "";
-  const hasCandidateId = Boolean(normalizedCandidateId);
-  const hasJobId = Boolean(normalizedJobId);
 
-  if (hasCandidateId !== hasJobId) {
-    throw new Error("candidateId and jobId must be provided together");
+  if (!normalizedCandidateId || !normalizedJobId) {
+    throw Object.assign(new Error(translateVi("picker.startError.missingSelection")), {
+      code: "MISSING_SELECTION",
+    });
   }
 
-  if (hasCandidateId && hasJobId) {
-    const runtimeExperience =
-      experience ??
-      (mode === "voice"
-        ? "voice_interview"
-        : mode === "video"
-        ? "video_interview"
-        : "question_practice");
-    const session = await interviewRuntimeApi.create({
-      resumeId: normalizedCandidateId,
-      jobId: normalizedJobId,
-      mode: runtimeMode,
-      experienceType: runtimeExperience,
-      locale,
-      durationMinutes,
-    });
-    sessionId = session.sessionId;
+  const runtimeExperience =
+    experience ??
+    (mode === "voice"
+      ? "voice_interview"
+      : mode === "video"
+      ? "video_interview"
+      : "question_practice");
+  const session = await interviewRuntimeApi.create({
+    resumeId: normalizedCandidateId,
+    jobId: normalizedJobId,
+    mode: runtimeMode,
+    experienceType: runtimeExperience,
+    locale,
+    durationMinutes,
+    ...(focusArea ? { focusArea } : {}),
+    ...(reaskConceptId ? { reaskConceptId } : {}),
+  });
+  const sessionId = session.sessionId;
 
-    try {
-      const plan = await interviewRuntimeApi.buildPlan(sessionId);
-      if (plan.status !== "READY") {
-        throw new Error(`Interview plan is not READY: ${plan.status}`);
-      }
-      const selection = await interviewRuntimeApi.selectQuestions(sessionId);
-      if (selection.status !== "LOCKED" || selection.turns.length === 0) {
-        throw new Error("Interview question selection did not produce locked turns");
-      }
-    } catch (error) {
-      try {
-        await interviewRuntimeApi.close(sessionId);
-      } catch {
-        /* best-effort compensation; preserve the planner error */
-      }
-      const res = (error as { response?: { data?: { detail?: string } } })?.response;
-      const rawMsg =
-        typeof res?.data?.detail === "string"
-          ? res.data.detail
-          : error instanceof Error
-          ? error.message
-          : "";
-      if (rawMsg.includes("question_unavailable")) {
-        const enrichedError = Object.assign(
-          new Error(
-            "question_unavailable: Ngân hàng câu hỏi chưa có đủ câu hỏi đã duyệt phù hợp với vị trí này để bắt đầu phỏng vấn."
-          ),
-          {
-            code: "QUESTION_UNAVAILABLE",
-            response: (error as { response?: unknown })?.response,
-          }
-        );
-        throw enrichedError;
-      }
-      throw error;
+  try {
+    const plan = await interviewRuntimeApi.buildPlan(sessionId);
+    if (plan.status !== "READY") {
+      throw Object.assign(new Error(`Interview plan is not READY: ${plan.status}`), { code: "PLAN_NOT_READY" });
     }
-  } else {
-    const sessionType = mode === "video" ? "Call" : mode === "voice" ? "Voice" : "Chat";
-    const legacy = await createSession({
-      type: sessionType,
-      language: languageParam,
-    });
-    sessionId = legacy.sessionId;
-  }
-
-  // Media rooms use the video-call record for their voice/TTS exchange too.
-  // Starting it for voice prevents the room from opening without a callId.
-  if (mode === "video" || mode === "voice") {
-    try {
-      const call = await startVideoCall({ roomId: sessionId, sessionId });
-      if (call?.callId && typeof sessionStorage !== "undefined") {
-        try {
-          sessionStorage.setItem("video.callId", call.callId);
-        } catch {
-          /* ignore storage errors */
-        }
-      }
-    } catch (error) {
-      try {
-        if (hasCandidateId && hasJobId) {
-          await interviewRuntimeApi.close(sessionId);
-        } else {
-          await closeSession(sessionId);
-        }
-      } catch {
-        /* best-effort compensation; preserve the original video-start error */
-      }
-      throw error;
+    const selection = await interviewRuntimeApi.selectQuestions(sessionId);
+    if (selection.status !== "LOCKED" || selection.turns.length === 0) {
+      throw Object.assign(new Error("Interview question selection did not produce locked turns"), { code: "QUESTION_UNAVAILABLE" });
     }
+  } catch (error) {
+    try {
+      // The candidate did nothing wrong here: planning or question selection
+      // failed, so the compensating close must not read as USER_ENDED.
+      await interviewRuntimeApi.close(sessionId, "TECHNICAL_FAILURE");
+    } catch {
+      /* best-effort compensation; preserve the planner error */
+    }
+    // Core reports a fail-closed selection as 409 with
+    // detail = { errorCode: "question_bank_insufficient", message, details }.
+    type ErrorDetail = string | { errorCode?: string; message?: string; error?: string };
+    const res = (error as { response?: { data?: { detail?: ErrorDetail } } })?.response;
+    const detail = res?.data?.detail;
+    const rawMsg =
+      typeof detail === "string"
+        ? detail
+        : [detail?.errorCode, detail?.message ?? detail?.error].filter(Boolean).join(": ") ||
+          (error instanceof Error ? error.message : "");
+    if (rawMsg.includes("question_unavailable") || rawMsg.includes("question_bank_insufficient")) {
+      throw Object.assign(
+        new Error(
+          "question_unavailable: Ngân hàng câu hỏi chưa có đủ câu hỏi đã duyệt phù hợp với vị trí này để bắt đầu phỏng vấn."
+        ),
+        { code: "QUESTION_UNAVAILABLE", response: (error as { response?: unknown })?.response }
+      );
+    }
+    throw error;
   }
 
   const search = new URLSearchParams({
@@ -151,22 +159,18 @@ export async function startInterviewSession({
     search.set("topic", jobTitle.trim());
   }
   const isStructuredText = mode === "chat";
-  if (hasCandidateId && hasJobId && isStructuredText) {
+  if (isStructuredText) {
     search.set("runtime", "structured");
     search.set("experience", experience ?? "question_practice");
-  } else if (hasCandidateId && hasJobId) {
+  } else {
     search.set("runtime", "media");
     search.set(
       "experience",
       experience ?? (mode === "voice" ? "voice_interview" : "video_interview"),
     );
-  } else if (experience) {
-    search.set("experience", experience);
   }
 
   if (
-    hasCandidateId &&
-    hasJobId &&
     mode === "chat" &&
     (experience === "question_practice" || !experience)
   ) {

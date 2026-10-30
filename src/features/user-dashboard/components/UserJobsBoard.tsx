@@ -1,8 +1,8 @@
 "use client";
 
-import axios from "axios";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, ChevronLeft, ChevronRight, Bookmark, Globe2, Home } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Search } from "lucide-react";
+import WorkspacePageHeader from "@features/resume/components/WorkspacePageHeader";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   jobProfileApi,
@@ -10,6 +10,8 @@ import {
 } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { JobInterviewCvModal } from "@features/user-dashboard/components/JobInterviewCvModal";
+import { useSavedJobs } from "@features/user-dashboard/hooks/useSavedJobs";
+import { useFitCache } from "@features/matching/utils/fitCache";
 import {
   JobCard,
   JobCardSkeleton,
@@ -46,40 +48,20 @@ export default function UserJobsBoard() {
   const debouncedSearch = useDebouncedValue(search, 400);
   const [cvModalJob, setCvModalJob] = useState<JobProfile | null>(null);
 
-  // Client-side saved jobs
-  const [savedJobIds, setSavedJobIds] = useState<Set<string>>(() => {
-    try {
-      if (typeof window === "undefined") return new Set();
-      const raw = localStorage.getItem("candidate.saved_job_ids");
-      return raw ? new Set(JSON.parse(raw)) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
+  // Saved jobs: shared with the overview page.
+  const { savedJobIds, toggleSave: handleToggleSave } = useSavedJobs();
+  const fits = useFitCache();
 
   // Client-side quick filter
   const [workplaceFilter, setWorkplaceFilter] = useState<"all" | WorkplaceType>("all");
   const [showSavedOnly, setShowSavedOnly] = useState(false);
 
-  const handleToggleSave = useCallback((jobId: string, currentSaved: boolean) => {
-    setSavedJobIds((prev) => {
-      const next = new Set(prev);
-      if (currentSaved) {
-        next.delete(jobId);
-      } else {
-        next.add(jobId);
-      }
-      try {
-        localStorage.setItem("candidate.saved_job_ids", JSON.stringify(Array.from(next)));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
-  }, []);
+  /** The page the last load tried to show, so "Thử lại" retries that page. */
+  const attemptedStartRef = useRef<PageStart>({ cursor: undefined, bufferedActive: [] });
 
   const loadPage = useCallback(
-    async (start: PageStart) => {
+    async (start: PageStart): Promise<boolean> => {
+      attemptedStartRef.current = start;
       try {
         setLoading(true);
         setError(null);
@@ -120,13 +102,13 @@ export default function UserJobsBoard() {
         } else {
           setNextPageStart(null);
         }
-      } catch (e: unknown) {
-        const msg = axios.isAxiosError(e)
-          ? String((e.response?.data as { message?: string })?.message ?? e.message)
-          : t("admin.jobProfile.error.load");
-        setError(msg);
+        return true;
+      } catch {
+        // Never show raw server/Axios text; the retry button below reloads this page.
+        setError(t("fixApp.jobs.loadError"));
         setProfiles([]);
         setNextPageStart(null);
+        return false;
       } finally {
         setLoading(false);
       }
@@ -141,15 +123,18 @@ export default function UserJobsBoard() {
 
   const handleNextPage = () => {
     if (!nextPageStart || loading) return;
-    setPageBackStack((s) => [...s, currentPageStart]);
-    void loadPage(nextPageStart);
+    const from = currentPageStart;
+    void loadPage(nextPageStart).then((ok) => {
+      if (ok) setPageBackStack((s) => [...s, from]);
+    });
   };
 
   const handlePrevPage = () => {
     if (pageBackStack.length === 0 || loading) return;
     const prevStart = pageBackStack[pageBackStack.length - 1];
-    setPageBackStack((s) => s.slice(0, -1));
-    void loadPage(prevStart);
+    void loadPage(prevStart).then((ok) => {
+      if (ok) setPageBackStack((s) => s.slice(0, -1));
+    });
   };
 
   // Filter profiles on client by workplaceType or saved status if selected
@@ -168,6 +153,10 @@ export default function UserJobsBoard() {
     });
   }, [profiles, showSavedOnly, savedJobIds, workplaceFilter]);
 
+  /** "Đã lưu" / "Từ xa" / "Linh hoạt" only filter the page already loaded. */
+  const clientFilterActive = showSavedOnly || workplaceFilter !== "all";
+  const hasOtherPages = pageBackStack.length > 0 || nextPageStart !== null;
+
   const handleClearFilters = () => {
     setSearch("");
     setWorkplaceFilter("all");
@@ -176,33 +165,24 @@ export default function UserJobsBoard() {
 
   return (
     <div className="min-w-0 space-y-6 sm:space-y-8">
-      {/* Header */}
-      <div className="flex flex-col gap-2.5 border-b border-[#EAEFF8] pb-6">
-        <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#204195]">
-            {t("userDash.jobs.eyebrow")}
-          </span>
-        </div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-[#14244B] sm:text-3xl md:text-4xl">
-          {t("userDash.jobProfiles.pageTitle")}
-        </h1>
-        <p className="max-w-2xl text-xs leading-relaxed text-[#607096] sm:text-sm sm:leading-6">
-          {t("userDash.jobProfiles.pageSubtitle")}
-        </p>
-      </div>
+      <WorkspacePageHeader
+        title={t("userDash.jobProfiles.pageTitle")}
+        subtitle={t("userDash.jobProfiles.pageSubtitle")}
+      />
+
 
       {/* Search & Quick Filters Bar */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
         {/* Search input */}
-        <div className="relative min-w-[min(100%,320px)] flex-1">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-[#607096]" />
+        <div className="relative min-w-0 flex-1 sm:min-w-[min(100%,320px)]">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-[#607096]" aria-hidden="true" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("admin.jobProfile.searchPlaceholder")}
-            className="min-h-10 w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-10 pr-3 text-sm text-[#14244B] placeholder:text-[#607096] transition-all focus:border-[#204195] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]/20"
-            aria-label={t("admin.jobProfile.searchPlaceholder")}
+            placeholder={t("fixApp.jobs.searchPlaceholder")}
+            className="h-10 w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-10 pr-4 text-sm text-[#14244B] outline-none transition placeholder:text-[#607096] focus:bg-white focus:ring-2 focus:ring-[#204195]"
+            aria-label={t("fixApp.jobs.searchPlaceholder")}
           />
         </div>
 
@@ -214,13 +194,14 @@ export default function UserJobsBoard() {
               setWorkplaceFilter("all");
               setShowSavedOnly(false);
             }}
-            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            aria-pressed={workplaceFilter === "all" && !showSavedOnly}
+            className={`h-9 rounded-full px-4 text-[13px] font-semibold transition-colors ${
               workplaceFilter === "all" && !showSavedOnly
-                ? "bg-[#204195] text-white shadow-xs"
-                : "border border-[#DCE4F3] bg-[#F8FAFC] text-[#607096] hover:bg-[#EEF2FD] hover:text-[#204195]"
+                ? "bg-[#14244B] text-white"
+                : "bg-[#F8FAFC] text-[#607096] hover:bg-[#F0F4FC] hover:text-[#14244B]"
             }`}
           >
-            {t("interview.cvAnalysis.reqFilterAll") || "Tất cả"}
+            {t("interview.cvAnalysis.reqFilterAll")}
           </button>
 
           <button
@@ -229,14 +210,14 @@ export default function UserJobsBoard() {
               setWorkplaceFilter("remote");
               setShowSavedOnly(false);
             }}
-            className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            aria-pressed={workplaceFilter === "remote" && !showSavedOnly}
+            className={`h-9 rounded-full px-4 text-[13px] font-semibold transition-colors ${
               workplaceFilter === "remote" && !showSavedOnly
-                ? "bg-[#204195] text-white shadow-xs"
-                : "border border-[#DCE4F3] bg-[#F8FAFC] text-[#607096] hover:bg-[#EEF2FD] hover:text-[#204195]"
+                ? "bg-[#14244B] text-white"
+                : "bg-[#F8FAFC] text-[#607096] hover:bg-[#F0F4FC] hover:text-[#14244B]"
             }`}
           >
-            <Globe2 className="size-3" />
-            <span>{t("jobs.workplace.remote") || "Từ xa"}</span>
+            {t("jobs.workplace.remote")}
           </button>
 
           <button
@@ -245,29 +226,29 @@ export default function UserJobsBoard() {
               setWorkplaceFilter("hybrid");
               setShowSavedOnly(false);
             }}
-            className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            aria-pressed={workplaceFilter === "hybrid" && !showSavedOnly}
+            className={`h-9 rounded-full px-4 text-[13px] font-semibold transition-colors ${
               workplaceFilter === "hybrid" && !showSavedOnly
-                ? "bg-[#204195] text-white shadow-xs"
-                : "border border-[#DCE4F3] bg-[#F8FAFC] text-[#607096] hover:bg-[#EEF2FD] hover:text-[#204195]"
+                ? "bg-[#14244B] text-white"
+                : "bg-[#F8FAFC] text-[#607096] hover:bg-[#F0F4FC] hover:text-[#14244B]"
             }`}
           >
-            <Home className="size-3" />
-            <span>{t("jobs.workplace.hybrid") || "Linh hoạt"}</span>
+            {t("jobs.workplace.hybrid")}
           </button>
 
           <button
             type="button"
             onClick={() => setShowSavedOnly((s) => !s)}
-            className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            aria-pressed={showSavedOnly}
+            className={`inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold transition-colors ${
               showSavedOnly
-                ? "bg-[#204195] text-white shadow-xs"
-                : "border border-[#DCE4F3] bg-[#F8FAFC] text-[#607096] hover:bg-[#EEF2FD] hover:text-[#204195]"
+                ? "bg-[#14244B] text-white"
+                : "bg-[#F8FAFC] text-[#607096] hover:bg-[#F0F4FC] hover:text-[#14244B]"
             }`}
           >
-            <Bookmark className={`size-3 ${showSavedOnly ? "fill-current" : ""}`} />
-            <span>{t("jobs.card.saved") || "Đã lưu"}</span>
+            <span>{t("jobs.card.saved")}</span>
             {savedJobIds.size > 0 && (
-              <span className={`ml-0.5 rounded-full px-1.5 py-0.2 text-[10px] ${showSavedOnly ? "bg-white/20 text-white" : "bg-[#EEF2FD] text-[#204195]"}`}>
+              <span className={`rounded-full px-1.5 text-[11px] ${showSavedOnly ? "bg-white/20 text-white" : "bg-[#F0F4FC] text-[#204195]"}`}>
                 {savedJobIds.size}
               </span>
             )}
@@ -275,62 +256,82 @@ export default function UserJobsBoard() {
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-800 shadow-xs" role="alert">
-          {error}
-        </div>
-      )}
-
       {/* Loading State: Grid of modern Skeletons */}
       {loading ? (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label={t("admin.jobProfile.loading")}>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label={t("admin.jobProfile.loading")}>
           {Array.from({ length: 6 }).map((_, item) => (
             <JobCardSkeleton key={item} />
           ))}
         </div>
-      ) : visibleProfiles.length === 0 ? (
-        /* Empty State with Clear Filters */
-        <JobCardEmptyState
-          onClearFilters={search || workplaceFilter !== "all" || showSavedOnly ? handleClearFilters : undefined}
-        />
+      ) : error ? (
+        <div
+          className="flex flex-col gap-3 rounded-2xl border border-[#F5C2C2] bg-[#FDF2F2] px-4 py-3 text-sm text-[#C43B3B] sm:flex-row sm:items-center sm:justify-between"
+          role="alert"
+        >
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => void loadPage(attemptedStartRef.current)}
+            className="inline-flex h-9 w-fit shrink-0 items-center rounded-xl bg-white px-4 text-[13px] font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
+          >
+            {t("fixApp.common.retry")}
+          </button>
+        </div>
       ) : (
-        /* Job Cards Grid */
         <>
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {visibleProfiles.map((p) => {
-              const cardData = mapJobToJobCard(p, { savedJobIds });
-              return (
-                <JobCard
-                  key={p.id}
-                  job={cardData}
-                  onToggleSave={handleToggleSave}
-                  onInterview={() => setCvModalJob(p)}
-                />
-              );
-            })}
-          </div>
+          {visibleProfiles.length === 0 ? (
+            clientFilterActive && profiles.length > 0 ? (
+              /* The filter only looked at this page: say so, and keep paging available */
+              <JobCardEmptyState
+                title={t("fixApp.jobs.emptyOnPage")}
+                description={t("fixApp.jobs.emptyOnPageDesc")}
+                onClearFilters={handleClearFilters}
+              />
+            ) : (
+              <JobCardEmptyState
+                onClearFilters={search || clientFilterActive ? handleClearFilters : undefined}
+              />
+            )
+          ) : (
+            /* Job Cards Grid */
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              {visibleProfiles.map((p) => {
+                const cardData = mapJobToJobCard(p, { savedJobIds, fit: fits[p.id] });
+                return (
+                  <JobCard
+                    key={p.id}
+                    job={cardData}
+                    onToggleSave={handleToggleSave}
+                    onInterview={() => setCvModalJob(p)}
+                  />
+                );
+              })}
+            </div>
+          )}
 
           {/* Pagination Controls */}
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
-            <button
-              type="button"
-              onClick={handlePrevPage}
-              disabled={loading || pageBackStack.length === 0}
-              className="inline-flex min-h-10 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-xl border border-[#DCE4F3] bg-white px-4 text-xs font-semibold text-[#14244B] shadow-xs transition-all hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <ChevronLeft className="size-4" />
-              {t("userDash.jobProfiles.pagePrev")}
-            </button>
-            <button
-              type="button"
-              onClick={handleNextPage}
-              disabled={loading || !nextPageStart}
-              className="inline-flex min-h-10 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-4 text-xs font-semibold text-white shadow-xs transition-all hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {t("userDash.jobProfiles.pageNext")}
-              <ChevronRight className="size-4" />
-            </button>
-          </div>
+          {visibleProfiles.length > 0 || (clientFilterActive && hasOtherPages) ? (
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
+              <button
+                type="button"
+                onClick={handlePrevPage}
+                disabled={loading || pageBackStack.length === 0}
+                className="inline-flex h-10 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-xl bg-white px-5 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span aria-hidden="true">←</span>
+                {t("userDash.jobProfiles.pagePrev")}
+              </button>
+              <button
+                type="button"
+                onClick={handleNextPage}
+                disabled={loading || !nextPageStart}
+                className="inline-flex h-10 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {t("userDash.jobProfiles.pageNext")}
+                <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          ) : null}
         </>
       )}
 

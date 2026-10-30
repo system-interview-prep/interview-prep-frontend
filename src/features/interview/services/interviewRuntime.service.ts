@@ -1,4 +1,5 @@
 import apiClient from "@/lib/apiClient";
+import type { InterviewEntryPolicy } from "@features/interview/utils/entryGate";
 
 export type InterviewRuntimeMode = "text" | "voice" | "video";
 export type InterviewRuntimeExperience =
@@ -135,6 +136,7 @@ export type InterviewRuntimeSession = {
   sessionId: string;
   resumeId: string | null;
   jobId: string | null;
+  jobTitle?: string | null;
   mode: InterviewRuntimeMode;
   experienceType?: InterviewRuntimeExperience;
   locale: string;
@@ -142,7 +144,16 @@ export type InterviewRuntimeSession = {
   status: string;
   startedAt: string;
   endedAt: string | null;
+  /** COMPLETED · USER_ENDED · TECHNICAL_FAILURE · HARD_TIMEOUT · FAST_FAIL_TECH; null while open. */
+  endReason?: string | null;
   plan: InterviewRuntimePlanSummary | null;
+  /** List endpoint only: latest overall score (0–10), null when not evaluated. */
+  overallScore?: number | null;
+  evaluatedAt?: string | null;
+  /** List endpoint only: competency scores of that evaluation; absent on older backends. */
+  competencyScores?: Array<{ competency: string; score: number; weight?: number }>;
+  totalTurns?: number;
+  answeredTurns?: number;
 };
 
 export type CreateInterviewRuntimeSessionRequest = {
@@ -152,9 +163,26 @@ export type CreateInterviewRuntimeSessionRequest = {
   experienceType?: InterviewRuntimeExperience;
   locale: string;
   durationMinutes?: number;
+  /** "Luyện vòng này" on the progress page: half the technical questions come from this round. */
+  focusArea?: FocusArea;
+  /** "Luyện lại ý này": the planner asks this skill again with a question not met before. */
+  reaskConceptId?: string;
 };
 
+/** Rounds made of technical questions (backend interview_rounds.FOCUSABLE_AREAS). */
+export const FOCUS_AREAS = ["language", "framework", "data", "api", "infra", "ai"] as const;
+export type FocusArea = (typeof FOCUS_AREAS)[number];
+export function asFocusArea(value: string | null | undefined): FocusArea | undefined {
+  return (FOCUS_AREAS as readonly string[]).includes(value ?? "") ? (value as FocusArea) : undefined;
+}
+
 export const interviewRuntimeApi = {
+  /** Match threshold for entering a room (GET /api/v1/interviews/entry-policy). */
+  entryPolicy: async (): Promise<InterviewEntryPolicy> => {
+    const response = await apiClient.get<InterviewEntryPolicy>("/api/v1/interviews/entry-policy");
+    return response.data;
+  },
+
   create: async (
     payload: CreateInterviewRuntimeSessionRequest,
   ): Promise<InterviewRuntimeSession> => {
@@ -254,9 +282,20 @@ export const interviewRuntimeApi = {
     return response.data;
   },
 
-  close: async (sessionId: string): Promise<InterviewRuntimeSession> => {
+  /**
+   * Close a session outside the chat/text completion contract.
+   *
+   * `reason` defaults to USER_ENDED (abandonment). Pass TECHNICAL_FAILURE when
+   * compensating a failed create -> plan -> lock sequence so the record does not
+   * blame the candidate for a server-side failure.
+   */
+  close: async (
+    sessionId: string,
+    reason: "USER_ENDED" | "TECHNICAL_FAILURE" = "USER_ENDED",
+  ): Promise<InterviewRuntimeSession> => {
     const response = await apiClient.post<InterviewRuntimeSession>(
       `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/close`,
+      { reason },
     );
     return response.data;
   },

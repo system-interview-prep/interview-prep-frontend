@@ -2,25 +2,29 @@
 
 import axios from "axios";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Upload,
-  FileText,
-  Loader2,
-  Search,
-  SearchX,
-  Trash2,
-} from "lucide-react";
+import { Search, RotateCcw, Trash2 } from "lucide-react";
 import CareerClassificationSummary from "@features/resume/components/CareerClassificationSummary";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useCvProcessingStatus } from "@features/resume/hooks/useCvProcessingStatus";
 import { userCvApi, type UserCvDto } from "@features/resume/services/userCv.service";
+import { refreshVi } from "@features/mascot/hooks/useViJourney";
 import type { CvProcessingStatus, CareerTaxonomyItem, ParsedCvData } from "@features/resume/types";
 import { resolveBackendErrorMessage } from "@/utils/backendError";
+import { fmt, localeOf } from "@/i18n/format";
+import ParsedCvDrawer from "@features/resume/components/ParsedCvDrawer";
+import { PROCESSING_STEP_KEYS, cvViewState, processingStep } from "@features/resume/utils/cvStatus";
+import WorkspacePageHeader from "@features/resume/components/WorkspacePageHeader";
+import StatusNote from "@components/shared/StatusNote";
+import Pagination from "@components/shared/Pagination";
+import { useDialogA11y } from "@components/shared/useDialogA11y";
+import Link from "next/link";
 
 type CvFile = {
   id: string;
   name: string;
   uploadedAt: string;
+  /** Last status change; a re-parse of an old CV is not "stale" because of its upload date. */
+  updatedAt?: string;
   /** From API when listing user CVs; used to show PDF/Word when filename has no extension */
   contentType?: string;
   status?: CvProcessingStatus;
@@ -30,7 +34,9 @@ type CvFile = {
 };
 
 const STORAGE_KEY = "demo.cvFiles";
-const STALE_PROCESSING_MS = 10 * 60 * 1000;
+/** Upper bound for one user's CV list (fetched in pages of 100, then filtered and paged here). */
+const LIST_LIMIT = 1000;
+const PAGE_SIZE = 10;
 
 type TypeFilter = "all" | "pdf" | "word";
 type DateFilter = "all" | "7d" | "30d" | "90d";
@@ -56,7 +62,17 @@ function dtoToCvFile(d: UserCvDto): CvFile {
   const name = d.originalName?.trim() || "document";
   const uploadedAt = d.createdAt ?? new Date().toISOString();
   const contentType = d.contentType?.trim() || undefined;
-  return { id: d.id, name, uploadedAt, contentType, status: d.status, error: d.error?.trim() || undefined, score: d.score, parsedData: d.parsedData };
+  return {
+    id: d.id,
+    name,
+    uploadedAt,
+    updatedAt: d.updatedAt || undefined,
+    contentType,
+    status: d.status,
+    error: d.error?.trim() || undefined,
+    score: d.score,
+    parsedData: d.parsedData,
+  };
 }
 
 function syncDemoCvFiles(items: CvFile[]) {
@@ -93,37 +109,66 @@ function labelForCvStatus(t: (key: string) => string, s: CvProcessingStatus | nu
 }
 
 function effectiveCvStatus(file: CvFile): CvProcessingStatus | null {
-  if (
-    (file.status === "PARSING" || file.status === "AI_PROCESSING") &&
-    Date.now() - new Date(file.uploadedAt).getTime() > STALE_PROCESSING_MS
-  ) {
-    return "FAILED";
-  }
+  // A slow parse is still in progress; only the server declares failure.
   if (file.error && file.status !== "DONE") return "FAILED";
   return file.status ?? null;
+}
+
+/** Failed CVs, and slow ones whose hint asks for a re-analysis, get the retry button. */
+function canRetryParse(file: CvFile): boolean {
+  return effectiveCvStatus(file) === "FAILED" || cvViewState(file) === "slow";
+}
+
+/** What is happening with this CV and what the candidate can do next. */
+function CvRowStatusDetail({ file, onOpenParsed }: { file: CvFile; onOpenParsed: () => void }) {
+  const { t } = useLanguage();
+  const state = cvViewState(file);
+  if (state === "ready") {
+    return (
+      <button type="button" onClick={onOpenParsed} className="mt-1.5 text-xs font-semibold text-[#204195] hover:underline">
+        {t("parsedCv.open")} →
+      </button>
+    );
+  }
+  if (state === "processing") {
+    const step = processingStep(file.status);
+    return (
+      <p className="mt-1.5 text-xs text-[#204195]">
+        {fmt(t("cvStatus.processingHint"), { step, name: t(PROCESSING_STEP_KEYS[step]) })}
+      </p>
+    );
+  }
+  if (state === "slow") return <p className="mt-1.5 text-xs text-[#8A5A00] [overflow-wrap:anywhere]">{t("cvStatus.slowHint")}</p>;
+  return file.error ? (
+    <p className="mt-1.5 text-xs text-[#C43B3B] [overflow-wrap:anywhere]">{resolveBackendErrorMessage(file.error, t)}</p>
+  ) : null;
 }
 
 function statusBadgeClass(status: CvProcessingStatus | null | undefined) {
   switch (status) {
     case "DONE":
-      return "bg-emerald-100 text-emerald-800";
+      return "bg-[#EAF5EE] text-[#287A4B]";
     case "FAILED":
-      return "bg-red-100 text-red-800";
+      return "bg-[#FDF2F2] text-[#C43B3B]";
     case "AI_PROCESSING":
-      return "bg-amber-100 text-amber-800";
+      return "bg-[#FFF8E6] text-[#8A5A00]";
     case "PARSING":
-      return "bg-sky-100 text-sky-800";
+      return "bg-[#EEF2FD] text-[#204195]";
     case "PENDING":
     default:
-      return "bg-[#E8EDF8] text-[#5A6B8F]";
+      return "bg-[#F0F4FC] text-[#607096]";
   }
 }
 
 export default function UserMyCvsPage() {
   const { t, lang } = useLanguage();
   const [files, setFiles] = useState<CvFile[]>([]);
+  const [parsedCv, setParsedCv] = useState<CvFile | null>(null);
+  const closeParsedCv = useCallback(() => setParsedCv(null), []);
   const [dragOver, setDragOver] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  // Same file uploaded again, or a new file renamed because its name was taken.
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [apiConnected, setApiConnected] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -138,6 +183,15 @@ export default function UserMyCvsPage() {
   const [trackingCvId, setTrackingCvId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CvFile | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  /** True when the user owns more than LIST_LIMIT CVs, so the oldest are not shown. */
+  const [listCapped, setListCapped] = useState(false);
+  const [reparsingId, setReparsingId] = useState<string | null>(null);
+  /** What the fox says right after a CV finishes parsing (the corner fox is hidden on this page). */
+  const [foxDone, setFoxDone] = useState(false);
+  /** True while the file itself is being sent, before the server starts parsing. */
+  const [uploading, setUploading] = useState(false);
 
   const loadFiles = useCallback(async () => {
     const token =
@@ -149,9 +203,10 @@ export default function UserMyCvsPage() {
       return;
     }
     try {
-      const { data } = await userCvApi.list(50, careerCode || undefined);
+      const { data } = await userCvApi.listAll(careerCode || undefined, LIST_LIMIT);
       const mapped = data.items.map(dtoToCvFile);
       setFiles(mapped);
+      setListCapped(data.total > LIST_LIMIT);
       syncDemoCvFiles(mapped);
       setApiConnected(true);
       setListError(null);
@@ -168,14 +223,42 @@ export default function UserMyCvsPage() {
 
   const finishCvTracking = useCallback(() => {
     setTrackingCvId(null);
+    setReparsingId(null);
     void loadFiles();
   }, [loadFiles]);
+
+  /** Re-run parsing for a CV that failed (OCR outage, slow network, worker restart). */
+  const retryParse = useCallback(
+    async (file: CvFile) => {
+      if (reparsingId) return;
+      setReparsingId(file.id);
+      setAnalyzeError(null);
+      try {
+        await userCvApi.reparse(file.id);
+        const now = new Date().toISOString();
+        setFiles((prev) =>
+          prev.map((item) =>
+            item.id === file.id ? { ...item, status: "PENDING", error: undefined, updatedAt: now } : item
+          )
+        );
+        setTrackingCvId(file.id);
+      } catch (e) {
+        setReparsingId(null);
+        setAnalyzeError(resolveBackendErrorMessage(e, t));
+      }
+    },
+    [reparsingId, t]
+  );
 
   const { status: cvProcessStatus, lastPayload: cvStatusPayload } = useCvProcessingStatus(
     trackingCvId,
     {
-      onDone: finishCvTracking,
+      onDone: () => {
+        setFoxDone(true);
+        finishCvTracking();
+      },
       onFailed: (p) => {
+        setFoxDone(false);
         if (p?.error) setAnalyzeError(resolveBackendErrorMessage(p.error, t));
         finishCvTracking();
       },
@@ -249,13 +332,29 @@ export default function UserMyCvsPage() {
     const token =
       typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
     if (token) {
+      setUploading(true);
+      setAnalyzeError(null);
+      setUploadNotice(null);
+      setFoxDone(false);
       try {
         const { data } = await userCvApi.upload(f);
+        refreshVi();
         setAnalyzeError(null);
-        setTrackingCvId(data.id);
+        setFoxDone(false);
+        if (data.duplicate) {
+          // Nothing new to process: point at the CV they already have.
+          setUploadNotice(fmt(t("uxWs.cvs.duplicateUpload"), { name: data.originalName }));
+        } else {
+          if (data.renamedFrom) {
+            setUploadNotice(fmt(t("uxWs.cvs.renamedUpload"), { from: data.renamedFrom, to: data.originalName }));
+          }
+          setTrackingCvId(data.id);
+        }
         await loadFiles();
       } catch (e) {
         setAnalyzeError(resolveBackendErrorMessage(e, t, "userDash.myCvs.apiUploadError"));
+      } finally {
+        setUploading(false);
       }
       return;
     }
@@ -276,12 +375,9 @@ export default function UserMyCvsPage() {
     const token =
       typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
     if (token) {
-      try {
-        await userCvApi.remove(id);
-        await loadFiles();
-      } catch {
-        setListError(t("userDash.myCvs.apiListError"));
-      }
+      // Let a failed delete reach the dialog, which stays open and says so.
+      await userCvApi.remove(id);
+      await loadFiles();
       return;
     }
     setFiles((prev) => {
@@ -293,24 +389,30 @@ export default function UserMyCvsPage() {
 
   function confirmRemoveFile(id: string) {
     const target = files.find((f) => f.id === id) ?? null;
+    setDeleteError(null);
     setDeleteTarget(target);
   }
 
   async function handleConfirmDelete() {
     if (!deleteTarget || deleting) return;
     setDeleting(true);
+    setDeleteError(null);
     try {
       await removeFile(deleteTarget.id);
       setDeleteTarget(null);
+    } catch {
+      setDeleteError(t("fixApp.cvs.deleteFailed"));
     } finally {
       setDeleting(false);
     }
   }
 
-  function closeDeleteModal() {
+  const closeDeleteModal = useCallback(() => {
     if (deleting) return;
     setDeleteTarget(null);
-  }
+    setDeleteError(null);
+  }, [deleting]);
+  const deleteDialogRef = useDialogA11y<HTMLDivElement>(deleteTarget !== null, closeDeleteModal);
 
   function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const list = e.target.files;
@@ -331,6 +433,10 @@ export default function UserMyCvsPage() {
       /\.pdf$/i.test(f.name) ||
       /\.docx?$/i.test(f.name);
     if (ok) addFile(f);
+    else {
+      setFoxDone(false);
+      setAnalyzeError(t("fixApp.cvs.unsupportedFile"));
+    }
   }
 
   const filtered = useMemo(() => {
@@ -359,6 +465,10 @@ export default function UserMyCvsPage() {
     return list;
   }, [files, search, typeFilter, dateFilter, sort, lang]);
 
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   const typeLabel = (f: CvFile) => {
     const k = fileKind(f.name, f.contentType);
     if (k === "pdf") return t("userDash.myCvs.typePdf");
@@ -368,21 +478,22 @@ export default function UserMyCvsPage() {
 
   const typeBadgeClass = (f: CvFile) => {
     const k = fileKind(f.name, f.contentType);
-    if (k === "pdf") return "bg-[#FFEBEE] text-[#C9362B]";
-    if (k === "word") return "bg-[#E8EDF8] text-[#234196]";
-    return "bg-[#EEF1F6] text-[#5A6B8F]";
+    if (k === "pdf") return "bg-[#F0F4FC] text-[#204195]";
+    if (k === "word") return "bg-[#EEF2FD] text-[#204195]";
+    return "bg-[#F0F4FC] text-[#607096]";
   };
 
-  const typeIconClass = (f: CvFile) => {
-    const k = fileKind(f.name, f.contentType);
-    if (k === "pdf") return "text-error";
-    if (k === "word") return "text-primary";
-    return "text-on-surface-variant";
-  };
+  const readyCount = files.filter((f) => cvViewState(f) === "ready").length;
+  const trackingStep = processingStep(cvProcessStatus);
+  const nextStepLink = (
+    <Link href="/dashboard/jobs" className="font-semibold text-[#204195] underline-offset-4 hover:underline">
+      {t("uxWs.cvs.nextChooseJob")} →
+    </Link>
+  );
 
   const formatDate = (iso: string) => {
     try {
-      return new Date(iso).toLocaleString(lang === "vi" ? "vi-VN" : "en-US", {
+      return new Date(iso).toLocaleString(localeOf(lang), {
         dateStyle: "medium",
         timeStyle: "short",
       });
@@ -392,137 +503,160 @@ export default function UserMyCvsPage() {
   };
 
   const selectClass =
-    "h-10 w-full min-w-0 rounded-xl border border-[#DCE4F3] bg-white px-3 text-xs font-medium text-[#14244B] outline-none transition-all focus:border-[#204195] focus:ring-2 focus:ring-[#204195]/20 disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#A0AEC0]";
+    "h-10 w-full min-w-0 rounded-xl border-0 bg-white px-3 text-[13px] font-medium text-[#14244B] outline-none border border-[#DCE4F3] transition focus:ring-2 focus:ring-[#204195] disabled:cursor-not-allowed disabled:opacity-60";
   const filterLabelClass =
-    "mb-1.5 block h-4 truncate text-[11px] font-semibold text-[#607096]";
+    "mb-1.5 block h-4 truncate text-xs font-semibold text-[#607096]";
   const badgeClass =
-    "inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-bold uppercase";
+    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold";
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
-      <div className="mx-auto max-w-[1120px]">
-      <header className="mb-8 border-b border-[#EAEFF8] pb-6">
-        <div className="max-w-2xl">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#204195]">
-            {t("userDash.myCvs.eyebrow")}
-          </span>
-          <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-[#14244B] md:text-4xl">
-            {t("userDash.myCvs.headerTitle")}
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-[#607096]">{t("userDash.myCvs.headerSubtitle")}</p>
-        </div>
-      </header>
+    <main className="min-h-screen bg-[#F8FAFC] px-4 pb-16 pt-4 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
+      <div className="mx-auto max-w-[1280px]">
+      <WorkspacePageHeader
+        title={t("userDash.myCvs.headerTitle")}
+        subtitle={t("userDash.myCvs.headerSubtitle")}
+        className="mb-6"
+      />
+
+      {readyCount > 0 ? <p className="mb-6 text-sm">{nextStepLink}</p> : null}
 
       <div>
         <div className="space-y-8">
-          <div className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-2 shadow-xs">
-            <div
-              role="region"
-              aria-label={t("userDash.myCvs.uploadDropRegionAria")}
-              onDragEnter={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={(e) => {
-                e.preventDefault();
-                if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false);
-              }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={onDrop}
-              className={`group flex flex-col items-center rounded-xl border-2 border-dashed p-8 text-center transition-colors md:p-12 ${
-                dragOver ? "border-[#204195] bg-[#204195]/5" : "border-[#C9D7F1] bg-[#F8FAFC]"
-              }`}
-            >
-              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F0F4FC] text-[#204195] shadow-xs">
-                <Upload className="size-8" />
-              </div>
-              <h2 className="text-2xl font-bold text-[#14244B]">{t("userDash.myCvs.uploadTitle")}</h2>
-              <p className="mb-6 mt-1.5 max-w-md text-sm leading-6 text-[#607096]">{t("userDash.myCvs.uploadHint")}</p>
-              <div className="mb-2 flex flex-wrap justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => inputPdfRef.current?.click()}
-                  className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-4 text-xs font-semibold text-[#14244B] shadow-xs transition-all hover:border-[#204195] hover:bg-[#F0F4FC]"
-                  aria-label={t("userDash.myCvs.pickPdf")}
-                >
-                  <FileText className="size-4 text-error" />
-                  <span>PDF</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => inputWordRef.current?.click()}
-                  className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl bg-[#204195] px-4 text-xs font-semibold text-white shadow-xs transition-all hover:bg-[#183275]"
-                  aria-label={t("userDash.myCvs.pickWord")}
-                >
-                  <FileText className="size-4 text-white" />
-                  <span>DOCX</span>
-                </button>
-              </div>
-              <input
-                ref={inputPdfRef}
-                type="file"
-                accept="application/pdf,.pdf"
-                className="hidden"
-                onChange={onUpload}
-              />
-              <input
-                ref={inputWordRef}
-                type="file"
-                accept="application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.doc,.docx"
-                className="hidden"
-                onChange={onUpload}
-              />
-              {analyzeError && (
-                <p className="mt-4 rounded-xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-800" role="alert">
-                  {analyzeError}
-                </p>
-              )}
+          <div
+            role="region"
+            aria-label={t("userDash.myCvs.uploadDropRegionAria")}
+            onDragEnter={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false);
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={onDrop}
+            className={`flex flex-col items-center rounded-2xl border-2 border-dashed px-5 py-8 text-center transition-colors md:px-8 md:py-8 ${
+              dragOver ? "border-[#204195] bg-[#EEF2FD]" : "border-[#C9D7F1] bg-white"
+            }`}
+          >
+            <h2 className="text-lg font-bold text-[#14244B]">{t("userDash.myCvs.uploadTitle")}</h2>
+            <p className="mb-6 mt-1.5 max-w-md text-sm leading-6 text-[#607096]">{t("userDash.myCvs.uploadHint")}</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => inputPdfRef.current?.click()}
+                className="inline-flex h-10 cursor-pointer items-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+                aria-label={t("userDash.myCvs.pickPdf")}
+              >
+                PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => inputWordRef.current?.click()}
+                className="inline-flex h-10 cursor-pointer items-center rounded-xl bg-[#F8FAFC] px-6 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
+                aria-label={t("userDash.myCvs.pickWord")}
+              >
+                DOCX
+              </button>
             </div>
+            <input
+              ref={inputPdfRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              className="hidden"
+              onChange={onUpload}
+            />
+            <input
+              ref={inputWordRef}
+              type="file"
+              accept="application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.doc,.docx"
+              className="hidden"
+              onChange={onUpload}
+            />
+            {uploading ? (
+              <StatusNote text={t("uxWs.cvs.uploading")} className="mt-6 w-full max-w-lg text-left" />
+            ) : analyzeError ? (
+              <StatusNote
+                tone="error"
+                text={analyzeError}
+                hint={t("uxWs.cvs.errorHint")}
+                className="mt-6 w-full max-w-lg text-left"
+              />
+            ) : uploadNotice ? (
+              <StatusNote
+                text={uploadNotice}
+                onDismiss={() => setUploadNotice(null)}
+                dismissLabel={t("common.close")}
+                className="mt-6 w-full max-w-lg text-left"
+              />
+            ) : foxDone && !trackingCvId ? (
+              <StatusNote
+                tone="success"
+                text={t("uxWs.cvs.parsedDone")}
+                hint={nextStepLink}
+                onDismiss={() => setFoxDone(false)}
+                dismissLabel={t("common.close")}
+                className="mt-6 w-full max-w-lg text-left"
+              />
+            ) : null}
           </div>
 
           {trackingCvId ? (
             <div
-              className="flex items-start gap-3 rounded-2xl border border-[#C9D7F1] bg-[#F0F4FC] px-4 py-3 shadow-xs"
+              className="flex items-start gap-3 rounded-2xl border border-[#C9D7F1] bg-[#F0F4FC] px-4 py-3"
               role="status"
               aria-live="polite"
             >
-              <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-[#204195] motion-reduce:animate-none" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-[#14244B]">{t("userDash.myCvs.processingTitle")}</p>
-                <p className="mt-0.5 text-xs text-[#607096]">
-                  {labelForCvStatus(t, cvProcessStatus)}
+                <p className="text-sm font-bold text-[#14244B]">
+                  {t("userDash.myCvs.processingTitle")} · {t(`uxWs.cvs.phase.${trackingStep}`)}
+                </p>
+                <ol className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label={t("userDash.myCvs.processingTitle")}>
+                  {([1, 2, 3] as const).map((n) => (
+                    <li
+                      key={n}
+                      aria-current={n === trackingStep ? "step" : undefined}
+                      className={n < trackingStep ? "font-semibold text-[#204195]" : n === trackingStep ? "font-bold text-[#14244B]" : "text-[#607096]"}
+                    >
+                      <span aria-hidden="true">{n < trackingStep ? "✓ " : n === trackingStep ? "● " : "○ "}</span>
+                      {t(PROCESSING_STEP_KEYS[n])}
+                    </li>
+                  ))}
+                </ol>
+                <p className="mt-1.5 text-xs text-[#607096]">
+                  {labelForCvStatus(t, cvProcessStatus)} {t("uxWs.cvs.processingWait")}
                 </p>
                 {cvStatusPayload?.status === "FAILED" && cvStatusPayload.error ? (
-                  <p className="mt-1.5 text-xs text-error">{String(cvStatusPayload.error)}</p>
+                  <p className="mt-1.5 text-xs text-[#C43B3B]">{resolveBackendErrorMessage(cvStatusPayload.error, t)}</p>
                 ) : null}
               </div>
             </div>
           ) : null}
 
-          <section className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs md:p-8">
+          <section className="rounded-2xl bg-white p-4 border border-[#DCE4F3] sm:p-6">
             <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-xl font-bold text-[#14244B]">{t("userDash.myCvs.listTitle")}</h2>
+                <h2 className="text-lg font-bold text-[#14244B]">{t("userDash.myCvs.listTitle")}</h2>
                 <p className="mt-1 text-xs text-[#607096]">
                   {apiConnected ? t("userDash.myCvs.listHintApi") : t("userDash.myCvs.listHint")}
                 </p>
               </div>
-              <p className="w-fit rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3 py-1 text-xs font-semibold text-[#204195]">
+              <p className="w-fit text-xs font-semibold text-[#204195]">
                 {t("userDash.myCvs.listCount").replace("{count}", String(filtered.length))}
               </p>
             </div>
 
             {listError && (
               <div
-                className="mb-4 rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-800"
+                className="mb-4 rounded-2xl bg-[#FDF2F2] px-4 py-3 text-sm text-[#C43B3B]"
                 role="alert"
               >
                 {listError}
               </div>
             )}
 
-            <div className="mb-6 grid grid-cols-1 gap-3 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4 sm:grid-cols-2 xl:grid-cols-[minmax(180px,1.1fr)_minmax(220px,1.35fr)_minmax(115px,.65fr)_minmax(145px,.8fr)_minmax(125px,.7fr)]">
-              <div className="min-w-0 sm:col-span-2 xl:col-span-1">
+            <div className="mb-5 grid grid-cols-2 gap-3 rounded-2xl bg-[#F8FAFC] p-3 sm:p-4 xl:grid-cols-[minmax(180px,1.1fr)_minmax(220px,1.35fr)_minmax(115px,.65fr)_minmax(145px,.8fr)_minmax(125px,.7fr)]">
+              <div className="col-span-2 min-w-0 xl:col-span-1">
                 <label htmlFor="cv-search" className={filterLabelClass}>
                   {t("userDash.myCvs.searchLabel")}
                 </label>
@@ -535,20 +669,26 @@ export default function UserMyCvsPage() {
                     id="cv-search"
                     type="search"
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setPage(1);
+                    }}
                     placeholder={t("userDash.myCvs.searchPlaceholder")}
-                    className="h-10 w-full rounded-xl border border-[#DCE4F3] bg-white pl-9 pr-3 text-xs font-medium text-[#14244B] outline-none transition-all placeholder:text-[#607096] focus:border-[#204195] focus:ring-2 focus:ring-[#204195]/20"
+                    className="h-10 w-full rounded-xl border-0 bg-white pl-9 pr-3 text-[13px] font-medium text-[#14244B] outline-none border border-[#DCE4F3] transition placeholder:text-[#607096] focus:ring-2 focus:ring-[#204195]"
                   />
                 </div>
               </div>
-              <div className="min-w-0">
+              <div className="col-span-2 min-w-0 sm:col-span-1">
                 <label htmlFor="cv-career-filter" className={filterLabelClass}>
                   {t("userDash.myCvs.filterCareerLabel")}
                 </label>
                 <select
                   id="cv-career-filter"
                   value={careerCode}
-                  onChange={(event) => setCareerCode(event.target.value)}
+                  onChange={(event) => {
+                    setCareerCode(event.target.value);
+                    setPage(1);
+                  }}
                   className={selectClass}
                   disabled={!apiConnected || careerTaxonomy.length === 0}
                 >
@@ -565,7 +705,10 @@ export default function UserMyCvsPage() {
                 <select
                   id="cv-type-filter"
                   value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
+                  onChange={(e) => {
+                    setTypeFilter(e.target.value as TypeFilter);
+                    setPage(1);
+                  }}
                   className={selectClass}
                 >
                   <option value="all">{t("userDash.myCvs.filterTypeAll")}</option>
@@ -580,7 +723,10 @@ export default function UserMyCvsPage() {
                 <select
                   id="cv-date-filter"
                   value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value as DateFilter)}
+                  onChange={(e) => {
+                    setDateFilter(e.target.value as DateFilter);
+                    setPage(1);
+                  }}
                   className={selectClass}
                 >
                   <option value="all">{t("userDash.myCvs.filterDateAll")}</option>
@@ -589,14 +735,17 @@ export default function UserMyCvsPage() {
                   <option value="90d">{t("userDash.myCvs.filterDate90d")}</option>
                 </select>
               </div>
-              <div className="min-w-0">
+              <div className="col-span-2 min-w-0 sm:col-span-1">
                 <label htmlFor="cv-sort" className={filterLabelClass}>
                   {t("userDash.myCvs.sortLabel")}
                 </label>
                 <select
                   id="cv-sort"
                   value={sort}
-                  onChange={(e) => setSort(e.target.value as SortKey)}
+                  onChange={(e) => {
+                    setSort(e.target.value as SortKey);
+                    setPage(1);
+                  }}
                   className={selectClass}
                 >
                   <option value="newest">{t("userDash.myCvs.sortNewest")}</option>
@@ -608,25 +757,43 @@ export default function UserMyCvsPage() {
 
             {initialLoading ? (
               <div className="space-y-3 py-3" role="status" aria-label={t("admin.jobProfile.loading")}>
-                {[0, 1, 2].map((item) => <div key={item} className="h-20 animate-pulse rounded-xl bg-[#F0F4FC] motion-reduce:animate-none" />)}
+                {[0, 1, 2].map((item) => <div key={item} className="h-20 animate-pulse rounded-2xl bg-[#F0F4FC] motion-reduce:animate-none" />)}
               </div>
             ) : files.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[#DCE4F3] bg-[#F8FAFC] px-5 py-12 text-center">
-                <FileText className="mx-auto size-10 text-[#204195]" aria-hidden="true" />
-                <p className="mt-3 text-sm text-[#607096]">{t("userDash.myCvs.emptyList")}</p>
+              <div className="flex flex-col items-center rounded-2xl bg-[#F8FAFC] px-5 py-10 text-center">
+                <p className="mt-3 max-w-sm text-sm leading-6 text-[#607096]">{t("userDash.myCvs.emptyList")}</p>
+                <button
+                  type="button"
+                  onClick={() => inputPdfRef.current?.click()}
+                  className="mt-5 inline-flex h-10 items-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+                >
+                  {t("userDash.myCvs.uploadTitle")}
+                </button>
               </div>
             ) : filtered.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[#DCE4F3] bg-[#F8FAFC] px-5 py-12 text-center">
-                <SearchX className="mx-auto size-10 text-[#204195]" aria-hidden="true" />
-                <p className="mt-3 text-sm text-[#607096]">{t("userDash.myCvs.emptyFiltered")}</p>
+              <div className="flex flex-col items-center rounded-2xl bg-[#F8FAFC] px-5 py-10 text-center">
+                <p className="mt-3 max-w-sm text-sm leading-6 text-[#607096]">{t("userDash.myCvs.emptyFiltered")}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setTypeFilter("all");
+                    setDateFilter("all");
+                    setCareerCode("");
+                    setPage(1);
+                  }}
+                  className="mt-5 inline-flex h-10 items-center rounded-xl bg-white px-5 text-sm font-semibold text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
+                >
+                  {t("uxWs.cvs.clearFilters")}
+                </button>
               </div>
             ) : (
               <>
-                <div className="hidden overflow-hidden rounded-xl border border-[#EAEFF8] md:block">
+                <div className="hidden overflow-hidden rounded-2xl border border-[#DCE4F3] lg:block">
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[780px] border-collapse text-left text-sm">
+                    <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                       <thead>
-                      <tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-wider text-[#607096]">
+                      <tr className="border-b border-[#DCE4F3] bg-[#F8FAFC] text-xs font-semibold text-[#204195]">
                         <th className="px-4 py-3">{t("userDash.myCvs.colCandidate")}</th>
                         <th className="px-4 py-3">{t("userDash.myCvs.colType")}</th>
                         <th className="px-4 py-3">{t("userDash.myCvs.colStatus")}</th>
@@ -635,21 +802,19 @@ export default function UserMyCvsPage() {
                       </tr>
                       </thead>
                       <tbody className="divide-y divide-[#EAEFF8] bg-white">
-                      {filtered.map((f) => (
+                      {paged.map((f) => (
                         <tr key={f.id} className="transition-colors hover:bg-[#F8FAFC]">
-                          <td className="px-4 py-4 align-middle">
+                          <td className="w-full max-w-0 px-4 py-4 align-middle">
                             <div className="flex items-start gap-3">
-                              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F0F4FC]" aria-hidden="true">
-                                <FileText className={`size-5 ${typeIconClass(f)}`} />
-                              </span>
                               <div className="min-w-0">
-                                <p className="font-semibold text-[#14244B]">{displayName(f.name)}</p>
-                                <p className="truncate text-xs text-[#607096]">{f.name}</p>
+                                <p className="font-semibold text-[#14244B] [overflow-wrap:anywhere]">{displayName(f.name)}</p>
+                                <p className="truncate text-xs text-[#607096]" title={f.name}>{f.name}</p>
                                 <CareerClassificationSummary status={effectiveCvStatus(f) ?? undefined} parsedData={f.parsedData} compact />
+                                <CvRowStatusDetail file={f} onOpenParsed={() => setParsedCv(f)} />
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-4 align-middle">
+                          <td className="whitespace-nowrap px-4 py-4 align-middle">
                             <span className={`${badgeClass} ${typeBadgeClass(f)}`}>
                               {typeLabel(f)}
                             </span>
@@ -660,17 +825,32 @@ export default function UserMyCvsPage() {
                                 {labelForCvStatus(t, effectiveCvStatus(f))}
                               </span>
                             ) : (
-                              <span className="text-[#A0AEC0]">—</span>
+                              <span className="text-[#607096]">—</span>
                             )}
                           </td>
                           <td className="whitespace-nowrap px-4 py-4 align-middle text-xs text-[#607096]">
                             {formatDate(f.uploadedAt)}
                           </td>
-                          <td className="px-4 py-4 text-center align-middle">
+                          <td className="whitespace-nowrap px-4 py-4 text-center align-middle">
+                            {apiConnected && canRetryParse(f) ? (
+                              <button
+                                type="button"
+                                onClick={() => void retryParse(f)}
+                                disabled={reparsingId !== null}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[#204195] transition-colors hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195] disabled:cursor-not-allowed disabled:opacity-50"
+                                aria-label={t("userDash.myCvs.retryParse")}
+                                title={t("userDash.myCvs.retryParse")}
+                              >
+                                <RotateCcw
+                                  className={`size-4 ${reparsingId === f.id ? "animate-spin motion-reduce:animate-none" : ""}`}
+                                  aria-hidden="true"
+                                />
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               onClick={() => confirmRemoveFile(f.id)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-rose-600 transition-colors hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[#C43B3B] transition-colors hover:bg-[#FDF2F2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]"
                               aria-label={t("profile.removeAria")}
                             >
                               <Trash2 className="size-4" aria-hidden="true" />
@@ -683,20 +863,18 @@ export default function UserMyCvsPage() {
                   </div>
                 </div>
 
-                <ul className="space-y-3 md:hidden">
-                  {filtered.map((f) => (
+                <ul className="space-y-3 lg:hidden">
+                  {paged.map((f) => (
                     <li
                       key={f.id}
-                      className="rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-xs"
+                      className="rounded-2xl bg-white p-3.5 border border-[#DCE4F3] sm:p-4"
                     >
-                      <div className="flex items-start gap-3">
-                        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F0F4FC]" aria-hidden="true">
-                          <FileText className={`size-5 ${typeIconClass(f)}`} />
-                        </span>
+                      <div className="flex items-start gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-[#14244B]">{displayName(f.name)}</p>
-                          <p className="truncate text-xs text-[#607096]">{f.name}</p>
+                          <p className="font-semibold text-[#14244B] [overflow-wrap:anywhere]">{displayName(f.name)}</p>
+                          <p className="truncate text-xs text-[#607096]" title={f.name}>{f.name}</p>
                           <CareerClassificationSummary status={effectiveCvStatus(f) ?? undefined} parsedData={f.parsedData} compact />
+                          <CvRowStatusDetail file={f} onOpenParsed={() => setParsedCv(f)} />
                           {effectiveCvStatus(f) ? (
                             <div className="mt-2">
                               <span className={`${badgeClass} ${statusBadgeClass(effectiveCvStatus(f))}`}>
@@ -711,10 +889,24 @@ export default function UserMyCvsPage() {
                             <span>{formatDate(f.uploadedAt)}</span>
                           </div>
                         </div>
+                        {apiConnected && canRetryParse(f) ? (
+                          <button
+                            type="button"
+                            onClick={() => void retryParse(f)}
+                            disabled={reparsingId !== null}
+                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#204195] transition-colors hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195] disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label={t("userDash.myCvs.retryParse")}
+                          >
+                            <RotateCcw
+                              className={`size-4 ${reparsingId === f.id ? "animate-spin motion-reduce:animate-none" : ""}`}
+                              aria-hidden="true"
+                            />
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => confirmRemoveFile(f.id)}
-                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-rose-600 transition-colors hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]"
+                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#C43B3B] transition-colors hover:bg-[#FDF2F2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]"
                           aria-label={t("profile.removeAria")}
                         >
                           <Trash2 className="size-4" aria-hidden="true" />
@@ -723,6 +915,17 @@ export default function UserMyCvsPage() {
                     </li>
                   ))}
                 </ul>
+
+                <Pagination
+                  page={currentPage}
+                  pageSize={PAGE_SIZE}
+                  total={filtered.length}
+                  onPageChange={setPage}
+                  className="mt-6"
+                />
+                {listCapped ? (
+                  <p className="mt-3 text-center text-xs text-[#607096]">{fmt(t("fixApp.cvs.capped"), { n: LIST_LIMIT })}</p>
+                ) : null}
               </>
             )}
           </section>
@@ -730,41 +933,46 @@ export default function UserMyCvsPage() {
       </div>
 
       {deleteTarget ? (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={t("userDash.myCvs.confirmDelete")}>
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40 backdrop-blur-xs"
-            onClick={closeDeleteModal}
-            aria-label={t("interview.cvUpload.cancel")}
-          />
-          <div className="relative z-10 w-full max-w-md rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-2xl">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
-              <Trash2 className="size-5" aria-hidden="true" />
-            </div>
-            <h3 className="mt-4 text-lg font-bold text-[#14244B]">{t("userDash.myCvs.confirmDelete")}</h3>
-            <p className="mt-2 break-all rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-3 py-2 text-xs text-[#607096]">{deleteTarget.name}</p>
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-[#14244B]/40" onClick={closeDeleteModal} aria-hidden="true" />
+          <div
+            ref={deleteDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cv-delete-title"
+            tabIndex={-1}
+            className="anim-pop relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-[0_30px_60px_-30px_rgba(20,36,75,0.6)] outline-none"
+          >
+            <h3 id="cv-delete-title" className="text-lg font-bold text-[#14244B]">{t("fixApp.cvs.deleteTitle")}</h3>
+            <p className="mt-2 text-sm leading-6 text-[#607096]">{t("fixApp.cvs.deleteBody")}</p>
+            <p className="mt-3 break-all rounded-2xl bg-[#F8FAFC] px-3 py-2 text-xs text-[#607096]">{deleteTarget.name}</p>
+            {deleteError ? <StatusNote tone="error" text={deleteError} className="mt-3" /> : null}
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={closeDeleteModal}
                 disabled={deleting}
-                className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#DCE4F3] bg-white px-4 text-xs font-semibold text-[#14244B] shadow-xs transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
+                data-autofocus
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F0F4FC] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {t("interview.cvUpload.cancel")}
+                {t("fixApp.common.cancel")}
               </button>
               <button
                 type="button"
                 onClick={() => void handleConfirmDelete()}
                 disabled={deleting}
-                className="inline-flex min-h-10 items-center justify-center rounded-xl bg-rose-600 px-4 text-xs font-semibold text-white shadow-xs transition-all hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-[#C43B3B] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#A93232] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {deleting ? t("admin.jobProfile.loading") : t("profile.removeAria")}
+                {deleting ? t("fixApp.cvs.deleting") : t("fixApp.cvs.deleteConfirm")}
               </button>
             </div>
           </div>
         </div>
       ) : null}
       </div>
+      {parsedCv ? (
+        <ParsedCvDrawer cvId={parsedCv.id} fileName={parsedCv.name} onClose={closeParsedCv} />
+      ) : null}
     </main>
   );
 }

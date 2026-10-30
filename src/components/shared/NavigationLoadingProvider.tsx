@@ -66,14 +66,14 @@ export function NavigationLoadingProvider({ children }: { children: React.ReactN
     visible &&
     createPortal(
       <div
-        className="fixed inset-0 z-[10000] flex flex-col items-center justify-center gap-4 bg-surface/85 backdrop-blur-sm"
-        role="alertdialog"
+        className="fixed inset-0 z-[10000] flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]/85 backdrop-blur-sm"
+        role="status"
         aria-busy="true"
         aria-live="polite"
         aria-label={t("navigation.loadingAria")}
       >
-        <Loader2 className="animate-spin size-12 text-primary" />
-        <p className="max-w-xs text-center font-headline text-sm font-semibold text-on-surface">
+        <Loader2 className="animate-spin size-12 text-[#204195]" />
+        <p className="max-w-xs text-center text-sm font-semibold text-[#14244B]">
           {t("navigation.loading")}
         </p>
       </div>,

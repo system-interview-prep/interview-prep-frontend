@@ -1,28 +1,29 @@
 "use client";
 
-import { FileText, MousePointerClick } from "lucide-react";
 import type { HumanizedRequirement } from "../types/match-details.types";
 import { MatchStatusBadge } from "./MatchStatusBadge";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
 
 interface EvidenceInspectorProps {
   requirement: HumanizedRequirement | null;
   compact?: boolean;
 }
 
-const conceptStatusLabel = {
-  met: "Có bằng chứng",
-  unknown: "Chưa đủ bằng chứng",
-  not_met: "Chưa đáp ứng",
-  not_applicable: "Không áp dụng",
+const conceptStatusKey = {
+  met: "fit.concept.met",
+  unknown: "fit.status.unknown",
+  not_met: "fit.status.notMet",
+  not_applicable: "fit.status.notApplicable",
 } as const;
 
 export function EvidenceInspector({ requirement, compact = false }: EvidenceInspectorProps) {
+  const { t } = useLanguage();
   if (!requirement) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-6 py-12 text-center">
-        <MousePointerClick className="size-7 text-slate-300" aria-hidden="true" />
-        <p className="text-sm font-medium text-slate-500">
-          Chọn một tiêu chí để xem bằng chứng đối chiếu.
+      <div className="flex h-full flex-col items-center justify-center gap-3 rounded-3xl bg-[#F8FAFC] px-6 py-12 text-center">
+        <p className="text-sm font-medium text-[#607096]">
+          {t("fit.inspector.empty")}
         </p>
       </div>
     );
@@ -49,70 +50,72 @@ export function EvidenceInspector({ requirement, compact = false }: EvidenceInsp
   return (
     <div className="space-y-5">
       {!compact && (
-        <div className="border-b border-slate-100 pb-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            Tiêu chí đang xem
+        <div className="border-b border-[#EAEFF8] pb-4">
+          <p className="text-xs font-semibold text-[#607096]">
+            {t("fit.pane.current")}
           </p>
-          <h3 className="mt-1.5 text-lg font-semibold leading-snug tracking-tight text-slate-900 xl:text-xl">
+          <h3 className="mt-1.5 text-xl font-semibold leading-snug text-[#14244B]">
             {requirement.label}
           </h3>
           {requirement.conditionText && (
-            <p className="mt-1 text-sm leading-5 text-slate-500">{requirement.conditionText}</p>
+            <p className="mt-1 text-sm leading-5 text-[#607096]">{requirement.conditionText}</p>
           )}
           <div className="mt-3">
             <MatchStatusBadge status={requirement.status} labelOverride={requirement.statusLabel} />
           </div>
           {requirement.conceptResults && requirement.conceptResults.length > 1 && requirement.groupOperator !== "atomic" && (
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-[#607096]">
               {requirement.groupOperator === "any_of"
-                ? "Chỉ cần đáp ứng một trong các nội dung"
-                : "Cần đáp ứng tất cả nội dung"}
+                ? t("fit.inspector.anyOf")
+                : t("fit.inspector.allOf")}
             </p>
           )}
         </div>
       )}
 
       {compact && <section>
-        <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-          Trạng thái
+        <h4 className="mb-2 text-xs font-semibold text-[#607096]">
+          {t("fit.factors.status")}
         </h4>
         <MatchStatusBadge status={requirement.status} labelOverride={requirement.statusLabel} />
       </section>}
 
       <section>
-        <div className="mb-2 flex items-center gap-1.5">
-          <FileText className="size-3.5 text-slate-400" aria-hidden="true" />
-          <h4 className="text-sm font-semibold text-slate-800">
-            Yêu cầu trong JD
+        <div className="mb-2">
+          <h4 className="text-sm font-semibold text-[#14244B]">
+            {t("fit.inspector.jd")}
           </h4>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-[13px] leading-5 text-slate-700">
+        <div className="rounded-2xl bg-[#F8FAFC] p-3 text-[13px] leading-5 text-[#607096]">
           {requirement.jdEvidenceText?.trim() ? (
             requirement.jdEvidenceText
           ) : (
-            <span className="italic text-slate-400">
-              Chưa có trích dẫn cụ thể từ mô tả công việc.
+            <span className="italic text-[#9AA6C2]">
+              {t("fit.inspector.noJdQuote")}
             </span>
           )}
         </div>
       </section>
 
       <section>
-        <div className="mb-2 flex items-center gap-1.5">
-          <FileText className="size-3.5 text-[#204195]" aria-hidden="true" />
-          <h4 className="text-sm font-semibold text-slate-800">
-            Bằng chứng trong CV
+        <div className="mb-2">
+          <h4 className="text-sm font-semibold text-[#14244B]">
+            {t("fit.evidence.cv")}
           </h4>
         </div>
         {hasConceptResults ? (
           <div className="space-y-3">
             {requirement.conceptResults!.map((concept) => (
-              <div key={concept.conceptId} className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-slate-800">{concept.label}</p>
+              <div key={concept.conceptId} className="rounded-2xl bg-white p-3 ring-1 ring-[#DCE4F3]">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="min-w-0 break-words text-sm font-semibold text-[#14244B]">{concept.label}</p>
                   <MatchStatusBadge
                     status={concept.status}
-                    labelOverride={conceptStatusLabel[concept.status]}
+                    labelOverride={
+                      concept.status === "not_met" && concept.evidence.length === 0
+                        ? t("fit.status.notFound")
+                        : t(conceptStatusKey[concept.status])
+                    }
                   />
                 </div>
                 {concept.evidence.length > 0 ? (
@@ -120,23 +123,23 @@ export function EvidenceInspector({ requirement, compact = false }: EvidenceInsp
                     {concept.evidence.map((evidence, index) => (
                       <div key={evidence.evidenceId || index}>
                         {(evidence.pageNumber != null || evidence.section) && (
-                          <p className="mb-1 text-[11px] text-slate-500">
-                            {evidence.pageNumber != null ? `Trang ${evidence.pageNumber}` : ""}
+                          <p className="mb-1 text-[11px] text-[#607096]">
+                            {evidence.pageNumber != null ? fmt(t("fit.evidence.page"), { page: evidence.pageNumber }) : ""}
                             {evidence.pageNumber != null && evidence.section ? " · " : ""}
-                            {evidence.section ? `Mục: ${evidence.section}` : ""}
+                            {evidence.section ? fmt(t("fit.evidence.section"), { section: evidence.section }) : ""}
                           </p>
                         )}
-                        <p className="text-[13px] italic leading-5 text-slate-700">
+                        <p className="text-[13px] italic leading-5 text-[#607096]">
                           &ldquo;{evidence.text || evidence.snippet}&rdquo;
                         </p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                  <p className="mt-2 text-xs leading-relaxed text-[#607096]">
                     {concept.status === "not_met"
-                      ? "Không tìm thấy bằng chứng về nội dung này trong CV hiện tại."
-                      : "Chưa tìm thấy bằng chứng đủ rõ để kết luận nội dung này."}
+                      ? fmt(t("fit.inspector.labelNotFound"), { label: concept.label })
+                      : t("fit.reason.evidence_insufficient")}
                   </p>
                 )}
               </div>
@@ -147,40 +150,40 @@ export function EvidenceInspector({ requirement, compact = false }: EvidenceInsp
             {requirement.cvEvidence!.map((evidence, index) => (
               <div
                 key={evidence.evidenceId || index}
-                className="rounded-lg border border-slate-200 bg-white p-3 text-[13px]"
+                className="rounded-2xl bg-white p-3 text-[13px] ring-1 ring-[#DCE4F3]"
               >
-                <p className="italic leading-5 text-slate-800">
+                <p className="italic leading-5 text-[#14244B]">
                   &ldquo;{evidence.text || evidence.snippet}&rdquo;
                 </p>
               </div>
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 p-3 text-xs leading-relaxed text-slate-500">
+          <div className="rounded-2xl bg-[#F8FAFC] p-3 text-xs leading-relaxed text-[#607096]">
             {requirement.evidenceExplanation ||
               (requirement.reasonCode === "requirement_evaluator_unsupported"
-                ? "Hệ thống chưa hỗ trợ phân tích tự động tiêu chí này."
+                ? t("fit.inspector.unsupported")
                 : requirement.status === "not_met"
-                  ? "Không tìm thấy bằng chứng về yêu cầu này trong CV hiện tại."
-                  : "Chưa tìm thấy bằng chứng đủ rõ để kết luận tiêu chí này.")}
+                  ? fmt(t("fit.inspector.labelNotFound"), { label: requirement.label })
+                  : t("fit.evidence.unclearCriterion"))}
           </div>
         )}
       </section>
 
       {hasMetadata && (
         <section>
-          <h4 className="mb-2 text-sm font-semibold text-slate-800">Nguồn</h4>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-            {pageNumbers.length > 0 && <span>Trang: {pageNumbers.join(", ")}</span>}
-            {sections.length > 0 && <span>Mục: {sections.join(", ")}</span>}
+          <h4 className="mb-2 text-sm font-semibold text-[#14244B]">{t("fit.inspector.source")}</h4>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#607096]">
+            {pageNumbers.length > 0 && <span>{fmt(t("fit.inspector.pages"), { pages: pageNumbers.join(", ") })}</span>}
+            {sections.length > 0 && <span>{fmt(t("fit.inspector.sections"), { sections: sections.join(", ") })}</span>}
           </div>
         </section>
       )}
 
       {requirement.reasonText && (
         <section>
-          <h4 className="mb-2 text-sm font-semibold text-slate-800">Kết luận</h4>
-          <p className="text-[13px] leading-5 text-slate-600">{requirement.reasonText}</p>
+          <h4 className="mb-2 text-sm font-semibold text-[#14244B]">{t("fit.inspector.conclusion")}</h4>
+          <p className="text-[13px] leading-5 text-[#607096]">{requirement.reasonText}</p>
         </section>
       )}
     </div>

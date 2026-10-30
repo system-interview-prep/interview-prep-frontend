@@ -3,18 +3,10 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Eye,
-  EyeOff,
-  Home,
-  LoaderCircle,
-  LockKeyhole,
-  Mail,
-  ShieldCheck,
-  Sparkles,
-  User,
-} from "lucide-react";
+import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { BrandLogo } from "@components/shared/BrandLogo";
+import { StatusNote } from "@components/shared/StatusNote";
 import { useGoogleLogin } from "@react-oauth/google";
 import {
   completeAuthSession,
@@ -48,8 +40,12 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
   const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  // Password reset is not built yet; say so inline instead of a native alert().
+  const [showForgotNote, setShowForgotNote] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  // Set once the session is stored, so the page can say where it is taking the user.
+  const [redirecting, setRedirecting] = useState(false);
 
   const nextUrl = useMemo(() => {
     const next = searchParams.get("next");
@@ -76,6 +72,7 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
 
   async function handleCompleteAuth(data: AuthResponse) {
     const { isAdmin } = completeAuthSession(data);
+    setRedirecting(true);
     router.replace(nextUrl ?? (isAdmin ? "/admin/dashboard" : "/dashboard"));
   }
 
@@ -112,6 +109,7 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
   function switchMode(next: AuthMode) {
     setMode(next);
     setFormErrors({});
+    setShowForgotNote(false);
     window.history.replaceState(null, "", next === "login" ? "/login" : "/signup");
   }
 
@@ -163,12 +161,20 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
 
   const strengthColor =
     passwordStrengthScore === 1
-      ? "bg-[#EF5A67]"
+      ? "bg-[#C43B3B]"
       : passwordStrengthScore === 2
       ? "bg-[#FCB625]"
       : passwordStrengthScore === 3
-      ? "bg-[#4D73D9]"
-      : "bg-[#16A34A]";
+      ? "bg-[#204195]"
+      : "bg-[#287A4B]";
+  const strengthText =
+    passwordStrengthScore === 1
+      ? "text-[#C43B3B]"
+      : passwordStrengthScore === 2
+      ? "text-[#14244B]"
+      : passwordStrengthScore === 3
+      ? "text-[#204195]"
+      : "text-[#287A4B]";
   const strengthLabel =
     passwordStrengthScore === 1
       ? t("auth.passwordStrengthWeak") || "Yếu"
@@ -178,34 +184,53 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
       ? t("auth.passwordStrengthGood") || "Tốt"
       : t("auth.passwordStrengthStrong") || "Mạnh";
 
+  // Plain words for what is happening right now, shown under the submit button.
+  const statusText = redirecting
+    ? mode === "signup"
+      ? t("uxm.auth.signupDone")
+      : t("uxm.auth.redirecting")
+    : googleLoading
+    ? t("uxm.auth.googleWaiting")
+    : loading
+    ? mode === "login"
+      ? t("uxm.auth.checking")
+      : t("uxm.auth.creating")
+    : "";
+
+  const inputClass = (hasError: boolean) =>
+    `h-12 w-full rounded-2xl border-0 bg-[#F7F9FD] px-4 text-sm text-[#14244B] outline-none ring-1 transition placeholder:text-[#8A98B8] focus:bg-white focus:ring-2 focus:ring-[#204195] ${
+      hasError ? "ring-[#C43B3B]" : "ring-[#DCE4F3]"
+    }`;
+  const labelClass = "mb-1.5 block text-[13px] font-semibold text-[#14244B]";
+  const fieldErrorClass = "mt-1.5 text-xs font-medium text-[#C43B3B]";
+
   return (
-    <div className="relative flex min-h-screen w-full flex-col justify-center items-center bg-white px-4 sm:px-6 py-12 text-[#14244B]">
-      {/* TOP NAVIGATION: LOGO (TOP-LEFT) & BACK BUTTON (TOP-RIGHT) */}
-      <header className="absolute top-5 sm:top-8 left-5 sm:left-10 right-5 sm:right-10 flex items-center justify-between z-20">
+    <div className="relative flex min-h-screen w-full flex-col justify-between bg-[#F7F9FD] px-4 py-6 font-body text-[#14244B] sm:px-6 sm:py-8">
+      {/* Top bar: brand + way back home */}
+      <header className="relative z-20 mx-auto flex w-full max-w-[480px] items-center justify-between gap-4 pb-2">
         <Link
           href="/"
-          className="inline-flex items-center gap-2.5 text-xl font-extrabold tracking-tight text-[#14244B] hover:opacity-90 transition-opacity"
+          className="inline-flex items-center gap-2 transition-opacity hover:opacity-90"
         >
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#204195] text-[#FCB625] shadow-xs">
-            <Sparkles size={18} />
+          <BrandLogo size={40} />
+          <span className="font-display text-[22px] font-bold leading-none tracking-[0.08em] text-[#14244B]">
+            INTERVIA
           </span>
-          <span>INTERVIA</span>
         </Link>
         <Link
           href="/"
-          aria-label="Home"
-          className="grid h-9 w-9 place-items-center rounded-xl border border-[#DCE4F3] bg-white text-[#607096] hover:bg-[#F7F9FD] hover:text-[#204195] transition-colors shadow-xs"
+          className="rounded-full px-3 py-2 text-sm font-semibold text-[#607096] transition-colors hover:bg-white hover:text-[#14244B]"
         >
-          <Home size={18} />
+          ← {t("uxm.auth.backHome")}
         </Link>
       </header>
 
-      <div className="relative z-10 w-full max-w-[480px] my-auto flex flex-col items-center pt-12 sm:pt-4">
-        {/* SINGLE CENTERED AUTH CARD */}
-        <div className="w-full rounded-[26px] border border-[#DCE4F3] bg-white p-6 sm:p-8 md:p-9 shadow-[0_20px_60px_rgba(20,36,75,0.06)]">
-          {/* SEGMENTED TAB CONTROL */}
+      {/* Main auth card */}
+      <main className="relative z-10 mx-auto my-auto w-full max-w-[480px] py-4">
+        <div className="w-full rounded-3xl bg-white p-6 shadow-[0_24px_60px_-36px_rgba(20,36,75,0.45)] ring-1 ring-[#DCE4F3] sm:p-8">
+          {/* Segmented tab control */}
           <div
-            className="mb-6 flex w-full gap-1 rounded-xl border border-[#DCE4F3] bg-[#F7F9FD] p-1"
+            className="mb-6 flex w-full gap-1 rounded-full bg-[#F7F9FD] p-1"
             role="tablist"
             aria-label={t("auth.authMode")}
           >
@@ -214,10 +239,10 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
               role="tab"
               aria-selected={mode === "login"}
               onClick={() => switchMode("login")}
-              className={`flex-1 rounded-lg py-2.5 text-sm transition-all duration-200 cursor-pointer ${
+              className={`flex-1 rounded-full py-2.5 text-sm transition-colors ${
                 mode === "login"
-                  ? "bg-white text-[#204195] font-extrabold shadow-xs"
-                  : "text-[#607096] hover:text-[#14244B] font-semibold"
+                  ? "bg-white font-semibold text-[#14244B] shadow-[0_4px_14px_-10px_rgba(20,36,75,0.5)]"
+                  : "font-medium text-[#607096] hover:text-[#14244B]"
               }`}
             >
               {t("auth.tabLogin")}
@@ -227,29 +252,29 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
               role="tab"
               aria-selected={mode === "signup"}
               onClick={() => switchMode("signup")}
-              className={`flex-1 rounded-lg py-2.5 text-sm transition-all duration-200 cursor-pointer ${
+              className={`flex-1 rounded-full py-2.5 text-sm transition-colors ${
                 mode === "signup"
-                  ? "bg-white text-[#204195] font-extrabold shadow-xs"
-                  : "text-[#607096] hover:text-[#14244B] font-semibold"
+                  ? "bg-white font-semibold text-[#14244B] shadow-[0_4px_14px_-10px_rgba(20,36,75,0.5)]"
+                  : "font-medium text-[#607096] hover:text-[#14244B]"
               }`}
             >
               {t("auth.tabSignup")}
             </button>
           </div>
 
-          <h1 className="text-[26px] sm:text-[28px] font-extrabold tracking-[-0.03em] text-[#14244B]">
+          <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-[#14244B] sm:text-[30px]">
             {mode === "login" ? t("auth.welcomeBackTitle") : t("auth.signupTitle")}
           </h1>
           <p className="mt-1.5 text-sm leading-6 text-[#607096]">
             {mode === "login" ? t("auth.welcomeBackSubtitle") : t("auth.signupSubtitle")}
           </p>
 
-          {/* GOOGLE OAUTH BUTTON */}
+          {/* Google OAuth */}
           <button
             type="button"
             onClick={onGoogleClick}
             disabled={googleLoading || loading}
-            className="mt-6 flex h-[48px] w-full items-center justify-center gap-3 rounded-[14px] border border-[#DCE4F3] bg-white px-4 font-bold text-sm text-[#14244B] shadow-xs hover:bg-[#F7F9FD] transition-all disabled:opacity-60 cursor-pointer"
+            className="mt-6 flex h-12 w-full items-center justify-center gap-3 rounded-full bg-white px-4 text-sm font-semibold text-[#14244B] ring-1 ring-[#DCE4F3] transition-colors hover:bg-[#F7F9FD] disabled:opacity-60"
           >
             {googleLoading ? (
               <LoaderCircle className="animate-spin text-[#204195]" size={18} />
@@ -261,20 +286,20 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
             </span>
           </button>
 
-          {/* OR DIVIDER */}
+          {/* Divider */}
           <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-[#EAEFF8]" />
-            <span className="text-xs font-bold uppercase tracking-wider text-[#8A98B8]">
+            <div className="h-px flex-1 bg-[#DCE4F3]" />
+            <span className="text-xs text-[#607096]">
               {t("auth.orContinueWith")}
             </span>
-            <div className="h-px flex-1 bg-[#EAEFF8]" />
+            <div className="h-px flex-1 bg-[#DCE4F3]" />
           </div>
 
-          {/* FORM ROOT ERROR */}
+          {/* Form-level error */}
           {formErrors.form && (
             <div
               role="alert"
-              className="mb-5 rounded-xl border border-red-200 bg-red-50/80 p-3.5 text-xs font-semibold text-red-700"
+              className="mb-5 rounded-2xl border border-[#C43B3B]/25 bg-[#FDF2F2] p-3.5 text-[13px] font-medium text-[#C43B3B]"
             >
               {formErrors.form}
             </div>
@@ -283,31 +308,22 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "signup" && (
               <div>
-                <label
-                  htmlFor="user-fullname"
-                  className="mb-1.5 block text-xs font-bold text-[#14244B]"
-                >
+                <label htmlFor="user-fullname" className={labelClass}>
                   {t("auth.fullNameLabel")}
                 </label>
-                <div className="relative">
-                  <User
-                    size={16}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A98B8]"
-                  />
-                  <input
-                    id="user-fullname"
-                    type="text"
-                    autoComplete="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder={t("auth.fullNamePlaceholder")}
-                    className={`h-[46px] w-full rounded-[14px] border bg-[#F8FAFC] pl-10 pr-4 text-sm text-[#14244B] placeholder-[#8A98B8] focus:border-[#204195] focus:bg-white focus:outline-none transition-all ${
-                      formErrors.name ? "border-red-400" : "border-[#DCE4F3]"
-                    }`}
-                  />
-                </div>
+                <input
+                  id="user-fullname"
+                  type="text"
+                  autoComplete="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={t("auth.fullNamePlaceholder")}
+                  aria-invalid={!!formErrors.name}
+                  aria-describedby={formErrors.name ? "user-fullname-error" : undefined}
+                  className={inputClass(!!formErrors.name)}
+                />
                 {formErrors.name && (
-                  <p className="mt-1 text-xs text-red-600 font-medium">
+                  <p id="user-fullname-error" className={fieldErrorClass}>
                     {formErrors.name}
                   </p>
                 )}
@@ -315,31 +331,22 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
             )}
 
             <div>
-              <label
-                htmlFor="user-email"
-                className="mb-1.5 block text-xs font-bold text-[#14244B]"
-              >
+              <label htmlFor="user-email" className={labelClass}>
                 {t("auth.emailLabel")}
               </label>
-              <div className="relative">
-                <Mail
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A98B8]"
-                />
-                <input
-                  id="user-email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={t("auth.emailPlaceholder")}
-                  className={`h-[46px] w-full rounded-[14px] border bg-[#F8FAFC] pl-10 pr-4 text-sm text-[#14244B] placeholder-[#8A98B8] focus:border-[#204195] focus:bg-white focus:outline-none transition-all ${
-                    formErrors.email ? "border-red-400" : "border-[#DCE4F3]"
-                  }`}
-                />
-              </div>
+              <input
+                id="user-email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t("auth.emailPlaceholder")}
+                aria-invalid={!!formErrors.email}
+                aria-describedby={formErrors.email ? "user-email-error" : undefined}
+                className={inputClass(!!formErrors.email)}
+              />
               {formErrors.email && (
-                <p className="mt-1 text-xs text-red-600 font-medium">
+                <p id="user-email-error" className={fieldErrorClass}>
                   {formErrors.email}
                 </p>
               )}
@@ -349,29 +356,33 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
               <div className="mb-1.5 flex items-center justify-between">
                 <label
                   htmlFor="user-password"
-                  className="text-xs font-bold text-[#14244B]"
+                  className="text-[13px] font-semibold text-[#14244B]"
                 >
                   {t("auth.passwordLabel")}
                 </label>
                 {mode === "login" && (
                   <button
                     type="button"
-                    onClick={() => {
-                      alert(
-                        t("auth.forgotPasswordAlert") || "Tính năng khôi phục mật khẩu đang được phát triển. Vui lòng liên hệ support@intervia.io."
-                      );
-                    }}
-                    className="text-xs font-semibold text-[#204195] hover:underline cursor-pointer"
+                    onClick={() => setShowForgotNote(true)}
+                    aria-expanded={showForgotNote}
+                    aria-controls="forgot-password-note"
+                    className="text-[13px] font-semibold text-[#204195] underline-offset-4 hover:underline"
                   >
                     {t("auth.forgotPassword")}
                   </button>
                 )}
               </div>
+              {mode === "login" && showForgotNote && (
+                <div id="forgot-password-note" className="mb-2">
+                  <StatusNote
+                    text={t("fixAdmin.auth.forgotTitle")}
+                    hint={t("fixAdmin.auth.forgotHint")}
+                    onDismiss={() => setShowForgotNote(false)}
+                    dismissLabel={t("fixAdmin.common.close")}
+                  />
+                </div>
+              )}
               <div className="relative">
-                <LockKeyhole
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A98B8]"
-                />
                 <input
                   id="user-password"
                   type={showPassword ? "text" : "password"}
@@ -381,64 +392,58 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t("auth.passwordPlaceholder")}
-                  className={`h-[46px] w-full rounded-[14px] border bg-[#F8FAFC] pl-10 pr-10 text-sm text-[#14244B] placeholder-[#8A98B8] focus:border-[#204195] focus:bg-white focus:outline-none transition-all ${
-                    formErrors.password ? "border-red-400" : "border-[#DCE4F3]"
-                  }`}
+                  aria-invalid={!!formErrors.password}
+                  aria-describedby={
+                    formErrors.password ? "user-password-error" : mode === "signup" ? "user-password-help" : undefined
+                  }
+                  className={`${inputClass(!!formErrors.password)} pr-12`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8A98B8] hover:text-[#14244B] cursor-pointer"
+                  aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                  aria-pressed={showPassword}
+                  className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-[#607096] transition-colors hover:bg-[#EEF3FC] hover:text-[#14244B]"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
               <div className="mt-2 flex flex-col gap-2">
                 {mode === "signup" && (
-                    <div 
+                    <div
                        role="progressbar"
                        aria-valuemin={0}
                        aria-valuemax={4}
                        aria-valuenow={passwordStrengthScore}
                        aria-label={passwordStrengthScore > 0 ? strengthLabel : (t("auth.passwordStrength") || "Password strength")}
-                       className="flex items-center gap-2"
+                       className="flex items-center gap-1.5"
                     >
                        {[1, 2, 3, 4].map((level) => (
                          <div
                            key={level}
-                           className={`h-[5px] flex-1 rounded-full transition-all duration-300 ease-out ${
-                             passwordStrengthScore >= level
-                               ? `${strengthColor} ${passwordStrengthScore === level ? 'scale-x-[1.03]' : ''}`
-                               : "bg-[#E8EDF6]"
+                           className={`h-[5px] flex-1 rounded-full transition-colors duration-300 ease-out ${
+                             passwordStrengthScore >= level ? strengthColor : "bg-[#EEF3FC]"
                            }`}
                          />
                        ))}
                     </div>
                 )}
-                    
+
                 <div className="flex items-center justify-between gap-4">
                   {formErrors.password ? (
-                    <p className="text-xs text-red-600 font-medium leading-relaxed flex-1">
+                    <p id="user-password-error" className="flex-1 text-xs font-medium leading-relaxed text-[#C43B3B]">
                       {formErrors.password}
                     </p>
                   ) : mode === "signup" ? (
                     <>
-                      <p className="text-xs text-[#607096] leading-relaxed flex-1">
+                      <p id="user-password-help" className="flex-1 text-xs leading-relaxed text-[#607096]">
                         {t("auth.passwordHelper") || "Ít nhất 8 ký tự, gồm chữ hoa, chữ thường và số."}
                       </p>
-                      
+
                       {passwordStrengthScore > 0 && (
-                        <div className={`flex items-center gap-1.5 shrink-0 text-xs font-bold ${
-                          passwordStrengthScore === 1 ? "text-[#EF5A67]" :
-                          passwordStrengthScore === 2 ? "text-[#FCB625]" :
-                          passwordStrengthScore === 3 ? "text-[#4D73D9]" :
-                          "text-[#16A34A]"
-                        }`}>
-                          <span>{strengthLabel}</span>
-                          {passwordStrengthScore === 4 && (
-                            <Sparkles size={14} className="text-[#FCB625]" />
-                          )}
-                        </div>
+                        <span className={`shrink-0 text-xs font-semibold ${strengthText}`}>
+                          {strengthLabel}
+                        </span>
                       )}
                     </>
                   ) : null}
@@ -449,32 +454,25 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
 
             {mode === "signup" && (
               <div>
-                <label className="flex items-start gap-2.5 cursor-pointer">
+                <label className="flex cursor-pointer items-start gap-2.5">
                   <input
                     type="checkbox"
                     checked={agreed}
+                    aria-invalid={!!formErrors.agreed}
+                    aria-describedby={formErrors.agreed ? "user-agreed-error" : undefined}
                     onChange={(e) => setAgreed(e.target.checked)}
                     className="mt-0.5 rounded border-[#DCE4F3] text-[#204195] focus:ring-[#204195]"
                   />
-                  <span className="text-xs text-[#607096]">
+                  <span className="text-[13px] leading-5 text-[#607096]">
+                    {/* No legal pages exist yet, so the terms are named in plain text, not linked. */}
                     {t("auth.termsAgreementPrefix")}{" "}
-                    <Link
-                      href="/terms"
-                      className="font-bold text-[#204195] hover:underline"
-                    >
-                      {t("auth.termsOfService")}
-                    </Link>{" "}
+                    <span className="font-semibold text-[#14244B]">{t("auth.termsOfService")}</span>{" "}
                     {t("auth.andConnector")}{" "}
-                    <Link
-                      href="/privacy"
-                      className="font-bold text-[#204195] hover:underline"
-                    >
-                      {t("auth.privacyPolicy")}
-                    </Link>
+                    <span className="font-semibold text-[#14244B]">{t("auth.privacyPolicy")}</span>
                   </span>
                 </label>
                 {formErrors.agreed && (
-                  <p className="mt-1 text-xs text-red-600 font-medium">
+                  <p id="user-agreed-error" className={fieldErrorClass}>
                     {formErrors.agreed}
                   </p>
                 )}
@@ -484,7 +482,7 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
             <button
               type="submit"
               disabled={loading || googleLoading}
-              className="mt-2 flex h-[48px] w-full items-center justify-center gap-2 rounded-[14px] bg-[#204195] px-6 text-sm font-bold text-white shadow-xs hover:bg-[#183377] transition-all disabled:opacity-60 cursor-pointer"
+              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#204195] px-6 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(32,65,149,0.8)] transition-colors hover:bg-[#183275] disabled:opacity-60"
             >
               {loading && <LoaderCircle className="animate-spin" size={18} />}
               <span>
@@ -497,17 +495,21 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
                   : t("auth.createAccountButton")}
               </span>
             </button>
+
+            <p role="status" aria-live="polite" className="min-h-[1.25rem] text-center text-[13px] font-medium text-[#204195]">
+              {statusText}
+            </p>
           </form>
 
-          {/* FOOTER SWITCH */}
-          <div className="mt-6 text-center text-xs text-[#607096]">
+          {/* Switch mode */}
+          <div className="mt-6 text-center text-[13px] text-[#607096]">
             {mode === "login" ? (
               <>
                 {t("auth.noAccountPrompt")}{" "}
                 <button
                   type="button"
                   onClick={() => switchMode("signup")}
-                  className="font-extrabold text-[#204195] hover:underline cursor-pointer"
+                  className="font-semibold text-[#204195] underline-offset-4 hover:underline"
                 >
                   {t("auth.signUpNow")}
                 </button>
@@ -518,21 +520,22 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
                 <button
                   type="button"
                   onClick={() => switchMode("login")}
-                  className="font-extrabold text-[#204195] hover:underline cursor-pointer"
+                  className="font-semibold text-[#204195] underline-offset-4 hover:underline"
                 >
                   {t("auth.signInNow")}
                 </button>
               </>
             )}
           </div>
-        </div>
 
-        {/* SECURITY BADGE BELOW CARD */}
-        <div className="mt-6 flex items-center justify-center gap-2 text-xs font-semibold text-[#8A98B8]">
-          <ShieldCheck size={14} className="text-[#204195]" />
-          <span>{t("auth.encryptedSession")}</span>
+          <p className="mt-5 border-t border-[#DCE4F3] pt-4 text-center text-xs text-[#607096]">
+            {t("auth.encryptedSession")}
+          </p>
         </div>
-      </div>
+      </main>
+
+      {/* Footer spacer */}
+      <footer className="mx-auto w-full max-w-[480px] text-center" />
     </div>
   );
 }

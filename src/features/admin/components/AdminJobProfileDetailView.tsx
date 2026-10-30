@@ -3,22 +3,21 @@
 import axios from "axios";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { useParams } from "next/navigation";
+import { ArrowLeft, Edit } from "lucide-react";
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import ReactMarkdown from "react-markdown";
+import AdminPageHeader from "./primitives/AdminPageHeader";
 
 export default function AdminJobProfileDetailView() {
   const params = useParams();
-  const router = useRouter();
   const { t, lang } = useLanguage();
   const id = typeof params.id === "string" ? params.id : "";
 
   const [profile, setProfile] = useState<JobProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -46,29 +45,17 @@ export default function AdminJobProfileDetailView() {
     };
   }, [id, t]);
 
-  const handleDelete = async () => {
-    if (!profile || !window.confirm(t("admin.jobProfile.confirmDelete"))) return;
-    setDeleting(true);
-    try {
-      await jobProfileApi.delete(profile.id);
-      router.push("/admin/job-descriptions");
-    } catch {
-      alert(t("admin.jobProfile.deleteError"));
-      setDeleting(false);
-    }
-  };
-
   if (loading) {
     return (
-      <p className="py-12 text-center text-on-surface-variant">{t("admin.jobProfile.loading")}</p>
+      <p className="py-12 text-center text-sm text-[#607096]">{t("admin.jobProfile.loading")}</p>
     );
   }
 
   if (error && !profile) {
     return (
       <div className="space-y-4">
-        <div className="rounded-xl border border-error/30 bg-error-container/20 px-4 py-3 text-sm text-error">{error}</div>
-        <Link href="/admin/job-descriptions" className="inline-flex items-center gap-2 text-primary hover:underline">
+        <div className="break-words rounded-2xl border border-[#C43B3B]/30 bg-[#FDF2F2] px-4 py-3 text-sm text-[#C43B3B]" role="alert">{error}</div>
+        <Link href="/admin/job-descriptions" className="inline-flex items-center gap-2 text-sm text-[#204195] hover:underline">
           <ArrowLeft className="size-4" />
           {t("admin.jobProfile.detail.back")}
         </Link>
@@ -78,76 +65,91 @@ export default function AdminJobProfileDetailView() {
 
   if (!profile) return null;
 
-  const categoryName = profile.primaryTaxonomy?.label ?? "Unclassified";
+  const categoryName = profile.primaryTaxonomy?.label ?? t("fixAdmin.jp.unclassified");
+  const status = profile.status === "DRAFT" || profile.status === "ARCHIVED" ? profile.status : "ACTIVE";
+  const statusLabel =
+    status === "DRAFT"
+      ? t("fixAdmin.jp.status.draft")
+      : status === "ARCHIVED"
+        ? t("fixAdmin.jp.status.archived")
+        : t("fixAdmin.jp.status.active");
+  const statusClass =
+    status === "DRAFT"
+      ? "bg-[#FCB625]/15 text-[#7A5600] border-[#FCB625]/40"
+      : status === "ARCHIVED"
+        ? "bg-[#F0F4FC] text-[#607096] border-[#DCE4F3]"
+        : "bg-[#287A4B]/10 text-[#287A4B] border-[#287A4B]/25";
+  const updatedIso = profile.updatedAt ?? profile.createdAt;
+  const description = String(profile.description || "").trim();
 
   return (
     <div className="min-w-0 space-y-6">
-      <Link
-        href="/admin/job-descriptions"
-        className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-primary hover:underline"
-      >
-        <ArrowLeft className="size-4" />
-        {t("admin.jobProfile.detail.back")}
-      </Link>
+      <AdminPageHeader
+        title={profile.title}
+        breadcrumbs={[
+          { label: t("adminUiJd.breadcrumb.admin"), href: "/admin/dashboard" },
+          { label: t("adminUiJd.list.title"), href: "/admin/job-descriptions" },
+          { label: t("adminUiJd.detail.crumb") },
+        ]}
+        statusBadge={
+          <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusClass}`}>
+            {statusLabel}
+          </span>
+        }
+        primaryAction={
+          <Link
+            href={`/admin/job-descriptions/create?id=${encodeURIComponent(profile.id)}`}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-[#204195] px-4 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-[#183275]"
+          >
+            <Edit className="size-3.5" aria-hidden="true" />
+            {t("adminUiJd.detail.edit")}
+          </Link>
+        }
+      />
 
-      <article className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-primary via-primary-container to-tertiary p-8 text-on-primary shadow-xl md:p-10">
-        <div className="pointer-events-none absolute -right-8 -top-8 opacity-[0.12]">
-          <Sparkles className="size-40" />
+      <section className="grid min-w-0 gap-4 rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-[#607096]">{t("adminUiJd.detail.category")}</p>
+          <p className="mt-1 break-words text-sm font-semibold text-[#14244B]">{categoryName}</p>
         </div>
-
-        <div className="relative z-10">
-          <div className="mb-4 flex flex-wrap gap-2">
-            <span className="rounded-full bg-white/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest backdrop-blur-sm">
-              {t("admin.jobProfile.featured.badge")}
-            </span>
-            <span className="rounded-full bg-emerald-400/90 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-emerald-950">
-              {categoryName}
-            </span>
-            {profile.status && profile.status !== "ACTIVE" && (
-              <span className="rounded-full bg-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest">
-                {profile.status}
-              </span>
-            )}
-          </div>
-
-          <h1 className="mb-6 font-headline text-3xl font-black tracking-tight md:text-4xl">{profile.title}</h1>
-          {profile.keywords && profile.keywords.length > 0 && (
-            <div className="mb-8 flex flex-wrap gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-[#607096]">{t("adminUiJd.detail.keywords")}</p>
+          {profile.keywords && profile.keywords.length > 0 ? (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
               {profile.keywords.map((k) => (
                 <span
                   key={k}
-                  className="rounded-full border border-dashed border-white/45 bg-transparent px-3 py-1.5 text-sm font-medium text-on-primary/90 backdrop-blur-sm"
+                  title={k}
+                  className="max-w-full truncate rounded-lg border border-[#DCE4F3] bg-[#F8FAFC] px-2 py-0.5 text-xs font-medium text-[#607096]"
                 >
                   {k}
                 </span>
               ))}
             </div>
+          ) : (
+            <p className="mt-1 text-sm text-[#8A9ABA]">—</p>
           )}
-
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/20 pt-6">
-            <span className="text-xs font-medium text-on-primary/85">
-              {t("admin.jobProfile.card.updated")}:{" "}
-              {profile.updatedAt || profile.createdAt
-                ? new Date(profile.updatedAt ?? profile.createdAt ?? "").toLocaleString(
-                    lang === "vi" ? "vi-VN" : "en-US",
-                    { dateStyle: "medium", timeStyle: "short" }
-                  )
-                : "—"}
-            </span>
-          </div>
         </div>
-      </article>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-[#607096]">{t("adminUiJd.detail.updated")}</p>
+          <p className="mt-1 text-sm text-[#14244B]">
+            {updatedIso
+              ? new Date(updatedIso).toLocaleString(lang === "vi" ? "vi-VN" : "en-US", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })
+              : "—"}
+          </p>
+        </div>
+      </section>
 
-      {String(profile.description || "").trim() ? (
-        <section className="rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-6 shadow-sm">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-              Job description
-            </h2>
-          </div>
-          <div className="text-sm leading-relaxed text-on-surface">
+      {description ? (
+        <section className="min-w-0 rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-xs sm:p-6">
+          <h2 className="sr-only">{t("adminUiJd.detail.description")}</h2>
+          <div className="min-w-0 break-words text-sm leading-relaxed text-[#14244B] [overflow-wrap:anywhere]">
             <ReactMarkdown
               components={{
+                h1: (p) => <h3 className="mt-5 mb-2 text-base font-extrabold" {...p} />,
                 h2: (p) => <h3 className="mt-5 mb-2 text-base font-extrabold" {...p} />,
                 h3: (p) => <h4 className="mt-4 mb-2 text-sm font-bold" {...p} />,
                 p: (p) => <p className="my-2" {...p} />,
@@ -156,9 +158,17 @@ export default function AdminJobProfileDetailView() {
                 li: (p) => <li className="my-1" {...p} />,
                 strong: (p) => <strong className="font-semibold" {...p} />,
                 em: (p) => <em className="italic" {...p} />,
+                a: (p) => <a className="text-[#204195] underline" target="_blank" rel="noreferrer" {...p} />,
+                code: (p) => <code className="rounded bg-[#F0F4FC] px-1 text-[13px]" {...p} />,
+                pre: (p) => <pre className="my-2 overflow-x-auto rounded-lg bg-[#F8FAFC] p-3 text-xs" {...p} />,
+                table: (p) => (
+                  <div className="my-2 overflow-x-auto">
+                    <table className="min-w-full text-xs" {...p} />
+                  </div>
+                ),
               }}
             >
-              {String(profile.description || "").trim()}
+              {description}
             </ReactMarkdown>
           </div>
         </section>

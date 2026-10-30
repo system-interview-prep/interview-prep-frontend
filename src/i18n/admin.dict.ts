@@ -593,7 +593,7 @@ export const adminVi: Record<string, string> = {
   "admin.sidebar.knowledgeBase": "Tri thức & Quan hệ",
   "admin.sidebar.interviews": "Phiên phỏng vấn",
   "admin.sidebar.users": "Người dùng & Ứng viên",
-  "admin.sidebar.aiOverview": "AI Overview",
+  "admin.sidebar.aiOverview": "Tình hình hoạt động AI",
   "admin.sidebar.aiModels": "Model Registry",
   "admin.sidebar.aiPrompts": "Quản lý Prompts",
   "admin.sidebar.aiTraces": "Traces & Logs",
@@ -959,7 +959,7 @@ export const adminVi: Record<string, string> = {
   "admin.eval.regression.subtitle": "Nhận diện và rà soát các trường hợp cụ thể bị giảm điểm sau khi cập nhật mô hình, prompt hoặc rubric mới",
 
   // ── Audit Logs & Settings ──────────────────────────────────────────────────
-  "admin.auditLogs.title": "Nhật ký kiểm toán hệ thống (Audit Logs)",
+  "admin.auditLogs.title": "Nhật ký thao tác quản trị",
   "admin.auditLogs.subtitle": "Ghi nhận lịch sử các thao tác trọng yếu: Thay đổi prompt, promote phiên bản, sửa rubric, cập nhật mô hình và xuất bản JD",
   "admin.auditLogs.stat.total": "Tổng sự kiện kiểm toán",
   "admin.auditLogs.stat.totalDesc": "Audit events toàn hệ thống",
@@ -978,7 +978,7 @@ export const adminVi: Record<string, string> = {
   "admin.auditLogs.emptyTitle": "Chưa kết nối API Nhật ký kiểm toán",
   "admin.auditLogs.emptyDesc": "Giao diện tra cứu nhật ký audit đã sẵn sàng. Core Backend cần triển khai endpoint GET /admin/audit-logs để lưu trữ và truy xuất các sự kiện thay đổi trên hệ thống.",
 
-  "admin.settings.title": "Cài đặt hệ thống (System Settings)",
+  "admin.settings.title": "Cài đặt hệ thống",
   "admin.settings.subtitle": "Quản lý tham số mô hình AI, hạ tầng giám sát Observability, quy chuẩn đánh giá và chính sách bảo mật",
   "admin.settings.badge": "Cấu hình an toàn",
   "admin.settings.tab.observability": "AI Observability",
@@ -1054,7 +1054,7 @@ export const adminVi: Record<string, string> = {
   "admin.insights.modesTitle": "Phân bổ theo chế độ phỏng vấn (Interview Modes)",
   "admin.insights.modesDesc": "Dữ liệu nhóm theo các hình thức phỏng vấn thực tế trong hệ thống",
   "admin.insights.emptyModesTitle": "Chưa có dữ liệu phân bổ theo chế độ",
-  "admin.insights.emptyModesDesc": "Khi người dùng thực hiện phỏng vấn theo các chế độ khác nhau (Practice, Mock Interview), hệ thống sẽ phân loại chi tiết tại đây.",
+  "admin.insights.emptyModesDesc": "Khi có buổi phỏng vấn chat, giọng nói hoặc video, số buổi theo từng hình thức sẽ hiện ở đây.",
 
   // ── Profile ────────────────────────────────────────────────────────────────
   "admin.profile.enabled": "Đã bật",

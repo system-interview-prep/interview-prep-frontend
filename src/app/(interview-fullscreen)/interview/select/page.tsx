@@ -1,226 +1,779 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useNavigationLoading } from "@components/shared/NavigationLoadingProvider";
+import {
+  AlertCircle,
+  ArrowRight,
+  Briefcase,
+  Check,
+  CheckCircle2,
+  FileText,
+  Loader2,
+  MessageSquare,
+  Mic,
+  Sparkles,
+  UploadCloud,
+  Video,
+} from "lucide-react";
+import { ProcessStatus } from "@components/shared/ProcessSteps";
+import { useDialogA11y } from "@components/shared/useDialogA11y";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { startInterviewSession } from "@features/interview/services/interviewSession.service";
-import { MessageSquare, Mic, Video, ArrowRight } from "lucide-react";
+import {
+  describeStartInterviewError,
+  startInterviewSession,
+} from "@features/interview/services/interviewSession.service";
+import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
+import { scoreCvAgainstJobProfile, type CvScoringResponse } from "@/lib/aiService";
+import { mapBackendErrorToI18nKey } from "@/utils/backendError";
+import { countFit, saveFit } from "@features/matching/utils/fitCache";
+import { fmt } from "@/i18n/format";
+import { useInterviewEntryPolicy } from "@features/interview/hooks/useInterviewEntryPolicy";
+import { entryBlockMessageKey, entryWarningMessageKey, evaluateEntry } from "@features/interview/utils/entryGate";
+import { EntryWarningDialog } from "@features/interview/components/EntryWarningDialog";
+import { PracticeTierNote } from "@features/interview/components/PracticeTierNote";
+import { userCvApi, type UserCvDto } from "@features/resume/services/userCv.service";
+import { RECOMMENDED_MODE } from "@features/interview/utils/interviewModes";
+import { localeOf } from "@/i18n/format";
+
+const FIT_BAND_LABEL_KEYS: Record<string, string> = {
+  strong_fit: "fit.band.strong.label",
+  partial_fit: "fit.band.partial.label",
+  review_required: "fit.band.review.label",
+  not_eligible: "fit.band.notEligible.label",
+  insufficient_evidence: "fit.band.insufficient.label",
+};
+import { cn } from "@/utils";
+
+/** Rows shown per list at first; each "Xem thêm" reveals LIST_STEP more. */
+const LIST_CAP = 4;
+const LIST_STEP = 6;
+
+/** First `limit` rows, keeping the selected row visible even when it sits further down. */
+function capList<T extends { id: string }>(items: T[], limit: number, selectedId: string): T[] {
+  if (items.length <= limit) return items;
+  const head = items.slice(0, limit);
+  const selected = items.find((item) => item.id === selectedId);
+  return selected && !head.includes(selected) ? [...head.slice(0, limit - 1), selected] : head;
+}
+
+function ShowMoreButton({
+  total,
+  limit,
+  onChange,
+}: {
+  total: number;
+  limit: number;
+  onChange: (limit: number) => void;
+}) {
+  const { t } = useLanguage();
+  if (total <= LIST_CAP) return null;
+  const remaining = total - limit;
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(remaining > 0 ? limit + LIST_STEP : LIST_CAP)}
+      aria-expanded={remaining <= 0}
+      className="inline-flex h-9 w-full items-center justify-center rounded-xl border border-[#DCE4F3] bg-white text-xs font-semibold text-[#204195] transition-colors hover:bg-[#F0F4FC]"
+    >
+      {remaining > 0
+        ? fmt(t("uxWs.select.showMore"), { n: Math.min(LIST_STEP, remaining) })
+        : t("uxWs.select.showLess")}
+    </button>
+  );
+}
 
 export default function InterviewSelectPage() {
   const { t, lang } = useLanguage();
   const router = useRouter();
-  const { showNavigationLoading, hideNavigationLoading } = useNavigationLoading();
+  const [jobs, setJobs] = useState<JobProfile[]>([]);
+  const [cvs, setCvs] = useState<UserCvDto[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState("");
+  const [selectedCvId, setSelectedCvId] = useState("");
+  const [loadingContext, setLoadingContext] = useState(true);
+  const [contextError, setContextError] = useState<{ key: string } | { cause: unknown } | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [startPhase, setStartPhase] = useState<number | null>(null);
+  const [startFailed, setStartFailed] = useState(false);
+  const [cvLimit, setCvLimit] = useState(LIST_CAP);
+  const [jobLimit, setJobLimit] = useState(LIST_CAP);
+
+  const startDialogRef = useDialogA11y<HTMLDivElement>(
+    startPhase !== null,
+    startFailed ? () => setStartPhase(null) : undefined,
+  );
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([jobProfileApi.list({ limit: 50 }), userCvApi.listAll()])
+      .then(([jobsResponse, cvsResponse]) => {
+        if (!active) return;
+        const activeJobs = (jobsResponse.data.items ?? []).filter(
+          (job) => job.status === "ACTIVE" || !job.status,
+        );
+        const readyCvs = (cvsResponse.data.items ?? []).filter(
+          (cv) => cv.status === "DONE" || !cv.status,
+        );
+        setJobs(activeJobs);
+        setCvs(readyCvs);
+        setSelectedJobId(activeJobs[0]?.id ?? "");
+        setSelectedCvId(readyCvs[0]?.id ?? "");
+      })
+      .catch(() => {
+        if (active) setContextError({ key: "picker.select.loadError" });
+      })
+      .finally(() => {
+        if (active) setLoadingContext(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const selectedJob = useMemo(
+    () => jobs.find((job) => job.id === selectedJobId),
+    [jobs, selectedJobId],
+  );
+  const selectedCv = useMemo(
+    () => cvs.find((cv) => cv.id === selectedCvId),
+    [cvs, selectedCvId],
+  );
+
+  // CV–job match score for the current pair. The room opens only once it is
+  // ready: the interview plan is built from this match, and the candidate
+  // should see where they stand before practising.
+  const [match, setMatch] = useState<{
+    key: string;
+    status: "loading" | "ready" | "error";
+    result?: CvScoringResponse;
+    errorKey?: string;
+  } | null>(null);
+  const [matchAttempt, setMatchAttempt] = useState(0);
+  const entryPolicy = useInterviewEntryPolicy();
+  const pairKey = selectedCvId && selectedJobId ? `${selectedCvId}:${selectedJobId}` : "";
+
+  useEffect(() => {
+    if (!pairKey) {
+      setMatch(null);
+      return;
+    }
+    let active = true;
+    setMatch({ key: pairKey, status: "loading" });
+    scoreCvAgainstJobProfile({ candidateId: selectedCvId, jobId: selectedJobId })
+      .then((result) => {
+        if (!active) return;
+        setMatch({ key: pairKey, status: "ready", result });
+        saveFit({
+          jobId: selectedJobId,
+          cvId: selectedCvId,
+          cvName: cvs.find((cv) => cv.id === selectedCvId)?.originalName ?? null,
+          ...countFit(result.requirementResults),
+          analyzedAt: new Date().toISOString(),
+        });
+      })
+      .catch((cause) => {
+        if (!active) return;
+        setMatch({ key: pairKey, status: "error", errorKey: mapBackendErrorToI18nKey(cause) ?? undefined });
+      });
+    return () => {
+      active = false;
+    };
+    // cvs only supplies the display name for the fit cache.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pairKey, matchAttempt]);
+
+  const matchReady = match?.key === pairKey && match.status === "ready";
+  const matchLoading = Boolean(pairKey) && (!match || match.key !== pairKey || match.status === "loading");
+  const matchPercentage =
+    matchReady && typeof match?.result?.score.percentage === "number"
+      ? Math.max(0, Math.min(100, Math.round(match.result.score.percentage)))
+      : null;
+  const scoreDetailsHref = pairKey
+    ? `/interview/cv-score?${new URLSearchParams({
+        candidateId: selectedCvId,
+        jobId: selectedJobId,
+        jobTitle: selectedJob?.title ?? "",
+      }).toString()}`
+    : "";
+
+  // Same rule the backend enforces when it creates the session.
+  const entry = matchReady && match?.result ? evaluateEntry(match.result, entryPolicy) : null;
+  const entryBlockedText = entry && !entry.allowed && entry.reason
+    ? fmt(t(entryBlockMessageKey(entry.reason)), {
+        score: entry.percentage ?? "",
+        min: entryPolicy.minMatchPercent,
+      })
+    : null;
+
+  const canStart = Boolean(selectedCvId && selectedJobId && !loadingContext && matchReady && entry?.allowed);
+
+  // Practice mode: a CV far from the job confirms once per CV–job pair.
+  const [pendingStart, setPendingStart] = useState<{
+    mode: "chat" | "voice" | "video";
+    experience?: "question_practice" | "interview_chat";
+  } | null>(null);
+  const [confirmedPair, setConfirmedPair] = useState("");
 
   const startMode = async (
     mode: "chat" | "voice" | "video",
-    experience?: "question_practice" | "interview_chat"
+    experience?: "question_practice" | "interview_chat",
   ) => {
-    showNavigationLoading();
+    if (canStart && !isStarting && entry?.needsConfirmation && confirmedPair !== pairKey) {
+      setPendingStart({ mode, experience });
+      return;
+    }
+    await launch(mode, experience);
+  };
+
+  const launch = async (
+    mode: "chat" | "voice" | "video",
+    experience?: "question_practice" | "interview_chat",
+  ) => {
+    if (!canStart || isStarting) {
+      if (entryBlockedText) return; // the banner already says why
+      setContextError({
+        key: selectedCvId && selectedJobId ? "picker.select.score.required" : "picker.select.needBoth",
+      });
+      return;
+    }
+    setContextError(null);
+    setIsStarting(true);
+    setStartFailed(false);
+    setStartPhase(0);
+    const phaseTimer = window.setTimeout(() => setStartPhase(1), 600);
     try {
       const url = await startInterviewSession({
         mode,
         experience,
         lang: lang === "vi" ? "vi" : "en",
+        candidateId: selectedCvId,
+        jobId: selectedJobId,
+        jobTitle: selectedJob?.title,
       });
+      window.clearTimeout(phaseTimer);
+      setStartPhase(2);
       router.push(url);
-    } catch {
-      hideNavigationLoading();
+    } catch (error) {
+      window.clearTimeout(phaseTimer);
+      setContextError({ cause: error });
+      setStartFailed(true);
+      setStartPhase((phase) => phase ?? 1);
+      setIsStarting(false);
     }
   };
+
+  const contextErrorText = contextError
+    ? "key" in contextError
+      ? t(contextError.key)
+      : describeStartInterviewError(contextError.cause, t)
+    : null;
 
   const goToInterviewChat = () => void startMode("chat", "interview_chat");
   const goToVoice = () => void startMode("voice");
   const goToRoom = () => void startMode("video");
 
+  const modes = [
+    {
+      key: "video" as const,
+      name: "Phỏng vấn Video AI",
+      tag: t("userDash.mode.video.short"),
+      desc: "Mô phỏng chân thực nhất với AI qua Webcam & Micro. Đánh giá toàn diện về phong thái, giọng nói và phản xạ.",
+      duration: "15–20 phút",
+      highlight: "Khuyên dùng",
+      isFeatured: true,
+      Icon: Video,
+      color: "bg-gradient-to-br from-[#204195] to-[#14244B] text-white",
+      badgeColor: "bg-[#FCB625] text-[#14244B]",
+      cta: "Bắt đầu Video ngay",
+      start: goToRoom,
+    },
+    {
+      key: "voice" as const,
+      name: "Phỏng vấn Giọng nói",
+      tag: t("userDash.mode.voice.short"),
+      desc: "Đàm thoại hai chiều tự nhiên bằng âm thanh, rèn luyện tốc độ nói, ngữ điệu và phản xạ nhanh mà không cần camera.",
+      duration: "10–15 phút",
+      highlight: "Luyện phản xạ",
+      isFeatured: false,
+      Icon: Mic,
+      color: "bg-blue-50 text-[#204195] border border-blue-200",
+      badgeColor: "bg-blue-100 text-[#204195]",
+      cta: "Bắt đầu Voice ngay",
+      start: goToVoice,
+    },
+    {
+      key: "chat" as const,
+      name: "Phỏng vấn Chat",
+      tag: t("userDash.mode.chat.short"),
+      desc: "Rèn luyện tư duy logic và trau chuốt cấu trúc câu trả lời bằng văn bản, giúp bạn chuẩn bị lập luận vững chắc.",
+      duration: "10–15 phút",
+      highlight: "Rèn cấu trúc",
+      isFeatured: false,
+      Icon: MessageSquare,
+      color: "bg-emerald-50 text-emerald-600 border border-emerald-200",
+      badgeColor: "bg-emerald-100 text-emerald-800",
+      cta: "Bắt đầu Chat ngay",
+      start: goToInterviewChat,
+    },
+  ];
+
+  const startPhases = [
+    t("journey.select.phaseCheck"),
+    t("journey.select.phaseCreate").replace("{job}", selectedJob?.title ?? ""),
+    t("journey.select.phaseOpen"),
+  ];
+
   return (
     <UserDashboardShell>
-      <main className="min-h-screen bg-[#F8FAFC] px-4 pb-16 pt-6 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
-        <div className="mx-auto max-w-[1440px]">
-          {/* Header */}
-          <header className="mb-8 border-b border-[#EAEFF8] pb-6">
-            <div className="max-w-2xl">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#204195]">
-                {t("interview.select.eyebrow")}
-              </span>
-              <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-[#14244B] sm:text-4xl">
-                {t("interview.select.title")}
-              </h1>
-              <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#607096] sm:text-base">
-                {t("interview.select.subtitle")}
-              </p>
-            </div>
-          </header>
+      <main className="min-h-screen px-4 pb-16 pt-4 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
+        <div className="mx-auto max-w-[1280px] space-y-8 md:space-y-10">
+          {/* Header Banner */}
+          <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#14244B] via-[#1B3574] to-[#204195] p-6 text-white shadow-md sm:p-8 md:p-9">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-[#FCB625]/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-16 right-32 h-64 w-64 rounded-full bg-[#204195]/40 blur-3xl" />
 
-          <section className="mb-6 rounded-2xl border border-[#DCE4F3] bg-white px-5 py-4 shadow-xs sm:px-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-bold text-[#14244B]">Choose how you want to practise</p>
-                <p className="mt-1 text-xs leading-relaxed text-[#607096]">
-                  The interview plan and question set stay consistent. Only the interaction changes.
+            <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+              <div className="max-w-3xl flex-1">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1 text-xs font-semibold text-white/90 backdrop-blur-xs">
+                  <Sparkles className="size-3.5 text-[#FCB625]" />
+                  <span>Khởi tạo phiên luyện tập</span>
+                </div>
+
+                <h1 className="mt-3 font-display text-xl font-black tracking-tight text-white sm:text-2xl">
+                  {t("interview.select.title")}
+                </h1>
+
+                <p className="mt-2.5 text-sm leading-relaxed text-white/80 sm:text-base">
+                  Chọn hồ sơ CV và vị trí ứng tuyển mục tiêu để AI thiết lập kịch bản phỏng vấn chuyên biệt, sát thực tế công việc nhất.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-[#425477]">
-                <span className="rounded-full bg-[#F0F4FC] px-2.5 py-1">Text</span>
-                <span className="rounded-full bg-[#F0F4FC] px-2.5 py-1">Voice</span>
-                <span className="rounded-full bg-[#F0F4FC] px-2.5 py-1">Face to face</span>
+
+              <div className="hidden shrink-0 lg:block">
+                <div className="flex w-60 flex-col items-center rounded-2xl border border-white/15 bg-white/10 p-5 text-center backdrop-blur-md">
+                  <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-white/20 bg-white shadow-md p-1">
+                    <img src="/logo.jpg" alt="Intervia AI" className="h-full w-full rounded-full object-cover" />
+                  </div>
+                  <span className="mt-3 text-xs font-bold text-white">Trợ lý phỏng vấn Intervia</span>
+                  <p className="mt-1 text-[11px] leading-relaxed text-white/75">
+                    Sẵn sàng đặt câu hỏi chuyên môn &amp; tình huống cho bạn.
+                  </p>
+                </div>
               </div>
             </div>
           </section>
 
-          {/* Consistent Action Cards */}
-          <section className="mb-8" aria-label={t("interview.select.eyebrow")}>
-            <div className="grid grid-cols-1 items-stretch gap-6 sm:grid-cols-3 lg:gap-6">
-              {/* Card 1: Interview Chat */}
-              <button
-                type="button"
-                onClick={goToInterviewChat}
-                className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-7 text-left shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-[#204195]/40 hover:shadow-md md:p-8 cursor-pointer"
-              >
-                <div>
-                  {/* Top Tag */}
-                  <div className="mb-4">
-                    <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
-                      Khuyên dùng
-                    </span>
-                  </div>
-
-                  {/* Icon + Title */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600 transition-colors group-hover:bg-[#204195] group-hover:text-white">
-                      <MessageSquare className="size-5" />
-                    </div>
-                    <h2 className="text-xl font-bold text-[#14244B]">
-                      Interview Chat
-                    </h2>
-                  </div>
-
-                  <p className="mt-3.5 text-sm leading-relaxed text-[#607096]">
-                    Hội thoại phỏng vấn hai chiều với AI Interviewer theo thời gian thực.
-                  </p>
-                </div>
-
-                <div className="mt-8 border-t border-[#EAEFF8] pt-4">
-                  <span className="flex min-h-10 items-center justify-between text-sm font-semibold text-[#204195] transition-colors group-hover:text-[#183273]">
-                    <span>Bắt đầu</span>
-                    <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
+          {/* Bước 1: Chọn ngữ cảnh phỏng vấn (CV & Target Role Cards) */}
+          <section className="space-y-4">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
+                  <span className="grid h-5 w-5 place-items-center rounded-full bg-[#204195] text-[11px] font-extrabold text-white">
+                    1
                   </span>
+                  <span>{t("uxWs.select.step1")}</span>
                 </div>
-              </button>
-
-              {/* Card 2: Voice Interview */}
-              <button
-                type="button"
-                onClick={goToVoice}
-                className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-7 text-left shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-[#204195]/40 hover:shadow-md md:p-8 cursor-pointer"
-              >
-                <div>
-                  {/* Top Tag */}
-                  <div className="mb-4">
-                    <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-[#204195]">
-                      Voice
-                    </span>
-                  </div>
-
-                  {/* Icon + Title */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-[#204195]">
-                      <Mic className="size-5" />
-                    </div>
-                    <h2 className="text-xl font-bold text-[#14244B] transition-colors group-hover:text-[#204195]">
-                      {t("userDash.mode.voice.title")}
-                    </h2>
-                  </div>
-
-                  <p className="mt-3.5 text-sm leading-relaxed text-[#607096]">
-                    {t("userDash.mode.voice.desc")}
-                  </p>
-                </div>
-
-                <div className="mt-8 border-t border-[#EAEFF8] pt-4">
-                  <span className="flex min-h-10 items-center justify-between text-sm font-semibold text-[#204195]">
-                    <span>{t("userDash.mode.voice.cta")}</span>
-                    <ArrowRight className="size-4.5 transition-transform duration-200 group-hover:translate-x-1" />
-                  </span>
-                </div>
-              </button>
-
-              {/* Card 3: Video Simulation (Featured) */}
-              <button
-                type="button"
-                onClick={goToRoom}
-                className="group relative flex min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-7 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg md:p-8 cursor-pointer"
-              >
-                <div>
-                  {/* Top Tag */}
-                  <div className="mb-4">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FCB625] px-3 py-1 text-xs font-bold text-[#14244B] shadow-xs">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#14244B]" aria-hidden="true" />
-                      Voice + Face to face
-                    </span>
-                  </div>
-
-                  {/* Icon + Title */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-violet-200 bg-violet-50 text-violet-700">
-                      <Video className="size-5" />
-                    </div>
-                    <h2 className="text-xl font-bold text-[#14244B] transition-colors group-hover:text-[#204195]">
-                      {t("userDash.mode.video.title")}
-                    </h2>
-                  </div>
-
-                  <p className="mt-3.5 text-sm leading-relaxed text-[#607096]">
-                    {t("userDash.mode.video.desc")}
-                  </p>
-                </div>
-
-                <div className="mt-8 border-t border-[#DCE4F3] pt-4">
-                  <span className="flex min-h-10 items-center justify-between text-sm font-bold text-[#204195]">
-                    <span>{t("userDash.mode.video.cta")}</span>
-                    <ArrowRight className="size-4.5 transition-transform duration-200 group-hover:translate-x-1" />
-                  </span>
-                </div>
-              </button>
+                <h2 className="mt-1 font-display text-base font-bold tracking-tight text-[#14244B] sm:text-lg">
+                  Chọn hồ sơ CV &amp; Vị trí ứng tuyển
+                </h2>
+              </div>
             </div>
+
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              {/* Card 1: Chọn hồ sơ CV */}
+              <div className="flex min-w-0 flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-xs transition-all hover:shadow-md sm:p-6">
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-[#EAEFF8] pb-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-50 text-[#204195]">
+                        <FileText className="size-4" />
+                      </span>
+                      <h3 className="text-sm font-bold text-[#14244B]">{t("picker.select.cvLabel")}</h3>
+                    </div>
+                    <Link
+                      href="/dashboard/cvs"
+                      className="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl px-2 text-xs font-semibold text-[#204195] hover:bg-[#F0F4FC]"
+                    >
+                      <span>+ Quản lý CV</span>
+                    </Link>
+                  </div>
+
+                  {loadingContext ? (
+                    <div className="mt-4 space-y-2.5">
+                      <div className="h-14 animate-pulse rounded-xl bg-[#F0F4FC]" />
+                      <div className="h-14 animate-pulse rounded-xl bg-[#F0F4FC]" />
+                    </div>
+                  ) : cvs.length === 0 ? (
+                    <div className="mt-4 flex flex-col items-center rounded-xl bg-[#F8FAFC] p-6 text-center">
+                      <UploadCloud className="size-8 text-[#9AA6C2]" />
+                      <p className="mt-2 text-xs font-medium text-[#607096]">{t("journey.select.hintNoCv")}</p>
+                      <Link
+                        href="/dashboard/cvs"
+                        className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#204195] px-4 text-xs font-bold text-white shadow-xs hover:bg-[#183275]"
+                      >
+                        <span>{t("journey.select.uploadCv")}</span>
+                        <ArrowRight className="size-3" />
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-2.5">
+                      {capList(cvs, cvLimit, selectedCvId).map((cv) => {
+                        const isSelected = cv.id === selectedCvId;
+                        return (
+                          <button
+                            key={cv.id}
+                            type="button"
+                            onClick={() => setSelectedCvId(cv.id)}
+                            className={cn(
+                              "flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border p-3 text-left transition-all",
+                              isSelected
+                                ? "border-[#204195] bg-[#F0F4FC]/90 shadow-xs ring-1 ring-[#204195]/30"
+                                : "border-[#EAEFF8] bg-[#F8FAFC]/50 hover:border-[#204195]/30 hover:bg-white",
+                            )}
+                          >
+                            <div className="flex min-w-0 flex-1 items-center gap-3">
+                              <span
+                                className={cn(
+                                  "grid h-5 w-5 shrink-0 place-items-center rounded-full border text-xs",
+                                  isSelected
+                                    ? "border-[#204195] bg-[#204195] text-white"
+                                    : "border-[#C9D7F1] bg-white",
+                                )}
+                              >
+                                {isSelected && <Check className="size-3 stroke-[3]" />}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p
+                                  className="line-clamp-2 text-xs font-bold text-[#14244B] [overflow-wrap:anywhere]"
+                                  title={cv.originalName || cv.id}
+                                >
+                                  {cv.originalName || cv.id}
+                                </p>
+                                <p className="mt-0.5 text-[11px] text-[#607096]">
+                                  {cv.createdAt
+                                    ? `Tải lên ${new Date(cv.createdAt).toLocaleDateString(localeOf(lang))}`
+                                    : "Đã sẵn sàng"}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
+                              Sẵn sàng
+                            </span>
+                          </button>
+                        );
+                      })}
+                      <ShowMoreButton total={cvs.length} limit={cvLimit} onChange={setCvLimit} />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 2: Chọn Vị trí tuyển dụng */}
+              <div className="flex min-w-0 flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-xs transition-all hover:shadow-md sm:p-6">
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-[#EAEFF8] pb-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span className="grid h-8 w-8 place-items-center rounded-xl bg-amber-50 text-amber-600">
+                        <Briefcase className="size-4" />
+                      </span>
+                      <h3 className="text-sm font-bold text-[#14244B]">{t("picker.select.jobLabel")}</h3>
+                    </div>
+                    <Link
+                      href="/dashboard/jobs"
+                      className="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl px-2 text-xs font-semibold text-[#204195] hover:bg-[#F0F4FC]"
+                    >
+                      <span>Khám phá việc làm →</span>
+                    </Link>
+                  </div>
+
+                  {loadingContext ? (
+                    <div className="mt-4 space-y-2.5">
+                      <div className="h-14 animate-pulse rounded-xl bg-[#F0F4FC]" />
+                      <div className="h-14 animate-pulse rounded-xl bg-[#F0F4FC]" />
+                    </div>
+                  ) : jobs.length === 0 ? (
+                    <div className="mt-4 flex flex-col items-center rounded-xl bg-[#F8FAFC] p-6 text-center">
+                      <Briefcase className="size-8 text-[#9AA6C2]" />
+                      <p className="mt-2 text-xs font-medium text-[#607096]">{t("userDash.jobs.emptyTitle")}</p>
+                      <Link
+                        href="/dashboard/jobs"
+                        className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#204195] px-4 text-xs font-bold text-white shadow-xs hover:bg-[#183275]"
+                      >
+                        <span>{t("userDash.jobs.browse")}</span>
+                        <ArrowRight className="size-3" />
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-2.5">
+                      {capList(jobs, jobLimit, selectedJobId).map((job) => {
+                        const isSelected = job.id === selectedJobId;
+                        return (
+                          <button
+                            key={job.id}
+                            type="button"
+                            onClick={() => setSelectedJobId(job.id)}
+                            className={cn(
+                              "flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border p-3 text-left transition-all",
+                              isSelected
+                                ? "border-[#204195] bg-[#F0F4FC]/90 shadow-xs ring-1 ring-[#204195]/30"
+                                : "border-[#EAEFF8] bg-[#F8FAFC]/50 hover:border-[#204195]/30 hover:bg-white",
+                            )}
+                          >
+                            <div className="flex min-w-0 flex-1 items-center gap-3">
+                              <span
+                                className={cn(
+                                  "grid h-5 w-5 shrink-0 place-items-center rounded-full border text-xs",
+                                  isSelected
+                                    ? "border-[#204195] bg-[#204195] text-white"
+                                    : "border-[#C9D7F1] bg-white",
+                                )}
+                              >
+                                {isSelected && <Check className="size-3 stroke-[3]" />}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p
+                                  className="line-clamp-2 text-xs font-bold text-[#14244B] [overflow-wrap:anywhere]"
+                                  title={job.title}
+                                >
+                                  {job.title}
+                                </p>
+                                <p className="mt-0.5 truncate text-[11px] text-[#607096]">
+                                  {job.keywords?.length ? job.keywords.slice(0, 3).join(" · ") : "Toàn thời gian"}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-[#204195]">
+                              Mục tiêu
+                            </span>
+                          </button>
+                        );
+                      })}
+                      <ShowMoreButton total={jobs.length} limit={jobLimit} onChange={setJobLimit} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Trạng thái sẵn sàng */}
+            <div
+              role="status"
+              aria-live="polite"
+              className={cn(
+                "flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-xs transition-colors",
+                canStart && !entry?.needsConfirmation
+                  ? "border-emerald-200/80 bg-emerald-50/70 text-emerald-800"
+                  : "border-amber-200/80 bg-amber-50/70 text-amber-800",
+              )}
+            >
+              <div className="flex min-w-0 flex-1 basis-64 items-center gap-2">
+                {canStart && !entry?.needsConfirmation ? (
+                  <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+                ) : matchLoading && !loadingContext ? (
+                  <Loader2 className="size-4 shrink-0 animate-spin text-amber-600" />
+                ) : (
+                  <AlertCircle className="size-4 shrink-0 text-amber-600" />
+                )}
+                <span className="min-w-0 font-medium [overflow-wrap:anywhere]">
+                  {!selectedCvId || !selectedJobId
+                    ? "Vui lòng chọn đủ hồ sơ CV và vị trí ứng tuyển để kích hoạt các chế độ phỏng vấn."
+                    : matchLoading
+                    ? t("picker.select.score.loading")
+                    : match?.status === "error"
+                    ? `${t(match.errorKey ?? "picker.select.score.error")} ${t("picker.select.score.required")}`
+                    : entryBlockedText
+                    ? entryBlockedText
+                    : (
+                        <>
+                          <strong className="font-bold">
+                            {matchPercentage != null
+                              ? fmt(t("picker.select.score.ready"), { score: `${matchPercentage}%` })
+                              : fmt(t("picker.select.score.assessed"), {
+                                  band: t(FIT_BAND_LABEL_KEYS[match?.result?.fitBand ?? ""] ?? "fit.band.insufficient.label"),
+                                })}
+                          </strong>
+                          {` · ${selectedJob?.title ?? ""} (CV ${selectedCv?.originalName ?? ""})`}
+                        </>
+                      )}
+                  {entry?.allowed && entry.warnings.length > 0 && (
+                    <span className="mt-0.5 block text-[11px] font-normal opacity-80">
+                      {entry.warnings
+                        .map((warning) =>
+                          fmt(t(entryWarningMessageKey(warning)), {
+                            score: entry.percentage ?? "",
+                            low: entryPolicy.lowFitPercent,
+                          }),
+                        )
+                        .join(" ")}
+                    </span>
+                  )}
+                  {entryPolicy.minMatchPercent > 0 && selectedCvId && selectedJobId && (
+                    <span className="mt-0.5 block text-[11px] font-normal opacity-80">
+                      {fmt(t("picker.entry.threshold"), { min: entryPolicy.minMatchPercent })}
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="flex shrink-0 items-center gap-3">
+                {match?.status === "error" && match.key === pairKey && (
+                  <button
+                    type="button"
+                    onClick={() => setMatchAttempt((n) => n + 1)}
+                    className="inline-flex h-9 items-center gap-1 font-bold text-[#204195] hover:underline"
+                  >
+                    {t("picker.select.score.retry")}
+                  </button>
+                )}
+                {matchReady && scoreDetailsHref && (
+                  <Link href={scoreDetailsHref} className="inline-flex h-9 items-center gap-1 font-bold text-[#204195] hover:underline">
+                    {t("picker.select.score.details")}
+                    <ArrowRight className="size-3" />
+                  </Link>
+                )}
+              </div>
+              {contextErrorText && (
+                <span className="basis-full font-bold text-[#C43B3B] [overflow-wrap:anywhere]">{contextErrorText}</span>
+              )}
+            </div>
+            {entry?.allowed && <PracticeTierNote decision={entry} policy={entryPolicy} />}
           </section>
 
-          {/* Question Practice Banner */}
-          <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-[#DCE4F3] bg-white px-6 py-4 shadow-xs text-sm text-[#607096]">
-            <span>Bạn muốn tự ôn luyện câu hỏi trắc nghiệm & tình huống theo tốc độ của mình?</span>
-            <Link
-              href="/practice"
-              className="inline-flex items-center gap-1 font-bold text-[#204195] hover:text-[#183275] hover:underline shrink-0"
-            >
-              <span>Đến trang Luyện tập</span>
-              <ArrowRight className="size-4" />
-            </Link>
-          </div>
-
-          {/* Session Logs Section */}
-          <section
-            className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-8"
-            aria-label={t("userDash.history.title")}
-          >
-            <div className="mb-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#204195]">
-                SESSION LOGS
-              </span>
+          {/* Bước 2: Chọn hình thức phỏng vấn */}
+          <section aria-labelledby="mode-step-title" className="space-y-4">
+            <div>
+              <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#204195]">
+                <span className="grid h-5 w-5 place-items-center rounded-full bg-[#204195] text-[11px] font-extrabold text-white">
+                  2
+                </span>
+                <span>{t("uxWs.select.step2")}</span>
+              </div>
+              <h2 id="mode-step-title" className="mt-1 font-display text-base font-bold tracking-tight text-[#14244B] sm:text-lg">
+                Chọn phương thức đối thoại cùng AI
+              </h2>
+              <p className="mt-0.5 text-xs text-[#607096]">
+                {t("picker.select.contextHint")}
+              </p>
             </div>
-            <div className="flex items-center justify-between pt-2">
-              <p className="text-sm text-[#607096]">{t("userDash.history.title")}</p>
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-1 text-sm font-semibold text-[#204195] hover:text-[#183275] hover:underline transition-colors"
-              >
-                {t("common.viewAll")}
-                <ArrowRight className="size-4" />
-              </Link>
+
+            <div className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-3">
+              {modes.map((mode) => {
+                const isFeatured = mode.isFeatured;
+                return (
+                  <article
+                    key={mode.key}
+                    className={cn(
+                      "relative flex min-w-0 flex-col justify-between rounded-2xl border p-5 transition-all duration-200 sm:p-6",
+                      canStart && !isStarting && "hover:-translate-y-1 hover:shadow-lg",
+                      isFeatured
+                        ? "border-[#204195] bg-gradient-to-b from-[#F0F4FC]/90 via-white to-white shadow-md ring-1 ring-[#204195]/20"
+                        : "border-[#DCE4F3] bg-white shadow-xs hover:border-[#204195]/40",
+                      (!canStart || isStarting) && "opacity-60",
+                    )}
+                  >
+                    {mode.highlight && (
+                      <span
+                        className={cn(
+                          "absolute -top-2.5 right-4 rounded-full px-2.5 py-0.5 text-[11px] font-bold shadow-xs",
+                          mode.badgeColor,
+                        )}
+                      >
+                        {mode.highlight}
+                      </span>
+                    )}
+
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <div className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-xl", mode.color)}>
+                          <mode.Icon className="size-6" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-display text-base font-bold text-[#14244B]">{mode.name}</h3>
+                          <span className="text-[11px] font-medium text-[#8B98B5]">{mode.duration}</span>
+                        </div>
+                      </div>
+                      <p className="mt-3.5 text-xs leading-relaxed text-[#607096]">{mode.desc}</p>
+                    </div>
+
+                    <div className="mt-6 border-t border-[#EAEFF8] pt-4">
+                      <button
+                        type="button"
+                        onClick={mode.start}
+                        disabled={!canStart || isStarting}
+                        className={cn(
+                          "flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-bold transition-all active:scale-[0.98]",
+                          isFeatured
+                            ? "bg-[#204195] text-white shadow-xs hover:bg-[#183275]"
+                            : "border border-[#DCE4F3] bg-white text-[#14244B] hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195]",
+                          (!canStart || isStarting) && "cursor-not-allowed opacity-60",
+                        )}
+                      >
+                        <span>{mode.cta}</span>
+                        <ArrowRight className="size-3.5" />
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </section>
         </div>
       </main>
+
+      <EntryWarningDialog
+        decision={pendingStart ? entry : null}
+        lowFitPercent={entryPolicy.lowFitPercent}
+        detailsHref={scoreDetailsHref || undefined}
+        onCancel={() => setPendingStart(null)}
+        onConfirm={() => {
+          const next = pendingStart;
+          setPendingStart(null);
+          setConfirmedPair(pairKey);
+          if (next) void launch(next.mode, next.experience);
+        }}
+      />
+
+      {/* Preparation Dialog */}
+      {startPhase !== null && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-[#14244B]/40 p-4 backdrop-blur-[2px]">
+          <div
+            ref={startDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="start-status-title"
+            tabIndex={-1}
+            className="w-full max-w-md rounded-3xl bg-white p-7 text-center shadow-[0_30px_80px_-30px_rgba(20,36,75,0.5)] outline-none"
+          >
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-[#DCE4F3] bg-[#F0F4FC] p-2">
+              <img src="/logo.jpg" alt="Intervia" className="h-full w-full rounded-full object-cover" />
+            </div>
+
+            <h2 id="start-status-title" className="text-lg font-bold text-[#14244B]">
+              {startFailed ? t("journey.select.failedTitle") : t("journey.select.preparingTitle")}
+            </h2>
+            <p className="mt-1 text-xs text-[#607096] [overflow-wrap:anywhere]">{selectedJob?.title}</p>
+
+            <div className="mt-5 text-left">
+              <ProcessStatus
+                phases={startPhases}
+                activeIndex={startPhase}
+                state={startFailed ? "error" : "running"}
+                message={startFailed ? (contextErrorText ?? undefined) : undefined}
+              />
+            </div>
+
+            {startFailed && (
+              <button
+                type="button"
+                onClick={() => setStartPhase(null)}
+                className="mt-6 h-11 w-full rounded-full bg-[#204195] text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
+              >
+                {t("journey.select.close")}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </UserDashboardShell>
   );
 }

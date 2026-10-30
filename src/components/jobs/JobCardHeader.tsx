@@ -12,6 +12,8 @@ interface JobCardHeaderProps {
   category?: string;
   saved?: boolean;
   onToggleSave?: (e: React.MouseEvent) => void;
+  /** Replaces the save button; `null` hides it (the admin card has no save). */
+  trailing?: React.ReactNode;
 }
 
 export function JobCardHeader({
@@ -20,6 +22,7 @@ export function JobCardHeader({
   category,
   saved = false,
   onToggleSave,
+  trailing,
 }: JobCardHeaderProps) {
   const { t } = useLanguage();
   const [logoError, setLogoError] = useState(false);
@@ -63,17 +66,17 @@ export function JobCardHeader({
         {/* Title & Company Info */}
         <div className="min-w-0 flex-1">
           <h3
-            className="text-base font-bold leading-snug text-[#14244B] transition-colors group-hover:text-[#204195] sm:text-[17px] line-clamp-2"
+            className="text-base font-bold leading-snug text-[#14244B] transition-colors group-hover:text-[#204195] sm:text-[17px] line-clamp-2 [overflow-wrap:anywhere]"
             title={title}
           >
             {title}
           </h3>
 
           {(company?.name || category) && (
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-[#607096] sm:text-sm">
+            <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#607096] sm:text-sm">
               {company?.name && (
-                <div className="inline-flex min-w-0 items-center gap-1">
-                  <span className="truncate max-w-[170px] font-semibold text-[#1E293B] sm:max-w-[220px]" title={company.name}>
+                <div className="inline-flex min-w-0 max-w-full items-center gap-1">
+                  <span className="min-w-0 truncate max-w-[170px] font-semibold text-[#1E293B] sm:max-w-[220px]" title={company.name}>
                     {company.name}
                   </span>
                   {company.verified === true && (
@@ -87,12 +90,8 @@ export function JobCardHeader({
                 </div>
               )}
 
-              {company?.name && category && (
-                <span className="text-[#CBD5E1] select-none font-bold text-xs" aria-hidden="true">·</span>
-              )}
-
               {category && (
-                <span className="inline-flex items-center rounded-md bg-[#EEF2FD] px-2 py-0.5 text-[11px] font-semibold text-[#204195]">
+                <span className="max-w-full truncate rounded-md bg-[#EEF2FD] px-2 py-0.5 text-[11px] font-semibold text-[#204195]" title={category}>
                   {category}
                 </span>
               )}
@@ -101,7 +100,10 @@ export function JobCardHeader({
         </div>
       </div>
 
-      {/* Right: Save/Bookmark button */}
+      {/* Right: Save/Bookmark button, or what the caller puts there */}
+      {trailing !== undefined ? (
+        trailing ? <div className="relative z-[3] shrink-0">{trailing}</div> : null
+      ) : (
       <button
         type="button"
         onClick={onToggleSave}
@@ -110,7 +112,7 @@ export function JobCardHeader({
         className={`relative z-[3] -mr-1 -mt-1 flex size-9 shrink-0 items-center justify-center rounded-xl transition-all duration-150 active:scale-90 ${
           saved
             ? "bg-[#EEF2FD] text-[#204195] hover:bg-[#E0E8FA]"
-            : "text-[#94A3B8] hover:bg-[#F1F5F9] hover:text-[#14244B]"
+            : "text-[#9AA6C2] hover:bg-[#F1F5F9] hover:text-[#14244B]"
         }`}
       >
         <Bookmark
@@ -118,6 +120,7 @@ export function JobCardHeader({
           aria-hidden="true"
         />
       </button>
+      )}
     </div>
   );
 }

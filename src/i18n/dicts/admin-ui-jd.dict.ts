@@ -1,0 +1,32 @@
+/** Admin UI fixes (jd): Vietnamese labels that replace English or unclear ones. Loaded last, so these win. */
+export const adminUiJdVi: Record<string, string> = {
+  "adminUiJd.breadcrumb.admin": "Quản trị",
+  "adminUiJd.list.title": "Hồ sơ công việc",
+  "adminUiJd.list.subtitle":
+    "Tạo và quản lý mô tả công việc (JD) dùng cho phỏng vấn. Tìm kiếm, sắp xếp và chỉnh sửa tại một nơi.",
+  "adminUiJd.list.viewMode": "Kiểu hiển thị",
+  "adminUiJd.create.action": "Tạo hồ sơ công việc",
+  "adminUiJd.create.title": "Tạo hồ sơ công việc",
+  "adminUiJd.create.subtitle": "Tải lên mô tả công việc, kiểm tra nội dung được trích xuất rồi lưu nháp hoặc đăng.",
+  "adminUiJd.edit.title": "Chỉnh sửa hồ sơ công việc",
+  "adminUiJd.detail.crumb": "Chi tiết",
+  "adminUiJd.detail.back": "Về danh sách",
+  "adminUiJd.detail.description": "Mô tả công việc",
+  "adminUiJd.detail.edit": "Chỉnh sửa",
+  "adminUiJd.detail.updated": "Cập nhật lần cuối",
+  "adminUiJd.detail.keywords": "Từ khóa",
+  "adminUiJd.detail.category": "Danh mục",
+  "adminUiJd.uploadStatus.PENDING": "Đang chờ",
+  "adminUiJd.uploadStatus.PARSING": "Đang đọc tài liệu",
+  "adminUiJd.uploadStatus.AI_PROCESSING": "AI đang xử lý",
+  "adminUiJd.uploadStatus.PROCESSING": "Đang xử lý",
+  "adminUiJd.uploadStatus.DONE": "Hoàn tất",
+  "adminUiJd.uploadStatus.FAILED": "Thất bại",
+  "adminUiJd.parsingStatus.COMPLETED": "Đã trích xuất",
+  "adminUiJd.parsingStatus.PARTIAL": "Trích xuất một phần",
+  "adminUiJd.parsingStatus.FAILED": "Trích xuất thất bại",
+  // Overrides of shared keys that were English or mixed on these pages.
+  "admin.jobProfile.createPage.title": "Tạo hồ sơ công việc",
+  "fixAdmin.jp.editTitle": "Chỉnh sửa hồ sơ công việc",
+  "fixAdmin.jp.versions.parser": "Xử lý tài liệu: {status}",
+};

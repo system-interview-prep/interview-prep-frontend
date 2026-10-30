@@ -2,18 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  AlertCircle,
-  ArrowLeft,
-  Bot,
-  CheckCircle2,
-  Clock,
-  Loader2,
-  LogOut,
-  Send,
-  Sparkles,
-  User,
-} from 'lucide-react';
+import InterviewerAvatar from './InterviewerAvatar';
 import {
   ChatMessage,
   ChatRuntimeResponse,
@@ -22,13 +11,25 @@ import {
 } from '../services/interviewChat.service';
 import InteractiveCodeSandbox from '@/components/interview/InteractiveCodeSandbox';
 import { AbortConfirmationModal } from '@/components/interview/AbortConfirmationModal';
-import {
-  ChatStageStepper,
-  getEndReasonLabel,
-  getStageLabel,
-  InterviewCountdownTimer,
-} from './ChatInterviewProgress';
+import { ConfirmDialog } from '@components/shared/ConfirmDialog';
+import { getStageLabel } from './ChatInterviewProgress';
+import { currentQuestionFromRuntime } from '../hooks/useRuntimeProgress';
 import { ChatRoomErrorState, ChatRoomLoadingState } from './ChatRoomStates';
+import { ChatReturnModal } from './ChatReturnModal';
+import { useChatPresence } from '../hooks/useChatPresence';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import { fmt } from '@/i18n/format';
+import {
+  ChatClosedFooter,
+  ChatComposer,
+  ChatRoomHeader,
+  chatErrorMessage,
+  ErrorBanner,
+  InterviewGuidePanel,
+  MessageBubble,
+  StageTipBar,
+  TypingBubble,
+} from './ChatRoomParts';
 
 interface InterviewChatRoomProps {
   sessionId: string;
@@ -42,6 +43,7 @@ export default function InterviewChatRoom({
   backUrl = '/dashboard',
 }: InterviewChatRoomProps) {
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,9 +53,20 @@ export default function InterviewChatRoom({
   const [isSending, setIsSending] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Heartbeat + "left" signal while the room is open; the backend closes an abandoned chat after a grace period.
+  const presence = useChatPresence(sessionId, Boolean(runtime) && runtime?.sessionStatus !== 'CLOSED');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const pendingRetryRef = useRef<{
+    clientMessageId: string;
+    content: string;
+    telemetry?: Record<string, unknown>;
+  } | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -70,16 +83,21 @@ export default function InterviewChatRoom({
     try {
       const data = await interviewChatApi.start(sessionId);
       setRuntime(data);
-      setMessages(data.messages || []);
+      const loadedMessages = data.messages || [];
+      setMessages(loadedMessages);
+      const lastMessage = loadedMessages[loadedMessages.length - 1];
+      if (lastMessage?.role === 'user' && lastMessage.clientMessageId) {
+        pendingRetryRef.current = {
+          clientMessageId: lastMessage.clientMessageId,
+          content: lastMessage.content,
+          telemetry: (lastMessage.metadata?.telemetry as Record<string, unknown> | undefined),
+        };
+        setInputValue(lastMessage.content);
+      } else {
+        pendingRetryRef.current = null;
+      }
     } catch (err: unknown) {
-      const resData = (err as { response?: { data?: { detail?: string } } })?.response?.data;
-      const msg =
-        typeof resData?.detail === 'string'
-          ? resData.detail
-          : err instanceof Error
-          ? err.message
-          : 'Không thể khởi động phòng phỏng vấn.';
-      setError(msg);
+      setError(chatErrorMessage(err, t('room.chat.startError')));
     } finally {
       setLoading(false);
     }
@@ -107,7 +125,15 @@ export default function InterviewChatRoom({
     const trimmed = rawContent.trim();
     if (!trimmed || isSending || runtime?.sessionStatus === 'CLOSED') return;
 
-    const clientMsgId = `cli-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const pendingRetry = pendingRetryRef.current;
+    if (pendingRetry && pendingRetry.content !== trimmed) {
+      setActionError(t('room.chat.pendingRetry'));
+      setInputValue(pendingRetry.content);
+      return;
+    }
+    const clientMsgId = pendingRetry?.clientMessageId
+      ?? `cli-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const requestTelemetry = pendingRetry?.telemetry ?? telemetry;
     const tempUserMsg: ChatMessage = {
       messageId: clientMsgId,
       sessionId,
@@ -119,7 +145,9 @@ export default function InterviewChatRoom({
       createdAt: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, tempUserMsg]);
+    if (!pendingRetry) {
+      setMessages((prev) => [...prev, tempUserMsg]);
+    }
     if (customContent === undefined) {
       setInputValue('');
       if (textareaRef.current) {
@@ -127,13 +155,15 @@ export default function InterviewChatRoom({
       }
     }
     setIsSending(true);
+    setActionError(null);
 
     try {
       const res = await interviewChatApi.sendMessage(sessionId, {
         clientMessageId: clientMsgId,
         content: trimmed,
-        telemetry,
+        telemetry: requestTelemetry,
       });
+      pendingRetryRef.current = null;
 
       setMessages((prev) => {
         // Replace temp msg and append assistant response
@@ -145,14 +175,7 @@ export default function InterviewChatRoom({
         return next;
       });
 
-      // TRIGGER 2 (Qua chat): AI nhận diện ý định dừng và trả về CONFIRM_ABORT
-      // Không tự động bật popup modal nữa mà để người dùng bấm trực tiếp vào nút trong khung chat
-      if (
-        res.action === 'CONFIRM_ABORT' ||
-        res.assistantResponse?.messageType === 'CONFIRM_ABORT'
-      ) {
-        // Nút bấm xác nhận dừng đã được hiển thị trực tiếp ngay dưới tin nhắn của AI
-      }
+      // A CONFIRM_ABORT reply renders its own stop/continue buttons in the bubble.
 
       if (res.sessionStatus === 'CLOSED') {
         setRuntime((prev) =>
@@ -187,14 +210,12 @@ export default function InterviewChatRoom({
         }
       }
     } catch (err: unknown) {
-      const resData = (err as { response?: { data?: { detail?: string } } })?.response?.data;
-      const msg =
-        typeof resData?.detail === 'string'
-          ? resData.detail
-          : err instanceof Error
-          ? err.message
-          : 'Lỗi gửi tin nhắn. Vui lòng thử lại.';
-      alert(msg);
+      pendingRetryRef.current = {
+        clientMessageId: clientMsgId,
+        content: trimmed,
+        telemetry: requestTelemetry,
+      };
+      setActionError(chatErrorMessage(err, t('room.chat.sendError')));
       // Remove optimistic message on hard failure
       setMessages((prev) => prev.filter((m) => m.messageId !== clientMsgId));
       if (customContent === undefined) {
@@ -209,9 +230,10 @@ export default function InterviewChatRoom({
   };
 
   const handleCodeSubmit = async (code: string, codeDiff: string, testPassed: boolean) => {
-    const formattedCodeMsg = `Tôi đã hoàn thành việc sửa lỗi code trên Editor.\n\nKết quả test cases: ${
-      testPassed ? '✅ VƯỢT QUA TẤT CẢ TEST CASES (PASSED)' : '❌ CHƯA VƯỢT QUA TEST CASES (FAILED)'
-    }\n\nGiải pháp của tôi:\n\`\`\`python\n${code}\n\`\`\``;
+    const formattedCodeMsg = fmt(t('room.chat.codeMessage'), {
+      result: t(testPassed ? 'room.chat.codePassed' : 'room.chat.codeFailed'),
+      code,
+    });
 
     await handleSendMessage(formattedCodeMsg, {
       isCodingTurn: true,
@@ -225,7 +247,8 @@ export default function InterviewChatRoom({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Vietnamese IMEs commit a word with Enter: never send mid-composition.
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -244,32 +267,54 @@ export default function InterviewChatRoom({
       const updated = await interviewChatApi.getRuntime(sessionId);
       setRuntime(updated);
       setMessages(updated.messages || []);
-    } catch {
-      router.push(backUrl);
+    } catch (err: unknown) {
+      // Navigating away here used to leave the session OPEN without telling
+      // the candidate. Stay in the room so they can retry ending it.
+      setShowEndModal(false);
+      setActionError(
+        fmt(t('room.common.endError'), { reason: chatErrorMessage(err, t('room.common.tryAgainLower')) })
+      );
     } finally {
       setIsEnding(false);
     }
   };
 
-  const jobTitle = runtime?.jobTitle || initialJobTitle || 'Vị trí phỏng vấn';
+  const jobTitle = runtime?.jobTitle || initialJobTitle || t('room.chat.defaultJobTitle');
   const isClosed = runtime?.sessionStatus === 'CLOSED';
   const currentStage = runtime?.currentTurn?.stage ?? runtime?.workingMemory?.current_stage;
-  const currentCompetency = runtime?.currentTurn?.competency;
 
   const durationMinutes = runtime?.durationMinutes;
   const startedAt = runtime?.startedAt;
   const serverRemainingSeconds = runtime?.workingMemory?.remaining_time;
 
-  const stageHeaderBadge = useMemo(() => {
-    if (isClosed) return 'Đã hoàn tất';
-    const stageLabel = getStageLabel(currentStage);
-    if (!stageLabel) return 'Giai đoạn chưa xác định';
-    const compLabel =
-      currentStage === 'DEEP_DIVE' && currentCompetency && currentCompetency !== 'Chuyên môn'
-        ? currentCompetency
-        : null;
-    return compLabel ? `Giai đoạn: ${stageLabel} · ${compLabel}` : `Giai đoạn: ${stageLabel}`;
-  }, [isClosed, currentStage, currentCompetency]);
+  // Stage of each turn, so every AI message can say which stage it belongs to.
+  const stageByTurnId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const turn of runtime?.turns ?? []) {
+      if (turn.stage) map.set(turn.turnId, String(turn.stage));
+    }
+    return map;
+  }, [runtime?.turns]);
+
+  // Questions answered, not messages sent: a "repeat the question" request or
+  // the auto "continue" reply after an abort prompt is not an answer.
+  const answeredCount = useMemo(
+    () =>
+      new Set(
+        messages
+          .filter((message) => message.role === 'user' && message.messageType === 'CANDIDATE_ANSWER' && message.turnId)
+          .map((message) => message.turnId)
+      ).size,
+    [messages]
+  );
+
+  // Screen readers hear only the newest interviewer message, not the whole transcript.
+  const latestAssistantText = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i].role === 'assistant') return messages[i].content;
+    }
+    return '';
+  }, [messages]);
 
   const isCodingQuestion = useMemo(() => {
     return (
@@ -281,140 +326,21 @@ export default function InterviewChatRoom({
   const renderMessageItems = () => (
     <>
       {messages.map((msg, index) => {
-        const isAsst = msg.role === 'assistant';
-        const isMainQ = msg.messageType === 'MAIN_QUESTION';
-        const isProbe = msg.messageType === 'PROBE' || msg.messageType === 'CLARIFY';
-        const isWrapUp = msg.messageType === 'WRAP_UP';
-        const isConfirmAbort = msg.messageType === 'CONFIRM_ABORT';
-
+        const turnStage = msg.turnId ? stageByTurnId.get(msg.turnId) : undefined;
         return (
-          <div
+          <MessageBubble
             key={msg.messageId || index}
-            className={`flex gap-3 sm:gap-4 ${
-              isAsst ? 'items-start' : 'items-start flex-row-reverse'
-            }`}
-          >
-            {/* Avatar */}
-            <div
-              className={`flex size-9 shrink-0 items-center justify-center rounded-2xl shadow-sm ${
-                isAsst
-                  ? 'bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white'
-                  : 'bg-gradient-to-tr from-slate-800 to-slate-700 text-white'
-              }`}
-            >
-              {isAsst ? <Bot className="size-4" /> : <User className="size-4" />}
-            </div>
-
-            {/* Message Bubble Container */}
-            <div className={`flex flex-col max-w-[85%] sm:max-w-[78%] ${!isAsst && 'items-end'}`}>
-              {/* Badges for assistant message types */}
-              {isAsst && (
-                <div className="flex items-center gap-1.5 mb-1.5 ml-1">
-                  {isMainQ && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-100">
-                      📌 Câu hỏi chính
-                    </span>
-                  )}
-                  {isProbe && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 border border-amber-200">
-                      🔍 Câu hỏi đào sâu
-                    </span>
-                  )}
-                  {isWrapUp && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
-                      <CheckCircle2 className="size-3" /> Tổng kết phiên
-                    </span>
-                  )}
-                  {isConfirmAbort && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 border border-rose-200">
-                      <AlertCircle className="size-3" /> Xác nhận dừng phỏng vấn
-                    </span>
-                  )}
-                  <span className="text-[11px] text-slate-400">
-                    {isAsst ? 'AI Interviewer' : 'Bạn'}
-                  </span>
-                </div>
-              )}
-
-              {/* Bubble */}
-              <div
-                className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words ${
-                  isAsst
-                    ? isConfirmAbort
-                      ? 'bg-white text-slate-800 border border-rose-200 shadow-sm rounded-tl-sm ring-2 ring-rose-100'
-                      : 'bg-white text-slate-800 border border-slate-200/90 shadow-sm rounded-tl-sm'
-                    : 'bg-[#204195] text-white shadow-sm rounded-tr-sm'
-                }`}
-              >
-                {msg.content}
-
-                {/* Inline Confirmation Card for Abort */}
-                {isConfirmAbort && (
-                  <div className="mt-3.5 pt-3.5 border-t border-rose-100">
-                    {!isClosed ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-1.5 text-xs font-medium text-rose-800">
-                          <AlertCircle className="size-3.5 text-rose-600 shrink-0" />
-                          <span>Bạn có muốn dừng buổi phỏng vấn tại đây không?</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleEndSession('USER_ENDED')}
-                            disabled={isEnding}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-rose-700 active:scale-98 transition disabled:opacity-60 shadow-xs cursor-pointer"
-                          >
-                            {isEnding ? (
-                              <Loader2 className="size-3.5 animate-spin" />
-                            ) : (
-                              <LogOut className="size-3.5" />
-                            )}
-                            <span>Xác nhận dừng & Lưu kết quả</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSendMessage('Tôi muốn tiếp tục buổi phỏng vấn')}
-                            disabled={isEnding || isSending}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 active:scale-98 transition disabled:opacity-60 cursor-pointer"
-                          >
-                            <span>Tôi muốn tiếp tục thi</span>
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 text-xs text-slate-500 italic">
-                        <CheckCircle2 className="size-3.5 text-emerald-600 shrink-0" />
-                        <span>Phiên phỏng vấn đã được xác nhận kết thúc.</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+            message={msg}
+            stageLabel={getStageLabel(turnStage, t)}
+            isClosed={isClosed}
+            isEnding={isEnding}
+            isSending={isSending}
+            onConfirmAbort={() => handleEndSession('USER_ENDED')}
+            onContinue={() => handleSendMessage(t('room.chat.continueMessage'))}
+          />
         );
       })}
-
-      {/* Typing Indicator */}
-      {isSending && (
-        <div className="flex items-start gap-3 sm:gap-4">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white shadow-sm">
-            <Bot className="size-4" />
-          </div>
-          <div className="flex flex-col">
-            <div className="text-[11px] text-slate-400 ml-1 mb-1">AI Interviewer</div>
-            <div className="inline-flex items-center gap-2 rounded-2xl rounded-tl-sm bg-white px-4 py-3 border border-slate-200 shadow-sm text-xs text-slate-500">
-              <div className="flex gap-1">
-                <span className="size-1.5 rounded-full bg-indigo-600 animate-bounce [animation-delay:-0.3s]" />
-                <span className="size-1.5 rounded-full bg-indigo-600 animate-bounce [animation-delay:-0.15s]" />
-                <span className="size-1.5 rounded-full bg-indigo-600 animate-bounce" />
-              </div>
-              <span>AI Interviewer đang suy nghĩ câu hỏi tiếp theo...</span>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {isSending ? <TypingBubble /> : null}
       <div ref={messagesEndRef} />
     </>
   );
@@ -433,134 +359,82 @@ export default function InterviewChatRoom({
     );
   }
 
+  // The engine allows one clarification per question; repeats and questions about
+  // the interview do not count (same rule as chat_runtime's clarify count).
+  const currentTurnId = runtime?.currentTurn?.turnId;
+  const clarifyUsed =
+    Boolean(currentTurnId) &&
+    messages.some(
+      (m) =>
+        m.role === 'assistant' &&
+        m.turnId === currentTurnId &&
+        m.messageType === 'CLARIFY' &&
+        !m.metadata?.repeatRequest &&
+        !m.metadata?.candidateQuestionIntent,
+    );
+
+  const composer = (compact: boolean) => (
+    <ChatComposer
+      value={inputValue}
+      currentStage={currentStage}
+      isSending={isSending}
+      textareaRef={textareaRef}
+      compact={compact}
+      onChange={handleInputChange}
+      onKeyDown={handleKeyDown}
+      onSend={() => handleSendMessage()}
+      onQuickReply={(text) => handleSendMessage(text)}
+      clarifyUsed={clarifyUsed}
+      onSkip={() => setShowSkipConfirm(true)}
+    />
+  );
+
   return (
-    <div className="flex h-screen flex-col bg-slate-50 text-slate-900">
-      {/* 1. Header */}
-      <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 sm:px-6 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push(backUrl)}
-            className="flex size-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 transition"
-            title="Quay lại"
-          >
-            <ArrowLeft className="size-4" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold text-slate-900 sm:text-base line-clamp-1">
-                {jobTitle}
-              </h1>
-              <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 border border-indigo-200/50">
-                <Sparkles className="size-3" /> Interview Chat
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <span className="flex items-center gap-1 font-medium text-slate-700">
-                <Clock className="size-3 text-slate-400" />
-                {stageHeaderBadge}
-              </span>
-              <span>•</span>
-              <span
-                className={`font-medium ${
-                  isClosed ? 'text-slate-500' : 'text-emerald-600'
-                }`}
-              >
-                {isClosed
-                  ? getEndReasonLabel(runtime?.endReason)
-                  : 'Đang diễn ra'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 sm:gap-2.5">
-          <InterviewCountdownTimer
-            serverRemainingSeconds={serverRemainingSeconds}
-            startedAt={startedAt}
-            durationMinutes={durationMinutes}
-            isClosed={isClosed}
-          />
-          {!isClosed ? (
-            <button
-              onClick={() => setShowEndModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition shadow-2xs"
-            >
-              <LogOut className="size-3.5" />
-              <span className="hidden sm:inline">Kết thúc</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => router.push(backUrl)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition"
-            >
-              Rời phòng
-            </button>
-          )}
-        </div>
-      </header>
-
-      <ChatStageStepper
-        currentStage={currentStage}
-        sessionStatus={runtime?.sessionStatus ?? 'OPEN'}
-        turns={runtime?.turns}
+    <div className="flex h-dvh flex-col bg-[#F7F9FD] text-[#14244B]">
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {latestAssistantText}
+      </div>
+      <ChatRoomHeader
+        jobTitle={jobTitle}
+        durationMinutes={durationMinutes}
+        isClosed={isClosed}
+        endReason={runtime?.endReason}
+        serverRemainingSeconds={serverRemainingSeconds}
+        startedAt={startedAt}
+        isEnding={isEnding}
+        onBack={() => (isClosed ? router.push(backUrl) : setShowLeaveConfirm(true))}
+        onEnd={() => setShowEndModal(true)}
+        onLeave={() => router.push(backUrl)}
+        questionNumber={runtime?.currentTurn ? (runtime.currentTurnIndex ?? 0) + 1 : null}
+        totalQuestions={runtime?.totalTurns}
+        stageLabel={isClosed ? null : getStageLabel(currentStage, t)}
       />
 
-      {/* 2. Main Content: Dual-Pane Coding Sandbox or Standard 1-Column Chat */}
+      {/* Like the voice room: no stage stepper; the stage is in the header and on the question card (below lg, in the tip bar). */}
+      {!isClosed ? <StageTipBar currentStage={currentStage} /> : null}
+
       {isCodingQuestion && !isClosed ? (
-        <main className="flex-1 min-h-0 px-3 py-3 sm:px-6">
-          <div className="grid h-full grid-cols-12 gap-4">
-            {/* Left Column (col-span-12 lg:col-span-5): Conversation Pane */}
-            <div className="col-span-12 lg:col-span-5 flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-4 py-2.5">
-                <div className="flex items-center gap-2">
-                  <Bot className="size-4 text-indigo-600" />
-                  <span className="text-xs font-bold text-slate-800">Hội thoại với AI Interviewer</span>
-                </div>
-                <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 border border-indigo-200/60">
-                  Dual-Pane Split
-                </span>
+        <main className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 lg:overflow-visible">
+          <div className="grid grid-cols-12 gap-4 lg:h-full">
+            <div className="col-span-12 flex max-h-[70dvh] min-h-[320px] flex-col overflow-hidden lg:h-full lg:max-h-none lg:min-h-0 rounded-3xl border border-[#DCE4F3] bg-white lg:col-span-5">
+              <div className="flex items-center gap-2 border-b border-[#DCE4F3] bg-[#F7F9FD] px-4 py-2.5">
+                <InterviewerAvatar size={22} />
+                <span className="text-xs font-bold text-[#14244B]">{t('room.chat.codingPanelTitle')}</span>
               </div>
-
-              {/* Chat Stream */}
-              <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-                {renderMessageItems()}
-              </div>
-
-              {/* Quick Chat Input */}
-              <div className="border-t border-slate-200 bg-slate-50/90 p-3">
-                <div className="relative flex items-end gap-2 rounded-xl border border-slate-300 bg-white p-2 shadow-2xs focus-within:border-indigo-600 focus-within:ring-2 focus-within:ring-indigo-100 transition">
-                  <textarea
-                    ref={textareaRef}
-                    value={inputValue}
-                    onChange={handleInputChange}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Nhập câu trả lời hoặc trao đổi thêm với AI..."
-                    rows={1}
-                    disabled={isSending}
-                    className="max-h-24 min-h-[38px] flex-1 resize-none bg-transparent px-2 py-1 text-xs sm:text-sm text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60"
-                  />
-                  <button
-                    onClick={() => handleSendMessage()}
-                    disabled={!inputValue.trim() || isSending}
-                    className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#204195] text-white hover:bg-[#183273] disabled:opacity-40 transition"
-                    title="Gửi câu trả lời"
-                  >
-                    {isSending ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Send className="size-3.5" />
-                    )}
-                  </button>
-                </div>
-                <div className="mt-1 flex items-center justify-between px-1 text-[10px] text-slate-400">
-                  <span>Nhấn Enter để gửi chat</span>
-                  <span className="text-indigo-600 font-medium">Sửa lỗi code & bấm Nộp bài trên Sandbox 👉</span>
-                </div>
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">{renderMessageItems()}</div>
+              <div className="border-t border-[#DCE4F3] bg-[#F7F9FD] p-3">
+                {actionError ? (
+                  <div className="mb-2">
+                    <ErrorBanner message={actionError} onDismiss={() => setActionError(null)} />
+                  </div>
+                ) : null}
+                {composer(true)}
+                <p className="mt-1 px-1 text-[11px] font-medium text-[#204195]">
+                  {t('room.chat.codingHint')}
+                </p>
               </div>
             </div>
-
-            {/* Right Column (col-span-12 lg:col-span-7): Interactive Code Sandbox */}
-            <div className="col-span-12 lg:col-span-7 flex h-full min-h-[500px] flex-col">
+            <div className="col-span-12 flex h-[75dvh] min-h-[500px] flex-col lg:col-span-7 lg:h-full">
               <InteractiveCodeSandbox
                 starterCode={runtime?.currentTurn?.starterCode || ''}
                 language={runtime?.currentTurn?.language || 'python'}
@@ -572,82 +446,48 @@ export default function InterviewChatRoom({
           </div>
         </main>
       ) : (
-        /* Standard 1-Column Layout */
-        <>
-          <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
-            <div className="mx-auto max-w-3xl space-y-6">
-              {renderMessageItems()}
-            </div>
-          </main>
-
-          <footer className="sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 p-3 sm:p-4 backdrop-blur-md">
-            <div className="mx-auto max-w-3xl">
-              {isClosed ? (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl bg-slate-100 p-4 border border-slate-200">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-                      <CheckCircle2 className="size-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-900">
-                        Phiên phỏng vấn đã kết thúc
-                      </h4>
-                      <p className="text-xs text-slate-500">
-                        Bạn có thể cuộn lên để xem lại toàn bộ transcript cuộc trò chuyện.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-                    <button
-                      onClick={() => router.push(`/interview/results/${sessionId}`)}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-4 py-2 text-xs font-semibold text-white hover:bg-[#183273] transition shadow-xs"
-                    >
-                      <Sparkles className="size-3.5" /> Xem báo cáo đánh giá AI
-                    </button>
-                    <button
-                      onClick={() => router.push(backUrl)}
-                      className="w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-                    >
-                      Về bảng điều khiển
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <div className="relative flex items-end gap-2 rounded-2xl border border-slate-300 bg-white p-2 shadow-sm focus-within:border-indigo-600 focus-within:ring-2 focus-within:ring-indigo-100 transition">
-                    <textarea
-                      ref={textareaRef}
-                      value={inputValue}
-                      onChange={handleInputChange}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Nhập câu trả lời của bạn... (Nhấn Enter để gửi, Shift+Enter để xuống dòng)"
-                      rows={1}
-                      disabled={isSending}
-                      className="max-h-40 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60"
-                    />
-                    <button
-                      onClick={() => handleSendMessage()}
-                      disabled={!inputValue.trim() || isSending}
-                      className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#204195] text-white hover:bg-[#183273] disabled:opacity-40 disabled:hover:bg-[#204195] transition"
-                      title="Gửi câu trả lời"
-                    >
-                      {isSending ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <Send className="size-4" />
-                      )}
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between px-1 text-[11px] text-slate-400">
-                    <span>Nhấn Enter để gửi câu trả lời</span>
-                    <span>Tối đa 10,000 ký tự</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </footer>
-        </>
+        <div className="flex min-h-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+              <div className="mx-auto max-w-3xl space-y-5">{renderMessageItems()}</div>
+            </main>
+            <footer className="border-t border-[#DCE4F3] bg-white p-3 sm:p-4">
+              <div className="mx-auto max-w-3xl space-y-2">
+                {actionError ? (
+                  <ErrorBanner message={actionError} onDismiss={() => setActionError(null)} />
+                ) : null}
+                {isClosed ? (
+                  <ChatClosedFooter
+                    endReason={runtime?.endReason}
+                    answeredCount={answeredCount}
+                    onReport={() => router.push(`/interview/results/${sessionId}`)}
+                    onBack={() => router.push(backUrl)}
+                  />
+                ) : (
+                  composer(false)
+                )}
+              </div>
+            </footer>
+          </div>
+          <InterviewGuidePanel
+            currentStage={currentStage}
+            sessionStatus={runtime?.sessionStatus ?? 'OPEN'}
+            answeredCount={answeredCount}
+            question={runtime ? currentQuestionFromRuntime(runtime) : null}
+          />
+        </div>
       )}
+
+      {presence.awaySince && runtime?.sessionStatus !== 'CLOSED' ? (
+        <ChatReturnModal
+          awaySince={presence.awaySince}
+          graceMinutes={presence.graceMinutes}
+          onContinue={() => {
+            presence.dismissAway();
+            textareaRef.current?.focus();
+          }}
+        />
+      ) : null}
 
       {/* End Session Confirmation Modal (Dual-Trigger) */}
       <AbortConfirmationModal
@@ -655,6 +495,33 @@ export default function InterviewChatRoom({
         onClose={() => setShowEndModal(false)}
         onConfirm={handleEndSession}
         isSubmitting={isEnding}
+      />
+
+      <ConfirmDialog
+        open={showSkipConfirm}
+        title={t('room.chat.skip.title')}
+        body={t('room.chat.skip.body')}
+        confirmLabel={t('room.chat.skip.confirm')}
+        cancelLabel={t('room.chat.skip.cancel')}
+        onConfirm={() => {
+          setShowSkipConfirm(false);
+          // The engine's skip phrase (interview_engine.SKIP_QUESTION_PATTERNS).
+          void handleSendMessage(t('room.chat.quick.skip'));
+        }}
+        onCancel={() => setShowSkipConfirm(false)}
+      />
+
+      <ConfirmDialog
+        open={showLeaveConfirm}
+        title={t('room.common.leaveConfirmTitle')}
+        body={fmt(t('room.common.leaveConfirmBody'), { n: presence.graceMinutes })}
+        confirmLabel={t('room.common.leaveConfirm')}
+        cancelLabel={t('room.common.continueInterview')}
+        onConfirm={() => {
+          setShowLeaveConfirm(false);
+          router.push(backUrl);
+        }}
+        onCancel={() => setShowLeaveConfirm(false)}
       />
     </div>
   );

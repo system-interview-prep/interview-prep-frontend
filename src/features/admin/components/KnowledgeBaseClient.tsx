@@ -1,22 +1,18 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import Link from "next/link";
+import React, { useState, useEffect, useRef, useId } from "react";
+import AdminPageHeader from "./primitives/AdminPageHeader";
+import AdminRowAction, { AdminRowActions } from "./primitives/AdminRowAction";
 import axios from "axios";
 import Button from "@components/ui/Button";
-import AdminSidebarBrand from "@features/admin/components/AdminSidebarBrand";
-import LanguageToggleButton from "@components/shared/LanguageToggleButton";
+import { ConfirmDialog } from "@components/shared/ConfirmDialog";
+import { Pagination } from "@components/shared/Pagination";
+import { useDialogA11y } from "@components/shared/useDialogA11y";
+import { fmt } from "@/i18n/format";
 import {
   CheckCircle2,
   AlertCircle,
-  LayoutDashboard,
-  Video,
   Brain,
-  BookOpen,
-  Settings,
-  HelpCircle,
-  LogOut,
-  Sparkles,
   List,
   FileEdit,
   PlusSquare,
@@ -108,6 +104,8 @@ export default function KnowledgeBaseClient({
 
   // Document list states
   const [documents, setDocuments] = useState<DocumentInfo[]>([]);
+  // The knowledge base runs as a separate RAG service; null until the first load.
+  const [ragReachable, setRagReachable] = useState<boolean | null>(null);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState("");
 
@@ -115,6 +113,16 @@ export default function KnowledgeBaseClient({
   useEffect(() => {
     setSelectedDocIds([]);
   }, [activeTab, selectedDomain, catalogSearch]);
+
+  // Catalog pagination (client-side over the filtered list)
+  const [catalogPage, setCatalogPage] = useState(1);
+
+  // Delete confirmation states
+  const [pendingDelete, setPendingDelete] = useState<{ kind: "single" | "bulk"; ids: string[] } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const uid = useId();
+  const fieldId = (name: string) => `${uid}-${name}`;
 
   // Edit Mode states
   const [isEditMode, setIsEditMode] = useState(false);
@@ -125,6 +133,8 @@ export default function KnowledgeBaseClient({
   const [evalDocId, setEvalDocId] = useState("");
   const [evalData, setEvalData] = useState<Record<string, any> | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const evalDialogRef = useDialogA11y<HTMLDivElement>(isEvalModalOpen, () => setIsEvalModalOpen(false));
+  const evalTitleId = `${uid}-eval-title`;
 
   // Playground / Search States
   const [searchQuery, setSearchQuery] = useState("");
@@ -185,9 +195,16 @@ export default function KnowledgeBaseClient({
       if (response.data?.success) {
         setDocuments(response.data.data || []);
       }
+      setRagReachable(true);
     } catch (err) {
-      console.error("Error fetching documents:", err);
-      showNotification("error", "Không thể tải danh sách tài liệu từ máy chủ RAG.");
+      // No response at all: the RAG service is not running. Say so once, in the page.
+      if (axios.isAxiosError(err) && !err.response) {
+        setRagReachable(false);
+      } else {
+        console.error("Error fetching documents:", err);
+        setRagReachable(true);
+        showNotification("error", t("fixAdmin.kb.loadDocsFailed"));
+      }
     } finally {
       setIsLoadingDocs(false);
     }
@@ -197,15 +214,37 @@ export default function KnowledgeBaseClient({
     fetchDocuments();
   }, []);
 
+  // Ask before deleting (single document or the current selection)
+  const requestDeleteDoc = (documentId: string) => {
+    setPendingDelete({ kind: "single", ids: [documentId] });
+  };
+
+  const requestBulkDelete = () => {
+    if (selectedDocIds.length === 0) return;
+    setPendingDelete({ kind: "bulk", ids: [...selectedDocIds] });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
+    try {
+      if (pendingDelete.kind === "single") {
+        await handleDeleteDoc(pendingDelete.ids[0]);
+      } else {
+        await handleBulkDeleteDocs(pendingDelete.ids);
+      }
+    } finally {
+      setIsDeleting(false);
+      setPendingDelete(null);
+    }
+  };
+
   // Delete a document
   const handleDeleteDoc = async (documentId: string) => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa tài liệu '${documentId}'? Tất cả các chunks liên quan sẽ bị xóa.`)) {
-      return;
-    }
     try {
       const response = await axios.delete(`${RAG_API_URL}/api/v1/rag/documents/${documentId}`);
       if (response.data?.success) {
-        showNotification("success", `Đã xóa thành công tài liệu '${documentId}'`);
+        showNotification("success", fmt(t("fixAdmin.kb.deleted"), { id: documentId }));
         fetchDocuments();
         // If searching, refresh playground search
         if (searchQuery || topicFilter) {
@@ -214,7 +253,7 @@ export default function KnowledgeBaseClient({
       }
     } catch (err) {
       console.error("Error deleting document:", err);
-      showNotification("error", `Lỗi khi xóa tài liệu: ${documentId}`);
+      showNotification("error", fmt(t("fixAdmin.kb.deleteFailed"), { id: documentId }));
     }
   };
 
@@ -226,7 +265,7 @@ export default function KnowledgeBaseClient({
         is_active: targetState,
       });
       if (response.data?.success) {
-        showNotification("success", `Đã ${targetState ? "kích hoạt" : "vô hiệu hóa"} tài liệu '${documentId}'`);
+        showNotification("success", fmt(targetState ? t("fixAdmin.kb.activated") : t("fixAdmin.kb.deactivated"), { id: documentId }));
         // Update local state directly for responsive UI
         setDocuments((prev) =>
           prev.map((d) => (d.document_id === documentId ? { ...d, is_active: targetState } : d))
@@ -234,7 +273,7 @@ export default function KnowledgeBaseClient({
       }
     } catch (err) {
       console.error("Error toggling active status:", err);
-      showNotification("error", "Không thể cập nhật trạng thái hoạt động.");
+      showNotification("error", t("fixAdmin.kb.toggleFailed"));
     }
   };
 
@@ -258,22 +297,15 @@ export default function KnowledgeBaseClient({
   };
 
   // Bulk delete documents
-  const handleBulkDeleteDocs = async () => {
-    if (selectedDocIds.length === 0) return;
-    if (
-      !confirm(
-        `Bạn có chắc chắn muốn xóa ${selectedDocIds.length} tài liệu đã chọn? Tất cả các chunks liên quan sẽ bị xóa.`
-      )
-    ) {
-      return;
-    }
+  const handleBulkDeleteDocs = async (ids: string[]) => {
+    if (ids.length === 0) return;
     setIsLoadingDocs(true);
     try {
       const response = await axios.post(`${RAG_API_URL}/api/v1/rag/documents/bulk-delete`, {
-        document_ids: selectedDocIds,
+        document_ids: ids,
       });
       if (response.data?.success) {
-        showNotification("success", `Đã xóa thành công ${selectedDocIds.length} tài liệu!`);
+        showNotification("success", fmt(t("fixAdmin.kb.bulkDeleted"), { n: ids.length }));
         setSelectedDocIds([]);
         fetchDocuments();
         if (searchQuery || topicFilter) {
@@ -282,7 +314,7 @@ export default function KnowledgeBaseClient({
       }
     } catch (err) {
       console.error("Error bulk deleting documents:", err);
-      showNotification("error", "Lỗi khi xóa hàng loạt tài liệu.");
+      showNotification("error", t("fixAdmin.kb.bulkDeleteFailed"));
     } finally {
       setIsLoadingDocs(false);
     }
@@ -304,14 +336,14 @@ export default function KnowledgeBaseClient({
       if (response.data?.success) {
         showNotification(
           "success",
-          `Đã ${targetState ? "kích hoạt" : "vô hiệu hóa"} thành công ${selectedDocIds.length} tài liệu!`
+          fmt(targetState ? t("fixAdmin.kb.bulkActivated") : t("fixAdmin.kb.bulkDeactivated"), { n: selectedDocIds.length })
         );
         setSelectedDocIds([]);
         fetchDocuments();
       }
     } catch (err) {
       console.error("Error bulk toggling active status:", err);
-      showNotification("error", "Lỗi khi cập nhật trạng thái hàng loạt.");
+      showNotification("error", t("fixAdmin.kb.bulkToggleFailed"));
     } finally {
       setIsLoadingDocs(false);
     }
@@ -346,7 +378,7 @@ export default function KnowledgeBaseClient({
       }
     } catch (err) {
       console.error("Error loading document:", err);
-      showNotification("error", "Lỗi khi tải dữ liệu tài liệu.");
+      showNotification("error", t("fixAdmin.kb.loadDocFailed"));
     }
   };
 
@@ -361,11 +393,11 @@ export default function KnowledgeBaseClient({
       if (response.data?.success) {
         setEvalData(response.data.evaluation);
       } else {
-        showNotification("error", "Lỗi máy chủ khi đánh giá tài liệu.");
+        showNotification("error", t("fixAdmin.kb.evalServerError"));
       }
     } catch (err) {
       console.error("Error evaluating document:", err);
-      showNotification("error", "Lỗi kết nối khi gọi AI đánh giá.");
+      showNotification("error", t("fixAdmin.kb.evalConnError"));
     } finally {
       setIsEvaluating(false);
     }
@@ -375,7 +407,7 @@ export default function KnowledgeBaseClient({
   const handleApplyQualityScore = async (score: number) => {
     try {
       setQualityScore(score);
-      showNotification("success", `Đã lưu điểm chất lượng gợi ý: ${score.toFixed(2)}. Hãy nhấn "Lưu tài liệu" để hoàn thành cập nhật.`);
+      showNotification("success", fmt(t("fixAdmin.kb.scoreApplied"), { score: score.toFixed(2) }));
       setIsEvalModalOpen(false);
     } catch (err) {
       console.error(err);
@@ -479,11 +511,11 @@ export default function KnowledgeBaseClient({
   const handleManualDocSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!docId.trim()) {
-      showNotification("error", "Vui lòng nhập Document ID.");
+      showNotification("error", t("fixAdmin.kb.docIdRequired"));
       return;
     }
     if (!topicName.trim()) {
-      showNotification("error", "Vui lòng nhập Tên chủ đề.");
+      showNotification("error", t("fixAdmin.kb.topicRequired"));
       return;
     }
 
@@ -536,8 +568,8 @@ export default function KnowledgeBaseClient({
         showNotification(
           "success",
           isEditMode
-            ? `Cập nhật tài liệu '${docId}' thành công. Đã cập nhật ${response.data.records || 0} chunks.`
-            : `Tài liệu '${docId}' đã được nạp thành công và chia thành ${response.data.records || 0} chunks.`
+            ? fmt(t("fixAdmin.kb.updatedDoc"), { id: docId, n: response.data.records || 0 })
+            : fmt(t("fixAdmin.kb.ingestedDoc"), { id: docId, n: response.data.records || 0 })
         );
 
         // Add to Ingested log
@@ -567,12 +599,12 @@ export default function KnowledgeBaseClient({
         fetchDocuments();
         setActiveTab("catalog");
       } else {
-        showNotification("error", response.data?.error || "Không thể lưu tài liệu.");
+        showNotification("error", response.data?.error || t("fixAdmin.kb.saveFailed"));
       }
     } catch (err: unknown) {
       console.error("Error upserting doc:", err);
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      showNotification("error", msg || "Lỗi kết nối máy chủ RAG.");
+      showNotification("error", msg || t("fixAdmin.kb.ragConnError"));
     } finally {
       setSavingManual(false);
     }
@@ -594,12 +626,12 @@ export default function KnowledgeBaseClient({
     const isJson = fileName.toLowerCase().endsWith(".json");
 
     if (!isCsv && !isJson) {
-      showNotification("error", "Chỉ hỗ trợ nhập tài liệu từ tệp CSV (.csv) hoặc JSON (.json).");
+      showNotification("error", t("fixAdmin.kb.fileTypeUnsupported"));
       return;
     }
 
     setUploading(true);
-    showNotification("success", `Đang tải lên và phân tích tệp ${fileName}...`);
+    showNotification("success", fmt(t("fixAdmin.kb.uploadingFile"), { file: fileName }));
 
     if (isCsv) {
       const formData = new FormData();
@@ -614,26 +646,26 @@ export default function KnowledgeBaseClient({
 
         if (response.data?.success) {
           const count = response.data.imported_document_ids?.length || 0;
-          showNotification("success", `Nạp thành công ${count} tài liệu từ tệp CSV!`);
+          showNotification("success", fmt(t("fixAdmin.kb.csvImported"), { n: count }));
           fetchDocuments();
 
           const newLogs: IngestedDocument[] = (response.data.imported_document_ids || []).map(
             (id: string) => ({
               id,
-              topic: "Imported via CSV",
-              difficulty: "Dynamic",
+              topic: t("fixAdmin.kb.logImportedCsv"),
+              difficulty: t("fixAdmin.kb.logDynamic"),
               status: "success",
               timestamp: new Date().toLocaleTimeString(),
             })
           );
           setIngestedDocs((prev) => [...newLogs, ...prev]);
         } else {
-          showNotification("error", response.data?.error || "Lỗi khi nạp tệp CSV.");
+          showNotification("error", response.data?.error || t("fixAdmin.kb.csvFailed"));
         }
       } catch (err: unknown) {
         console.error("Error uploading CSV:", err);
         const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-        showNotification("error", msg || "Lỗi kết nối máy chủ RAG.");
+        showNotification("error", msg || t("fixAdmin.kb.ragConnError"));
       } finally {
         setUploading(false);
       }
@@ -647,23 +679,23 @@ export default function KnowledgeBaseClient({
           const response = await axios.post(`${RAG_API_URL}/api/v1/rag/upsert-document`, docObj);
           if (response.data?.success) {
             const docIdVal = docObj.document?.document_id || fileName;
-            showNotification("success", `Nạp thành công tài liệu JSON: ${docIdVal}`);
+            showNotification("success", fmt(t("fixAdmin.kb.jsonImported"), { id: docIdVal }));
             fetchDocuments();
 
             const logDoc: IngestedDocument = {
               id: docIdVal,
-              topic: docObj.topic?.topic_name || "JSON Upload",
-              difficulty: docObj.difficulty?.level || "Dynamic",
+              topic: docObj.topic?.topic_name || t("fixAdmin.kb.logJsonUpload"),
+              difficulty: docObj.difficulty?.level || t("fixAdmin.kb.logDynamic"),
               status: "success",
               timestamp: new Date().toLocaleTimeString(),
             };
             setIngestedDocs((prev) => [logDoc, ...prev]);
           } else {
-            showNotification("error", response.data?.error || "Lỗi khi nạp tài liệu JSON.");
+            showNotification("error", response.data?.error || t("fixAdmin.kb.jsonFailed"));
           }
         } catch (err: unknown) {
           console.error("Error parsing/uploading JSON:", err);
-          showNotification("error", "Định dạng JSON không hợp lệ hoặc lỗi kết nối.");
+          showNotification("error", t("fixAdmin.kb.jsonInvalid"));
         } finally {
           setUploading(false);
         }
@@ -715,46 +747,71 @@ export default function KnowledgeBaseClient({
     return matchesSearch && matchesDomain;
   });
 
+  const CATALOG_PAGE_SIZE = 20;
+  const catalogPageCount = Math.max(1, Math.ceil(filteredDocs.length / CATALOG_PAGE_SIZE));
+  // Clamp when the list shrinks (e.g. after deletes) without an extra render.
+  const currentCatalogPage = Math.min(catalogPage, catalogPageCount);
+  const pagedDocs = filteredDocs.slice(
+    (currentCatalogPage - 1) * CATALOG_PAGE_SIZE,
+    currentCatalogPage * CATALOG_PAGE_SIZE
+  );
+
   return (
-    <div className="bg-surface font-body text-on-surface antialiased">
+    <div className="min-w-0 text-on-surface antialiased">
       {/* Notification Toast */}
-      {notification && (
-        <div
-          className={`fixed top-6 right-6 z-[9999] max-w-md p-4 rounded-xl shadow-2xl transition-all duration-300 transform translate-y-0 text-white flex items-start gap-3 border ${
-            notification.type === "success"
-              ? "bg-green-600 border-green-500"
-              : "bg-red-600 border-red-500"
-          }`}
-        >
-          {notification.type === "success" ? (
-            <CheckCircle2 className="size-5 shrink-0 mt-0.5" />
-          ) : (
-            <AlertCircle className="size-5 shrink-0 mt-0.5" />
-          )}
-          <div>
-            <p className="font-bold text-sm">
-              {notification.type === "success" ? "Thành công" : "Lỗi xử lý"}
-            </p>
-            <p className="text-xs opacity-90 leading-relaxed mt-1">{notification.message}</p>
+      <div role="status" aria-live="polite" aria-atomic="true">
+        {notification && (
+          <div
+            className={`fixed top-20 left-4 right-4 z-[9999] sm:left-auto sm:right-6 sm:top-6 sm:max-w-md p-4 rounded-3xl shadow-2xl transition-all duration-300 transform translate-y-0 text-white flex items-start gap-3 border ${
+              notification.type === "success"
+                ? "bg-[#287A4B] border-[#287A4B]"
+                : "bg-[#C43B3B] border-[#C43B3B]"
+            }`}
+          >
+            {notification.type === "success" ? (
+              <CheckCircle2 className="size-5 shrink-0 mt-0.5" aria-hidden="true" />
+            ) : (
+              <AlertCircle className="size-5 shrink-0 mt-0.5" aria-hidden="true" />
+            )}
+            <div className="min-w-0 break-words">
+              <p className="font-bold text-sm">
+                {notification.type === "success" ? t("fixAdmin.kb.toastSuccess") : t("fixAdmin.kb.toastError")}
+              </p>
+              <p className="text-xs opacity-90 leading-relaxed mt-1">{notification.message}</p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Main Content Area */}
       <div className="w-full space-y-6">
         {/* Top Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
-          <div>
-            <h1 className="font-headline text-2xl font-bold tracking-tight text-[#14244B] sm:text-3xl">
-              {t("admin.knowledgeBase") || "Cơ sở tri thức (RAG)"}
-            </h1>
-            <p className="mt-1 text-xs text-[#607096]">
-              Quản lý tài liệu vector, chunk embeddings và thử nghiệm truy hồi thông tin phỏng vấn.
-            </p>
-          </div>
+        <div>
+          <AdminPageHeader
+            title={t("admin.knowledgeBase") || "Cơ sở tri thức (RAG)"}
+            description={t("fixAdmin.kb.subtitle")}
+            breadcrumbs={[
+              { label: t("fixAdmin.detail.breadcrumbAdmin"), href: "/admin/dashboard" },
+              { label: t("admin.knowledgeBase") },
+            ]}
+          />
+
+          {ragReachable === false ? (
+            <div role="status" className="mb-4 rounded-2xl border border-[#FCE3A6] bg-[#FFF7E3] p-4 text-sm text-[#8A5A00]">
+              <p className="font-bold">{t("adminOps.kb.downTitle")}</p>
+              <p className="mt-1 text-xs leading-5">{fmt(t("adminOps.kb.downBody"), { url: RAG_API_URL })}</p>
+              <button
+                type="button"
+                onClick={() => void fetchDocuments()}
+                className="mt-2 text-xs font-semibold text-[#204195] hover:underline"
+              >
+                {t("adminOps.kb.retry")}
+              </button>
+            </div>
+          ) : null}
 
           {/* Tab Switcher */}
-          <div role="tablist" aria-label="Knowledge workspace views" className="flex rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-1 shadow-xs">
+          <div role="tablist" aria-label={t("fixAdmin.kb.tabsLabel")} className="grid grid-cols-2 gap-1 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-1 shadow-xs sm:inline-flex sm:flex-wrap">
             <button
               id="knowledge-tab-catalog"
               type="button"
@@ -762,14 +819,14 @@ export default function KnowledgeBaseClient({
               aria-selected={activeTab === "catalog"}
               aria-controls="knowledge-panel-catalog"
               onClick={() => setActiveTab("catalog")}
-              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-center text-xs font-bold transition-all ${
                 activeTab === "catalog"
                   ? "bg-white text-[#204195] shadow-xs"
                   : "text-[#607096] hover:text-[#204195]"
               }`}
             >
-              <List className="size-4" />
-              Quản lý Unit
+              <List className="size-4" aria-hidden="true" />
+              {t("fixAdmin.kb.tabCatalog")}
             </button>
             <button
               id="knowledge-tab-editor"
@@ -778,14 +835,14 @@ export default function KnowledgeBaseClient({
               aria-selected={activeTab === "editor"}
               aria-controls="knowledge-panel-editor"
               onClick={() => setActiveTab("editor")}
-              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-center text-xs font-bold transition-all ${
                 activeTab === "editor"
                   ? "bg-white text-[#204195] shadow-xs"
                   : "text-[#607096] hover:text-[#204195]"
               }`}
             >
               {isEditMode ? <FileEdit className="size-4" /> : <PlusSquare className="size-4" />}
-              {isEditMode ? "Sửa tài liệu" : "Biên tập & Nạp"}
+              {isEditMode ? t("fixAdmin.kb.tabEditMode") : t("fixAdmin.kb.tabEditor")}
             </button>
             <button
               id="knowledge-tab-vector"
@@ -794,17 +851,17 @@ export default function KnowledgeBaseClient({
               aria-selected={activeTab === "playground"}
               aria-controls="knowledge-panel-vector"
               onClick={() => setActiveTab("playground")}
-              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-center text-xs font-bold transition-all ${
                 activeTab === "playground"
                   ? "bg-white text-[#204195] shadow-xs"
                   : "text-[#607096] hover:text-[#204195]"
               }`}
             >
               <FlaskConical className="size-4" />
-              Vector Explorer
+              {t("fixAdmin.kb.tabVector")}
             </button>
-            <button id="knowledge-tab-graph" type="button" role="tab" aria-selected={activeTab === "graph"} aria-controls="knowledge-panel-graph" onClick={() => setActiveTab("graph")} className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${activeTab === "graph" ? "bg-white text-[#204195] shadow-xs" : "text-[#607096] hover:text-[#204195]"}`}>
-              <Network className="size-4" /> Graph Explorer
+            <button id="knowledge-tab-graph" type="button" role="tab" aria-selected={activeTab === "graph"} aria-controls="knowledge-panel-graph" onClick={() => setActiveTab("graph")} className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-center text-xs font-bold transition-all ${activeTab === "graph" ? "bg-white text-[#204195] shadow-xs" : "text-[#607096] hover:text-[#204195]"}`}>
+              <Network className="size-4" /> {t("fixAdmin.kb.tabGraph")}
             </button>
           </div>
         </div>
@@ -816,24 +873,29 @@ export default function KnowledgeBaseClient({
             <div id="knowledge-panel-catalog" role="tabpanel" aria-labelledby="knowledge-tab-catalog" className="space-y-6">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-bold font-headline tracking-tight text-[#14244B]">Danh sách các Tri Thức nguồn (Units)</h2>
+                  <h2 className="text-base font-bold text-[#14244B] sm:text-lg">{t("fixAdmin.kb.catalogTitle")}</h2>
                   <p className="text-[#607096] text-xs mt-1">
-                    Xem, kích hoạt/vô hiệu hóa, đánh giá tự động và quản lý vòng đời dữ liệu RAG.
+                    {t("fixAdmin.kb.catalogSubtitle")}
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-12 gap-8 items-start">
+              <div className="grid grid-cols-12 gap-6 items-start">
                 {/* Left Category Column */}
-                <div className="col-span-12 lg:col-span-3 space-y-4">
-                  <div className="bg-white border border-[#DCE4F3] rounded-2xl p-5 shadow-xs">
+                <div className="col-span-12 min-w-0 lg:col-span-3 space-y-4">
+                  <div className="bg-white border border-[#DCE4F3] rounded-3xl p-5 shadow-xs">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[#607096] mb-4 flex items-center gap-2">
                       <Tags className="size-4" />
-                      Phân loại theo Domain
+                      {t("fixAdmin.kb.byDomain")}
                     </h3>
                     <div className="space-y-1">
                       <button
-                        onClick={() => setSelectedDomain(null)}
+                        type="button"
+                        aria-pressed={selectedDomain === null}
+                        onClick={() => {
+                          setSelectedDomain(null);
+                          setCatalogPage(1);
+                        }}
                         className={`w-full flex justify-between items-center px-4 py-2.5 rounded-xl text-left text-xs font-bold transition-all duration-200 ${
                           selectedDomain === null
                             ? "bg-[#204195] text-white shadow-xs"
@@ -842,7 +904,7 @@ export default function KnowledgeBaseClient({
                       >
                         <span className="flex items-center gap-2">
                           <FolderOpen className="size-4" />
-                          Tất cả tri thức
+                          {t("fixAdmin.kb.allKnowledge")}
                         </span>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] ${
                           selectedDomain === null ? "bg-white/20 text-white" : "bg-[#EEF2FD] text-[#204195]"
@@ -856,7 +918,12 @@ export default function KnowledgeBaseClient({
                         return (
                           <button
                             key={dom}
-                            onClick={() => setSelectedDomain(dom)}
+                            type="button"
+                            aria-pressed={selectedDomain === dom}
+                            onClick={() => {
+                              setSelectedDomain(dom);
+                              setCatalogPage(1);
+                            }}
                             className={`w-full flex justify-between items-center px-4 py-2.5 rounded-xl text-left text-xs font-bold transition-all duration-200 capitalize ${
                               selectedDomain === dom
                                 ? "bg-[#204195] text-white shadow-xs"
@@ -868,7 +935,7 @@ export default function KnowledgeBaseClient({
                               {dom}
                             </span>
                             <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-                              selectedDomain === dom ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                              selectedDomain === dom ? "bg-white/20 text-white" : "bg-[#EAEFF8] text-[#607096]"
                             }`}>
                               {count}
                             </span>
@@ -880,161 +947,197 @@ export default function KnowledgeBaseClient({
                 </div>
 
                 {/* Right Main Table Column */}
-                <div className="col-span-12 lg:col-span-9 space-y-6">
+                <div className="col-span-12 min-w-0 lg:col-span-9 space-y-6">
                   {/* Filtering bar */}
-                  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex gap-4 items-center shadow-sm">
-                    <Search className="size-5 text-slate-400 shrink-0" />
+                  <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#DCE4F3] flex gap-4 items-center shadow-xs focus-within:ring-2 focus-within:ring-[#204195]/20 focus-within:border-[#204195] transition-all">
+                    <Search className="size-5 text-[#607096] shrink-0" aria-hidden="true" />
                     <input
-                      type="text"
-                      placeholder="Tìm tài liệu theo ID, chủ đề, domain..."
+                      type="search"
+                      aria-label={t("fixAdmin.kb.searchLabel")}
+                      placeholder={t("fixAdmin.kb.searchPlaceholder")}
                       value={catalogSearch}
-                      onChange={(e) => setCatalogSearch(e.target.value)}
-                      className="bg-transparent border-none outline-none text-sm w-full font-medium"
+                      onChange={(e) => {
+                        setCatalogSearch(e.target.value);
+                        setCatalogPage(1);
+                      }}
+                      className="bg-transparent border-none outline-none text-sm w-full font-medium text-[#14244B] placeholder:text-[#607096]"
                     />
                   </div>
 
                   {/* Bulk Actions Alert Bar */}
                   {selectedDocIds.length > 0 && (
-                    <div className="bg-blue-50 dark:bg-slate-900 border border-blue-100 dark:border-slate-800 p-4 rounded-xl flex flex-wrap justify-between items-center gap-3 animate-fade-in shadow-sm">
+                    <div className="bg-[#F0F4FC] border border-[#DCE4F3] p-4 rounded-xl flex flex-wrap justify-between items-center gap-3 animate-fade-in shadow-xs">
                       <div className="flex items-center gap-3">
                         <CheckSquare className="size-5 text-primary shrink-0" />
-                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                          Đã chọn <strong className="text-primary">{selectedDocIds.length}</strong> tài liệu
+                        <span className="text-xs font-bold text-[#14244B]">
+                          {fmt(t("fixAdmin.kb.selectedCount"), { n: selectedDocIds.length })}
                         </span>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <button
+                          type="button"
                           onClick={handleBulkToggleActive}
-                          className="px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+                          className="px-3.5 py-2 bg-white hover:bg-[#F8FAFC] border border-[#DCE4F3] text-[#14244B] font-bold rounded-full text-xs flex items-center gap-1.5 transition-colors shadow-xs"
                         >
-                          <ToggleRight className="size-4" />
-                          Bật/Tắt trạng thái
+                          <ToggleRight className="size-4" aria-hidden="true" />
+                          {t("fixAdmin.kb.bulkToggle")}
                         </button>
                         <button
-                          onClick={handleBulkDeleteDocs}
-                          className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+                          type="button"
+                          onClick={requestBulkDelete}
+                          className="px-3.5 py-2 bg-[#C43B3B] hover:bg-[#A93232] text-white font-bold rounded-full text-xs flex items-center gap-1.5 transition-colors shadow-xs"
                         >
-                          <Trash2 className="size-4" />
-                          Xóa nhanh ({selectedDocIds.length})
+                          <Trash2 className="size-4" aria-hidden="true" />
+                          {fmt(t("fixAdmin.kb.bulkDelete"), { n: selectedDocIds.length })}
                         </button>
                         <button
+                          type="button"
                           onClick={() => setSelectedDocIds([])}
-                          className="px-3.5 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold rounded-lg text-xs transition-colors"
+                          className="px-3.5 py-2 border border-[#DCE4F3] hover:bg-[#F8FAFC] text-[#607096] font-bold rounded-full text-xs transition-colors"
                         >
-                          Bỏ chọn
+                          {t("fixAdmin.kb.clearSelection")}
                         </button>
                       </div>
                     </div>
                   )}
 
                   {/* Catalog Table */}
-                  <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="bg-white border border-[#DCE4F3] rounded-3xl overflow-hidden shadow-xs">
                     {isLoadingDocs ? (
-                      <div className="p-12 text-center text-slate-500 font-medium animate-pulse">
-                        Đang tải danh sách tri thức từ máy chủ...
+                      <div className="p-12 text-center text-[#607096] font-medium animate-pulse">
+                        {t("fixAdmin.kb.loadingDocs")}
                       </div>
                     ) : filteredDocs.length === 0 ? (
-                      <div className="p-12 text-center text-slate-500 italic">
-                        {catalogSearch ? "Không tìm thấy tài liệu phù hợp." : "Chưa có tài liệu tri thức nào. Hãy nạp tài liệu mới ở Tab bên cạnh."}
+                      <div className="p-12 text-center text-[#607096] italic">
+                        {catalogSearch ? t("fixAdmin.kb.noMatch") : t("fixAdmin.kb.empty")}
                       </div>
                     ) : (
-                      <table className="w-full text-left border-collapse">
+                      <>
+                      <div className="relative overflow-x-auto">
+                      <table className="w-full min-w-[960px] text-left border-collapse">
                         <thead>
-                          <tr className="bg-slate-50 dark:bg-slate-800 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-100 dark:border-slate-700">
-                            <th className="p-4 w-12 text-center">
+                          <tr className="bg-[#F8FAFC] text-[10px] uppercase font-bold text-[#607096] border-b border-[#DCE4F3]">
+                            <th scope="col" className="p-4 w-12 text-center">
                               <input
                                 type="checkbox"
-                                checked={filteredDocs.length > 0 && filteredDocs.every((d) => selectedDocIds.includes(d.document_id))}
-                                onChange={() => handleToggleSelectAll(filteredDocs.map((d) => d.document_id))}
-                                className="rounded border-gray-300 dark:border-slate-700 text-[#003d9b] focus:ring-primary h-4 w-4 cursor-pointer"
+                                aria-label={t("fixAdmin.kb.selectAllOnPage")}
+                                checked={pagedDocs.length > 0 && pagedDocs.every((d) => selectedDocIds.includes(d.document_id))}
+                                onChange={() => handleToggleSelectAll(pagedDocs.map((d) => d.document_id))}
+                                className="rounded border-[#DCE4F3] text-[#204195] focus:ring-2 focus:ring-[#204195]/20 h-4 w-4 cursor-pointer"
                               />
                             </th>
-                            <th className="p-4">Document ID</th>
-                            <th className="p-4">Topic / Domain</th>
-                            <th className="p-4">Độ khó</th>
-                            <th className="p-4 text-center">Ngôn ngữ</th>
-                            <th className="p-4 text-center">Số Chunks</th>
-                            <th className="p-4 text-center">Điểm Chất lượng</th>
-                            <th className="p-4 text-center">Trạng thái</th>
-                            <th className="p-4 text-right">Hành động</th>
+                            <th scope="col" className="p-4">{t("fixAdmin.kb.colDocId")}</th>
+                            <th scope="col" className="p-4">{t("fixAdmin.kb.colTopic")}</th>
+                            <th scope="col" className="p-4">{t("fixAdmin.kb.colDifficulty")}</th>
+                            <th scope="col" className="p-4 text-center">{t("fixAdmin.kb.colLanguage")}</th>
+                            <th scope="col" className="p-4 text-center">{t("fixAdmin.kb.colChunks")}</th>
+                            <th scope="col" className="p-4 text-center">{t("fixAdmin.kb.colQuality")}</th>
+                            <th scope="col" className="p-4 text-center">{t("fixAdmin.kb.colStatus")}</th>
+                            <th scope="col" className="p-4 text-right">{t("fixAdmin.kb.colActions")}</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
-                          {filteredDocs.map((doc) => (
-                            <tr key={doc.document_id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <tbody className="divide-y divide-[#EAEFF8] text-sm">
+                          {pagedDocs.map((doc) => (
+                            <tr key={doc.document_id} className="hover:bg-[#F8FAFC]/60 transition-colors">
                               <td className="p-4 w-12 text-center">
                                 <input
                                   type="checkbox"
+                                  aria-label={fmt(t("fixAdmin.kb.selectDoc"), { id: doc.document_id })}
                                   checked={selectedDocIds.includes(doc.document_id)}
                                   onChange={() => handleToggleSelectDoc(doc.document_id)}
-                                  className="rounded border-gray-300 dark:border-slate-700 text-[#003d9b] focus:ring-primary h-4 w-4 cursor-pointer"
+                                  className="rounded border-[#DCE4F3] text-[#204195] focus:ring-2 focus:ring-[#204195]/20 h-4 w-4 cursor-pointer"
                                 />
                               </td>
-                              <td className="p-4 font-bold text-slate-950 dark:text-slate-100">
+                              <td className="max-w-[220px] p-4 font-bold text-[#14244B] [overflow-wrap:anywhere]">
                                 {doc.document_id}
                               </td>
                               <td className="p-4">
-                                <span className="inline-block px-2.5 py-0.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded text-xs font-bold mr-1.5">
+                                <span className="inline-block px-2.5 py-0.5 bg-[#F0F4FC] text-[#204195] rounded text-xs font-bold mr-1.5">
                                   {doc.topic}
                                 </span>
-                                <span className="text-slate-400 text-xs font-medium">({doc.domain})</span>
+                                <span className="text-[#607096] text-xs font-medium">({doc.domain})</span>
                               </td>
                               <td className="p-4">
                                 <span className={`inline-block px-2 py-0.5 rounded text-xs font-extrabold capitalize ${
                                   doc.difficulty === "basic"
-                                    ? "bg-green-50 text-green-700 dark:bg-green-900/30"
+                                    ? "bg-[#EAF5EE] text-[#287A4B]"
                                     : doc.difficulty === "intermediate"
-                                    ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30"
-                                    : "bg-red-50 text-red-700 dark:bg-red-900/30"
+                                    ? "bg-[#FFF6DF] text-[#8A5A00]"
+                                    : "bg-[#FDF2F2] text-[#C43B3B]"
                                 }`}>
-                                  {doc.difficulty}
+                                  {doc.difficulty === "basic"
+                                    ? t("fixAdmin.kb.diffBasic")
+                                    : doc.difficulty === "intermediate"
+                                    ? t("fixAdmin.kb.diffIntermediate")
+                                    : doc.difficulty === "advanced"
+                                    ? t("fixAdmin.kb.diffAdvanced")
+                                    : doc.difficulty}
                                 </span>
                               </td>
                               <td className="p-4 text-center capitalize font-semibold">{doc.language}</td>
-                              <td className="p-4 text-center font-bold text-slate-600 dark:text-slate-400">{doc.chunk_count}</td>
+                              <td className="p-4 text-center font-bold text-[#607096]">{doc.chunk_count}</td>
                               <td className="p-4 text-center">
                                 <span className="font-extrabold text-primary px-2 py-0.5 bg-primary/5 rounded border border-primary/20 text-xs">
-                                  {(doc.quality_score ?? 0.8).toFixed(2)}
+                                  {typeof doc.quality_score === "number" ? doc.quality_score.toFixed(2) : "—"}
                                 </span>
                               </td>
                               <td className="p-4 text-center">
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
                                     type="checkbox"
+                                    role="switch"
+                                    aria-checked={doc.is_active}
+                                    aria-label={fmt(t("fixAdmin.kb.toggleActive"), { id: doc.document_id })}
                                     checked={doc.is_active}
                                     onChange={() => handleToggleActive(doc.document_id, doc.is_active)}
                                     className="sr-only peer"
                                   />
-                                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                  <div aria-hidden="true" className="w-9 h-5 bg-[#EAEFF8] peer-focus-visible:ring-2 peer-focus-visible:ring-[#204195]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#DCE4F3] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#287A4B]"></div>
                                 </label>
                               </td>
-                              <td className="p-4 text-right space-x-2">
-                                <button
-                                  onClick={() => handleEvaluateDoc(doc.document_id)}
-                                  title="Đánh giá chất lượng tự động bằng AI"
-                                  className="p-1.5 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 rounded-lg transition-colors inline-flex items-center"
-                                >
-                                  <Brain className="size-5" />
-                                </button>
-                                <button
-                                  onClick={() => handleLoadEdit(doc.document_id)}
-                                  title="Chỉnh sửa nội dung"
-                                  className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-lg transition-colors inline-flex items-center"
-                                >
-                                  <Edit className="size-5" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteDoc(doc.document_id)}
-                                  title="Xóa tài liệu"
-                                  className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors inline-flex items-center"
-                                >
-                                  <Trash2 className="size-5" />
-                                </button>
+                              <td className="p-4 text-right">
+                                <AdminRowActions>
+                                  <AdminRowAction
+                                    icon={Brain}
+                                    tone="neutral"
+                                    iconOnly
+                                    label={t("fixAdmin.kb.evaluate")}
+                                    aria-label={fmt(t("fixAdmin.kb.evaluateDoc"), { id: doc.document_id })}
+                                    onClick={() => handleEvaluateDoc(doc.document_id)}
+                                  />
+                                  <AdminRowAction
+                                    icon={Edit}
+                                    iconOnly
+                                    label={t("fixAdmin.kb.edit")}
+                                    aria-label={fmt(t("fixAdmin.kb.editDoc"), { id: doc.document_id })}
+                                    onClick={() => handleLoadEdit(doc.document_id)}
+                                  />
+                                  <AdminRowAction
+                                    icon={Trash2}
+                                    tone="danger"
+                                    iconOnly
+                                    label={t("fixAdmin.kb.delete")}
+                                    aria-label={fmt(t("fixAdmin.kb.deleteDoc"), { id: doc.document_id })}
+                                    onClick={() => requestDeleteDoc(doc.document_id)}
+                                  />
+                                </AdminRowActions>
                               </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
+                      </div>
+                      {filteredDocs.length > CATALOG_PAGE_SIZE && (
+                        <div className="border-t border-[#EAEFF8] px-4 py-3">
+                          <Pagination
+                            page={currentCatalogPage}
+                            pageSize={CATALOG_PAGE_SIZE}
+                            total={filteredDocs.length}
+                            onPageChange={setCatalogPage}
+                          />
+                        </div>
+                      )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -1046,23 +1149,23 @@ export default function KnowledgeBaseClient({
           {activeTab === "editor" && (
             <div id="knowledge-panel-editor" role="tabpanel" aria-labelledby="knowledge-tab-editor" className="grid grid-cols-12 gap-8">
               {/* Form Input (Left panel) */}
-              <div className="col-span-12 lg:col-span-8 space-y-6">
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
-                  <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-100 dark:border-slate-800">
-                    <div>
-                      <h3 className="text-xl font-bold font-headline text-on-surface">
-                        {isEditMode ? `Biên tập tài liệu: ${editDocId}` : "Biên tập tài liệu phỏng vấn tri thức"}
+              <div className="col-span-12 min-w-0 lg:col-span-8 space-y-6">
+                <div className="bg-white rounded-3xl p-5 sm:p-8 border border-[#DCE4F3] shadow-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-8 pb-4 border-b border-[#DCE4F3]">
+                    <div className="min-w-0 break-words">
+                      <h3 className="text-base font-bold sm:text-lg text-on-surface">
+                        {isEditMode ? fmt(t("fixAdmin.kb.editorTitleEdit"), { id: editDocId }) : t("fixAdmin.kb.editorTitleNew")}
                       </h3>
-                      <p className="text-slate-400 text-xs mt-1">
-                        {isEditMode ? "Đang chạy chế độ chỉnh sửa. Tất cả thay đổi sẽ ghi đè và tái nhúng vector các chunks." : "Nhập tài liệu tri thức phỏng vấn có cấu trúc chuẩn hệ thống."}
+                      <p className="text-[#607096] text-xs mt-1">
+                        {isEditMode ? t("fixAdmin.kb.editorHintEdit") : t("fixAdmin.kb.editorHintNew")}
                       </p>
                     </div>
                     {isEditMode && (
                       <button
                         onClick={handleCancelEdit}
-                        className="text-xs font-bold text-red-500 bg-red-50 px-3.5 py-1.5 rounded-lg hover:bg-red-100"
+                        className="text-xs font-bold text-[#C43B3B] bg-[#FDF2F2] px-3.5 py-1.5 rounded-lg hover:bg-[#FBE5E5]"
                       >
-                        Hủy chỉnh sửa
+                        {t("fixAdmin.kb.cancelEdit")}
                       </button>
                     )}
                   </div>
@@ -1071,28 +1174,28 @@ export default function KnowledgeBaseClient({
                     {/* Basic Metadata */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <label htmlFor={fieldId("kb1")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
                           {t("admin.knowledge.field.documentId")} *
                         </label>
-                        <input
+                        <input id={fieldId("kb1")}
                           type="text"
                           required
                           disabled={isEditMode}
-                          className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all disabled:opacity-50"
-                          placeholder="VD: int_doc_python_oop_01"
+                          className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all disabled:opacity-50"
+                          placeholder={t("fixAdmin.kb.phDocId")}
                           value={docId}
                           onChange={(e) => setDocId(e.target.value)}
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <label htmlFor={fieldId("kb2")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
                           {t("admin.knowledge.field.topicName")} *
                         </label>
-                        <input
+                        <input id={fieldId("kb2")}
                           type="text"
                           required
-                          className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
-                          placeholder="VD: python-oop"
+                          className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all"
+                          placeholder={t("fixAdmin.kb.phTopic")}
                           value={topicName}
                           onChange={(e) => setTopicName(e.target.value)}
                         />
@@ -1101,52 +1204,52 @@ export default function KnowledgeBaseClient({
 
                     <div className="grid grid-cols-4 gap-4">
                       <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <label htmlFor={fieldId("kb3")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
                           {t("admin.knowledge.field.domain")}
                         </label>
-                        <input
+                        <input id={fieldId("kb3")}
                           type="text"
-                          className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
+                          className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all"
                           value={domain}
                           onChange={(e) => setDomain(e.target.value)}
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <label htmlFor={fieldId("kb4")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
                           {t("admin.knowledge.field.difficulty")}
                         </label>
-                        <select
-                          className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all cursor-pointer"
+                        <select id={fieldId("kb4")}
+                          className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all cursor-pointer"
                           value={difficultyLevel}
                           onChange={(e) => setDifficultyLevel(e.target.value)}
                         >
-                          <option value="basic">Basic</option>
-                          <option value="intermediate">Intermediate</option>
-                          <option value="advanced">Advanced</option>
+                          <option value="basic">{t("fixAdmin.kb.diffBasic")}</option>
+                          <option value="intermediate">{t("fixAdmin.kb.diffIntermediate")}</option>
+                          <option value="advanced">{t("fixAdmin.kb.diffAdvanced")}</option>
                         </select>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                          Phiên bản
+                        <label htmlFor={fieldId("kb5")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
+                          {t("fixAdmin.kb.fieldVersion")}
                         </label>
-                        <input
+                        <input id={fieldId("kb5")}
                           type="text"
-                          className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
+                          className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all"
                           value={version}
                           onChange={(e) => setVersion(e.target.value)}
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                          Ngôn ngữ
+                        <label htmlFor={fieldId("kb6")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
+                          {t("fixAdmin.kb.fieldLanguage")}
                         </label>
-                        <select
-                          className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all cursor-pointer"
+                        <select id={fieldId("kb6")}
+                          className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all cursor-pointer"
                           value={docLang}
                           onChange={(e) => setDocLang(e.target.value)}
                         >
-                          <option value="vi">Tiếng Việt</option>
-                          <option value="en">Tiếng Anh</option>
+                          <option value="vi">{t("fixAdmin.kb.langVi")}</option>
+                          <option value="en">{t("fixAdmin.kb.langEn")}</option>
                         </select>
                       </div>
                     </div>
@@ -1154,25 +1257,25 @@ export default function KnowledgeBaseClient({
                     {/* Target Audience & Stack */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <label htmlFor={fieldId("kb7")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
                           {t("admin.knowledge.field.roleTargets")}
                         </label>
-                        <input
+                        <input id={fieldId("kb7")}
                           type="text"
-                          className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
-                          placeholder="VD: backend-engineer;python-developer"
+                          className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all"
+                          placeholder={t("fixAdmin.kb.phRoles")}
                           value={roleTargets}
                           onChange={(e) => setRoleTargets(e.target.value)}
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <label htmlFor={fieldId("kb8")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
                           {t("admin.knowledge.field.jobLevels")}
                         </label>
-                        <input
+                        <input id={fieldId("kb8")}
                           type="text"
-                          className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
-                          placeholder="VD: junior;mid"
+                          className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all"
+                          placeholder={t("fixAdmin.kb.phLevels")}
                           value={jobLevels}
                           onChange={(e) => setJobLevels(e.target.value)}
                         />
@@ -1181,26 +1284,26 @@ export default function KnowledgeBaseClient({
 
                     {/* Knowledge Unit Content */}
                     <div className="space-y-1">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <label htmlFor={fieldId("kb9")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
                         {t("admin.knowledge.field.knowledgeSummary")}
                       </label>
-                      <textarea
+                      <textarea id={fieldId("kb9")}
                         rows={3}
-                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all resize-y"
-                        placeholder="VD: Hiểu về Kế thừa, Đóng gói, Đa hình và Trừu tượng trong Python."
+                        className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all resize-y"
+                        placeholder={t("fixAdmin.kb.phSummary")}
                         value={knowledgeSummary}
                         onChange={(e) => setKnowledgeSummary(e.target.value)}
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <label htmlFor={fieldId("kb10")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
                         {t("admin.knowledge.field.concepts")}
                       </label>
-                      <input
+                      <input id={fieldId("kb10")}
                         type="text"
-                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
-                        placeholder="VD: MRO (Method Resolution Order);Abstract Class;Interface"
+                        className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all"
+                        placeholder={t("fixAdmin.kb.phConcepts")}
                         value={knowledgeConcepts}
                         onChange={(e) => setKnowledgeConcepts(e.target.value)}
                       />
@@ -1209,25 +1312,25 @@ export default function KnowledgeBaseClient({
                     {/* Expected Criteria, Mistakes, Followups */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <label htmlFor={fieldId("kb11")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
                           {t("admin.knowledge.field.mustHave")}
                         </label>
-                        <textarea
+                        <textarea id={fieldId("kb11")}
                           rows={3}
-                          className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all resize-y"
-                          placeholder="Mỗi tiêu chí nằm trên một dòng riêng biệt..."
+                          className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all resize-y"
+                          placeholder={t("fixAdmin.kb.phMustHave")}
                           value={expectedPoints}
                           onChange={(e) => setExpectedPoints(e.target.value)}
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <label htmlFor={fieldId("kb12")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
                           {t("admin.knowledge.field.commonMistakes")}
                         </label>
-                        <textarea
+                        <textarea id={fieldId("kb12")}
                           rows={3}
-                          className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all resize-y"
-                          placeholder="Mỗi sai lầm nằm trên một dòng riêng biệt..."
+                          className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all resize-y"
+                          placeholder={t("fixAdmin.kb.phMistakes")}
                           value={commonMistakes}
                           onChange={(e) => setCommonMistakes(e.target.value)}
                         />
@@ -1236,25 +1339,25 @@ export default function KnowledgeBaseClient({
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <label htmlFor={fieldId("kb13")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
                           {t("admin.knowledge.field.followUp")}
                         </label>
-                        <textarea
+                        <textarea id={fieldId("kb13")}
                           rows={3}
-                          className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all resize-y"
-                          placeholder="Mỗi câu hỏi bổ trợ nằm trên một dòng riêng biệt..."
+                          className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all resize-y"
+                          placeholder={t("fixAdmin.kb.phFollowUp")}
                           value={followUpQuestions}
                           onChange={(e) => setFollowUpQuestions(e.target.value)}
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <label htmlFor={fieldId("kb14")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
                           {t("admin.knowledge.field.deliverables")}
                         </label>
-                        <textarea
+                        <textarea id={fieldId("kb14")}
                           rows={3}
-                          className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all resize-y"
-                          placeholder="Mỗi bài tập thực hành/sản phẩm nằm trên một dòng riêng biệt..."
+                          className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all resize-y"
+                          placeholder={t("fixAdmin.kb.phDeliverables")}
                           value={deliverables}
                           onChange={(e) => setDeliverables(e.target.value)}
                         />
@@ -1262,38 +1365,38 @@ export default function KnowledgeBaseClient({
                     </div>
 
                     {/* Quality rating slider */}
-                    <div className="space-y-2 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl">
+                    <div className="space-y-2 bg-[#F8FAFC] p-4 rounded-xl">
                       <div className="flex justify-between items-center">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <label htmlFor={fieldId("kb15")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">
                           {t("admin.knowledge.field.qualityScore")}
                         </label>
                         <span className="text-sm font-bold text-primary">{(qualityScore ?? 0.8).toFixed(2)}</span>
                       </div>
-                      <input
+                      <input id={fieldId("kb15")}
                         type="range"
                         min="0"
                         max="1"
                         step="0.05"
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                        className="w-full h-2 bg-[#EAEFF8] rounded-lg appearance-none cursor-pointer accent-primary"
                         value={qualityScore}
                         onChange={(e) => setQualityScore(parseFloat(e.target.value))}
                       />
                     </div>
 
                     <Button variant="primary" size="lg" className="w-full" type="submit" disabled={savingManual}>
-                      {savingManual ? "Đang huấn luyện & nạp RAG..." : isEditMode ? "Cập nhật tài liệu tri thức" : "Huấn luyện & lưu tài liệu"}
+                      {savingManual ? t("fixAdmin.kb.submitSaving") : isEditMode ? t("fixAdmin.kb.submitUpdate") : t("fixAdmin.kb.submitCreate")}
                     </Button>
                   </form>
                 </div>
               </div>
 
               {/* Upload zone & Log (Right panel) */}
-              <div className="col-span-12 lg:col-span-4 space-y-6">
+              <div className="col-span-12 min-w-0 lg:col-span-4 space-y-6">
                 {/* Upload Dropzone */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm group">
+                <div className="bg-white rounded-3xl p-6 border border-[#DCE4F3] shadow-xs group">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold font-headline">{t("admin.knowledge.ingestDocuments")}</h3>
-                    <span className="text-[10px] font-bold text-slate-500 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-full">
+                    <h3 className="text-base font-bold sm:text-lg">{t("admin.knowledge.ingestDocuments")}</h3>
+                    <span className="text-[10px] font-bold text-[#607096] px-2.5 py-1 bg-[#F0F4FC] rounded-full">
                       CSV, JSON
                     </span>
                   </div>
@@ -1301,7 +1404,7 @@ export default function KnowledgeBaseClient({
                     onDragOver={handleDragOver}
                     onDrop={handleDrop}
                     onClick={handleFileUploadClick}
-                    className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-8 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-slate-50 dark:bg-slate-950/20 transition-colors cursor-pointer"
+                    className="border-2 border-dashed border-[#DCE4F3] rounded-xl p-8 flex flex-col items-center justify-center bg-[#F8FAFC]/60 hover:bg-[#F8FAFC] transition-colors cursor-pointer"
                   >
                     <input
                       type="file"
@@ -1318,38 +1421,38 @@ export default function KnowledgeBaseClient({
                       />
                     </div>
                     <p className="text-on-surface font-semibold text-sm mb-1">
-                      {uploading ? "Đang xử lý tệp..." : t("admin.knowledge.dragDrop")}
+                      {uploading ? t("fixAdmin.kb.uploadProcessing") : t("admin.knowledge.dragDrop")}
                     </p>
-                    <p className="text-slate-400 text-xs">{t("admin.knowledge.maxPerFile")}</p>
+                    <p className="text-[#607096] text-xs">{t("fixAdmin.kb.uploadHint")}</p>
                   </div>
                 </div>
 
                 {/* Session Log */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm">
-                  <h3 className="text-lg font-bold font-headline mb-4 flex items-center gap-2">
-                    <History className="size-5 text-green-500" />
-                    Tài liệu vừa nạp (Lượt này)
+                <div className="bg-white rounded-3xl p-6 border border-[#DCE4F3] shadow-xs">
+                  <h3 className="text-base font-bold sm:text-lg mb-4 flex items-center gap-2">
+                    <History className="size-5 text-[#287A4B]" />
+                    {t("fixAdmin.kb.sessionLogTitle")}
                   </h3>
                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
                     {ingestedDocs.length === 0 ? (
-                      <p className="text-xs text-slate-400 italic text-center py-6">
-                        Chưa nạp tài liệu nào trong phiên này.
+                      <p className="text-xs text-[#607096] italic text-center py-6">
+                        {t("fixAdmin.kb.sessionLogEmpty")}
                       </p>
                     ) : (
                       ingestedDocs.map((doc, idx) => (
                         <div
                           key={idx}
-                          className="flex justify-between items-start p-3 bg-slate-50 dark:bg-slate-950/30 border border-slate-100 dark:border-slate-800 rounded-lg"
+                          className="flex justify-between items-start p-3 bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg"
                         >
                           <div className="flex-1 min-w-0 pr-2">
-                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{doc.id}</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5">
-                              Topic: {doc.topic} • Lvl: {doc.difficulty}
+                            <p className="text-xs font-bold text-[#14244B] truncate">{doc.id}</p>
+                            <p className="text-[10px] text-[#607096] mt-0.5">
+                              {fmt(t("fixAdmin.kb.sessionLogMeta"), { topic: doc.topic, level: doc.difficulty })}
                             </p>
                           </div>
                           <div className="text-right">
-                            <span className="text-[9px] text-slate-400 block">{doc.timestamp}</span>
-                            <span className="inline-block w-2 h-2 rounded-full bg-green-500 mt-1"></span>
+                            <span className="text-[9px] text-[#607096] block">{doc.timestamp}</span>
+                            <span className="inline-block w-2 h-2 rounded-full bg-[#287A4B] mt-1"></span>
                           </div>
                         </div>
                       ))
@@ -1362,10 +1465,10 @@ export default function KnowledgeBaseClient({
 
           {activeTab === "graph" && (
             <div id="knowledge-panel-graph" role="tabpanel" aria-labelledby="knowledge-tab-graph" className="space-y-6">
-              <div className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs">
-                <div className="flex items-start gap-3"><div className="rounded-xl bg-[#EEF2FD] p-3 text-[#204195]"><Network className="size-6" /></div><div><h2 className="text-xl font-bold text-[#14244B]">Knowledge Graph Explorer</h2><p className="mt-1 text-sm text-[#607096]">Xem quan hệ giữa question version, competency, skill, rubric và source. PostgreSQL vẫn là source of truth.</p></div></div>
+              <div className="rounded-3xl border border-[#DCE4F3] bg-white p-6 shadow-xs">
+                <div className="flex items-start gap-3"><div className="rounded-xl bg-[#EEF2FD] p-3 text-[#204195]"><Network className="size-6" /></div><div><h2 className="text-base font-bold text-[#14244B] sm:text-lg">{t("fixAdmin.kb.graphTitle")}</h2><p className="mt-1 text-sm text-[#607096]">{t("fixAdmin.kb.graphSubtitle")}</p></div></div>
               </div>
-              <div className="rounded-2xl border border-dashed border-[#DCE4F3] bg-white p-10 text-center"><Network className="mx-auto size-9 text-[#204195]" /><h3 className="mt-4 font-bold text-[#14244B]">Chưa có Graph API từ Core</h3><p className="mx-auto mt-2 max-w-xl text-sm text-[#607096]">Không hiển thị dữ liệu giả. Cần read API cho taxonomy relations và question relations để hiển thị node, edge và evidence.</p><div className="mx-auto mt-6 max-w-xl rounded-xl bg-[#F8FAFC] p-4 text-left font-mono text-xs text-[#607096]">GET /admin/question-bank/graph?rootType=questionVersion&amp;rootId=...<br />GET /admin/taxonomy/active</div></div>
+              <div className="rounded-3xl border border-dashed border-[#DCE4F3] bg-white p-6 text-center sm:p-10"><Network className="mx-auto size-9 text-[#204195]" /><h3 className="mt-4 font-bold text-[#14244B]">{t("fixAdmin.kb.graphEmptyTitle")}</h3><p className="mx-auto mt-2 max-w-xl text-sm text-[#607096]">{t("fixAdmin.kb.graphEmptyBody")}</p><div className="mx-auto mt-6 max-w-xl rounded-xl bg-[#F8FAFC] p-4 text-left font-mono text-xs text-[#607096] [overflow-wrap:anywhere]">GET /admin/question-bank/graph?rootType=questionVersion&amp;rootId=...<br />GET /admin/taxonomy/active</div></div>
             </div>
           )}
 
@@ -1373,58 +1476,58 @@ export default function KnowledgeBaseClient({
           {activeTab === "playground" && (
             <div id="knowledge-panel-vector" role="tabpanel" aria-labelledby="knowledge-tab-vector" className="grid grid-cols-12 gap-8">
               {/* Controls (Left Column) */}
-              <div className="col-span-12 lg:col-span-4 space-y-6">
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm">
-                  <h3 className="text-lg font-bold font-headline mb-6 flex items-center gap-2">
+              <div className="col-span-12 min-w-0 lg:col-span-4 space-y-6">
+                <div className="bg-white rounded-3xl p-6 border border-[#DCE4F3] shadow-xs">
+                  <h3 className="text-base font-bold sm:text-lg mb-6 flex items-center gap-2">
                     <Sliders className="size-5 text-primary" />
-                    Bộ lọc & Rerank Weights
+                    {t("fixAdmin.kb.filtersTitle")}
                   </h3>
 
                   <div className="space-y-4">
                     <div className="space-y-1">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Query Text</label>
-                      <input
+                      <label htmlFor={fieldId("kb16")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">{t("fixAdmin.kb.queryText")}</label>
+                      <input id={fieldId("kb16")}
                         type="text"
-                        placeholder="Nhập câu hỏi test retrieval..."
+                        placeholder={t("fixAdmin.kb.queryPlaceholder")}
                         value={searchQuery}
                         onChange={handleSearchChange}
-                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
+                        className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all"
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Lọc Topic</label>
-                      <input
+                      <label htmlFor={fieldId("kb17")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">{t("fixAdmin.kb.topicFilter")}</label>
+                      <input id={fieldId("kb17")}
                         type="text"
                         placeholder="python-oop, caching-strategies..."
                         value={topicFilter}
                         onChange={handleTopicFilterChange}
-                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all"
+                        className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all"
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Lọc Độ khó</label>
-                      <select
+                      <label htmlFor={fieldId("kb18")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">{t("fixAdmin.kb.difficultyFilter")}</label>
+                      <select id={fieldId("kb18")}
                         value={difficultyFilter}
                         onChange={handleDifficultyFilterChange}
-                        className="w-full bg-[#f8fafc] dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg text-sm p-3 outline-none focus:border-primary transition-all cursor-pointer"
+                        className="w-full bg-[#F8FAFC] border border-[#DCE4F3] rounded-lg text-sm p-3 outline-none focus:ring-2 focus:ring-[#204195]/20 focus:border-[#204195] transition-all cursor-pointer"
                       >
-                        <option value="all">Tất cả độ khó</option>
-                        <option value="basic">Basic</option>
-                        <option value="intermediate">Intermediate</option>
-                        <option value="advanced">Advanced</option>
+                        <option value="all">{t("fixAdmin.kb.allDifficulties")}</option>
+                        <option value="basic">{t("fixAdmin.kb.diffBasic")}</option>
+                        <option value="intermediate">{t("fixAdmin.kb.diffIntermediate")}</option>
+                        <option value="advanced">{t("fixAdmin.kb.diffAdvanced")}</option>
                       </select>
                     </div>
 
                     {/* Weight sliders */}
-                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                    <div className="pt-4 border-t border-[#DCE4F3] space-y-4">
                       <div className="space-y-1.5">
                         <div className="flex justify-between items-center">
-                          <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Similarity Weight (Vector)</label>
+                          <label htmlFor={fieldId("kb19")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">{t("fixAdmin.kb.simWeight")}</label>
                           <span className="text-xs font-bold text-primary">{(simWeight * 100).toFixed(0)}%</span>
                         </div>
-                        <input
+                        <input id={fieldId("kb19")}
                           type="range"
                           min="0"
                           max="1"
@@ -1435,16 +1538,16 @@ export default function KnowledgeBaseClient({
                             setSimWeight(val);
                             setQualWeight(1 - val);
                           }}
-                          className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                          className="w-full h-1.5 bg-[#EAEFF8] rounded-lg appearance-none cursor-pointer accent-primary"
                         />
                       </div>
 
                       <div className="space-y-1.5">
                         <div className="flex justify-between items-center">
-                          <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Quality Weight (Intrinsic)</label>
-                          <span className="text-xs font-bold text-purple-600">{(qualWeight * 100).toFixed(0)}%</span>
+                          <label htmlFor={fieldId("kb20")} className="text-xs font-bold uppercase tracking-wider text-[#607096]">{t("fixAdmin.kb.qualWeight")}</label>
+                          <span className="text-xs font-bold text-[#204195]">{(qualWeight * 100).toFixed(0)}%</span>
                         </div>
-                        <input
+                        <input id={fieldId("kb20")}
                           type="range"
                           min="0"
                           max="1"
@@ -1455,113 +1558,114 @@ export default function KnowledgeBaseClient({
                             setQualWeight(val);
                             setSimWeight(1 - val);
                           }}
-                          className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                          className="w-full h-1.5 bg-[#EAEFF8] rounded-lg appearance-none cursor-pointer accent-[#204195]"
                         />
                       </div>
                     </div>
 
-                    <p className="text-[10px] text-slate-400 italic mt-2 leading-relaxed bg-slate-50 dark:bg-slate-950 p-2.5 rounded border border-slate-100 dark:border-slate-800">
-                      Rerank score = (Similarity Score * {simWeight.toFixed(2)}) + (Quality Score * {qualWeight.toFixed(2)})
+                    <p className="text-[10px] text-[#607096] italic mt-2 leading-relaxed bg-[#F8FAFC] p-2.5 rounded border border-[#DCE4F3]">
+                      {fmt(t("fixAdmin.kb.rerankFormula"), { sim: simWeight.toFixed(2), qual: qualWeight.toFixed(2) })}
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* Results (Right Column) */}
-              <div className="col-span-12 lg:col-span-8 space-y-6">
+              <div className="col-span-12 min-w-0 lg:col-span-8 space-y-6">
                 {/* Stats bar if search occurred */}
                 {retrievalStats && (
-                  <div className="grid grid-cols-5 gap-3 p-4 bg-blue-50/50 dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-xl">
-                    <div className="text-center border-r border-slate-100 dark:border-slate-800">
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Tổng Chunks tìm thấy</p>
+                  <div className="grid grid-cols-5 gap-3 p-4 bg-[#F0F4FC] border border-[#DCE4F3] rounded-xl">
+                    <div className="text-center border-r border-[#DCE4F3]">
+                      <p className="text-[9px] font-bold text-[#607096] uppercase tracking-wider">{t("fixAdmin.kb.statTotal")}</p>
                       <p className="text-lg font-black mt-0.5 text-primary">{retrievalStats.original_count}</p>
                     </div>
-                    <div className="text-center border-r border-slate-100 dark:border-slate-800">
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Trùng lặp đã loại</p>
-                      <p className="text-lg font-black mt-0.5 text-amber-600">{retrievalStats.duplicates_removed}</p>
+                    <div className="text-center border-r border-[#DCE4F3]">
+                      <p className="text-[9px] font-bold text-[#607096] uppercase tracking-wider">{t("fixAdmin.kb.statDuplicates")}</p>
+                      <p className="text-lg font-black mt-0.5 text-[#8A5A00]">{retrievalStats.duplicates_removed}</p>
                     </div>
-                    <div className="text-center border-r border-slate-100 dark:border-slate-800">
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Lọc sai Topic</p>
-                      <p className="text-lg font-black mt-0.5 text-red-500">{retrievalStats.topic_mismatches_removed}</p>
+                    <div className="text-center border-r border-[#DCE4F3]">
+                      <p className="text-[9px] font-bold text-[#607096] uppercase tracking-wider">{t("fixAdmin.kb.statTopic")}</p>
+                      <p className="text-lg font-black mt-0.5 text-[#C43B3B]">{retrievalStats.topic_mismatches_removed}</p>
                     </div>
-                    <div className="text-center border-r border-slate-100 dark:border-slate-800">
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Lọc sai Độ khó</p>
-                      <p className="text-lg font-black mt-0.5 text-orange-500">{retrievalStats.difficulty_mismatches_removed}</p>
+                    <div className="text-center border-r border-[#DCE4F3]">
+                      <p className="text-[9px] font-bold text-[#607096] uppercase tracking-wider">{t("fixAdmin.kb.statDifficulty")}</p>
+                      <p className="text-lg font-black mt-0.5 text-[#8A5A00]">{retrievalStats.difficulty_mismatches_removed}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Hiển thị (k)</p>
-                      <p className="text-lg font-black mt-0.5 text-green-600">{retrievalStats.final_count}</p>
+                      <p className="text-[9px] font-bold text-[#607096] uppercase tracking-wider">{t("fixAdmin.kb.statShown")}</p>
+                      <p className="text-lg font-black mt-0.5 text-[#287A4B]">{retrievalStats.final_count}</p>
                     </div>
                   </div>
                 )}
 
                 {/* Main Results tabs */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                  <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/20">
+                <div className="bg-white border border-[#DCE4F3] rounded-3xl overflow-hidden shadow-xs">
+                  <div className="p-4 border-b border-[#DCE4F3] flex justify-between items-center bg-[#F8FAFC]/60">
                     <h4 className="font-bold text-sm flex items-center gap-2">
                       <Database className="size-5 text-primary" />
-                      Kết quả truy xuất Chunks
+                      {t("fixAdmin.kb.resultsTitle")}
                     </h4>
                   </div>
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[600px] overflow-y-auto">
+                  <div className="divide-y divide-[#EAEFF8] max-h-[600px] overflow-y-auto">
                     {isSearching ? (
-                      <div className="p-12 text-center text-sm text-slate-500 animate-pulse font-medium">
-                        Đang truy xuất ngữ cảnh và tính toán Rerank...
+                      <div className="p-12 text-center text-sm text-[#607096] animate-pulse font-medium">
+                        {t("fixAdmin.kb.searching")}
                       </div>
                     ) : searchResults.length > 0 ? (
                       searchResults.map((chunk, idx) => {
                         const cType = chunk.metadata?.chunk_type || "knowledge";
                         const rawSim = chunk.metadata?.raw_similarity_score ?? chunk.score;
-                        const qualScore = chunk.metadata?.quality_score ?? 0.8;
+                        // No invented fallback: a missing quality score is shown as "—".
+                        const qualScore = chunk.metadata?.quality_score;
                         const finalScore = chunk.score;
 
                         return (
-                          <div key={idx} className="p-5 hover:bg-slate-50/50 dark:hover:bg-slate-800/10 transition-colors">
+                          <div key={idx} className="p-5 hover:bg-[#F8FAFC]/60 transition-colors">
                             <div className="flex justify-between items-center mb-2">
-                              <span className="text-[9px] font-bold text-primary uppercase px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded">
+                              <span className="text-[9px] font-bold text-primary uppercase px-2 py-0.5 bg-[#F0F4FC] border border-[#DCE4F3] rounded">
                                 {t(`admin.knowledge.chunkType.${cType}`)}
                               </span>
-                              <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                                Rerank Score: {Math.round(finalScore * 100)}%
+                              <span className="text-xs font-black text-[#14244B]">
+                                {fmt(t("fixAdmin.kb.rerankScore"), { n: Math.round(finalScore * 100) })}
                               </span>
                             </div>
 
                             {/* Score contribution visualization */}
-                            <div className="grid grid-cols-2 gap-4 my-2 text-[10px] text-slate-500 font-semibold bg-slate-50 dark:bg-slate-950 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                            <div className="grid grid-cols-2 gap-4 my-2 text-[10px] text-[#607096] font-semibold bg-[#F8FAFC] p-2.5 rounded-lg border border-[#DCE4F3]">
                               <div>
                                 <div className="flex justify-between mb-1">
-                                  <span>Similarity Score:</span>
-                                  <span>{Math.round(rawSim * 100)}% (wt: {(simWeight * 100).toFixed(0)}%)</span>
+                                  <span>{t("fixAdmin.kb.similarityScore")}</span>
+                                  <span>{Math.round(rawSim * 100)}% {fmt(t("fixAdmin.kb.weightShort"), { n: (simWeight * 100).toFixed(0) })}</span>
                                 </div>
-                                <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                <div className="w-full bg-[#EAEFF8] h-1.5 rounded-full overflow-hidden">
                                   <div className="bg-primary h-full rounded-full" style={{ width: `${rawSim * 100}%` }}></div>
                                 </div>
                               </div>
                               <div>
                                 <div className="flex justify-between mb-1">
-                                  <span>Quality Score:</span>
-                                  <span>{Math.round(qualScore * 100)}% (wt: {(qualWeight * 100).toFixed(0)}%)</span>
+                                  <span>{t("fixAdmin.kb.qualityScore")}</span>
+                                  <span>{typeof qualScore === "number" ? `${Math.round(qualScore * 100)}%` : "—"} {fmt(t("fixAdmin.kb.weightShort"), { n: (qualWeight * 100).toFixed(0) })}</span>
                                 </div>
-                                <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                                  <div className="bg-purple-600 h-full rounded-full" style={{ width: `${qualScore * 100}%` }}></div>
+                                <div className="w-full bg-[#EAEFF8] h-1.5 rounded-full overflow-hidden">
+                                  <div className="bg-[#204195] h-full rounded-full" style={{ width: `${(qualScore ?? 0) * 100}%` }}></div>
                                 </div>
                               </div>
                             </div>
 
-                            <p className="text-sm leading-relaxed my-3 whitespace-pre-line bg-[#fafafa] dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-800 font-medium">
+                            <p className="text-sm leading-relaxed my-3 whitespace-pre-line bg-[#F8FAFC] p-3 rounded-xl border border-[#DCE4F3] font-medium">
                               {chunk.text}
                             </p>
                             
-                            <div className="text-[10px] text-slate-400 flex flex-wrap gap-x-2 gap-y-1 italic border-t border-slate-100 dark:border-slate-800 pt-2.5 mt-2">
-                              <span>Nguồn: {chunk.metadata?.knowledge_unit_id || chunk.metadata?.document_id}</span>
-                              <span>• Topic: {chunk.metadata?.topic}</span>
+                            <div className="text-[10px] text-[#607096] flex flex-wrap gap-x-2 gap-y-1 italic border-t border-[#DCE4F3] pt-2.5 mt-2">
+                              <span>{fmt(t("fixAdmin.kb.source"), { id: chunk.metadata?.knowledge_unit_id || chunk.metadata?.document_id || "—" })}</span>
+                              <span>{fmt(t("fixAdmin.kb.chunkTopic"), { topic: chunk.metadata?.topic || "—" })}</span>
                             </div>
                           </div>
                         );
                       })
                     ) : (
-                      <div className="p-12 text-center text-sm text-slate-500 italic">
-                        Nhập từ khóa tìm kiếm hoặc lọc chủ đề ở cột bên trái để bắt đầu.
+                      <div className="p-12 text-center text-sm text-[#607096] italic">
+                        {t("fixAdmin.kb.playgroundEmpty")}
                       </div>
                     )}
                   </div>
@@ -1569,18 +1673,18 @@ export default function KnowledgeBaseClient({
 
                 {/* Simulated Compiled Prompt Preview */}
                 {promptPreview && (
-                  <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                    <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
+                  <div className="bg-white border border-[#DCE4F3] rounded-3xl overflow-hidden shadow-xs">
+                    <div className="p-4 border-b border-[#DCE4F3] bg-[#F8FAFC]/60">
                       <h4 className="font-bold text-sm flex items-center gap-2">
-                        <Code className="size-5 text-purple-600" />
-                        Trình biên dịch Prompt mô phỏng (Prompt Preview)
+                        <Code className="size-5 text-[#204195]" />
+                        {t("fixAdmin.kb.promptPreviewTitle")}
                       </h4>
                     </div>
                     <div className="p-5">
-                      <p className="text-xs text-slate-400 mb-3">
-                        Đây là cấu trúc prompt hoàn chỉnh sẽ được gửi tới LLM sau khi chèn các ngữ cảnh đã truy xuất thông qua RAG ở trên.
+                      <p className="text-xs text-[#607096] mb-3">
+                        {t("fixAdmin.kb.promptPreviewHint")}
                       </p>
-                      <pre className="bg-slate-950 text-green-400 text-xs p-4 rounded-xl overflow-x-auto whitespace-pre-wrap max-h-[350px] font-mono leading-relaxed border border-slate-900">
+                      <pre className="bg-[#14244B] text-[#9FE0B8] text-xs p-4 rounded-xl overflow-x-auto whitespace-pre-wrap max-h-[350px] font-mono leading-relaxed border border-[#14244B]">
                         {promptPreview}
                       </pre>
                     </div>
@@ -1594,54 +1698,63 @@ export default function KnowledgeBaseClient({
 
       {/* AI QUALITY EVALUATION REPORT MODAL */}
       {isEvalModalOpen && (
-        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl border border-slate-100 dark:border-slate-800 max-h-[90vh] flex flex-col">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-purple-50/30 dark:bg-purple-950/20">
-              <h3 className="font-black text-lg flex items-center gap-2 text-purple-700 dark:text-purple-400">
-                <Brain className="size-5" />
-                Báo cáo đánh giá tri thức AI: {evalDocId}
+        <div className="fixed inset-0 z-[9999] bg-[#14244B]/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div
+            ref={evalDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={evalTitleId}
+            aria-busy={isEvaluating}
+            className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl border border-[#DCE4F3] max-h-[90vh] flex flex-col"
+          >
+            <div className="p-6 border-b border-[#DCE4F3] flex justify-between items-center bg-[#F0F4FC]">
+              <h3 id={evalTitleId} className="font-black text-lg flex items-center gap-2 text-[#204195]">
+                <Brain className="size-5" aria-hidden="true" />
+                {fmt(t("fixAdmin.kb.evalTitle"), { id: evalDocId })}
               </h3>
               <button
+                type="button"
                 onClick={() => setIsEvalModalOpen(false)}
-                className="text-slate-500 hover:text-slate-800"
+                aria-label={t("fixAdmin.kb.closeDialog")}
+                className="p-1.5 rounded-full text-[#607096] hover:text-[#14244B] hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]/30"
               >
-                <X className="size-5" />
+                <X className="size-5" aria-hidden="true" />
               </button>
             </div>
 
             <div className="p-6 overflow-y-auto space-y-6 flex-1 text-sm">
               {isEvaluating ? (
                 <div className="py-12 text-center space-y-4">
-                  <div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  <p className="text-slate-500 font-medium animate-pulse">
-                    AI đang phân tích chất lượng tài liệu và kiểm duyệt nội dung RAG...
+                  <div className="w-10 h-10 border-4 border-[#204195] border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p className="text-[#607096] font-medium animate-pulse">
+                    {t("fixAdmin.kb.evaluating")}
                   </p>
                 </div>
               ) : evalData ? (
                 <div className="space-y-6">
                   {/* Scores Bar */}
                   <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
-                      <p className="text-[10px] font-bold text-slate-500 uppercase">Tổng điểm chất lượng</p>
-                      <p className="text-3xl font-black mt-1 text-purple-600">{(evalData.score * 100).toFixed(0)}%</p>
+                    <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#DCE4F3] text-center">
+                      <p className="text-[10px] font-bold text-[#607096] uppercase">{t("fixAdmin.kb.evalTotal")}</p>
+                      <p className="text-3xl font-black mt-1 text-[#204195]">{(evalData.score * 100).toFixed(0)}%</p>
                     </div>
-                    <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
-                      <p className="text-[10px] font-bold text-slate-500 uppercase">Chiều sâu kỹ thuật</p>
-                      <p className="text-3xl font-black mt-1 text-blue-600">{(evalData.technical_depth_score * 100).toFixed(0)}%</p>
+                    <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#DCE4F3] text-center">
+                      <p className="text-[10px] font-bold text-[#607096] uppercase">{t("fixAdmin.kb.evalDepth")}</p>
+                      <p className="text-3xl font-black mt-1 text-[#204195]">{(evalData.technical_depth_score * 100).toFixed(0)}%</p>
                     </div>
-                    <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
-                      <p className="text-[10px] font-bold text-slate-500 uppercase">Độ rõ ràng tiêu chí</p>
-                      <p className="text-3xl font-black mt-1 text-green-600">{(evalData.criteria_clarity_score * 100).toFixed(0)}%</p>
+                    <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#DCE4F3] text-center">
+                      <p className="text-[10px] font-bold text-[#607096] uppercase">{t("fixAdmin.kb.evalClarity")}</p>
+                      <p className="text-3xl font-black mt-1 text-[#287A4B]">{(evalData.criteria_clarity_score * 100).toFixed(0)}%</p>
                     </div>
                   </div>
 
                   {/* Findings */}
                   <div>
-                    <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-1.5">
-                      <CheckCircle2 className="size-4 text-green-500" />
-                      Kết quả ghi nhận
+                    <h4 className="font-bold text-[#14244B] mb-2 flex items-center gap-1.5">
+                      <CheckCircle2 className="size-4 text-[#287A4B]" />
+                      {t("fixAdmin.kb.evalFindings")}
                     </h4>
-                    <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-400">
+                    <ul className="list-disc pl-5 space-y-1.5 text-[#607096]">
                       {evalData.findings?.map((item: string, idx: number) => (
                         <li key={idx}>{item}</li>
                       ))}
@@ -1651,11 +1764,11 @@ export default function KnowledgeBaseClient({
                   {/* Suggestions */}
                   {evalData.suggestions && evalData.suggestions.length > 0 && (
                     <div>
-                      <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-1.5">
-                        <Lightbulb className="size-4 text-amber-500" />
-                        Đề xuất cải tiến
+                      <h4 className="font-bold text-[#14244B] mb-2 flex items-center gap-1.5">
+                        <Lightbulb className="size-4 text-[#B07A00]" />
+                        {t("fixAdmin.kb.evalSuggestions")}
                       </h4>
-                      <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-400">
+                      <ul className="list-disc pl-5 space-y-1.5 text-[#607096]">
                         {evalData.suggestions.map((item: string, idx: number) => (
                           <li key={idx}>{item}</li>
                         ))}
@@ -1664,44 +1777,66 @@ export default function KnowledgeBaseClient({
                   )}
 
                   {/* Score adjustment recommendation */}
-                  <div className="p-4 bg-purple-50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900 rounded-xl flex items-center justify-between">
+                  <div className="p-4 bg-[#F0F4FC] border border-[#DCE4F3] rounded-xl flex items-center justify-between">
                     <div>
-                      <p className="font-bold text-purple-900 dark:text-purple-300">Điểm chất lượng được đề xuất (RAG Quality Score)</p>
-                      <p className="text-xs text-purple-700 dark:text-purple-400 mt-0.5">
-                        Áp dụng điểm này sẽ tăng/giảm tỉ lệ xuất hiện của tài liệu khi Reranking RAG.
+                      <p className="font-bold text-[#14244B]">{t("fixAdmin.kb.evalSuggestedScore")}</p>
+                      <p className="text-xs text-[#204195] mt-0.5">
+                        {t("fixAdmin.kb.evalSuggestedHint")}
                       </p>
                     </div>
                     <div className="text-right">
-                      <span className="text-2xl font-black text-purple-700 dark:text-purple-400 mr-4">
+                      <span className="text-2xl font-black text-[#204195] mr-4">
                         {(evalData.adjusted_quality_score ?? evalData.score).toFixed(2)}
                       </span>
                       <button
                         onClick={() => handleApplyQualityScore(evalData.adjusted_quality_score ?? evalData.score)}
-                        className="px-3.5 py-1.5 bg-purple-600 text-white font-bold rounded-lg text-xs hover:bg-purple-700 shadow"
+                        type="button"
+                        className="px-3.5 py-1.5 bg-[#204195] text-white font-bold rounded-full text-xs hover:bg-[#183275] shadow"
                       >
-                        Áp dụng
+                        {t("fixAdmin.kb.apply")}
                       </button>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-6 italic text-slate-500">
-                  Không nhận được kết quả đánh giá từ máy chủ.
+                <div className="text-center py-6 italic text-[#607096]">
+                  {t("fixAdmin.kb.evalNoResult")}
                 </div>
               )}
             </div>
 
-            <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+            <div className="p-6 border-t border-[#DCE4F3] flex justify-end">
               <button
+                type="button"
                 onClick={() => setIsEvalModalOpen(false)}
-                className="px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 rounded-lg text-xs font-bold"
+                className="px-4 py-2 border border-[#DCE4F3] hover:bg-[#F8FAFC] rounded-full text-xs font-bold text-[#14244B]"
               >
-                Đóng
+                {t("fixAdmin.kb.close")}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={
+          pendingDelete?.kind === "bulk"
+            ? fmt(t("fixAdmin.kb.bulkDeleteTitle"), { n: pendingDelete.ids.length })
+            : t("fixAdmin.kb.deleteTitle")
+        }
+        body={
+          pendingDelete?.kind === "bulk"
+            ? fmt(t("fixAdmin.kb.bulkDeleteBody"), { n: pendingDelete.ids.length })
+            : fmt(t("fixAdmin.kb.deleteBody"), { id: pendingDelete?.ids[0] ?? "" })
+        }
+        confirmLabel={isDeleting ? t("fixAdmin.kb.deleting") : t("fixAdmin.kb.confirmDelete")}
+        cancelLabel={t("fixAdmin.kb.cancel")}
+        tone="danger"
+        busy={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

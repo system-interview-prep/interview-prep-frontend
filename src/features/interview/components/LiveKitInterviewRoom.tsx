@@ -1,259 +1,416 @@
 'use client';
 
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Camera, CameraOff, Mic, MicOff, PhoneOff, VideoOff } from 'lucide-react';
+import { AbortConfirmationModal } from '@/components/interview/AbortConfirmationModal';
+import { ConfirmDialog } from '@components/shared/ConfirmDialog';
+import { useLiveKitRoom } from '../hooks/useLiveKitRoom';
+import { useRuntimeProgress } from '../hooks/useRuntimeProgress';
+import { interviewChatApi } from '../services/interviewChat.service';
+import { chatErrorMessage } from './ChatRoomParts';
 import {
-  AlertCircle,
-  Brain,
-  Camera,
-  CameraOff,
-  Loader2,
-  Mic,
-  MicOff,
-  PhoneOff,
-  Radio,
-  RotateCcw,
-  User,
-} from 'lucide-react';
-import { useLiveKitRoom, type LiveKitRoomStatus } from '../hooks/useLiveKitRoom';
-
-function statusLabel(status: LiveKitRoomStatus, agentConnected: boolean): string {
-  switch (status) {
-    case 'connecting':
-      return 'Đang kết nối LiveKit...';
-    case 'agent-speaking':
-      return 'AI đang nói';
-    case 'user-speaking':
-      return 'Bạn đang nói';
-    case 'waiting-agent':
-      return agentConnected ? 'Đã kết nối — chờ AI' : 'Đang chờ AI tham gia';
-    case 'connected':
-      return 'Bạn có thể bắt đầu nói';
-    case 'ended':
-      return 'Đã kết thúc';
-    case 'error':
-      return 'Kết nối thất bại';
-    default:
-      return 'Sẵn sàng kết nối';
-  }
-}
+  ControlButton,
+  InterviewerPresence,
+  PreJoinCard,
+  SpeakerCard,
+  SpeakerTile,
+  StageAlert,
+  ObserverNotice,
+  TurnStatus,
+  TranscriptPanel,
+  VoiceRoomHeader,
+  presenceState,
+  voiceStatus,
+} from './VoiceRoomParts';
+import { VoiceWaveform, type VoiceOrbState } from './VoiceWaveform';
+import { CurrentQuestionCard, QuestionTimer } from './CurrentQuestionCard';
+import { getStageLabel } from './ChatInterviewProgress';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import { fmt } from '@/i18n/format';
 
 export default function LiveKitInterviewRoom({
   sessionId,
   mode,
+  locale,
+  jobTitle,
+  backUrl = '/interview/select',
 }: {
   sessionId: string;
   mode: 'voice' | 'video';
+  locale: string;
+  jobTitle?: string;
+  backUrl?: string;
 }) {
   const router = useRouter();
-  const livekit = useLiveKitRoom({ sessionId, cameraOnStart: mode === 'video' });
+  const { t } = useLanguage();
+  const [isEnding, setIsEnding] = useState(false);
+  const [endError, setEndError] = useState<string | null>(null);
+  const [dismissedObservedAt, setDismissedObservedAt] = useState<number | null>(null);
+  const [showEndModal, setShowEndModal] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  // True when the dialog was opened by the candidate saying "dừng", not by the
+  // End button: choosing to continue then replays the interrupted question.
+  const [spokenAbort, setSpokenAbort] = useState(false);
+  const {
+    connect,
+    disconnect,
+    toggleMic,
+    toggleCamera,
+    sendAnswerCommand,
+    localVideoRef,
+    remoteAudioContainerRef,
+    transcript,
+    interimTranscript,
+    status,
+    isConnected,
+    isAgentConnected,
+    isAgentSpeaking,
+    isUserSpeaking,
+    micEnabled,
+    cameraEnabled,
+    error: livekitError,
+    transportError,
+    speechOutputError,
+    terminalEvent,
+    turnState,
+    observedAt,
+  } = useLiveKitRoom({
+    sessionId,
+    locale,
+    cameraOnStart: mode === 'video',
+    onAbortRequested: () => {
+      setSpokenAbort(true);
+      setShowEndModal(true);
+    },
+  });
 
-  const statusText = useMemo(
-    () => statusLabel(livekit.status, livekit.isAgentConnected),
-    [livekit.isAgentConnected, livekit.status],
-  );
-
-  const endRoom = async () => {
-    await livekit.disconnect();
-    router.push('/dashboard');
+  const closeEndModal = () => {
+    setShowEndModal(false);
+    if (spokenAbort) {
+      setSpokenAbort(false);
+      void sendAnswerCommand('question.repeat');
+    }
   };
 
-  const statusColor =
-    livekit.status === 'agent-speaking'
-      ? 'bg-red-500'
-      : livekit.status === 'user-speaking'
-        ? 'bg-emerald-500'
-        : livekit.status === 'error'
-          ? 'bg-red-500'
-          : 'bg-amber-400';
+  // Re-read question, stage and timers when the transcript grows or the
+  // agent's answer window moves (a new question starts after "processing").
+  const turnStep = turnState === 'answering' ? 1 : turnState === 'processing' ? 2 : turnState === 'listening' ? 3 : 0;
+  const progress = useRuntimeProgress(sessionId, transcript.length * 4 + turnStep + (terminalEvent ? 1000 : 0));
+  const presence = presenceState({ agentConnected: isAgentConnected, agentSpeaking: isAgentSpeaking, turnState });
+
+  const currentStatus = useMemo(
+    () => voiceStatus(status, isAgentConnected, t, turnState),
+    [isAgentConnected, status, t, turnState],
+  );
+  // Speech recognition is down while the room stays connected: the candidate
+  // must not keep answering into a room that cannot hear them.
+  const sttDown = isConnected && Boolean(transportError);
+  const barStatus = sttDown ? { label: t('room.voice.status.unheard'), tone: 'error' as const } : currentStatus;
+
+  const waveformState: VoiceOrbState =
+    !isConnected
+      ? 'idle'
+      : isAgentSpeaking
+      ? 'speaking'
+      : turnState === 'processing'
+      ? 'thinking'
+      : 'listening';
+
+  useEffect(() => {
+    if (!terminalEvent) return;
+    let active = true;
+    void disconnect().finally(() => {
+      if (active) router.replace(`/interview/results/${encodeURIComponent(sessionId)}`);
+    });
+    return () => { active = false; };
+  }, [disconnect, router, sessionId, terminalEvent]);
+
+  useEffect(() => {
+    // The data packet is reliable, but the candidate can still reconnect or
+    // close the tab before receiving it. The persisted runtime is the source
+    // of truth, so never leave a completed media session stranded in-room.
+    if (!progress?.isClosed || terminalEvent) return;
+    let active = true;
+    void disconnect().finally(() => {
+      if (active) router.replace(`/interview/results/${encodeURIComponent(sessionId)}`);
+    });
+    return () => { active = false; };
+  }, [disconnect, progress?.isClosed, router, sessionId, terminalEvent]);
+
+  const endRoom = async (reason: 'USER_ENDED' | 'TECHNICAL_FAILURE' = 'USER_ENDED') => {
+    if (isEnding) return;
+    setIsEnding(true);
+    setEndError(null);
+    try {
+      await interviewChatApi.complete(sessionId, reason);
+    } catch (error) {
+      setShowEndModal(false);
+      setEndError(
+        fmt(t('room.common.endError'), { reason: chatErrorMessage(error, t('room.common.tryAgainLower')) }),
+      );
+      setIsEnding(false);
+      return;
+    }
+    await disconnect().catch(() => undefined);
+    router.push(`/interview/results/${encodeURIComponent(sessionId)}`);
+  };
+
+  const leaveRoom = () => {
+    setShowLeaveConfirm(false);
+    void disconnect()
+      .catch(() => undefined)
+      .finally(() => router.push(backUrl));
+  };
+
+  const showObserved = Boolean(observedAt && isConnected && observedAt !== dismissedObservedAt);
+  const stageAlerts =
+    sttDown || (speechOutputError && isConnected) || (livekitError && isConnected) || endError || showObserved ? (
+      <>
+        {showObserved ? <ObserverNotice onDismiss={() => setDismissedObservedAt(observedAt)} /> : null}
+        {sttDown && transportError ? (
+          <StageAlert
+            title={t('room.voice.sttDown.title')}
+            message={transportError}
+            action={{ label: t('room.voice.sttDown.leave'), onClick: () => setShowLeaveConfirm(true) }}
+          />
+        ) : livekitError && isConnected ? (
+          <StageAlert message={livekitError} />
+        ) : null}
+        {speechOutputError && isConnected ? <StageAlert message={speechOutputError} /> : null}
+        {endError ? <StageAlert message={endError} onDismiss={() => setEndError(null)} /> : null}
+      </>
+    ) : null;
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#0D1733] font-body text-white">
-      <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-white/10 bg-[#101D42] px-4 sm:px-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="font-headline text-xl font-black tracking-tight">INTERVIA</span>
-          <span className="hidden h-6 w-px bg-white/15 sm:block" />
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/80">
-            <span className={`h-2 w-2 rounded-full ${statusColor}`} />
-            LiveKit {mode === 'video' ? 'Voice + Video' : 'Voice'}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={() => void endRoom()}
-          className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#C9362B] px-3 text-sm font-bold text-white transition hover:bg-[#A92C24]"
+    <div className="flex h-dvh flex-col overflow-hidden bg-[#F7F9FD] font-body text-[#14244B]">
+      <VoiceRoomHeader
+        mode={mode}
+        jobTitle={jobTitle}
+        status={currentStatus}
+        onBack={() => (progress?.isClosed || terminalEvent ? leaveRoom() : setShowLeaveConfirm(true))}
+        progress={progress}
+      />
+      {terminalEvent ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-[#14244B]/90 p-6 text-center text-white"
         >
-          <PhoneOff className="size-4" />
-          <span className="hidden sm:inline">Kết thúc</span>
-        </button>
-      </header>
+          <p className="font-display text-2xl font-semibold">{t('room.voice.endedTitle')}</p>
+          <p className="text-sm text-white/80">{t('room.voice.openingReport')}</p>
+        </div>
+      ) : null}
 
       <main className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 lg:flex-row lg:p-4">
-        <section className="relative flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_center,_#243D86_0%,_#131F46_50%,_#0B1430_100%)] p-5 shadow-2xl">
+        <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
+          {stageAlerts ? <div className="shrink-0 space-y-2 px-4 pt-4 sm:px-6">{stageAlerts}</div> : null}
+
           {mode === 'video' ? (
-            <div className="grid w-full max-w-5xl grid-cols-1 gap-4 md:grid-cols-2">
-              <ParticipantCard label="AI Interviewer" icon={<Brain className="size-12" />} active={livekit.isAgentSpeaking} />
-              <div className="relative flex min-h-64 items-center justify-center overflow-hidden rounded-2xl border border-white/15 bg-black/25">
-                <video ref={livekit.localVideoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
-                {!livekit.cameraEnabled && <ParticipantCard label="Bạn" icon={<User className="size-12" />} active={livekit.isUserSpeaking} />}
-                <span className="absolute bottom-3 left-3 rounded-md bg-black/60 px-2 py-1 text-[10px] font-bold uppercase tracking-wider">Bạn</span>
+            <div className="flex min-h-0 flex-1 flex-col justify-between overflow-hidden p-3.5 sm:p-5">
+              <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-between gap-3">
+                <div className="w-full shrink-0">
+                  <CurrentQuestionCard
+                    stageLabel={getStageLabel(progress?.stage, t)}
+                    competency={progress?.question?.competency ?? null}
+                    text={progress?.question?.text ?? null}
+                    followUpText={progress?.question?.followUpText ?? null}
+                    size="compact"
+                    timer={
+                      <QuestionTimer
+                        startedAt={progress?.question?.startedAt ?? null}
+                        softSeconds={progress?.question?.softAnswerSeconds ?? null}
+                        hardSeconds={progress?.question?.hardAnswerSeconds ?? null}
+                        paused={progress?.isClosed}
+                      />
+                    }
+                  />
+                </div>
+                <div className="my-auto grid w-full flex-1 min-h-0 grid-cols-2 items-center gap-2 sm:gap-3">
+                  <SpeakerTile name={t('room.common.interviewer')} tone="ai" active={isAgentSpeaking}>
+                    <InterviewerPresence state={presence} size="small" />
+                  </SpeakerTile>
+                  <div
+                    className={`relative flex aspect-[4/3] max-h-full items-center justify-center overflow-hidden rounded-2xl border-2 bg-[#E8EDF5] transition-colors duration-200 ${
+                      sttDown ? 'border-[#F5C2C2]' : isUserSpeaking ? 'border-[#287A4B]' : 'border-transparent'
+                    }`}
+                  >
+                    {/* Keep the <video> mounted: useLiveKitRoom attaches the local track to it. */}
+                    <video ref={localVideoRef} autoPlay muted playsInline className="absolute inset-0 h-full w-full object-cover" />
+                    {!cameraEnabled ? (
+                      <div className="relative flex flex-col items-center gap-2 text-[#607096]">
+                        <VideoOff className="size-7" aria-hidden="true" />
+                        <span className="hidden text-sm sm:inline">{t('room.voice.cameraOff')}</span>
+                      </div>
+                    ) : null}
+                    <span className="absolute bottom-2.5 left-2.5 rounded-md bg-white px-2 py-1 text-xs font-medium text-[#14244B] shadow-sm">
+                      {t('room.common.you')}
+                      {sttDown
+                        ? ` · ${t('room.voice.candidate.unheard')}`
+                        : isUserSpeaking
+                          ? ` · ${t('room.voice.speakingSuffix')}`
+                          : ''}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
-            <div className="flex w-full max-w-3xl flex-col items-center gap-7 text-center">
-              <ParticipantOrb label="AI Interviewer" icon={<Brain className="size-12" />} active={livekit.isAgentSpeaking} color="red" />
-              <div className="flex items-center gap-1.5" aria-label="LiveKit voice activity">
-                {Array.from({ length: 15 }, (_, index) => (
-                  <span
-                    key={index}
-                    className={`w-1 rounded-full transition-all duration-150 ${livekit.isAgentSpeaking ? 'bg-red-400' : livekit.isUserSpeaking ? 'bg-emerald-400' : 'bg-amber-400/60'}`}
-                    style={{ height: `${18 + ((index * 17) % 42)}px` }}
+            <div className="flex min-h-0 flex-1 flex-col justify-between overflow-hidden px-4 py-3.5 sm:px-6 sm:py-5">
+              <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-between gap-3 sm:gap-4">
+                {/* 1. Compact Question Card with QuestionTimer */}
+                <div className="w-full shrink-0">
+                  <CurrentQuestionCard
+                    stageLabel={getStageLabel(progress?.stage, t)}
+                    competency={progress?.question?.competency ?? null}
+                    text={progress?.question?.text ?? null}
+                    followUpText={progress?.question?.followUpText ?? null}
+                    size="compact"
+                    timer={
+                      <QuestionTimer
+                        startedAt={progress?.question?.startedAt ?? null}
+                        softSeconds={progress?.question?.softAnswerSeconds ?? null}
+                        hardSeconds={progress?.question?.hardAnswerSeconds ?? null}
+                        paused={progress?.isClosed}
+                      />
+                    }
                   />
-                ))}
-              </div>
-              <ParticipantOrb label="Bạn" icon={<User className="size-12" />} active={livekit.isUserSpeaking} color="green" />
-            </div>
-          )}
+                </div>
 
-          <div className="absolute left-5 top-5 flex items-center gap-2 rounded-full bg-black/25 px-3 py-2 text-xs font-semibold text-white/80 backdrop-blur">
-            <Radio className="size-4 text-amber-300" />
-            {statusText}
-          </div>
+                {/* 2. Compact Voice Waveform and Status Indicator */}
+                <div className="my-auto flex flex-col items-center justify-center py-2 text-center">
+                  <VoiceWaveform state={waveformState} size="compact" />
 
-          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/15 bg-[#101D42]/95 p-2 shadow-2xl backdrop-blur-xl">
-            <ControlButton
-              label={livekit.micEnabled ? 'Tắt microphone' : 'Bật microphone'}
-              onClick={() => void livekit.toggleMic()}
-              disabled={!livekit.isConnected}
-              active={livekit.micEnabled}
-              icon={livekit.micEnabled ? <Mic className="size-5" /> : <MicOff className="size-5" />}
-            />
-            {mode === 'video' && (
-              <ControlButton
-                label={livekit.cameraEnabled ? 'Tắt camera' : 'Bật camera'}
-                onClick={() => void livekit.toggleCamera()}
-                disabled={!livekit.isConnected}
-                active={livekit.cameraEnabled}
-                icon={livekit.cameraEnabled ? <Camera className="size-5" /> : <CameraOff className="size-5" />}
-              />
-            )}
-            <ControlButton label="Kết thúc" onClick={() => void endRoom()} active={false} danger icon={<PhoneOff className="size-5" />} />
-          </div>
-        </section>
-
-        <aside className="flex h-[34vh] w-full shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#F8FAFE] text-[#17244A] lg:h-auto lg:w-[380px]">
-          <div className="flex items-center justify-between border-b border-[#DCE3F1] bg-white px-5 py-4">
-            <div>
-              <h2 className="font-headline text-base font-bold">Live transcript</h2>
-              <p className="mt-1 text-[11px] text-[#7A87A5]">{livekit.isAgentConnected ? 'AI đang ở trong phòng' : 'Đang chờ agent tham gia'}</p>
-            </div>
-            <span className={`h-2.5 w-2.5 rounded-full ${statusColor}`} />
-          </div>
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-            {livekit.transcript.length === 0 ? (
-              <p className="text-sm text-[#7A87A5]">Bản ghi sẽ hiển thị khi cuộc trò chuyện bắt đầu.</p>
-            ) : (
-              livekit.transcript.map((line) => (
-                <div key={line.id} className={line.speaker === 'user' ? 'ml-6' : 'mr-6'}>
-                  <div className={`rounded-2xl px-3.5 py-2.5 text-sm leading-6 ${line.speaker === 'user' ? 'rounded-tr-sm bg-[#234196] text-white' : 'rounded-tl-sm bg-[#FBE8EC] text-[#6E3047]'}`}>
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wider opacity-70">{line.speaker === 'user' ? 'Bạn' : 'AI'}</p>
-                    {line.text}
+                  <div className="mt-4 flex flex-col items-center gap-2">
+                    <div
+                      className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold shadow-xs transition-colors duration-200 ${
+                        waveformState === 'speaking'
+                          ? 'border border-[#FCB625]/40 bg-[#FCB625]/20 text-[#8A5A00]'
+                          : waveformState === 'thinking'
+                          ? 'border border-[#204195]/20 bg-[#EEF2FD] text-[#204195]'
+                          : waveformState === 'listening' && isUserSpeaking
+                          ? 'border border-[#287A4B]/30 bg-[#EBF7EE] text-[#1B633A]'
+                          : 'border border-[#DCE4F3] bg-[#F7F9FD] text-[#607096]'
+                      }`}
+                    >
+                      <span
+                        className={`size-2 rounded-full ${
+                          waveformState === 'speaking'
+                            ? 'bg-[#E59E10] animate-pulse'
+                            : waveformState === 'thinking'
+                            ? 'bg-[#204195] animate-spin'
+                            : waveformState === 'listening' && isUserSpeaking
+                            ? 'bg-[#287A4B] animate-pulse'
+                            : 'bg-[#A0AEC0]'
+                        }`}
+                      />
+                      <span>
+                        {waveformState === 'speaking'
+                          ? t('room.voice.status.agentSpeaking')
+                          : waveformState === 'thinking'
+                          ? t('room.voice.status.processing')
+                          : waveformState === 'listening' && isUserSpeaking
+                          ? t('room.voice.status.userSpeaking')
+                          : t('room.voice.status.yourTurn')}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-          <div ref={livekit.remoteAudioContainerRef} className="hidden" aria-hidden="true" />
-          {livekit.error && (
-            <div className="m-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">
-              <AlertCircle className="mt-0.5 size-4 shrink-0" />
-              <span>{livekit.error}</span>
+
+                {/* 3. Speaker Presence Cards */}
+                <div className="w-full shrink-0">
+                  <div className="mx-auto grid max-w-2xl grid-cols-2 gap-2.5 sm:gap-3">
+                    <SpeakerCard
+                      name={t('room.common.interviewer')}
+                      tone="ai"
+                      active={isAgentSpeaking}
+                      icon="IV"
+                    />
+                    <SpeakerCard
+                      name={t('room.common.you')}
+                      tone="user"
+                      active={isUserSpeaking && !sttDown}
+                      muted={!micEnabled}
+                      alert={sttDown}
+                      note={
+                        sttDown
+                          ? t('room.voice.candidate.unheard')
+                          : !micEnabled
+                            ? t('room.voice.candidate.muted')
+                            : undefined
+                      }
+                      icon={micEnabled ? <Mic className="size-5" aria-hidden="true" /> : <MicOff className="size-5" aria-hidden="true" />}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           )}
-        </aside>
+
+          {/* Call bar: only mic and end interview controls */}
+          <div className="flex shrink-0 items-center justify-between border-t border-[#DCE4F3] px-4 py-3 sm:px-6">
+            <div className="min-w-0 max-w-full">{isConnected ? <TurnStatus status={barStatus} /> : null}</div>
+            <div role="toolbar" aria-label={t('room.voice.controlsAria')} className="flex items-center gap-3">
+              <ControlButton
+                label={micEnabled ? t('room.voice.micOff') : t('room.voice.micOn')}
+                onClick={() => void toggleMic()}
+                disabled={!isConnected}
+                active={micEnabled}
+                icon={micEnabled ? <Mic className="size-5" /> : <MicOff className="size-5" />}
+              />
+              {mode === 'video' ? (
+                <ControlButton
+                  label={cameraEnabled ? t('room.voice.cameraOffAction') : t('room.voice.cameraOn')}
+                  onClick={() => void toggleCamera()}
+                  disabled={!isConnected}
+                  active={cameraEnabled}
+                  icon={cameraEnabled ? <Camera className="size-5" /> : <CameraOff className="size-5" />}
+                />
+              ) : null}
+              <ControlButton
+                label={t('room.common.endInterview')}
+                text={t('room.common.endInterview')}
+                onClick={() => setShowEndModal(true)}
+                disabled={isEnding}
+                active={false}
+                danger
+                icon={<PhoneOff className="size-5" />}
+              />
+            </div>
+            <div className="hidden sm:block sm:w-28" />
+          </div>
+
+          {!isConnected && !terminalEvent && !progress?.isClosed ? (
+            <PreJoinCard mode={mode} status={status} error={livekitError} onConnect={() => void connect()} />
+          ) : null}
+        </section>
+        <TranscriptPanel
+          lines={transcript}
+          agentConnected={isAgentConnected}
+          liveText={isConnected && !sttDown ? interimTranscript : undefined}
+        />
       </main>
 
-      {!livekit.isConnected && livekit.status !== 'connecting' && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-5 z-50 flex justify-center">
-          <button
-            type="button"
-            onClick={() => void livekit.connect()}
-            className="pointer-events-auto inline-flex items-center gap-2 rounded-xl bg-[#FCB625] px-6 py-3 text-sm font-bold text-[#14244B] shadow-xl transition hover:bg-[#ffd15b]"
-          >
-            {livekit.status === 'error' ? <RotateCcw className="size-4" /> : <Mic className="size-4" />}
-            {livekit.status === 'error' ? 'Thử kết nối lại' : 'Bắt đầu LiveKit'}
-          </button>
-        </div>
-      )}
-      {livekit.status === 'connecting' && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-5 z-50 flex justify-center">
-          <div className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-bold text-[#14244B] shadow-xl">
-            <Loader2 className="size-4 animate-spin" /> Đang kết nối LiveKit...
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+      {/* Remote audio plays through this container: it must stay mounted. */}
+      <div ref={remoteAudioContainerRef} className="hidden" aria-hidden="true" />
 
-function ParticipantOrb({
-  label,
-  icon,
-  active,
-  color,
-}: {
-  label: string;
-  icon: ReactNode;
-  active: boolean;
-  color: 'red' | 'green';
-}) {
-  const border = color === 'red' ? 'border-red-400 bg-red-400/15' : 'border-emerald-400 bg-emerald-400/15';
-  return (
-    <div className="flex flex-col items-center gap-3 text-center">
-      <div className="relative">
-        {active && <span className={`absolute -inset-3 animate-ping rounded-full border ${border} opacity-60`} />}
-        <div className={`relative flex h-28 w-28 items-center justify-center rounded-full border-2 ${active ? border : 'border-white/25 bg-white/10'}`}>{icon}</div>
-      </div>
-      <p className="font-headline text-sm font-bold">{label}</p>
-    </div>
-  );
-}
+      <AbortConfirmationModal
+        isOpen={showEndModal}
+        onClose={closeEndModal}
+        onConfirm={(reason) => void endRoom(reason)}
+        isSubmitting={isEnding}
+      />
 
-function ParticipantCard({ label, icon, active }: { label: string; icon: ReactNode; active: boolean }) {
-  return (
-    <div className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-2xl border border-white/15 bg-white/5 text-center">
-      <div className={`flex h-28 w-28 items-center justify-center rounded-full border-2 ${active ? 'border-red-400 bg-red-400/15' : 'border-white/25 bg-white/10'}`}>{icon}</div>
-      <p className="font-headline text-sm font-bold">{label}</p>
-      {active && <span className="text-xs text-red-200">Đang nói</span>}
+      <ConfirmDialog
+        open={showLeaveConfirm}
+        title={t('room.common.leaveConfirmTitle')}
+        // Same grace period as the backend session reaper (CANDIDATE_LEFT_GRACE_MINUTES).
+        body={fmt(t('room.common.leaveConfirmBody'), { n: 5 })}
+        confirmLabel={t('room.common.leaveConfirm')}
+        cancelLabel={t('room.common.continueInterview')}
+        onConfirm={leaveRoom}
+        onCancel={() => setShowLeaveConfirm(false)}
+      />
     </div>
-  );
-}
-
-function ControlButton({
-  label,
-  onClick,
-  disabled = false,
-  active,
-  danger = false,
-  icon,
-}: {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  active: boolean;
-  danger?: boolean;
-  icon: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      className={`flex h-12 w-12 items-center justify-center rounded-full text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 ${danger ? 'bg-[#C9362B] hover:bg-[#A92C24]' : active ? 'bg-white/15' : 'bg-white/5 text-white/60'}`}
-    >
-      {icon}
-    </button>
   );
 }

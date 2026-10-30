@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import AdminLoginForm from "@features/auth/components/admin/AdminLoginForm";
 
 export const metadata: Metadata = {
-  title: "INTERVIA Admin | Đăng nhập Hệ thống",
+  title: "Đăng nhập quản trị",
   description: "Cổng đăng nhập hệ thống quản trị INTERVIA AI",
 };
 

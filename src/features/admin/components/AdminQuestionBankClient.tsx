@@ -2,42 +2,155 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Clock, FileQuestion, Filter, Search } from "lucide-react";
+import { FileQuestion, Inbox, Search, Sparkles } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { questionBankApi, type QuestionBankItem } from "@features/admin/services/questionBank.service";
+import { Pagination } from "@components/shared/Pagination";
+import { DIFFICULTY_BANDS, questionBankApi, type QuestionBankItem, type WorkBucket, type WorkSummary } from "@features/admin/services/questionBank.service";
 import AdminEmptyState from "./primitives/AdminEmptyState";
 import AdminMetricCard from "./primitives/AdminMetricCard";
 import AdminPageHeader from "./primitives/AdminPageHeader";
 import AdminStatusBadge from "./primitives/AdminStatusBadge";
+import { lifecycleTone } from "./primitives/statusTone";
+
+const PAGE_SIZE = 20;
+
+/** "Tất cả", the signed-in person's work buckets, or the system-generated drafts. */
+export type BankView = "all" | WorkBucket | "ai";
+
+export function viewParams(view: BankView): { mine?: WorkBucket; source?: "ai" } {
+  if (view === "all") return {};
+  if (view === "ai") return { source: "ai" };
+  return { mine: view };
+}
+
+/** Roles that may add questions or import a file (author or ADMIN; ADMIN commits the import). */
+export function bankAbilities(roles: readonly string[]): { add: boolean; import: boolean } {
+  const held = new Set(roles.map((role) => role.toUpperCase()));
+  const admin = held.has("ADMIN");
+  return {
+    add: admin || held.has("QUESTION_AUTHOR"),
+    import: admin || held.has("QUESTION_AUTHOR"),
+  };
+}
 
 export default function AdminQuestionBankClient() {
   const { t } = useLanguage();
+  /** Translated label for an enum value, or the raw value if no key exists yet. */
+  const label = (group: string, value: string) => {
+    const key = `fixAdmin.ops.qb.${group}.${value}`;
+    const text = t(key);
+    return text && text !== key ? text : value;
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [reloadToken, setReloadToken] = useState(0);
   const [questions, setQuestions] = useState<QuestionBankItem[]>([]);
   const [total, setTotal] = useState<number | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error" | "forbidden">("loading");
+  const [view, setView] = useState<BankView>("all");
+  const [work, setWork] = useState<WorkSummary | null>(null);
+
+  useEffect(() => {
+    questionBankApi.workSummary().then(({ data }) => setWork(data)).catch(() => setWork(null));
+  }, [reloadToken]);
 
   useEffect(() => {
     const timer = window.setTimeout(async () => {
       try {
         setState("loading");
-        const { data } = await questionBankApi.list({ q: searchQuery || undefined, difficultyBand: difficultyFilter === "all" ? undefined : difficultyFilter });
-        setQuestions(data.items); setTotal(data.total); setState("ready");
+        const { data } = await questionBankApi.list({
+          q: searchQuery || undefined,
+          difficultyBand: difficultyFilter === "all" ? undefined : difficultyFilter,
+          ...viewParams(view),
+          page,
+          pageSize: PAGE_SIZE,
+        });
+        setQuestions(data.items.slice(0, PAGE_SIZE)); setTotal(data.total); setState("ready");
       } catch (error: unknown) {
         setState((error as { response?: { status?: number } }).response?.status === 403 ? "forbidden" : "error");
       }
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [searchQuery, difficultyFilter]);
+  }, [searchQuery, difficultyFilter, view, page, reloadToken]);
 
   const pending = state === "loading";
+  const abilities = work ? bankAbilities(work.roles) : { add: true, import: true };
+  const buckets = (Object.keys(work?.buckets ?? {}) as WorkBucket[]);
+  const waiting = buckets.reduce((sum, bucket) => sum + (work?.buckets[bucket] ?? 0), 0);
+  const views: { key: BankView; label: string; count?: number }[] = [
+    { key: "all", label: t("admin.common.all") },
+    ...buckets.map((bucket) => ({ key: bucket, label: t(`adminRoles.work.${bucket}`), count: work?.buckets[bucket] })),
+    { key: "ai", label: t("adminRoles.work.ai"), count: work?.generatedInReview },
+  ];
+  const th = "px-4 py-4 first:pl-6 last:pr-6";
   return <div className="space-y-6">
-    <AdminPageHeader title={t("admin.questionBank.title") || "Ngân hàng câu hỏi phỏng vấn"} description={t("admin.questionBank.subtitle") || "Kho câu hỏi versioned, taxonomy và rubric từ Core"} breadcrumbs={[{ label: "Admin", href: "/admin/dashboard" }, { label: t("admin.sidebar.questionBank") || "Ngân hàng câu hỏi" }]} statusBadge={<AdminStatusBadge status={state === "error" ? "error" : "info"} label={pending ? "Đang tải" : "Dữ liệu từ Core"} />} primaryAction={<div className="flex gap-2"><Link href="/admin/question-bank/import" className="rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B]">Import câu hỏi</Link><Link href="/admin/question-bank/new" className="rounded-xl bg-[#204195] px-3.5 py-2 text-xs font-semibold text-white">Thêm câu hỏi</Link></div>} />
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><AdminMetricCard title="Tổng số câu hỏi" value={total} subtitle="Theo bộ lọc hiện tại" icon={FileQuestion} isPending={pending} /><AdminMetricCard title="Năng lực đánh giá" value={null} subtitle="Có trong trang chi tiết" icon={Filter} isPending={pending} /><AdminMetricCard title="Thời lượng trả lời" value={null} subtitle="Theo từng version" icon={Clock} isPending={pending} /></div>
-    <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between"><div className="relative flex-1 max-w-md"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#607096]" /><input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-9 pr-4 text-xs" placeholder="Tìm stable key hoặc nội dung câu hỏi..." /></div><div className="flex items-center gap-2 overflow-x-auto">{["all", "EASY", "MEDIUM", "HARD"].map((value) => <button key={value} type="button" onClick={() => setDifficultyFilter(value)} className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold ${difficultyFilter === value ? "bg-[#204195] text-white" : "border border-[#DCE4F3] text-[#607096]"}`}>{value === "all" ? "Tất cả" : value}</button>)}</div></div>
-    <div className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs"><div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr className="border-b bg-[#F8FAFC] text-[11px] font-bold uppercase text-[#607096]"><th className="px-6 py-4">Question</th><th className="px-6 py-4">Năng lực chính</th><th className="px-6 py-4 text-center">Độ khó</th><th className="px-6 py-4 text-center">Loại</th><th className="px-6 py-4 text-center">Thời lượng</th><th className="px-6 py-4 text-right">Trạng thái</th></tr></thead><tbody className="divide-y divide-[#EAEFF8]">
-      {pending ? <tr><td colSpan={6} className="p-8 text-center text-[#607096]">Đang tải Question Bank…</td></tr> : state === "forbidden" ? <tr><td colSpan={6} className="p-8 text-center text-red-700">Bạn không có quyền truy cập Ngân hàng câu hỏi.</td></tr> : state === "error" ? <tr><td colSpan={6} className="p-8"><AdminEmptyState variant="error" title="Không tải được dữ liệu" description="Core không phản hồi. Vui lòng thử lại sau." /></td></tr> : questions.length === 0 ? <tr><td colSpan={6} className="p-8"><AdminEmptyState title="Chưa có câu hỏi phù hợp" description="Thay đổi bộ lọc hoặc tạo dữ liệu draft từ workflow authoring." /></td></tr> : questions.map((question) => <tr key={question.questionId} className="hover:bg-[#F8FAFC]"><td className="px-6 py-4"><p className="font-bold text-[#14244B]">{question.stableKey} <span className="font-medium text-[#607096]">v{question.currentVersion.version}</span></p><p className="mt-1 max-w-md truncate text-[#607096]">{question.currentVersion.canonicalText}</p></td><td className="px-6 py-4">{question.taxonomy.primaryCompetency?.conceptId || "—"}</td><td className="px-6 py-4 text-center">{question.currentVersion.difficultyBand}</td><td className="px-6 py-4 text-center">{question.currentVersion.questionType}</td><td className="px-6 py-4 text-center">{question.currentVersion.softAnswerSeconds}s</td><td className="px-6 py-4 text-right">{question.currentVersion.status}</td></tr>)}
-    </tbody></table></div></div>
+    <AdminPageHeader
+      title={t("admin.questionBank.title")}
+      description={t("admin.questionBank.subtitle")}
+      breadcrumbs={[{ label: "Quản trị", href: "/admin/dashboard" }, { label: t("admin.sidebar.questionBank") }]}
+      statusBadge={<AdminStatusBadge status={state === "error" ? "error" : "info"} label={pending ? t("admin.common.loading") : t("fixAdmin.ops.common.fromCore")} />}
+      primaryAction={<div className="flex flex-wrap gap-2">
+        <Link href="/admin/question-bank/insights" className="inline-flex items-center gap-1.5 rounded-full border border-[#F3DFB0] bg-[#FFFBF2] px-3.5 py-2 text-xs font-semibold text-[#8A5A00] hover:bg-[#FFF6E0]"><Sparkles className="size-3.5" aria-hidden="true" />{t("bankAi.title")}</Link>
+        {abilities.import && <Link href="/admin/question-bank/import" className="rounded-full border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#14244B] hover:bg-[#F8FAFC]">{t("fixAdmin.ops.qb.import")}</Link>}
+        {abilities.add && <Link href="/admin/question-bank/new" className="rounded-full bg-[#204195] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#183275]">{t("fixAdmin.ops.qb.add")}</Link>}
+      </div>}
+    />
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <AdminMetricCard title={t("fixAdmin.ops.qb.stat.total")} value={total} subtitle={t("fixAdmin.ops.qb.stat.totalSub")} icon={FileQuestion} isPending={pending} pendingText={t("admin.common.loading")} />
+      <AdminMetricCard title={t("adminRoles.stat.waiting")} value={work ? waiting : null} subtitle={t("adminRoles.stat.waitingSub")} icon={Inbox} isPending={!work} pendingText={t("admin.common.loading")} />
+      <AdminMetricCard title={t("adminRoles.stat.ai")} value={work ? work.generatedInReview : null} subtitle={t("adminRoles.stat.aiSub")} icon={Sparkles} isPending={!work} pendingText={t("admin.common.loading")} />
+    </div>
+    <div className="flex flex-wrap gap-2" role="group" aria-label={t("adminRoles.work.label")}>
+      {views.map((item) => <button key={item.key} type="button" aria-pressed={view === item.key} onClick={() => { setView(item.key); setPage(1); }} className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold ${view === item.key ? "bg-[#204195] text-white" : "border border-[#DCE4F3] bg-white text-[#607096] hover:text-[#204195]"}`}>
+        {item.label}
+        {item.count !== undefined && <span className={`rounded-full px-1.5 text-[11px] tabular-nums ${view === item.key ? "bg-white/20" : "bg-[#EEF2FD] text-[#204195]"}`}>{item.count}</span>}
+      </button>)}
+    </div>
+    <div className="flex flex-col gap-3 rounded-3xl border border-[#DCE4F3] bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative min-w-0 flex-1 sm:max-w-md">
+        <label htmlFor="admin-qb-search" className="sr-only">{t("fixAdmin.ops.qb.searchLabel")}</label>
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#607096]" aria-hidden="true" />
+        <input id="admin-qb-search" value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} className="w-full rounded-full border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-9 pr-4 text-xs text-[#14244B] focus:border-[#204195] focus:bg-white focus:outline-none" placeholder={t("fixAdmin.ops.qb.searchPlaceholder")} />
+      </div>
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("fixAdmin.ops.qb.difficultyFilter")}>
+        {["all", ...DIFFICULTY_BANDS].map((value) => <button key={value} type="button" aria-pressed={difficultyFilter === value} onClick={() => { setDifficultyFilter(value); setPage(1); }} className={`rounded-full px-3.5 py-1.5 text-xs font-semibold ${difficultyFilter === value ? "bg-[#204195] text-white" : "border border-[#DCE4F3] text-[#607096] hover:text-[#204195]"}`}>{value === "all" ? t("admin.common.all") : label("difficulty", value)}</button>)}
+      </div>
+    </div>
+    <div className="overflow-hidden rounded-3xl border border-[#DCE4F3] bg-white shadow-xs">
+      <div className="overflow-x-auto"><table className="w-full min-w-[880px] table-fixed text-left text-xs"><thead><tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase text-[#607096]">
+        <th className={`${th} w-[38%]`}>{t("fixAdmin.ops.qb.table.question")}</th>
+        <th className={`${th} w-[18%]`}>{t("fixAdmin.ops.qb.table.competency")}</th>
+        <th className={`${th} w-[10%] whitespace-nowrap text-center`}>{t("fixAdmin.ops.qb.table.difficulty")}</th>
+        <th className={`${th} w-[12%] text-center`}>{t("fixAdmin.ops.qb.table.type")}</th>
+        <th className={`${th} w-[10%] whitespace-nowrap text-center`}>{t("fixAdmin.ops.qb.table.duration")}</th>
+        <th className={`${th} w-[12%] whitespace-nowrap text-right`}>{t("fixAdmin.ops.qb.table.status")}</th>
+      </tr></thead><tbody className="divide-y divide-[#EAEFF8]">
+        {pending ? <tr><td colSpan={6} className="p-8 text-center text-[#607096]">{t("fixAdmin.ops.qb.loading")}</td></tr>
+          : state === "forbidden" ? <tr><td colSpan={6} className="p-8 text-center text-[#C43B3B]">{t("fixAdmin.ops.qb.forbidden")}</td></tr>
+          : state === "error" ? <tr><td colSpan={6} className="p-8"><AdminEmptyState variant="error" title={t("fixAdmin.ops.qb.errorTitle")} description={t("fixAdmin.ops.qb.errorDesc")} onRetry={() => setReloadToken((n) => n + 1)} /></td></tr>
+          : questions.length === 0 ? <tr><td colSpan={6} className="p-8"><AdminEmptyState title={t("fixAdmin.ops.qb.emptyTitle")} description={t("fixAdmin.ops.qb.emptyDesc")} /></td></tr>
+          : questions.map((question) => <tr key={question.questionId} className="hover:bg-[#F8FAFC]">
+            <td className="px-4 py-4 align-top"><div className="min-w-0 space-y-1">
+              <Link href={`/admin/question-bank/${question.questionId}`} title={question.stableKey} className="block font-bold text-[#14244B] [overflow-wrap:anywhere] hover:underline">{question.stableKey}</Link>
+              <span className="flex flex-wrap gap-1.5">
+                <span className="inline-flex rounded-md bg-[#EEF2FD] px-1.5 py-0.5 text-[11px] font-semibold text-[#204195]" title={`${t("fixAdmin.ops.qb.versionPrefix")} ${question.currentVersion.version}`}>v{question.currentVersion.version}</span>
+                {question.currentVersion.generated && <span className="inline-flex rounded-md bg-[#FFF6E0] px-1.5 py-0.5 text-[11px] font-semibold text-[#8A5A00]">{t("adminRoles.aiBadge")}</span>}
+              </span>
+              <p className="line-clamp-2 break-words text-[#607096]" title={question.currentVersion.canonicalText}>{question.currentVersion.canonicalText}</p>
+            </div></td>
+            <td className="px-4 py-4 align-top text-[#14244B] [overflow-wrap:anywhere]">{question.taxonomy.primaryCompetency?.conceptId || "—"}</td>
+            <td className="whitespace-nowrap px-4 py-4 text-center align-top text-[#14244B]">{label("difficulty", question.currentVersion.difficultyBand)}</td>
+            <td className="px-4 py-4 text-center align-top text-[#14244B]">{label("type", question.currentVersion.questionType)}</td>
+            <td className="whitespace-nowrap px-4 py-4 text-center align-top text-[#14244B] tabular-nums">{question.currentVersion.softAnswerSeconds} giây</td>
+            <td className="px-4 py-4 text-right align-top"><AdminStatusBadge status={lifecycleTone(question.currentVersion.status)} label={label("status", question.currentVersion.status)} className="whitespace-nowrap" /></td>
+          </tr>)}
+      </tbody></table></div>
+      {state === "ready" && total !== null && total > PAGE_SIZE && (
+        <div className="border-t border-[#EAEFF8] bg-[#F8FAFC] px-6 py-3">
+          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+        </div>
+      )}
+    </div>
   </div>;
 }

@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# temp
+tmp/
+temp/
+*.tmp
+.dev_md5.txt
+.dev_*.txt

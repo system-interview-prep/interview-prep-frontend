@@ -1,22 +1,53 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { jobProfileApi } from "@features/admin/services/jobProfile.service";
-import { userCvApi } from "@features/resume/services/userCv.service";
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
-  analyzeMatchClarifications,
+  generateMatchClarificationQuestions,
+  prepareMatchClarifications,
+  rescoreMatchClarifications,
+  type ClarificationAnswerOutcome,
+  type MatchClarificationAnalysis,
+  type CandidateClarificationAnswer,
   type ClarificationRequest,
 } from "../services/clarification.service";
+import type { MatchResult } from "@/lib/aiService";
 import type { HumanizedRequirement, RequirementGroup } from "../types/match-details.types";
 import { ClarificationPanel } from "./ClarificationPanel";
+import { CvEvidencePane } from "./CvEvidencePane";
 import { EvidenceInspector } from "./EvidenceInspector";
 import { RequirementGroupCard } from "./RequirementGroupCard";
 import { RequirementItemCard } from "./RequirementItemCard";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
+
+const DESKTOP_QUERY = "(min-width: 1024px)";
+
+function subscribeDesktop(onChange: () => void) {
+  const mql = window.matchMedia(DESKTOP_QUERY);
+  mql.addEventListener("change", onChange);
+  return () => mql.removeEventListener("change", onChange);
+}
+
+/** True at the `lg` breakpoint, so the CV pane (and its PDF) mounts once, not twice. */
+function useIsDesktop() {
+  return useSyncExternalStore(
+    subscribeDesktop,
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+    () => false,
+  );
+}
 
 export interface CandidateMatchDetailsProps {
   requirements: HumanizedRequirement[];
   groups?: RequirementGroup[];
   emptyMessage?: string;
+  candidateId?: string;
+  jobId?: string;
+  onMatchUpdated?: (result: MatchResult) => void;
+  /** CV text the parser read; enables the side-by-side CV pane. */
+  cvRawText?: string | null;
+  cvContentType?: string;
+  cvFileName?: string;
 }
 
 type StatusFilter = "all" | "met" | "unknown" | "not_met";
@@ -24,15 +55,30 @@ type StatusFilter = "all" | "met" | "unknown" | "not_met";
 export function CandidateMatchDetails({
   requirements,
   groups = [],
-  emptyMessage = "Chưa có kết quả đối chiếu cho vị trí này.",
+  emptyMessage,
+  candidateId = "",
+  jobId = "",
+  onMatchUpdated,
+  cvRawText,
+  cvContentType,
+  cvFileName,
 }: CandidateMatchDetailsProps) {
+  const { t } = useLanguage();
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("all");
   const [selectedRequirementId, setSelectedRequirementId] = useState<string | null>(() =>
     requirements[0]?.id ?? groups[0]?.items[0]?.id ?? null
   );
   const [clarificationRequests, setClarificationRequests] = useState<ClarificationRequest[]>([]);
+  const [clarificationAnalysis, setClarificationAnalysis] = useState<MatchClarificationAnalysis | null>(null);
   const [clarificationLoading, setClarificationLoading] = useState(false);
+  const [clarificationPhase, setClarificationPhase] = useState<"idle" | "generating" | "ready" | "unavailable" | "error">("idle");
   const [clarificationError, setClarificationError] = useState<string | null>(null);
+  const [clarificationSubmitting, setClarificationSubmitting] = useState(false);
+  const [clarificationSubmitError, setClarificationSubmitError] = useState<string | null>(null);
+  const [processedAnswers, setProcessedAnswers] = useState<ClarificationAnswerOutcome[]>([]);
+  /** Bumped by "Thử lại" to load the clarification questions again. */
+  const [clarificationReload, setClarificationReload] = useState(0);
+  const isDesktop = useIsDesktop();
 
   const summaryCounts = useMemo(
     () =>
@@ -60,53 +106,64 @@ export function CandidateMatchDetails({
   );
 
   useEffect(() => {
-    if (!unknownRequirementKey || typeof window === "undefined") {
+    if (!unknownRequirementKey || !candidateId || !jobId) {
       setClarificationRequests([]);
+      setClarificationAnalysis(null);
       setClarificationError(null);
       setClarificationLoading(false);
+      setClarificationPhase("idle");
       return;
     }
 
-    const params = new URLSearchParams(window.location.search);
-    const candidateId = params.get("candidateId")?.trim() ?? "";
-    const jobId = params.get("jobId")?.trim() ?? "";
-    if (!candidateId || !jobId) return;
-
     let cancelled = false;
-    const unknownIds = new Set(unknownRequirementKey.split("|").filter(Boolean));
-
     const loadClarifications = async () => {
-      setClarificationLoading(true);
+      // Jev runs first. Do not show a question-generation spinner while the
+      // system is still deciding whether asking the candidate is appropriate.
+      setClarificationLoading(false);
+      setClarificationPhase("idle");
       setClarificationError(null);
-
       try {
-        const [jobResponse, cvResponse] = await Promise.all([
-          jobProfileApi.get(jobId),
-          userCvApi.get(candidateId),
-        ]);
-        const job = jobResponse.data.structuredData;
-        const resume = cvResponse.data.parsedData;
+        const preparation = await prepareMatchClarifications({ candidateId, jobId });
+        if (cancelled) return;
 
-        if (!job || !resume) {
-          throw new Error("canonical_match_input_unavailable");
+        const clarificationCandidates = preparation.clarificationCandidates ?? [];
+        if (preparation.clarificationStatus !== "ready" || clarificationCandidates.length === 0) {
+          setClarificationRequests([]);
+          setClarificationAnalysis(null);
+          setClarificationPhase("idle");
+          return;
         }
 
-        const analysis = await analyzeMatchClarifications({
-          schemaVersion: "2.1",
-          job: job as Record<string, unknown>,
-          resume: resume as unknown as Record<string, unknown>,
-          asyncProcessing: false,
+        // Jev has passed the ask-candidate gate (confidence >= 0.75).
+        // Only now should the FE tell the user that a question is being made.
+        setClarificationPhase("generating");
+        setClarificationLoading(true);
+        const analysis = await generateMatchClarificationQuestions({
+          candidateId,
+          jobId,
+          requirementIds: clarificationCandidates.map((item) => item.requirementId),
+          clarificationToken: preparation.clarificationToken,
         });
-
+        const actualUnknownIds = new Set(
+          analysis.matchResult.requirementResults
+            .filter((item) => item.status === "unknown")
+            .map((item) => item.requirementId)
+        );
         if (!cancelled) {
+          setClarificationAnalysis(analysis);
           setClarificationRequests(
-            analysis.clarificationRequests.filter((request) => unknownIds.has(request.requirementId))
+            analysis.clarificationRequests.filter((request) => actualUnknownIds.has(request.requirementId))
+          );
+          setClarificationPhase(
+            analysis.clarificationRequests.length > 0 ? "ready" : "unavailable"
           );
         }
       } catch {
         if (!cancelled) {
           setClarificationRequests([]);
+          setClarificationAnalysis(null);
           setClarificationError("clarification_unavailable");
+          setClarificationPhase("error");
         }
       } finally {
         if (!cancelled) setClarificationLoading(false);
@@ -117,7 +174,27 @@ export function CandidateMatchDetails({
     return () => {
       cancelled = true;
     };
-  }, [unknownRequirementKey]);
+  }, [candidateId, jobId, unknownRequirementKey, clarificationReload]);
+
+  const submitClarificationAnswers = async (answers: CandidateClarificationAnswer[]) => {
+    if (!clarificationAnalysis || !candidateId || !jobId || answers.length === 0) return;
+    setClarificationSubmitting(true);
+    setClarificationSubmitError(null);
+    try {
+      const result = await rescoreMatchClarifications({
+        candidateId,
+        jobId,
+        initialAnalysis: clarificationAnalysis,
+        answers,
+      });
+      setProcessedAnswers(result.processedAnswers);
+      onMatchUpdated?.(result.finalMatchResult);
+    } catch {
+      setClarificationSubmitError("fit.details.rescoreError");
+    } finally {
+      setClarificationSubmitting(false);
+    }
+  };
 
   const groupedRequirementIds = useMemo(
     () => new Set(groups.flatMap((group) => group.items.map((item) => item.id))),
@@ -138,6 +215,18 @@ export function CandidateMatchDetails({
 
   const selectedRequirement =
     allRequirements.find((item) => item.id === selectedRequirementId) ?? null;
+  const showCvPane = Boolean((cvRawText && cvRawText.trim()) || candidateId);
+  const cvPane = showCvPane ? (
+    <CvEvidencePane
+      requirements={allRequirements}
+      selectedRequirementId={selectedRequirementId}
+      onSelectRequirement={setSelectedRequirementId}
+      rawText={cvRawText}
+      cvId={candidateId}
+      contentType={cvContentType}
+      fileName={cvFileName}
+    />
+  ) : null;
   const matchesFilter = (item: HumanizedRequirement) =>
     activeFilter === "all" || item.status === activeFilter;
 
@@ -170,17 +259,16 @@ export function CandidateMatchDetails({
   const statusFilters: Array<{ id: StatusFilter; label: string; count: number }> = [
     {
       id: "all",
-      label: "Tất cả",
+      label: t("fit.details.filterAll"),
       count: summaryCounts.met + summaryCounts.unknown + summaryCounts.notMet,
     },
-    { id: "met", label: "Phù hợp", count: summaryCounts.met },
-    { id: "unknown", label: "Cần xác minh", count: summaryCounts.unknown },
-    { id: "not_met", label: "Chưa đáp ứng", count: summaryCounts.notMet },
+    { id: "met", label: t("fit.status.met"), count: summaryCounts.met },
+    { id: "unknown", label: t("fit.status.needsVerification"), count: summaryCounts.unknown },
+    { id: "not_met", label: t("fit.status.notMet"), count: summaryCounts.notMet },
   ];
 
   const renderSection = (
     label: string,
-    subtext: string,
     section: { standalone: HumanizedRequirement[]; groups: RequirementGroup[] },
     summary?: { met: number; total: number }
   ) => {
@@ -188,25 +276,31 @@ export function CandidateMatchDetails({
 
     return (
       <section className="space-y-2" aria-label={label}>
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-3">
-          <div>
-            <h2 className="text-base font-semibold text-slate-900">{label}</h2>
-            <p className="mt-0.5 text-xs leading-5 text-slate-500">{subtext}</p>
-          </div>
+        <div className="flex items-center justify-between gap-4 border-b border-[#EAEFF8] pb-3">
+          <h2 className="min-w-0 text-base font-semibold text-[#14244B]">{label}</h2>
           {summary && (
-            <span className="shrink-0 pt-0.5 text-xs font-medium text-slate-500">
-              {summary.met} / {summary.total} phù hợp
+            <span className="shrink-0 pt-0.5 text-xs font-medium text-[#607096]">
+              {fmt(t("fit.details.sectionMatched"), { met: summary.met, total: summary.total })}
             </span>
           )}
         </div>
         <div className="space-y-2">
           {section.groups.map((group) => (
-            <RequirementGroupCard
-              key={group.groupId}
-              group={group}
-              selectedId={selectedRequirementId ?? undefined}
-              onSelect={setSelectedRequirementId}
-            />
+            group.items.length === 1 ? (
+              <RequirementItemCard
+                key={group.groupId}
+                item={group.items[0]}
+                selectedId={selectedRequirementId ?? undefined}
+                onSelect={setSelectedRequirementId}
+              />
+            ) : (
+              <RequirementGroupCard
+                key={group.groupId}
+                group={group}
+                selectedId={selectedRequirementId ?? undefined}
+                onSelect={setSelectedRequirementId}
+              />
+            )
           ))}
           {section.standalone.map((item) => (
             <RequirementItemCard
@@ -223,18 +317,18 @@ export function CandidateMatchDetails({
 
   if (requirements.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-sm text-slate-500">
-        {emptyMessage}
+      <div className="rounded-3xl bg-[#F8FAFC] p-8 text-center text-sm text-[#607096] ring-1 ring-[#DCE4F3]">
+        {emptyMessage ?? t("fit.details.empty")}
       </div>
     );
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
-      <div className="border-b border-slate-200 px-4 py-3.5 sm:px-5">
+    <section className="min-w-0 overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white">
+      <div className="border-b border-[#EAEFF8] px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <h2 className="text-lg font-semibold tracking-tight text-slate-900">Tiêu chí tuyển dụng</h2>
-          <div className="flex flex-wrap items-center gap-1" aria-label="Lọc theo trạng thái">
+          <h2 className="text-lg font-bold text-[#14244B]">{t("fit.details.title")}</h2>
+          <div className="flex flex-wrap items-center gap-1" aria-label={t("fit.details.filterAria")}>
             {statusFilters.map((filter) => {
               const isActive = activeFilter === filter.id;
               return (
@@ -243,16 +337,16 @@ export function CandidateMatchDetails({
                   type="button"
                   onClick={() => setActiveFilter(filter.id)}
                   aria-pressed={isActive}
-                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${
                     isActive
-                      ? "bg-slate-900 text-white"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      ? "bg-[#14244B] text-white"
+                      : "text-[#607096] hover:bg-[#F0F4FC] hover:text-[#14244B]"
                   }`}
                 >
                   {filter.label}
                   <span
                     className={`rounded-full px-1.5 text-[10px] ${
-                      isActive ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-500"
+                      isActive ? "bg-white/20 text-white" : "bg-[#F0F4FC] text-[#607096]"
                     }`}
                   >
                     {filter.count}
@@ -264,45 +358,72 @@ export function CandidateMatchDetails({
         </div>
       </div>
 
-      <div className="grid min-h-[520px] lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] lg:divide-x lg:divide-slate-200">
+      <div
+        className={`grid min-h-[640px] grid-cols-1 lg:divide-x lg:divide-[#EAEFF8] ${
+          showCvPane
+            ? "lg:grid-cols-[minmax(420px,0.95fr)_minmax(0,1.25fr)]"
+            : "lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]"
+        }`}
+      >
         <div className="min-w-0 space-y-5 p-4 sm:p-5">
-          {summaryCounts.unknown > 0 && (
-            <ClarificationPanel
-              requests={clarificationRequests}
-              requirements={allRequirements}
-              loading={clarificationLoading}
-              error={clarificationError}
-            />
-          )}
-
           {hasVisibleCriteria ? (
             <>
               {renderSection(
-                "Yêu cầu bắt buộc",
-                "Những điều kiện chính của vị trí",
+                t("fit.details.mustHave"),
                 mustHave,
                 mustHaveSummary
               )}
               {renderSection(
-                "Tiêu chí ưu tiên",
-                "Những tiêu chí giúp hồ sơ phù hợp hơn",
+                t("fit.details.preferred"),
                 preferred,
                 preferredSummary
               )}
-              {renderSection("Tiêu chuẩn khác", "Các điều kiện bổ sung của vị trí", other)}
+              {renderSection(t("fit.details.other"), other)}
             </>
           ) : (
-            <div className="flex items-center justify-center py-16 text-xs text-slate-400">
-              Không có tiêu chí nào phù hợp với bộ lọc hiện tại.
+            <div className="flex items-center justify-center py-16 text-xs text-[#9AA6C2]">
+              {t("fit.details.noFilterMatch")}
             </div>
+          )}
+
+          {summaryCounts.unknown > 0 && clarificationPhase !== "idle" && (
+            <ClarificationPanel
+              requests={clarificationRequests}
+              requirements={allRequirements}
+              loading={clarificationLoading}
+              error={
+                clarificationError ||
+                (clarificationPhase === "unavailable" ? "clarification_generation_unavailable" : null)
+              }
+              submitting={clarificationSubmitting}
+              submissionError={clarificationSubmitError ? t(clarificationSubmitError) : null}
+              processedAnswers={processedAnswers}
+              onSubmit={(answers) => void submitClarificationAnswers(answers)}
+              onRetry={
+                clarificationError === "clarification_unavailable"
+                  ? () => setClarificationReload((n) => n + 1)
+                  : undefined
+              }
+            />
           )}
         </div>
 
-        <aside className="hidden min-w-0 lg:block" aria-label="Bằng chứng đối chiếu">
-          <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto p-5">
-            <EvidenceInspector requirement={selectedRequirement} />
-          </div>
+        <aside className="hidden min-w-0 lg:block" aria-label={t("fit.details.evidenceAria")}>
+          {cvPane ? (
+            isDesktop ? <div className="min-h-[720px]">{cvPane}</div> : null
+          ) : (
+            <div className="p-5">
+              <EvidenceInspector requirement={selectedRequirement} />
+            </div>
+          )}
         </aside>
+
+        {/* Narrow screens: the CV pane stacks under the criteria. */}
+        {cvPane && !isDesktop && (
+          <div className="min-h-[680px] border-t border-[#EAEFF8] lg:hidden" aria-label={t("fit.details.cvAria")}>
+            {cvPane}
+          </div>
+        )}
       </div>
     </section>
   );

@@ -3,132 +3,121 @@
 import { useId, useMemo, useState } from "react";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
-import {
-  Headset,
-  Search,
-  X,
-  Video,
-  FileText,
-  Mic,
-  CreditCard,
-  Check,
-  ArrowRight,
-  HelpCircle,
-  FilterX,
-  SearchX,
-  ChevronDown,
-  Lightbulb,
-  CheckCircle2,
-  ThumbsUp,
-  ThumbsDown,
-  PhoneCall,
-  Mail,
-  MessageSquare,
-  CheckCircle,
-  Loader2,
-  Send,
-} from "lucide-react";
-
-const TOPIC_ICONS = {
-  webrtc: Video,
-  cv: FileText,
-  voice: Mic,
-  payment: CreditCard,
-};
+import WorkspacePageHeader from "@features/resume/components/WorkspacePageHeader";
+import StatusNote from "@components/shared/StatusNote";
+import { Search, X, ChevronDown } from "lucide-react";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
 
 interface FaqItem {
   id: string;
   category: "webrtc" | "cv" | "voice" | "payment";
-  categoryLabel: string;
-  question: string;
-  answer: string;
-  tips?: string[];
+  /** i18n keys; translated at render. */
+  categoryLabelKey: string;
+  questionKey: string;
+  answerKey: string;
+  tipKeys?: string[];
 }
+
+const SUPPORT_EMAIL = "support@intervia.io";
 
 const FAQ_LIST: FaqItem[] = [
   {
     id: "faq-webrtc-permission",
     category: "webrtc",
-    categoryLabel: "Phòng phỏng vấn WebRTC",
-    question: "Làm thế nào khi phòng phỏng vấn không nhận micro hoặc camera?",
-    answer:
-      "Nguyên nhân phổ biến nhất là trình duyệt chưa được cấp quyền truy cập thiết bị hoặc đang bị ứng dụng khác (Zoom, Teams, Skype) chiếm quyền kiểm soát camera/micro.",
-    tips: [
-      "Nhấp vào biểu tượng Ổ khóa trên thanh địa chỉ trình duyệt (Chrome/Firefox/Edge/Safari).",
-      "Chọn 'Cài đặt trang web' (Site Settings) và chuyển Quyền Máy ảnh và Micro sang 'Cho phép' (Allow).",
-      "Đảm bảo đóng tất cả ứng dụng đang chạy nền có sử dụng webcam rồi tải lại trang.",
-      "Nếu dùng tai nghe Bluetooth, hãy kiểm tra Input Source trong phần Cài đặt âm thanh của hệ điều hành.",
+    categoryLabelKey: "help.page.cat.webrtc",
+    questionKey: "help.page.faq.webrtcPermission.q",
+    answerKey: "help.page.faq.webrtcPermission.a",
+    tipKeys: [
+      "help.page.faq.webrtcPermission.tip1",
+      "help.page.faq.webrtcPermission.tip2",
+      "help.page.faq.webrtcPermission.tip3",
+      "help.page.faq.webrtcPermission.tip4",
     ],
   },
   {
     id: "faq-voice-interrupt",
     category: "voice",
-    categoryLabel: "Voice & Chat AI",
-    question: "Tôi có thể ngắt lời AI khi AI đang nói dở được không?",
-    answer:
-      "Hoàn toàn được! Bạn có thể ngắt lời AI bất cứ lúc nào để mô phỏng tương tác thực tế giữa người với người trong phòng phỏng vấn chuyên nghiệp.",
-    tips: [
-      "Bấm nút 'Dừng AI' (Interrupt) màu vàng trên thanh điều khiển phòng phỏng vấn.",
-      "Hoặc nhấn phím tắt Spacebar (Phím cách) trên bàn phím để dừng giọng đọc AI ngay lập tức.",
-      "Sau khi AI dừng, micro sẽ tự động thu lại giọng nói phản hồi mới nhất của bạn.",
+    categoryLabelKey: "help.page.cat.voice",
+    questionKey: "help.page.faq.voiceInterrupt.q",
+    answerKey: "help.page.faq.voiceInterrupt.a",
+    tipKeys: [
+      "help.page.faq.voiceInterrupt.tip1",
+      "help.page.faq.voiceInterrupt.tip2",
+      "help.page.faq.voiceInterrupt.tip3",
     ],
   },
   {
     id: "faq-cv-ats",
     category: "cv",
-    categoryLabel: "Chấm điểm CV & ATS",
-    question: "Tại sao điểm ATS cho CV của tôi lại thấp và làm sao để cải thiện?",
-    answer:
-      "Hệ thống phân tích CV theo chuẩn ATS quốc tế dựa trên 3 tiêu chí: Mức độ tương thích từ khóa kỹ thuật với JD, cấu trúc định dạng chuẩn và các thành tích có số liệu định lượng (theo mô hình STAR / XYZ).",
-    tips: [
-      "Nên xuất CV định dạng file PDF hoặc DOCX với dung lượng dưới 5MB.",
-      "Tránh để văn bản dạng ảnh hoặc bảng biểu phức tạp khiến máy quét OCR khó nhận diện.",
-      "Bổ sung các từ khóa công nghệ chính xác có trong tin tuyển dụng.",
-      "Sử dụng công cụ 'Tối ưu CV với AI' trong mục Quản lý CV để nhận các gợi ý viết lại từng gạch đầu dòng.",
+    categoryLabelKey: "help.page.cat.cv",
+    questionKey: "help.page.faq.cvAts.q",
+    answerKey: "help.page.faq.cvAts.a",
+    tipKeys: [
+      "help.page.faq.cvAts.tip1",
+      "help.page.faq.cvAts.tip2",
+      "help.page.faq.cvAts.tip3",
+      "help.page.faq.cvAts.tip4",
     ],
   },
   {
     id: "faq-payment-vietqr",
     category: "payment",
-    categoryLabel: "Gói cước & VietQR",
-    question: "Sau khi chuyển khoản VietQR, mất bao lâu tài khoản được kích hoạt gói?",
-    answer:
-      "Hệ thống tích hợp cổng thanh toán VietQR tự động quét biến động số dư và kích hoạt gói cước tài khoản của bạn chỉ sau 30 đến 60 giây.",
-    tips: [
-      "Quét đúng mã QR được tạo riêng cho đơn hàng (mã đã chứa sẵn nội dung chuyển khoản).",
-      "Không sửa đổi nội dung chuyển khoản để hệ thống đối soát chính xác 100%.",
-      "Nếu sau 3 phút gói cước chưa được cập nhật, hãy gửi mã giao dịch vào form hỗ trợ bên dưới để đội ngũ kỹ thuật đối soát ngay.",
+    categoryLabelKey: "help.page.cat.payment",
+    questionKey: "help.page.faq.paymentVietqr.q",
+    answerKey: "help.page.faq.paymentVietqr.a",
+    tipKeys: [
+      "help.page.faq.paymentVietqr.tip1",
+      "help.page.faq.paymentVietqr.tip2",
     ],
   },
   {
     id: "faq-interview-retake",
     category: "webrtc",
-    categoryLabel: "Phòng phỏng vấn WebRTC",
-    question: "Một buổi phỏng vấn thử có bị giới hạn số lần làm lại hoặc thời gian không?",
-    answer:
-      "Không giới hạn! Bạn có thể thực hiện lại nhiều lần cho cùng một vị trí tuyển dụng để cải thiện độ trôi chảy và mức độ tự tin.",
-    tips: [
-      "Thời lượng khuyến nghị mỗi buổi là 15 - 30 phút tương đương một vòng sơ vấn thực tế.",
-      "Sau mỗi lần làm lại, báo cáo AI sẽ so sánh sự tiến bộ của bạn so với các lần thử trước đó.",
-      "Bạn có thể tùy chỉnh độ khắt khe của AI trong mục Cài đặt tài khoản.",
+    categoryLabelKey: "help.page.cat.webrtc",
+    questionKey: "help.page.faq.interviewRetake.q",
+    answerKey: "help.page.faq.interviewRetake.a",
+    tipKeys: [
+      "help.page.faq.interviewRetake.tip1",
+      "help.page.faq.interviewRetake.tip2",
     ],
   },
   {
     id: "faq-data-privacy",
     category: "voice",
-    categoryLabel: "Voice & Chat AI",
-    question: "Dữ liệu âm thanh và hình ảnh của tôi có được bảo mật an toàn không?",
-    answer:
-      "Chúng tôi áp dụng mã hóa SSL/TLS cho toàn bộ luồng truyền tải WebRTC. Dữ liệu video chỉ được xử lý cục bộ trên trình duyệt để phân tích ánh mắt/cử chỉ và hoàn toàn KHÔNG lưu lại video nếu không có sự đồng ý của bạn.",
-    tips: [
-      "Toàn bộ lịch sử phỏng vấn thuộc quyền sở hữu của bạn.",
-      "Bạn có thể xuất toàn bộ bản ghi văn bản hoặc yêu cầu xóa vĩnh viễn dữ liệu trong trang Cài đặt.",
+    categoryLabelKey: "help.page.cat.voice",
+    questionKey: "help.page.faq.dataPrivacy.q",
+    answerKey: "help.page.faq.dataPrivacy.a",
+    tipKeys: [
+      "help.page.faq.dataPrivacy.tip1",
+      "help.page.faq.dataPrivacy.tip2",
+      "help.page.faq.dataPrivacy.tip3",
     ],
   },
 ];
 
+const TOPICS: Array<{ id: FaqItem["category"]; titleKey: string; descKey: string }> = [
+  { id: "webrtc", titleKey: "help.page.cat.webrtc", descKey: "help.page.topic.webrtc.desc" },
+  { id: "cv", titleKey: "help.page.cat.cv", descKey: "help.page.topic.cv.desc" },
+  { id: "voice", titleKey: "help.page.cat.voice", descKey: "help.page.topic.voice.desc" },
+  { id: "payment", titleKey: "help.page.cat.payment", descKey: "help.page.topic.payment.desc" },
+];
+
+/** Quick-search words (i18n keys) that appear in the translated FAQ text above. */
+const QUICK_SEARCH = ["help.page.quick.micro", "help.page.quick.camera", "help.page.quick.interrupt", "help.page.quick.ats", "help.page.quick.transfer", "help.page.quick.privacy"];
+
+const TICKET_CATEGORIES = [
+  { id: "webrtc", labelKey: "help.page.ticket.webrtc" },
+  { id: "ai_voice", labelKey: "help.page.ticket.aiVoice" },
+  { id: "cv_ats", labelKey: "help.page.ticket.cvAts" },
+  { id: "payment", labelKey: "help.page.ticket.payment" },
+  { id: "feature", labelKey: "help.page.ticket.feature" },
+  { id: "other", labelKey: "help.page.ticket.other" },
+];
+
 export default function HelpCenterPage() {
   const { profile } = useAuthProfile();
+  const { t } = useLanguage();
 
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
@@ -145,8 +134,8 @@ export default function HelpCenterPage() {
   const [ticketSubject, setTicketSubject] = useState("");
   const [ticketDescription, setTicketDescription] = useState("");
   const [ticketEmail, setTicketEmail] = useState(profile?.email || "");
-  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
-  const [ticketSuccessId, setTicketSuccessId] = useState<string | null>(null);
+  // There is no ticket API: the form only drafts an email in the user's mail app.
+  const [mailDraftOpened, setMailDraftOpened] = useState(false);
 
   // Form Accessibility IDs
   const searchInputId = useId();
@@ -163,13 +152,13 @@ export default function HelpCenterPage() {
       if (!q) return matchCategory;
 
       const matchText =
-        item.question.toLowerCase().includes(q) ||
-        item.answer.toLowerCase().includes(q) ||
-        (item.tips && item.tips.some((tip) => tip.toLowerCase().includes(q)));
+        t(item.questionKey).toLowerCase().includes(q) ||
+        t(item.answerKey).toLowerCase().includes(q) ||
+        (item.tipKeys && item.tipKeys.some((tipKey) => t(tipKey).toLowerCase().includes(q)));
 
       return matchCategory && matchText;
     });
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, t]);
 
   // Handle Feedback click
   const handleFeedback = (id: string, type: "yes" | "no") => {
@@ -181,126 +170,84 @@ export default function HelpCenterPage() {
     e.preventDefault();
     if (!ticketSubject.trim() || !ticketDescription.trim()) return;
 
-    setIsSubmittingTicket(true);
-    setTimeout(() => {
-      const generatedId = `TK-${Math.floor(1000 + Math.random() * 9000)}`;
-      setIsSubmittingTicket(false);
-      setTicketSuccessId(generatedId);
-      setTicketSubject("");
-      setTicketDescription("");
-    }, 800);
+    const categoryLabelKey = TICKET_CATEGORIES.find((c) => c.id === ticketCategory)?.labelKey;
+    const categoryLabel = categoryLabelKey ? t(categoryLabelKey) : ticketCategory;
+    const subject = `[${categoryLabel}] ${ticketSubject.trim()}`;
+    const body = fmt(t("help.page.ticket.mailBody"), {
+      description: ticketDescription.trim(),
+      category: categoryLabel,
+      email: ticketEmail.trim(),
+    });
+    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    setMailDraftOpened(true);
   };
 
   return (
     <UserDashboardShell>
-      <div className="min-h-full bg-[#F8FAFC] p-4 sm:p-6 lg:p-10">
-        <div className="mx-auto max-w-6xl space-y-8">
-          {/* HERO HEADER & SEARCH */}
-          <header className="relative overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-10">
-            <div className="mx-auto max-w-3xl space-y-6 text-center">
-              {/* Eyebrow */}
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3.5 py-1 text-xs font-semibold text-[#204195]">
-                <Headset className="size-3.5" />
-                HỖ TRỢ 24/7 &amp; HƯỚNG DẪN KỸ THUẬT
-              </div>
-
-              {/* Title */}
-              <h1 className="text-2xl font-bold tracking-tight text-[#14244B] sm:text-3xl md:text-4xl">
-                Bạn đang gặp khó khăn gì?
-              </h1>
-              <p className="mx-auto max-w-xl text-sm leading-relaxed text-[#607096] sm:text-base">
-                Tìm câu trả lời nhanh cho các vấn đề kết nối phòng phỏng vấn, tối ưu hóa CV và chính sách tài khoản.
-              </p>
-
+      <main className="min-h-screen bg-[#F8FAFC] px-4 pb-16 pt-4 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
+        <div className="mx-auto max-w-[1280px] space-y-6">
+          {/* HERO: the fox asks, the search answers */}
+          <WorkspacePageHeader
+            title={t("help.page.header.title")}
+            subtitle={t("help.page.header.subtitle")}
+          >
               {/* Search Bar Input */}
-              <div className="relative mx-auto mt-2 max-w-2xl">
+              <div className="relative w-full min-w-0">
                 <label htmlFor={searchInputId} className="sr-only">
-                  Tìm kiếm bài viết trợ giúp
+                  {t("help.page.search.label")}
                 </label>
                 <div className="relative flex items-center">
-                  <Search className="absolute left-4 size-5 text-[#607096]" />
+                  <Search className="pointer-events-none absolute left-3.5 size-4 text-[#607096]" aria-hidden="true" />
                   <input
                     id={searchInputId}
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Tìm kiếm giải pháp: micro, camera, điểm ATS, VietQR, ngắt lời AI..."
-                    className="w-full rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] py-3.5 pl-12 pr-12 text-sm font-medium text-[#14244B] placeholder-[#607096]/60 transition-all focus:border-[#204195] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#204195] sm:text-base"
+                    placeholder={t("help.page.search.placeholder")}
+                    className="h-10 w-full rounded-xl border-0 bg-white pl-11 pr-11 text-sm font-medium text-[#14244B] border border-[#DCE4F3] placeholder-[#607096]/70 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]"
                   />
                   {searchQuery && (
                     <button
                       type="button"
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-4 rounded-lg p-1 text-[#607096] hover:bg-[#F8FAFC] hover:text-[#14244B]"
-                      aria-label="Xóa từ khóa tìm kiếm"
+                      className="absolute right-4 rounded-full p-1 text-[#607096] hover:bg-[#F0F4FC] hover:text-[#14244B]"
+                      aria-label={t("help.page.search.clearAria")}
                     >
-                      <X className="size-4" />
+                      <X className="size-4" aria-hidden="true" />
                     </button>
                   )}
                 </div>
 
                 {/* Quick Search Tag Pills */}
-                <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-xs">
-                  <span className="font-medium text-[#607096]">Tìm nhanh:</span>
-                  {[
-                    "Lỗi micro / camera",
-                    "Ngắt lời AI",
-                    "Điểm ATS thấp",
-                    "Thanh toán VietQR",
-                    "Bảo mật WebRTC",
-                  ].map((tag) => (
+                <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="font-medium text-[#204195]">{t("help.page.search.quick")}</span>
+                  {QUICK_SEARCH.map((tagKey) => t(tagKey)).map((tag) => (
                     <button
                       key={tag}
                       type="button"
                       onClick={() => setSearchQuery(tag)}
-                      className="rounded-lg border border-[#DCE4F3] bg-white px-2.5 py-1 font-medium text-[#14244B] transition-colors hover:border-[#204195]/40 hover:bg-[#F0F4FC] hover:text-[#204195]"
+                      className="rounded-full bg-[#F8FAFC] px-3 py-1 font-medium text-[#14244B] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC] hover:text-[#204195]"
                     >
                       {tag}
                     </button>
                   ))}
                 </div>
               </div>
-            </div>
-          </header>
+          </WorkspacePageHeader>
 
           {/* 4 QUICK ACCESS CARDS */}
           <section aria-labelledby="heading-quick-topics" className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
               <h2 id="heading-quick-topics" className="text-lg font-bold text-[#14244B]">
-                Nhóm chủ đề trợ giúp nhanh
+                {t("help.page.topics.title")}
               </h2>
-              <span className="text-xs text-[#607096]">Chọn chủ đề để lọc bài viết</span>
+              <span className="text-sm text-[#607096]">{t("help.page.topics.hint")}</span>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                {
-                  id: "webrtc",
-                  title: "Phòng phỏng vấn WebRTC",
-                  desc: "Khắc phục lỗi camera, micro, giảm độ trễ hình ảnh và âm thanh.",
-                  count: "3 hướng dẫn",
-                },
-                {
-                  id: "cv",
-                  title: "Chấm điểm CV & ATS",
-                  desc: "Định dạng file chuẩn, cách đẩy điểm ATS lên trên 85%.",
-                  count: "4 hướng dẫn",
-                },
-                {
-                  id: "voice",
-                  title: "Voice & Chat AI",
-                  desc: "Phím tắt ngắt lời AI, chỉnh tốc độ đọc và sửa phát âm.",
-                  count: "3 hướng dẫn",
-                },
-                {
-                  id: "payment",
-                  title: "Gói cước & VietQR",
-                  desc: "Kích hoạt tự động sau 30s, hóa đơn và chính sách dịch vụ.",
-                  count: "2 hướng dẫn",
-                },
-              ].map((topic) => {
+              {TOPICS.map((topic) => {
                 const isSelected = selectedCategory === topic.id;
-                const TopicIcon = TOPIC_ICONS[topic.id as keyof typeof TOPIC_ICONS];
+                const count = FAQ_LIST.filter((faq) => faq.category === topic.id).length;
 
                 return (
                   <button
@@ -309,30 +256,23 @@ export default function HelpCenterPage() {
                     onClick={() =>
                       setSelectedCategory(selectedCategory === topic.id ? "all" : topic.id)
                     }
-                    className={`flex flex-col justify-between rounded-2xl border p-5 text-left transition-all ${
+                    aria-pressed={isSelected}
+                    className={`flex min-w-0 flex-col justify-between rounded-2xl p-4 text-left transition-colors ${
                       isSelected
-                        ? "border-[#204195] bg-[#F0F4FC] ring-1 ring-[#204195] shadow-xs"
-                        : "border-[#DCE4F3] bg-white shadow-xs hover:border-[#204195]/40 hover:bg-[#F8FAFC]"
+                        ? "bg-[#F0F4FC] ring-2 ring-[#204195]"
+                        : "bg-white border border-[#DCE4F3] hover:bg-[#F8FAFC]"
                     }`}
                   >
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195]">
-                            <TopicIcon className="size-4.5" />
-                          </div>
-                          <h3 className="truncate text-sm font-bold text-[#14244B]">{topic.title}</h3>
-                        </div>
-                        <span className="shrink-0 rounded-full border border-[#DCE4F3] bg-white px-2 py-0.5 text-[10px] font-semibold text-[#607096]">
-                          {topic.count}
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#607096] line-clamp-2">{topic.desc}</p>
+                    <div className="space-y-2">
+                      <h3 className="text-base font-semibold text-[#14244B]">{t(topic.titleKey)}</h3>
+                      <p className="text-sm text-[#607096] line-clamp-2">{t(topic.descKey)}</p>
                     </div>
 
-                    <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#204195]">
-                      <span>{isSelected ? "Đang lọc câu hỏi" : "Xem câu hỏi"}</span>
-                      {isSelected ? <Check className="size-3.5" /> : <ArrowRight className="size-3.5" />}
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+                      <span className="font-semibold text-[#204195]">
+                        {isSelected ? t("help.page.topics.filtering") : t("help.page.topics.view")}
+                      </span>
+                      <span className="text-xs font-medium text-[#204195]">{fmt(t("help.page.topics.count"), { n: count })}</span>
                     </div>
                   </button>
                 );
@@ -343,20 +283,17 @@ export default function HelpCenterPage() {
           {/* INTERACTIVE FAQ ACCORDION */}
           <section
             aria-labelledby="heading-faq-list"
-            className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-8"
+            className="rounded-2xl bg-white p-5 border border-[#DCE4F3] sm:p-6"
           >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#EAEFF8] pb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195]">
-                  <HelpCircle className="size-5" />
-                </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between border-b border-[#EAEFF8] pb-4">
+              <div className="min-w-0">
                 <div>
                   <h2 id="heading-faq-list" className="text-lg font-bold text-[#14244B]">
-                    Câu hỏi thường gặp (FAQ)
+                    {t("help.page.faqList.title")}
                   </h2>
-                  <p className="text-xs text-[#607096]">
-                    Tìm thấy <strong>{filteredFaqs.length}</strong> bài viết phù hợp
-                    {selectedCategory !== "all" && " trong nhóm đang chọn"}
+                  <p className="mt-1 text-sm text-[#607096]">
+                    {t("help.page.faqList.foundBefore")}<strong>{filteredFaqs.length}</strong>{t("help.page.faqList.foundAfter")}
+                    {selectedCategory !== "all" && t("help.page.faqList.inCategory")}
                   </p>
                 </div>
               </div>
@@ -365,10 +302,9 @@ export default function HelpCenterPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedCategory("all")}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#204195] hover:underline"
+                  className="self-start text-sm font-semibold text-[#204195] underline-offset-4 hover:underline sm:self-auto"
                 >
-                  <FilterX className="size-3.5" />
-                  Hiển thị tất cả
+                  {t("help.page.faqList.showAll")}
                 </button>
               )}
             </div>
@@ -376,14 +312,23 @@ export default function HelpCenterPage() {
             {/* List */}
             <div className="mt-6 divide-y divide-[#EAEFF8]">
               {filteredFaqs.length === 0 ? (
-                <div className="py-10 text-center">
-                  <SearchX className="mx-auto size-10 text-[#607096]" />
-                  <p className="mt-2 text-sm font-semibold text-[#14244B]">
-                    Không tìm thấy bài viết nào cho từ khóa &quot;{searchQuery}&quot;
+                <div className="flex flex-col items-center py-10 text-center">
+                  <p className="mt-3 break-words text-base font-semibold text-[#14244B]">
+                    {fmt(t("help.page.faqList.emptyTitle"), { q: searchQuery })}
                   </p>
-                  <p className="text-xs text-[#607096]">
-                    Vui lòng thử từ khóa khác hoặc gửi yêu cầu hỗ trợ trực tiếp ở biểu mẫu phía dưới.
+                  <p className="mt-1 text-sm text-[#607096]">
+                    {t("help.page.faqList.emptyHint")}
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedCategory("all");
+                    }}
+                    className="mt-5 h-10 rounded-xl bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] hover:bg-[#F0F4FC]"
+                  >
+                    {t("help.page.faqList.showAll")}
+                  </button>
                 </div>
               ) : (
                 filteredFaqs.map((faq) => {
@@ -398,20 +343,20 @@ export default function HelpCenterPage() {
                         onClick={() => setOpenFaqId(isOpen ? null : faq.id)}
                         aria-expanded={isOpen}
                         aria-controls={`faq-answer-${faq.id}`}
-                        className="flex w-full items-start justify-between gap-4 text-left transition-colors hover:text-[#204195]"
+                        className="group flex w-full items-start justify-between gap-4 text-left"
                       >
-                        <div className="space-y-1">
-                          <span className="inline-block rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-2 py-0.5 text-[10px] font-semibold uppercase text-[#204195]">
-                            {faq.categoryLabel}
+                        <div className="min-w-0 space-y-1">
+                          <span className="block text-xs font-medium text-[#204195]">
+                            {t(faq.categoryLabelKey)}
                           </span>
-                          <h3 className="text-sm font-bold text-[#14244B] sm:text-base">{faq.question}</h3>
+                          <h3 className="text-sm font-semibold text-[#14244B] transition-colors group-hover:text-[#204195] sm:text-base">{t(faq.questionKey)}</h3>
                         </div>
                         <div
-                          className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#DCE4F3] transition-all duration-200 ${
-                            isOpen ? "rotate-180 bg-[#F0F4FC] text-[#204195] border-[#C9D7F1]" : "bg-white text-[#607096]"
+                          className={`mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-transform duration-200 ${
+                            isOpen ? "rotate-180 bg-[#F0F4FC] text-[#204195]" : "bg-[#F8FAFC] text-[#607096]"
                           }`}
                         >
-                          <ChevronDown className="size-4" />
+                          <ChevronDown className="size-4" aria-hidden="true" />
                         </div>
                       </button>
 
@@ -419,54 +364,50 @@ export default function HelpCenterPage() {
                       {isOpen && (
                         <div
                           id={`faq-answer-${faq.id}`}
-                          className="mt-3.5 space-y-3 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-4 text-xs sm:text-sm"
+                          className="mt-3.5 space-y-3 rounded-2xl bg-[#F8FAFC] p-4 text-sm"
                         >
-                          <p className="leading-relaxed text-[#344467]">{faq.answer}</p>
+                          <p className="leading-relaxed text-[#14244B]">{t(faq.answerKey)}</p>
 
-                          {faq.tips && faq.tips.length > 0 && (
-                            <div className="rounded-lg border border-[#DCE4F3] bg-white p-3.5 space-y-1.5">
-                              <p className="font-semibold text-[#14244B] flex items-center gap-1.5">
-                                <Lightbulb className="size-4 text-amber-500" />
-                                Các bước xử lý cụ thể:
+                          {faq.tipKeys && faq.tipKeys.length > 0 && (
+                            <div className="rounded-2xl bg-white p-3.5 space-y-1.5 border border-[#DCE4F3]">
+                              <p className="font-semibold text-[#14244B]">
+                                {t("help.page.faqList.steps")}
                               </p>
                               <ul className="list-disc space-y-1 pl-5 text-[#607096]">
-                                {faq.tips.map((tip, idx) => (
-                                  <li key={idx}>{tip}</li>
+                                {faq.tipKeys.map((tipKey, idx) => (
+                                  <li key={idx}>{t(tipKey)}</li>
                                 ))}
                               </ul>
                             </div>
                           )}
 
                           {/* Helpful Feedback Box */}
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#EAEFF8] pt-3">
-                            <span className="text-[11px] text-[#607096]">
-                              Thông tin này có giúp ích cho bạn không?
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#DCE4F3] pt-3">
+                            <span className="text-xs text-[#607096]">
+                              {t("help.page.feedback.question")}
                             </span>
 
                             {feedback ? (
-                              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 text-xs">
-                                <CheckCircle2 className="size-4" />
-                                Cảm ơn bạn đã đóng góp phản hồi!
+                              <span className="text-xs font-semibold text-[#287A4B]">
+                                {t("help.page.feedback.thanks")}
                               </span>
                             ) : (
                               <div className="flex items-center gap-2">
                                 <button
                                   type="button"
                                   onClick={() => handleFeedback(faq.id, "yes")}
-                                  className="inline-flex items-center gap-1 rounded-md border border-[#DCE4F3] bg-white px-2 py-1 text-[11px] font-medium text-[#14244B] hover:bg-[#F8FAFC]"
-                                  aria-label="Đánh giá hữu ích"
+                                  className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#204195] border border-[#DCE4F3] hover:bg-[#F0F4FC]"
+                                  aria-label={t("help.page.feedback.yesAria")}
                                 >
-                                  <ThumbsUp className="size-3 text-[#204195]" />
-                                  Hữu ích
+                                  {t("help.page.feedback.yes")}
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleFeedback(faq.id, "no")}
-                                  className="inline-flex items-center gap-1 rounded-md border border-[#DCE4F3] bg-white px-2 py-1 text-[11px] font-medium text-[#607096] hover:bg-[#F8FAFC]"
-                                  aria-label="Đánh giá chưa giải quyết được"
+                                  className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#607096] border border-[#DCE4F3] hover:bg-[#F0F4FC]"
+                                  aria-label={t("help.page.feedback.noAria")}
                                 >
-                                  <ThumbsDown className="size-3" />
-                                  Chưa giải quyết
+                                  {t("help.page.feedback.no")}
                                 </button>
                               </div>
                             )}
@@ -483,136 +424,72 @@ export default function HelpCenterPage() {
           {/* CONTACT CHANNELS & TICKET SUPPORT CARD */}
           <section
             aria-labelledby="heading-support-contact"
-            className="rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs sm:p-8"
+            className="rounded-2xl bg-white p-5 border border-[#DCE4F3] sm:p-6"
           >
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
               {/* LEFT COLUMN: CONTACT CHANNELS (5 cols) */}
-              <div className="space-y-6 lg:col-span-5 lg:border-r lg:border-[#EAEFF8] lg:pr-8">
+              <div className="min-w-0 space-y-6 lg:col-span-5 lg:border-r lg:border-[#EAEFF8] lg:pr-8">
                 <div className="space-y-2">
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-2.5 py-0.5 text-[10px] font-semibold uppercase text-[#204195]">
-                    TRỢ GIÚP TRỰC TIẾP
-                  </div>
-                  <h2 id="heading-support-contact" className="text-xl font-bold text-[#14244B]">
-                    Liên hệ Kỹ thuật viên
+                  <p className="text-sm font-semibold text-[#204195]">
+                    {t("help.page.contact.eyebrow")}
+                  </p>
+                  <h2 id="heading-support-contact" className="text-lg font-bold text-[#14244B]">
+                    {t("help.page.contact.title")}
                   </h2>
-                  <p className="text-xs text-[#607096] sm:text-sm">
-                    Đội ngũ kỹ sư hỗ trợ trực tiếp từ <strong>08:00 - 22:00 hàng ngày</strong> (kể cả cuối tuần).
+                  <p className="text-sm text-[#607096]">
+                    {t("help.page.contact.desc")}
                   </p>
                 </div>
 
-                {/* Direct Channel Cards */}
+                {/* The one real support channel */}
                 <div className="space-y-3">
-                  {/* Hotline / Zalo */}
-                  <div className="flex items-center gap-3.5 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white border border-[#DCE4F3] text-[#204195]">
-                      <PhoneCall className="size-4" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-[#14244B]">Hotline &amp; Zalo Hỗ trợ</p>
-                      <p className="font-mono text-sm font-bold text-[#204195]">0988.123.456 (Zalo OA)</p>
-                      <span className="text-[10px] text-emerald-600 font-semibold">● Phản hồi dưới 5 phút</span>
-                    </div>
-                  </div>
-
-                  {/* Email Support */}
-                  <div className="flex items-center gap-3.5 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white border border-[#DCE4F3] text-[#204195]">
-                      <Mail className="size-4" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-[#14244B]">Email Kỹ thuật</p>
-                      <p className="font-mono text-xs font-bold text-[#204195]">support@intervia.ai</p>
-                      <span className="text-[10px] text-[#607096]">Phản hồi trong 2 giờ làm việc</span>
-                    </div>
-                  </div>
-
-                  {/* Community Discord / Telegram */}
-                  <div className="flex items-center gap-3.5 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white border border-[#DCE4F3] text-[#204195]">
-                      <MessageSquare className="size-4" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-[#14244B]">Cộng đồng Luyện phỏng vấn</p>
-                      <p className="text-xs text-[#607096]">Hơn 5,000 ứng viên &amp; Tech Leads</p>
+                  <div className="rounded-2xl bg-[#F8FAFC] p-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[#14244B]">{t("help.page.contact.emailLabel")}</p>
                       <a
-                        href="https://discord.com"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[11px] font-semibold text-[#204195] hover:underline"
+                        href={`mailto:${SUPPORT_EMAIL}`}
+                        className="break-all font-mono text-sm font-bold text-[#204195] underline-offset-4 hover:underline"
                       >
-                        Tham gia Discord cộng đồng &rarr;
+                        {SUPPORT_EMAIL}
                       </a>
                     </div>
                   </div>
                 </div>
-
-                {/* Remote Assistance Note */}
-                <div className="rounded-xl border border-dashed border-[#DCE4F3] p-3 text-xs text-[#607096]">
-                  <p className="font-semibold text-[#14244B]">Hỗ trợ từ xa qua UltraViewer / AnyDesk:</p>
-                  <p className="mt-0.5">
-                    Nếu gặp lỗi phần cứng hoặc mạng WebRTC khó xử lý, kỹ thuật viên có thể hỗ trợ kiểm tra trực tiếp máy tính của bạn.
-                  </p>
-                </div>
               </div>
 
               {/* RIGHT COLUMN: SUBMIT TICKET FORM (7 cols) */}
-              <div className="space-y-4 lg:col-span-7">
+              <div className="min-w-0 space-y-4 lg:col-span-7">
                 <div className="space-y-1">
-                  <h3 className="text-lg font-bold text-[#14244B]">Gửi yêu cầu hỗ trợ nhanh</h3>
-                  <p className="text-xs text-[#607096]">
-                    Báo cáo sự cố hoặc gửi ý kiến đóng góp trực tiếp đến nhóm phát triển.
+                  <h3 className="text-base font-bold text-[#14244B]">{t("help.page.form.title")}</h3>
+                  <p className="text-sm text-[#607096]">
+                    {fmt(t("help.page.form.desc"), { email: SUPPORT_EMAIL })}
                   </p>
                 </div>
-
-                {/* Success Alert */}
-                {ticketSuccessId && (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                    <div className="flex items-start gap-3">
-                      <CheckCircle className="size-5 text-emerald-600 shrink-0" />
-                      <div>
-                        <p className="text-sm font-semibold text-emerald-900">
-                          Đã gửi yêu cầu hỗ trợ thành công!
-                        </p>
-                        <p className="mt-0.5 text-xs text-emerald-800">
-                          Mã Ticket của bạn là <strong className="font-mono">{ticketSuccessId}</strong>. Đội ngũ kỹ sư sẽ phản hồi qua email của bạn trong thời gian sớm nhất.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setTicketSuccessId(null)}
-                          className="mt-2 text-xs font-semibold text-emerald-700 underline"
-                        >
-                          Gửi thêm yêu cầu khác
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 <form onSubmit={handleTicketSubmit} className="space-y-3.5">
                   {/* Category & Email */}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <label htmlFor={ticketCategoryId} className="text-xs font-semibold uppercase text-[#14244B]">
-                        Loại vấn đề:
+                      <label htmlFor={ticketCategoryId} className="block text-sm font-semibold text-[#14244B]">
+                        {t("help.page.form.category")}
                       </label>
                       <select
                         id={ticketCategoryId}
                         value={ticketCategory}
                         onChange={(e) => setTicketCategory(e.target.value)}
-                        className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3 py-2 text-xs font-medium text-[#14244B] transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
+                        className="w-full rounded-2xl border-0 bg-[#F8FAFC] px-3.5 py-2.5 text-sm font-medium text-[#14244B] border border-[#DCE4F3] transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]"
                       >
-                        <option value="webrtc">Lỗi Camera / Micro WebRTC</option>
-                        <option value="ai_voice">Giọng nói &amp; Nhận diện AI</option>
-                        <option value="cv_ats">Chấm điểm CV &amp; Xuất file</option>
-                        <option value="payment">Thanh toán VietQR &amp; Gói cước</option>
-                        <option value="feature">Góp ý tính năng mới</option>
-                        <option value="other">Vấn đề khác</option>
+                        {TICKET_CATEGORIES.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {t(c.labelKey)}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label htmlFor={ticketEmailId} className="text-xs font-semibold uppercase text-[#14244B]">
-                        Email nhận phản hồi:
+                      <label htmlFor={ticketEmailId} className="block text-sm font-semibold text-[#14244B]">
+                        {t("help.page.form.email")}
                       </label>
                       <input
                         id={ticketEmailId}
@@ -621,40 +498,40 @@ export default function HelpCenterPage() {
                         onChange={(e) => setTicketEmail(e.target.value)}
                         placeholder="email@example.com"
                         required
-                        className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3 py-2 text-xs font-medium text-[#14244B] transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
+                        className="w-full rounded-2xl border-0 bg-[#F8FAFC] px-3.5 py-2.5 text-sm font-medium text-[#14244B] border border-[#DCE4F3] transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]"
                       />
                     </div>
                   </div>
 
                   {/* Subject */}
                   <div className="space-y-1.5">
-                    <label htmlFor={ticketSubjectId} className="text-xs font-semibold uppercase text-[#14244B]">
-                      Tiêu đề sự cố:
+                    <label htmlFor={ticketSubjectId} className="block text-sm font-semibold text-[#14244B]">
+                      {t("help.page.form.subject")}
                     </label>
                     <input
                       id={ticketSubjectId}
                       type="text"
                       value={ticketSubject}
                       onChange={(e) => setTicketSubject(e.target.value)}
-                      placeholder="Ví dụ: Phòng phỏng vấn báo lỗi 'Device in use' dù đã tắt Zoom"
+                      placeholder={t("help.page.form.subjectPlaceholder")}
                       required
-                      className="w-full rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-medium text-[#14244B] transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
+                      className="w-full rounded-2xl border-0 bg-[#F8FAFC] px-3.5 py-2.5 text-sm font-medium text-[#14244B] border border-[#DCE4F3] transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]"
                     />
                   </div>
 
                   {/* Description */}
                   <div className="space-y-1.5">
-                    <label htmlFor={ticketDescId} className="text-xs font-semibold uppercase text-[#14244B]">
-                      Mô tả chi tiết vấn đề:
+                    <label htmlFor={ticketDescId} className="block text-sm font-semibold text-[#14244B]">
+                      {t("help.page.form.description")}
                     </label>
                     <textarea
                       id={ticketDescId}
                       rows={4}
                       value={ticketDescription}
                       onChange={(e) => setTicketDescription(e.target.value)}
-                      placeholder="Mô tả cụ thể thông báo lỗi hiển thị trên màn hình, thiết bị bạn đang dùng (Windows/Mac, trình duyệt Chrome/Safari)..."
+                      placeholder={t("help.page.form.descriptionPlaceholder")}
                       required
-                      className="w-full rounded-xl border border-[#DCE4F3] bg-white p-3 text-xs font-medium text-[#14244B] transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
+                      className="w-full rounded-2xl border-0 bg-[#F8FAFC] p-3.5 text-sm font-medium text-[#14244B] border border-[#DCE4F3] transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]"
                     />
                   </div>
 
@@ -662,28 +539,28 @@ export default function HelpCenterPage() {
                   <div className="pt-2 text-right">
                     <button
                       type="submit"
-                      disabled={isSubmittingTicket}
-                      className="inline-flex items-center gap-2 rounded-xl bg-[#204195] px-6 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#183275] disabled:opacity-50 sm:text-sm"
+                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:opacity-50"
                     >
-                      {isSubmittingTicket ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin" />
-                          Đang gửi yêu cầu...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="size-4" />
-                          Gửi yêu cầu hỗ trợ
-                        </>
-                      )}
+                      {t("help.page.form.submit")}
                     </button>
                   </div>
+
+                  {/* Say what happened: only a draft was opened, nothing was sent */}
+                  {mailDraftOpened && (
+                    <StatusNote
+                      tone="info"
+                      text={t("help.page.form.draftOpened")}
+                      hint={fmt(t("help.page.form.draftHint"), { email: SUPPORT_EMAIL })}
+                      onDismiss={() => setMailDraftOpened(false)}
+                      dismissLabel={t("help.page.form.dismiss")}
+                    />
+                  )}
                 </form>
               </div>
             </div>
           </section>
         </div>
-      </div>
+      </main>
     </UserDashboardShell>
   );
 }

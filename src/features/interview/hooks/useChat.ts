@@ -35,9 +35,9 @@ function normalizeSessionId(raw: unknown): string {
 
 function getDemoSessionTopic(mode: InterviewMode, language: string): string {
     if (mode === "voice") {
-        return language === "vietnamese" ? "Gọi thoại AI" : "AI Voice Call";
+        return language === "vietnamese" ? "Phỏng vấn giọng nói" : "Voice interview";
     }
-    return language === "vietnamese" ? "Phỏng vấn chat AI" : "AI Chat Interview";
+    return language === "vietnamese" ? "Phỏng vấn chat" : "Chat interview";
 }
 
 function recordDemoSession(roomId: string, topic: string, mode: InterviewMode) {
