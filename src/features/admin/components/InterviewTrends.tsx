@@ -7,7 +7,10 @@ import AdminEmptyState from "./primitives/AdminEmptyState";
 const EN_MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
 /** API months may arrive as English abbreviations ("May"); show them as "Th5". */
-function monthLabel(month: string) {
+/** "10/2026" (year-month buckets since 29/10) → "Th10/26"; older "Oct" labels → "Th10". */
+export function monthLabel(month: string) {
+  const numeric = /^(\d{1,2})\/(\d{4})$/.exec(month.trim());
+  if (numeric) return `Th${Number(numeric[1])}/${numeric[2].slice(2)}`;
   const idx = EN_MONTHS.indexOf(month.trim().slice(0, 3).toLowerCase());
   return idx >= 0 ? `Th${idx + 1}` : month;
 }

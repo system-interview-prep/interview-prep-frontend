@@ -28,6 +28,7 @@ import {
   matchedSkillOf,
   practiceHref,
   readyCountOf,
+  lastRoundScore,
   recentRecords,
   strengthsOf,
 } from "../utils/progressModel";
@@ -168,23 +169,16 @@ export function WeekCard({ progress, job }: { progress: PracticeProgress; job: J
   const ups = week.levelUps.filter(
     (up, index, all) => all.findIndex((other) => other.area === up.area && other.to >= up.to) === index,
   );
-  const pieces = [
-    ...ups.map((up) => fill(t("practiceProgress.week.levelUp"), { round: areaName(up.area, t), level: levelName(up.to, t) })),
-    ...week.fixed.slice(0, 1).map((item) => fill(t("practiceProgress.week.fixed"), { point: item.point })),
-  ];
-  const joined = pieces.join(", ");
-  const sentence =
-    week.status === "improving" && joined
-      ? `${joined.charAt(0).toUpperCase()}${joined.slice(1)}.`
-      : week.status === "start"
-        ? t("practiceProgress.week.start")
-        : fill(t("practiceProgress.week.keepGoing"), { n: week.sessions });
+  // Only good news earns a sentence: a part that moved up this week.
+  const sentence = ups.length
+    ? ups.map((up) => fill(t("practiceProgress.week.levelUp"), { round: areaName(up.area, t), level: levelName(up.to, t) })).join(" · ")
+    : null;
   const advice = adviceRoundOf(job);
   const adviceText = advice
-    ? fill(t(advice.reason === "risk" ? "practiceProgress.week.adviceRisk" : "practiceProgress.week.adviceRound"), {
+    ? fill(t(advice.reason === "risk" ? "practiceProgress.week.nextRisk" : "practiceProgress.week.next"), {
         round: areaName(advice.round.area, t),
       })
-    : t("practiceProgress.week.adviceTop");
+    : t("practiceProgress.week.nextTop");
   const href = practiceHref(job.jobId, lastResumeFor(progress, job.jobId), advice?.round.area);
   const segments = Math.max(1, week.goal);
   return (
@@ -202,22 +196,16 @@ export function WeekCard({ progress, job }: { progress: PracticeProgress; job: J
           {t(`practiceProgress.week.status.${week.status}`)}
         </span>
       </div>
-      <p className="text-base font-semibold leading-relaxed text-[#14244B]">{sentence}</p>
+      {sentence && <p className="text-sm font-semibold text-[#1F5C3A]">{sentence}</p>}
       <div>
-        <p className="mb-1.5 text-xs text-[#607096]">{fill(t("practiceProgress.week.plan"), { goal: week.goal })}</p>
         <div className="flex gap-1.5" role="img" aria-label={fill(t("practiceProgress.week.planAria"), { n: week.sessions, goal: week.goal })}>
           {Array.from({ length: segments }, (_, i) => (
             <span key={i} className={cn("h-2.5 flex-1 rounded-full", i < week.sessions ? "bg-[#204195]" : "bg-[#E3E8F2]")} />
           ))}
         </div>
-        <p className="mt-1.5 text-xs text-[#33415F]">
-          {fill(t("practiceProgress.week.count"), { n: week.sessions, goal: week.goal })}
-          {week.streakWeeks > 0 && <> · {fill(t("practiceProgress.week.chain"), { n: week.streakWeeks })}</>}
-        </p>
+        <p className="mt-1.5 text-xs text-[#33415F]">{fill(t("practiceProgress.week.count"), { n: week.sessions, goal: week.goal })}</p>
       </div>
-      <p className="text-sm text-[#33415F]">
-        <strong>{t("practiceProgress.week.advice")}</strong> {adviceText}
-      </p>
+      <p className="text-sm font-semibold text-[#14244B]">{adviceText}</p>
       <Link href={href} className={cn(primaryButton, "mt-auto self-start")}>
         {week.sessions < week.goal ? fill(t("practiceProgress.week.cta"), { n: week.sessions + 1 }) : t("practiceProgress.week.ctaMore")}
         <ArrowRight className="size-4" aria-hidden="true" />
@@ -326,6 +314,9 @@ function RoundDetail({ progress, job, round }: { progress: PracticeProgress; job
   const focusable = FOCUSABLE_AREAS.includes(round.area);
   return (
     <div className="space-y-5 rounded-2xl bg-[#F8FAFC] p-4 ring-1 ring-[#EAEFF8] sm:p-5">
+      <p className="text-sm font-semibold text-[#14244B]">
+        {round.atRisk ? fill(t("practiceProgress.ladder.atRisk"), { score: ladderFloor(level).toFixed(1) }) : ladderRule(round, t)}
+      </p>
       <div>
         <h3 className="text-sm font-bold text-[#14244B]">{t("practiceProgress.ladder.rules")}</h3>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[#33415F]">
@@ -413,6 +404,7 @@ function StrengthRow({
   const { t } = useLanguage();
   const level = round.level ?? 0;
   const gap = !strong && round.topGap && !habits.has(round.topGap.point) ? round.topGap.point : null;
+  const last = lastRoundScore(round);
   return (
     <li className="border-t border-[#EEF2F8] first:border-t-0">
       <button type="button" aria-expanded={open} onClick={onToggle} className="flex w-full items-start gap-3 py-3 text-left">
@@ -429,11 +421,13 @@ function StrengthRow({
             </span>
             {round.atRisk && <span className="text-[11px] font-semibold text-[#8A5A0B]">{t("practiceProgress.strengths.atRisk")}</span>}
           </span>
-          <span className="mt-0.5 block text-xs text-[#33415F]">
-            {round.atRisk ? fill(t("practiceProgress.ladder.atRisk"), { score: ladderFloor(level).toFixed(1) }) : ladderRule(round, t)}
-          </span>
           {gap && <span className="mt-0.5 block text-xs text-[#8A5A0B]">{fill(t("practiceProgress.strengths.missed"), { point: gap })}</span>}
         </span>
+        {last !== null && (
+          <span className="mt-0.5 shrink-0 text-sm font-bold tabular-nums text-[#14244B]" title={t("practiceProgress.strengths.lastTitle")}>
+            {last.toFixed(1)}
+          </span>
+        )}
         <ChevronDown className={cn("mt-1 size-4 shrink-0 text-[#204195] transition-transform", open && "rotate-180")} aria-hidden="true" />
         <span className="sr-only">{t(open ? "practiceProgress.ladder.close" : "practiceProgress.ladder.open")}</span>
       </button>
@@ -466,7 +460,7 @@ export function StrengthsCard({ progress, job }: { progress: PracticeProgress; j
         {rounds.length === 0 ? (
           <p className="mt-2 text-sm text-[#607096]">
             {strong
-              ? fill(t("practiceProgress.strengths.strongEmpty"), { score: LADDER_SOLID.toFixed(1), need: LADDER_SOLID_RUN })
+              ? t("practiceProgress.strengths.strongEmpty")
               : t("practiceProgress.strengths.weakEmpty")}
           </p>
         ) : (
@@ -490,14 +484,12 @@ export function StrengthsCard({ progress, job }: { progress: PracticeProgress; j
   };
   return (
     <section className={cn(panel, "flex-[3_1_520px]")}>
-      <p className="text-xs font-bold text-[#607096]">{fill(t("practiceProgress.headline.for"), { job: job.jobTitle ?? job.jobId })}</p>
-      <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="font-display text-lg font-bold text-[#14244B] sm:text-xl">{t("practiceProgress.strengths.title")}</h2>
         <p className="text-sm font-bold tabular-nums text-[#14244B]">
           {fill(t("practiceProgress.strengths.ready"), { ready: readyCountOf(job), total: job.rounds.length })}
         </p>
       </div>
-      <p className="mt-1 text-xs text-[#607096]">{t("practiceProgress.strengths.note")}</p>
       <div className="mt-4 grid gap-x-8 gap-y-5 md:grid-cols-2">
         {column(false)}
         {column(true)}
@@ -529,7 +521,6 @@ export function DueCard({ progress, gaps }: { progress: PracticeProgress; gaps: 
   return (
     <section className={cn(panel, "flex-[1_1_420px]")} id="due">
       <h2 className="font-display text-lg font-bold text-[#14244B] sm:text-xl">{fill(t("practiceProgress.due.title"), { n: due.length })}</h2>
-      <p className="mt-1 text-xs text-[#607096]">{t("practiceProgress.due.desc")}</p>
       {due.length === 0 ? (
         <p className="mt-4 text-sm text-[#33415F]">
           {t("practiceProgress.due.none")}{" "}
@@ -785,13 +776,13 @@ export function FirstSessionView({ progress, job, gaps }: { progress: PracticePr
 }
 
 /** A closed section at the bottom of the page (real interviews, calendar, details). */
-export function MoreSection({ title, desc, children }: { title: string; desc: string; children: React.ReactNode }) {
+export function MoreSection({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
     <details className="group rounded-2xl border border-[#DCE4F3] bg-white">
       <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 p-4 sm:px-5">
         <span className="min-w-0">
           <span className="block text-[15px] font-semibold text-[#14244B]">{title}</span>
-          <span className="mt-0.5 block text-xs text-[#607096]">{desc}</span>
+          {desc && <span className="mt-0.5 block text-xs text-[#607096]">{desc}</span>}
         </span>
         <ChevronDown className="size-5 shrink-0 text-[#607096] transition-transform group-open:rotate-180" aria-hidden="true" />
       </summary>

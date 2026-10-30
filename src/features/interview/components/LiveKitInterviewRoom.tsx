@@ -16,6 +16,7 @@ import {
   SpeakerCard,
   SpeakerTile,
   StageAlert,
+  ObserverNotice,
   TurnStatus,
   TranscriptPanel,
   VoiceRoomHeader,
@@ -45,6 +46,7 @@ export default function LiveKitInterviewRoom({
   const { t } = useLanguage();
   const [isEnding, setIsEnding] = useState(false);
   const [endError, setEndError] = useState<string | null>(null);
+  const [dismissedObservedAt, setDismissedObservedAt] = useState<number | null>(null);
   const [showEndModal, setShowEndModal] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   // True when the dialog was opened by the candidate saying "dừng", not by the
@@ -72,6 +74,7 @@ export default function LiveKitInterviewRoom({
     speechOutputError,
     terminalEvent,
     turnState,
+    observedAt,
   } = useLiveKitRoom({
     sessionId,
     locale,
@@ -160,9 +163,11 @@ export default function LiveKitInterviewRoom({
       .finally(() => router.push(backUrl));
   };
 
+  const showObserved = Boolean(observedAt && isConnected && observedAt !== dismissedObservedAt);
   const stageAlerts =
-    sttDown || (speechOutputError && isConnected) || (livekitError && isConnected) || endError ? (
+    sttDown || (speechOutputError && isConnected) || (livekitError && isConnected) || endError || showObserved ? (
       <>
+        {showObserved ? <ObserverNotice onDismiss={() => setDismissedObservedAt(observedAt)} /> : null}
         {sttDown && transportError ? (
           <StageAlert
             title={t('room.voice.sttDown.title')}
