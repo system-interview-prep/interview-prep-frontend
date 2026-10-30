@@ -58,6 +58,7 @@ import {
   TimelineCard,
   WeekCard,
 } from "./ProgressOverview";
+import { ProgressV3 } from "./ProgressV3";
 
 const SKILL_CHARTS = 6;
 
@@ -938,6 +939,8 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
   );
   const v2 = Boolean(progress?.week && progress?.timeline && ladderJob?.rounds.some((round) => round.level !== undefined));
   const jobChoices = progress?.readiness ?? [];
+  // Page v3 (design 29/10): rooms apart, overview without shared sessions, one action (backend from 29/10).
+  const v3 = Boolean(progress?.rooms);
 
   return (
     // Bottom room on phones for the assistant button fixed in the corner.
@@ -945,9 +948,9 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <h1 className="font-display text-xl font-black tracking-tight text-[#14244B] sm:text-2xl">{t("practiceProgress.title")}</h1>
-          <p className="mt-1 max-w-3xl text-sm text-[#607096]">{t(v2 ? "practiceProgress.v2.subtitle" : "practiceProgress.subtitle")}</p>
+          {!v2 && <p className="mt-1 max-w-3xl text-sm text-[#607096]">{t("practiceProgress.subtitle")}</p>}
         </div>
-        {v2 && hasSessions && ladderJob && jobChoices.length > 1 && (
+        {!v3 && v2 && hasSessions && ladderJob && jobChoices.length > 1 && (
           <label className="flex w-full flex-col gap-1 text-xs font-semibold text-[#607096] sm:w-auto">
             {t("practiceProgress.v2.job")}
             <select
@@ -991,6 +994,18 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
           </div>
           <WeeklyStreakCard progress={progress} onGoal={changeGoal} savingGoal={savingGoal} />
         </>
+      ) : v3 ? (
+        <>
+          <ProgressV3 progress={progress} onGoal={changeGoal} savingGoal={savingGoal} />
+          <div className="space-y-3">
+            <MoreSection title={t("practiceProgress.more.real")}>
+              <RealInterviewsCard progress={progress} />
+            </MoreSection>
+            <MoreSection title={t("practiceProgress.more.calendar")}>
+              <WeeklyStreakCard progress={progress} onGoal={changeGoal} savingGoal={savingGoal} />
+            </MoreSection>
+          </div>
+        </>
       ) : v2 && ladderJob ? (
         <>
           {ladderJob.sessions <= 1 ? (
@@ -1018,19 +1033,19 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
           )}
           <div className="space-y-3">
             {ladderJob.sessions > 1 && (
-              <MoreSection title={t("practiceProgress.more.history")} desc={t("practiceProgress.more.historyDesc")}>
+              <MoreSection title={t("practiceProgress.more.history")}>
                 <ReadyHeadline job={ladderJob} />
                 <RecordsCard timeline={progress.timeline ?? []} jobId={ladderJob.jobId} />
                 <TimelineCard timeline={progress.timeline ?? []} jobId={ladderJob.jobId} />
               </MoreSection>
             )}
-            <MoreSection title={t("practiceProgress.more.real")} desc={t("practiceProgress.more.realDesc")}>
+            <MoreSection title={t("practiceProgress.more.real")}>
               <RealInterviewsCard progress={progress} />
             </MoreSection>
-            <MoreSection title={t("practiceProgress.more.calendar")} desc={t("practiceProgress.more.calendarDesc")}>
+            <MoreSection title={t("practiceProgress.more.calendar")}>
               <WeeklyStreakCard progress={progress} onGoal={changeGoal} savingGoal={savingGoal} />
             </MoreSection>
-            <MoreSection title={t("practiceProgress.detail.title")} desc={t("practiceProgress.detail.desc")}>
+            <MoreSection title={t("practiceProgress.detail.title")}>
               <FilterBar progress={progress} filters={filters} onChange={setFilters} />
               {view.sessions.length === 0 ? (
                 <p className="rounded-2xl border border-dashed border-[#C9D7F1] bg-white p-6 text-center text-sm text-[#607096]">

@@ -57,18 +57,23 @@ describe("DashboardOverview", () => {
   });
   afterAll(() => vi.useRealTimers());
 
-  it("renders hero welcome banner, metrics, and practice modes for a candidate", () => {
+  it("renders a plain greeting, the main action, metrics and practice modes", () => {
     const html = render({});
     expect(html).toContain("Chào An,");
     expect(html).toContain("Bắt đầu phỏng vấn ngay");
     expect(html).toContain("Điểm sẵn sàng");
     expect(html).toContain("Chế độ luyện tập");
-    expect(html).toContain("Phỏng vấn Video AI");
+    expect(html).toContain("Giọng nói có camera");
     expect(html).toContain("Phỏng vấn Giọng nói");
     expect(html).toContain("Phỏng vấn Chat");
+    expect(html).toContain("Buổi đầu tiên cho biết điểm xuất phát của bạn.");
+    // No marketing claims, emoji or gradients on the home page.
+    expect(html).not.toContain("👋");
+    expect(html).not.toContain("30%");
+    expect(html).not.toContain("gradient");
   });
 
-  it("shows an in-progress session notice in the hero with a resume action", () => {
+  it("puts an unfinished session first, with its answered count and a resume action", () => {
     const html = render({
       cvCount: 1,
       sessions: [session(0, { status: "IN_PROGRESS", endedAt: null, overallScore: null, answeredTurns: 2, totalTurns: 6 })],
@@ -76,12 +81,14 @@ describe("DashboardOverview", () => {
     expect(html).toContain("Buổi dang dở");
     expect(html).toContain("Backend Developer");
     expect(html).toContain("Tiếp tục ngay");
+    expect(html).toContain("Đã trả lời 2/6 câu");
+    expect(html).toContain("Bạn còn một buổi chưa xong.");
   });
 
-  it("points a candidate to their weakest skill in the AI improvement focus card", () => {
+  it("points a candidate to their weakest skill from the latest session", () => {
     const sessions = [session(0, { overallScore: 7.2 }), session(1, { mode: "voice" })];
     const html = render({ cvCount: 1, sessions });
-    expect(html).toContain("Gợi ý cải thiện từ AI");
+    expect(html).toContain("Nên luyện tiếp");
     expect(html).toContain("System design");
     expect(html).toContain("5.2/10");
     expect(html).toContain("Luyện lại vị trí này");

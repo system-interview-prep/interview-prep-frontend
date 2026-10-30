@@ -138,7 +138,7 @@ export type AdminOverviewData = {
   averageScore: number | null;
   averageTurnaround: number | null;
   sentimentScore: number | null;
-  monthlyTrend: Array<{ month: string; count: number }>;
+  monthlyTrend: Array<{ month: string; key?: string; count: number }>;
   modes: {
     chat: number;
     voice: number;

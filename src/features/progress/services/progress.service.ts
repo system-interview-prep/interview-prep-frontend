@@ -39,6 +39,26 @@ export type ProgressSession = {
   behavior: SessionBehavior;
   /** Counts toward the weekly streak: enough main questions answered (absent on older backends). */
   valid?: boolean;
+  /** Why the session is not counted (backend from 29/10): it broke, or too few answers. */
+  invalidReason?: "technical_failure" | "too_few_answers" | null;
+  /** interview_sessions.mode, and the practice room it belongs to (backend from 29/10). */
+  mode?: "text" | "voice" | "video";
+  room?: RoomName;
+  /** A Voice session with the camera on (mode "video"). */
+  camera?: boolean;
+};
+
+/** The two practice rooms; the camera is an option of the Voice room. */
+export type RoomName = "chat" | "voice";
+/** The average now against the start, from valid sessions only; the two groups share no session. */
+export type ScoreOverview = {
+  sessions: number;
+  /** k sessions in each group (3 from 6 sessions, 2 from 4); 0: too few to compare. */
+  window: number;
+  start: number | null;
+  recent: number | null;
+  change: number | null;
+  latest: number | null;
 };
 
 export type SkillPoint = {
@@ -325,6 +345,23 @@ export type PracticeProgress = {
   wins?: Win[];
   timeline?: TimelineEntry[];
   week?: WeekSummary;
+  /** Backend from 29/10 (progress page v3). */
+  overview?: ScoreOverview;
+  /** The same views computed from each room alone: Chat and Voice scores are never mixed. */
+  rooms?: Record<RoomName, RoomProgress>;
+};
+
+/** One room's views (backend progress.ROOM_KEYS). */
+export type RoomProgress = Pick<PracticeProgress, "sessions" | "skills" | "jobs" | "behavior" | "milestones"> & {
+  overview: ScoreOverview;
+  gaps?: { open: GapItem[]; fixed: GapItem[] };
+  readiness?: JobReadiness[];
+  timeline?: TimelineEntry[];
+  wins?: Win[];
+  /** Sessions of this room, graded or not counted. */
+  count: number;
+  /** Voice sessions with the camera on. */
+  cameraSessions: number;
 };
 
 export type SkillDelta = { skill: string; before?: number; now: number; delta?: number };

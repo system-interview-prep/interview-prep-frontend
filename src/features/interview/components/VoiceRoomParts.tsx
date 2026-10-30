@@ -462,6 +462,27 @@ export function StageAlert({
   );
 }
 
+/** Shown while an admin listens to the room (hidden, listen-only seat). */
+export function ObserverNotice({ onDismiss }: { onDismiss: () => void }) {
+  const { t } = useLanguage();
+  return (
+    <div role="status" className="flex flex-wrap items-start gap-3 rounded-2xl border border-[#C9D7F1] bg-[#EEF2FD] px-4 py-3 text-sm text-[#14244B]">
+      <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#204195]" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold text-[#204195]">{t('room.voice.observed.title')}</p>
+        <p className="leading-relaxed">{t('room.voice.observed.message')}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="h-9 shrink-0 rounded-full px-3 text-sm font-medium text-[#204195] hover:bg-[#DCE4F3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]"
+      >
+        {t('room.common.dismiss')}
+      </button>
+    </div>
+  );
+}
+
 // ── Transcript ───────────────────────────────────────────────────────────────
 
 export function TranscriptPanel({

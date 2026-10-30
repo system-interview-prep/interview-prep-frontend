@@ -13,6 +13,7 @@ import {
 import { apiClient } from '@/lib/apiClient';
 import { normalizeVoiceTranscript, reconcileVoiceTranscript } from '../utils/voiceLanguage';
 import { voiceTransportHealthMessage } from '../utils/voiceTransportHealth';
+import { OBSERVER_TOPIC, parseObserverNotice } from '../utils/observerNotice';
 
 type LiveKitTokenResponse = {
   serverUrl: string;
@@ -131,6 +132,8 @@ export function useLiveKitRoom({
   const [speechOutputError, setSpeechOutputError] = useState<string | null>(null);
   const [terminalEvent, setTerminalEvent] = useState<LiveKitTerminalEvent | null>(null);
   const [turnState, setTurnState] = useState<LiveKitTurnState | null>(null);
+  // When an admin last joined the room as a hidden listener (intervia.observer).
+  const [observedAt, setObservedAt] = useState<number | null>(null);
   // The room handler outlives renders; read the latest callback through a ref.
   const onAbortRequestedRef = useRef(onAbortRequested);
   useEffect(() => {
@@ -328,6 +331,10 @@ export function useLiveKitRoom({
     };
 
     const handleData = (payload: Uint8Array, _participant?: Participant, _kind?: unknown, topic?: string) => {
+      if (topic === OBSERVER_TOPIC) {
+        if (parseObserverNotice(payload)) setObservedAt(Date.now());
+        return;
+      }
       if (topic !== 'intervia.session' && topic !== 'intervia.health' && topic !== 'intervia.turn') return;
       try {
         const event = JSON.parse(new TextDecoder().decode(payload)) as Record<string, unknown>;
@@ -527,5 +534,6 @@ export function useLiveKitRoom({
     speechOutputError,
     terminalEvent,
     turnState,
+    observedAt,
   };
 }

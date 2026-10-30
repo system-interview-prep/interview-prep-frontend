@@ -1,24 +1,13 @@
 "use client";
 
 import { type ReactNode } from "react";
-import {
-  ArrowRight,
-  Award,
-  CheckCircle2,
-  Clock,
-  Flame,
-  MessageSquare,
-  Mic,
-  Sparkles,
-  Video,
-} from "lucide-react";
+import { Award, CalendarCheck, Clock, Flame, MessageSquare, Mic, Video } from "lucide-react";
 import { endReasonKey } from "@/features/interview/components/ChatInterviewProgress";
 import { localeOf } from "@/i18n/format";
 import { JobCard, mapJobToJobCard } from "@/components/jobs";
 import type { JobProfile } from "@features/admin/services/jobProfile.service";
 import type { CachedFit } from "@features/matching/utils/fitCache";
 import { cn } from "@/utils";
-import CountUp from "@components/shared/CountUp";
 
 export type CompetencyScore = { competency: string; score: number; weight?: number };
 
@@ -80,9 +69,30 @@ export function hasScore(session: StoredDashboardSession): session is StoredDash
   return typeof session.overallScore === "number" && Number.isFinite(session.overallScore);
 }
 
-const CARD = "rounded-2xl border border-[#DCE4F3] bg-white";
+const CARD = "rounded-lg border border-[#E4E4E0] bg-white";
+/**
+ * Colour of a score on the 10-point scale, on the same bars as the topic
+ * levels: green from 7 (the target), amber from 5.5 (the floor), red below.
+ */
+export function scoreTone(score: number) {
+  if (score >= 7) return { text: "text-[#1E6B34]", chip: "bg-[#E3F4E7] text-[#1E6B34]" };
+  if (score >= 5.5) return { text: "text-[#8A5300]", chip: "bg-[#FDF0D5] text-[#8A5300]" };
+  return { text: "text-[#B42318]", chip: "bg-[#FDE8E6] text-[#B42318]" };
+}
 
-/** Plain section title: clean typography, clear hierarchy. */
+/** A small coloured label for a number or a state. */
+function Chip({ className, children }: { className: string; children: ReactNode }) {
+  return (
+    <span className={cn("inline-flex items-center rounded-md px-1.5 py-0.5 text-[13px] font-semibold tabular-nums", className)}>
+      {children}
+    </span>
+  );
+}
+
+const LIGHT_BUTTON =
+  "inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE4F3] bg-white px-4 text-sm font-semibold text-[#204195] hover:border-[#204195] hover:bg-[#F0F4FC]";
+
+/** Plain section title. */
 export function SectionHeading({
   id,
   title,
@@ -97,10 +107,10 @@ export function SectionHeading({
   return (
     <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <h2 id={id} className="font-display text-base font-bold tracking-tight text-[#14244B] sm:text-lg">
+        <h2 id={id} className="text-lg font-semibold text-[#16181D]">
           {title}
         </h2>
-        {subtitle ? <p className="mt-0.5 text-xs text-[#607096]">{subtitle}</p> : null}
+        {subtitle ? <p className="mt-0.5 text-sm text-[#4A505C]">{subtitle}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
@@ -111,7 +121,7 @@ export function SectionHeading({
 function CardTitle({ id, title, action }: { id: string; title: string; action?: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <h3 id={id} className="min-w-0 text-base font-bold text-[#14244B]">{title}</h3>
+      <h3 id={id} className="min-w-0 text-base font-semibold text-[#16181D]">{title}</h3>
       {action}
     </div>
   );
@@ -119,7 +129,11 @@ function CardTitle({ id, title, action }: { id: string; title: string; action?: 
 
 function LinkButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className="shrink-0 text-xs font-semibold text-[#204195] underline-offset-4 hover:underline">
+    <button
+      type="button"
+      onClick={onClick}
+      className="min-h-8 shrink-0 text-sm font-semibold text-[#204195] underline-offset-4 hover:underline"
+    >
       {children}
     </button>
   );
@@ -163,11 +177,8 @@ export function practiceStreak(days: Set<string>, now: number) {
 }
 
 /**
- * 4 Key Metrics Cards:
- * 1. Latest / Average score
- * 2. Weekly & Total sessions
- * 3. Daily practice streak
- * 4. Weekly practice time
+ * This week's numbers in one plain card: latest score, sessions this week,
+ * the streak (weekly from the server, else daily) and practice time.
  */
 export function OverviewMetrics({
   latestScore,
@@ -193,48 +204,53 @@ export function OverviewMetrics({
     latestScore !== null && prevScore !== null && prevScore !== undefined
       ? latestScore - prevScore
       : null;
+  const showDiff = scoreDiff !== null && Math.abs(scoreDiff) >= 0.1;
+  const goalMet = weeklyStreak ? weeklyStreak.thisWeekCount >= weeklyStreak.goal : false;
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <MetricTile
+    <dl className={cn(CARD, "grid grid-cols-2 lg:grid-cols-4")}>
+      <MetricCell
         label={t("userDash.overview.readiness")}
-        icon={<Award className="size-4" />}
-        iconClass="bg-amber-500/10 text-amber-600"
-        value={latestScore !== null ? <CountUp value={latestScore} decimals={1} /> : "—"}
+        icon={<Award className="size-4 text-[#B7791F]" />}
+        valueClass={latestScore !== null ? scoreTone(latestScore).text : undefined}
+        value={latestScore !== null ? latestScore.toFixed(1) : "—"}
         unit={latestScore !== null ? "/10" : undefined}
-        badge={
-          latestScore !== null && scoreDiff !== null && Math.abs(scoreDiff) >= 0.1 ? (
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold",
-                scoreDiff > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700",
-              )}
-            >
-              {scoreDiff > 0 ? `+${scoreDiff.toFixed(1)}` : scoreDiff.toFixed(1)}
-            </span>
-          ) : null
-        }
-        help={latestScore !== null ? "Dựa trên buổi phỏng vấn đã chấm" : t("userDash.overview.readinessEmpty")}
-      />
-      <MetricTile
-        label={t("userDash.overview.weekSessions")}
-        icon={<CheckCircle2 className="size-4" />}
-        iconClass="bg-emerald-500/10 text-emerald-600"
-        value={<CountUp value={weekSessions} />}
-        unit="buổi tuần này"
         help={
-          weekSessions > 0
-            ? totalSessions > 0
-              ? `Tổng ${totalSessions} buổi · đang duy trì nhịp độ tốt`
-              : "Đang duy trì nhịp độ rất tốt"
-            : t("userDash.overview.weekSessionsHelp")
+          latestScore === null ? (
+            t("userDash.overview.readinessEmpty")
+          ) : showDiff ? (
+            <>
+              <Chip className={scoreDiff > 0 ? "bg-[#E3F4E7] text-[#1E6B34]" : "bg-[#FDE8E6] text-[#B42318]"}>
+                {scoreDiff > 0 ? `▲ +${scoreDiff.toFixed(1)}` : `▼ ${scoreDiff.toFixed(1)}`}
+              </Chip>{" "}
+              so với buổi trước
+            </>
+          ) : (
+            "Buổi đã chấm gần nhất"
+          )
         }
       />
-      <MetricTile
+      <MetricCell
+        label={t("userDash.overview.weekSessions")}
+        icon={<CalendarCheck className="size-4 text-[#204195]" />}
+        valueClass={weekSessions > 0 ? "text-[#204195]" : undefined}
+        value={String(weekSessions)}
+        unit="buổi"
+        help={
+          goalMet ? (
+            <Chip className="bg-[#E3F4E7] text-[#1E6B34]">✓ Đạt mục tiêu tuần</Chip>
+          ) : totalSessions > 0 ? (
+            `Tổng ${totalSessions} buổi`
+          ) : (
+            t("userDash.overview.weekSessionsHelp")
+          )
+        }
+      />
+      <MetricCell
         label={weeklyStreak ? t("practiceProgress.dashboard.streakLabel") : t("userDash.overview.streak")}
-        icon={<Flame className="size-4 fill-current" />}
-        iconClass="bg-orange-500/10 text-orange-500"
-        value={<CountUp value={weeklyStreak ? weeklyStreak.weeks : streak} />}
+        icon={<Flame className="size-4 fill-[#F97316] text-[#EA580C]" />}
+        valueClass={(weeklyStreak ? weeklyStreak.weeks : streak) > 0 ? "text-[#C2410C]" : undefined}
+        value={String(weeklyStreak ? weeklyStreak.weeks : streak)}
         unit={weeklyStreak ? t("practiceProgress.dashboard.streakUnit") : "ngày"}
         help={
           weeklyStreak
@@ -242,55 +258,51 @@ export function OverviewMetrics({
                 .replace("{count}", String(weeklyStreak.thisWeekCount))
                 .replace("{goal}", String(weeklyStreak.goal))
             : streak > 0
-              ? "Giữ vững phong độ luyện tập!"
-              : "Bắt đầu chuỗi ngày mới ngay hôm nay!"
+              ? "Ngày liên tiếp có luyện"
+              : "Luyện hôm nay để bắt đầu chuỗi"
         }
       />
-      <MetricTile
+      <MetricCell
         label={t("userDash.overview.time")}
-        icon={<Clock className="size-4" />}
-        iconClass="bg-[#204195]/10 text-[#204195]"
-        value={<CountUp value={minutes} />}
+        icon={<Clock className="size-4 text-[#0F766E]" />}
+        valueClass={minutes > 0 ? "text-[#0F766E]" : undefined}
+        value={String(minutes)}
         unit="phút"
-        help={minutes > 0 ? "Thời gian rèn luyện với AI tuần này" : t("userDash.overview.timeUnavailable")}
+        help={minutes > 0 ? "Tổng thời gian các buổi tuần này" : t("userDash.overview.timeUnavailable")}
       />
-    </div>
+    </dl>
   );
 }
 
-/** One compact KPI tile, sized like the admin metric tiles. */
-function MetricTile({
+/** One number with its label and a short note. */
+function MetricCell({
   label,
   icon,
-  iconClass,
   value,
+  valueClass,
   unit,
-  badge,
   help,
 }: {
   label: string;
   icon: ReactNode;
-  iconClass: string;
-  value: ReactNode;
+  value: string;
+  /** Colour of the number; grey-black when there is nothing to show yet. */
+  valueClass?: string;
   unit?: string;
-  badge?: ReactNode;
-  help: string;
+  help: ReactNode;
 }) {
   return (
-    <article className="flex min-w-0 flex-col rounded-2xl border border-[#DCE4F3] bg-white px-4 py-3">
-      <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0 text-[11px] font-bold uppercase leading-4 tracking-wide text-[#607096]">{label}</span>
-        <span className={cn("grid size-7 shrink-0 place-items-center rounded-lg", iconClass)} aria-hidden="true">
-          {icon}
-        </span>
-      </div>
-      <div className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
-        <span className="font-display text-xl font-extrabold tabular-nums text-[#14244B] sm:text-2xl">{value}</span>
-        {unit ? <span className="text-xs font-semibold text-[#607096]">{unit}</span> : null}
-        {badge}
-      </div>
-      <p className="mt-1 text-xs leading-snug text-[#607096]">{help}</p>
-    </article>
+    <div className="min-w-0 border-[#EDEDEA] px-4 py-3.5 [&:nth-child(n+3)]:border-t lg:[&:nth-child(n+2)]:border-l lg:[&:nth-child(n+3)]:border-t-0 [&:nth-child(even)]:border-l">
+      <dt className="flex items-center gap-1.5 text-sm text-[#4A505C]">
+        <span aria-hidden="true">{icon}</span>
+        {label}
+      </dt>
+      <dd className="mt-2">
+        <span className={cn("text-[28px] font-bold leading-none tabular-nums", valueClass ?? "text-[#16181D]")}>{value}</span>
+        {unit ? <span className="ml-1 text-sm text-[#4A505C]">{unit}</span> : null}
+      </dd>
+      <dd className="mt-1.5 text-[13px] leading-snug text-[#4A505C]">{help}</dd>
+    </div>
   );
 }
 
@@ -314,8 +326,8 @@ export function weakestCompetency(sessions: StoredDashboardSession[]) {
 }
 
 /**
- * Compact AI Insight Card: displays the weakest competency from the latest session
- * with a direct action to re-practice that role.
+ * The skill to practise next: the weakest competency of the latest graded
+ * session, with one action to practise that position again.
  */
 export function ImprovementFocus({
   focus,
@@ -328,49 +340,36 @@ export function ImprovementFocus({
   const roleTitle = latest.jobTitle || "Vị trí gần nhất";
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50/80 via-white to-blue-50/40 p-4 shadow-xs sm:p-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-amber-500/15 text-amber-600">
-            <Sparkles className="size-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100/90 px-2.5 py-0.5 text-xs font-bold text-amber-800">
-                Gợi ý cải thiện từ AI
-              </span>
-              <span className="min-w-0 text-xs font-medium text-[#607096] [overflow-wrap:anywhere]">Từ buổi gần nhất: {roleTitle}</span>
-            </div>
-            <h3 className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-bold text-[#14244B]">
-              <span className="min-w-0 [overflow-wrap:anywhere]">
-                Năng lực cần rèn luyện: <span className="text-[#204195]">{weakest.competency}</span>
-              </span>
-              <span className="shrink-0 rounded-md border border-amber-200 bg-white px-2 py-0.5 text-xs font-extrabold text-amber-700">
-                {weakest.score.toFixed(1)}/10
-              </span>
-            </h3>
-            <p className="mt-1 text-xs leading-relaxed text-[#607096]">
-              Buổi phỏng vấn tiếp theo sẽ tăng cường các câu hỏi tình huống thực tế xoay quanh năng lực này để giúp bạn bứt phá điểm số.
-            </p>
-          </div>
-        </div>
-        {latest.jobId && (
-          <button
-            type="button"
-            onClick={() => onPractice({ id: latest.jobId!, title: roleTitle })}
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-4 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#183275] active:scale-[0.98]"
-          >
-            <span>Luyện lại vị trí này</span>
-            <ArrowRight className="size-3.5" />
-          </button>
-        )}
+    <section
+      aria-labelledby="focus-title"
+      className={cn(CARD, "flex flex-col gap-3 border-l-4 border-l-[#E8912D] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5")}
+    >
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-[#B45309]">Nên luyện tiếp</p>
+        <h3 id="focus-title" className="mt-0.5 text-base font-semibold text-[#16181D] [overflow-wrap:anywhere]">
+          {weakest.competency}
+          <Chip className={cn("ml-2 align-middle", scoreTone(weakest.score).chip)}>{weakest.score.toFixed(1)}/10</Chip>
+        </h3>
+        <p className="mt-0.5 text-sm text-[#4A505C] [overflow-wrap:anywhere]">
+          Điểm thấp nhất ở buổi gần nhất · {roleTitle}
+        </p>
       </div>
+      {latest.jobId ? (
+        <button
+          type="button"
+          onClick={() => onPractice({ id: latest.jobId!, title: roleTitle })}
+          className={LIGHT_BUTTON}
+        >
+          Luyện lại vị trí này
+        </button>
+      ) : null}
     </section>
   );
 }
 
 /**
- * 3 Practice Mode Cards (Video AI, Voice AI, Chat)
+ * The practice modes as one list. Chat and Voice are scored apart; the camera
+ * is an option of Voice and is never scored.
  */
 export function PracticeModes({
   onSelectMode,
@@ -383,43 +382,31 @@ export function PracticeModes({
 }) {
   const modes = [
     {
-      key: "video" as const,
-      title: "Phỏng vấn Video AI",
-      desc: "Mô phỏng chân thực qua Webcam & AI Avatar. Đánh giá đa chiều về phong thái, giọng nói và độ tự tin.",
-      duration: "15–20 phút",
-      highlight: "Khuyên dùng",
-      isFeatured: true,
-      Icon: Video,
-      color: "bg-gradient-to-br from-[#204195] to-[#14244B] text-white",
-      badgeColor: "bg-[#FCB625] text-[#14244B]",
-      actionLabel: "Luyện Video ngay",
-      action: onStartVideo,
+      key: "chat" as const,
+      title: "Phỏng vấn Chat",
+      desc: "Gõ câu trả lời. Hợp để sắp xếp ý trước khi nói.",
+      duration: "10–15 phút",
+      Icon: MessageSquare,
+      iconClass: "bg-[#E3F4E7] text-[#1E6B34]",
+      action: () => onSelectMode("chat"),
     },
     {
       key: "voice" as const,
       title: "Phỏng vấn Giọng nói",
-      desc: "Luyện phản xạ giao tiếp tự nhiên và diễn đạt mạch lạc qua giọng nói, không áp lực về camera.",
+      desc: "Trả lời bằng giọng nói, không cần camera.",
       duration: "10–15 phút",
-      highlight: "Nhanh gọn",
-      isFeatured: false,
       Icon: Mic,
-      color: "bg-blue-50 text-[#204195] border border-blue-200",
-      badgeColor: "bg-blue-100 text-[#204195]",
-      actionLabel: "Luyện Voice ngay",
+      iconClass: "bg-[#E6EEFB] text-[#204195]",
       action: () => onSelectMode("voice"),
     },
     {
-      key: "chat" as const,
-      title: "Phỏng vấn Chat",
-      desc: "Tập trung trau chuốt cấu trúc câu trả lời STAR và tư duy logic bằng văn bản trước khi nói.",
-      duration: "10–15 phút",
-      highlight: "Rèn cấu trúc",
-      isFeatured: false,
-      Icon: MessageSquare,
-      color: "bg-emerald-50 text-emerald-600 border border-emerald-200",
-      badgeColor: "bg-emerald-100 text-emerald-800",
-      actionLabel: "Luyện Chat ngay",
-      action: () => onSelectMode("chat"),
+      key: "video" as const,
+      title: "Giọng nói có camera",
+      desc: "Như phòng Voice, bật thêm camera để quen cảm giác phỏng vấn trực tiếp. Camera chỉ dùng để nhận xét khung hình và ánh sáng, không tính vào điểm.",
+      duration: "15–20 phút",
+      Icon: Video,
+      iconClass: "bg-[#F0E9FB] text-[#6B3FA0]",
+      action: onStartVideo,
     },
   ];
 
@@ -428,62 +415,27 @@ export function PracticeModes({
       <SectionHeading
         id="modes-title"
         title={t("userDash.modes.title")}
-        subtitle="Chọn hình thức phù hợp với thời gian và mục tiêu rèn luyện hôm nay của bạn."
+        subtitle="Điểm Chat và Voice được tính riêng."
       />
-
-      <div className="grid gap-4 md:grid-cols-3">
+      <ul className={cn(CARD, "divide-y divide-[#EDEDEA]")}>
         {modes.map((mode) => (
-          <article
-            key={mode.key}
-            className={cn(
-              "relative flex min-w-0 flex-col justify-between rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5",
-              mode.isFeatured
-                ? "border-[#204195] bg-gradient-to-b from-[#F0F4FC]/90 via-white to-white shadow-md ring-1 ring-[#204195]/20"
-                : "border-[#DCE4F3] bg-white shadow-xs hover:border-[#204195]/40",
-            )}
-          >
-            {mode.highlight && (
-              <span
-                className={cn(
-                  "absolute -top-2.5 right-4 rounded-full px-2.5 py-0.5 text-[11px] font-bold shadow-xs",
-                  mode.badgeColor,
-                )}
-              >
-                {mode.highlight}
-              </span>
-            )}
-
-            <div>
-              <div className="flex items-center gap-3">
-                <div className={cn("grid size-10 shrink-0 place-items-center rounded-xl", mode.color)}>
-                  <mode.Icon className="size-5" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-display text-base font-bold text-[#14244B]">{mode.title}</h3>
-                  <span className="text-[11px] font-medium text-[#8B98B5]">{mode.duration}</span>
-                </div>
-              </div>
-              <p className="mt-3 text-xs leading-relaxed text-[#607096]">{mode.desc}</p>
+          <li key={mode.key} className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4">
+            <span className={cn("hidden size-10 shrink-0 place-items-center rounded-lg sm:grid", mode.iconClass)} aria-hidden="true">
+              <mode.Icon className="size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-[15px] font-semibold text-[#16181D]">
+                {mode.title}
+                <span className="ml-2 text-sm font-normal text-[#4A505C]">{mode.duration}</span>
+              </h3>
+              <p className="mt-0.5 text-sm leading-relaxed text-[#4A505C]">{mode.desc}</p>
             </div>
-
-            <div className="mt-4 border-t border-[#EAEFF8] pt-3">
-              <button
-                type="button"
-                onClick={mode.action}
-                className={cn(
-                  "flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-bold transition-all active:scale-[0.98]",
-                  mode.isFeatured
-                    ? "bg-[#204195] text-white shadow-xs hover:bg-[#183275]"
-                    : "border border-[#DCE4F3] bg-white text-[#14244B] hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195]",
-                )}
-              >
-                <span>{mode.actionLabel}</span>
-                <ArrowRight className="size-3.5" />
-              </button>
-            </div>
-          </article>
+            <button type="button" onClick={mode.action} className={cn(LIGHT_BUTTON, "self-start sm:self-auto")}>
+              Bắt đầu
+            </button>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }
@@ -514,7 +466,7 @@ export function RecentActivity({
         }
       />
       {displaySessions.length > 0 ? (
-        <ol className="mt-3 flex-1 divide-y divide-[#EAEFF8]">
+        <ol className="mt-2 flex-1 divide-y divide-[#EDEDEA]">
           {displaySessions.map((session) => {
             const failed = isFailedStart(session);
             const closed = session.status === "CLOSED";
@@ -528,16 +480,16 @@ export function RecentActivity({
                 <button
                   type="button"
                   onClick={() => onNavigate(sessionHref(session))}
-                  className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-2xl px-2 py-3 text-left transition-colors hover:bg-[#F8FAFC]"
+                  className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-3 text-left hover:bg-[#F7F7F5]"
                 >
                   <span className="min-w-0 flex-1">
                     <span
-                      className="block truncate text-sm font-semibold text-[#14244B]"
+                      className="block truncate text-[15px] font-medium text-[#16181D]"
                       title={session.jobTitle || undefined}
                     >
                       {session.jobTitle || t("userDash.activity.eyebrow")}
                     </span>
-                    <span className="mt-0.5 block text-xs leading-5 text-[#607096]">
+                    <span className="mt-0.5 block text-sm leading-5 text-[#4A505C]">
                       {new Date(session.startedAt).toLocaleDateString(localeOf(lang), {
                         day: "2-digit",
                         month: "2-digit",
@@ -546,17 +498,28 @@ export function RecentActivity({
                       {" · "}
                       {modeLabel(session.mode, t)}
                       {" · "}
-                      <span className={cn(!closed && !failed && "font-semibold text-[#8A5A00]")}>{state}</span>
+                      <Chip
+                        className={cn(
+                          "ml-0.5 text-xs",
+                          failed
+                            ? "bg-[#FDE8E6] text-[#B42318]"
+                            : closed
+                              ? "bg-[#F0F0ED] text-[#4A505C]"
+                              : "bg-[#FDF0D5] text-[#8A5300]",
+                        )}
+                      >
+                        {state}
+                      </Chip>
                     </span>
                   </span>
                   <span className="shrink-0 text-right">
                     {hasScore(session) ? (
-                      <span className="font-display text-lg font-bold tabular-nums text-[#14244B]">
+                      <Chip className={cn("px-2 py-1 text-base", scoreTone(session.overallScore).chip)}>
                         {session.overallScore.toFixed(1)}
-                        <span className="text-xs font-normal text-[#9AA6C2]">/10</span>
-                      </span>
+                        <span className="text-xs font-medium opacity-75">/10</span>
+                      </Chip>
                     ) : (
-                      <span className="text-xs font-semibold text-[#204195]">
+                      <span className="text-sm font-semibold text-[#204195] underline-offset-4 hover:underline">
                         {failed ? t("userDash.activity.startNew") : closed ? t("userDash.activity.viewReport") : t("userDash.activity.resume")} →
                       </span>
                     )}
@@ -567,8 +530,8 @@ export function RecentActivity({
           })}
         </ol>
       ) : (
-        <div className="py-8 text-center">
-          <p className="text-xs text-[#607096]">Chưa có buổi phỏng vấn nào. Hãy bắt đầu buổi luyện tập đầu tiên của bạn!</p>
+        <div className="py-6">
+          <p className="text-sm text-[#4A505C]">Chưa có buổi phỏng vấn nào.</p>
         </div>
       )}
     </section>
@@ -614,9 +577,9 @@ export function SuggestedJobs({
           ))}
         </div>
       ) : (
-        <div className={cn(CARD, "p-8 text-center")}>
-          <h3 className="text-lg font-semibold text-[#14244B]">{t("userDash.jobs.emptyTitle")}</h3>
-          <p className="mx-auto mt-1 max-w-lg text-sm text-[#607096]">{t("userDash.jobs.emptyBody")}</p>
+        <div className={cn(CARD, "p-5")}>
+          <h3 className="text-base font-semibold text-[#16181D]">{t("userDash.jobs.emptyTitle")}</h3>
+          <p className="mt-1 max-w-lg text-sm text-[#4A505C]">{t("userDash.jobs.emptyBody")}</p>
           <div className="mt-4">
             <LinkButton onClick={() => onNavigate("/dashboard/jobs")}>{t("userDash.jobs.browse")} →</LinkButton>
           </div>

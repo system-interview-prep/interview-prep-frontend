@@ -3,14 +3,6 @@
 import Link from "next/link";
 import axios from "axios";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ArrowRight,
-  ArrowUpRight,
-  Briefcase,
-  FileText,
-  Play,
-  Sparkles,
-} from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
 import { interviewRuntimeApi } from "@features/interview/services/interviewRuntime.service";
@@ -151,6 +143,11 @@ import {
   type StoredDashboardSession,
 } from "./DashboardSections";
 
+const DARK_BUTTON =
+  "inline-flex min-h-10 items-center justify-center rounded-xl bg-[#204195] px-4 text-sm font-bold text-white hover:bg-[#183275] active:bg-[#122557]";
+const LIGHT_BUTTON =
+  "inline-flex min-h-10 items-center justify-center rounded-xl border border-[#DCE4F3] bg-white px-4 text-sm font-semibold text-[#204195] hover:border-[#204195] hover:bg-[#F0F4FC]";
+
 type Props = {
   onNavigate: (href: string) => void;
   onStartVideo: (jobTitle?: string) => Promise<void>;
@@ -159,50 +156,24 @@ type Props = {
 };
 
 function DashboardSkeleton({ label }: { label: string }) {
+  const block = "animate-pulse rounded-lg bg-[#EFEFEC] motion-reduce:animate-none";
   return (
-    <div className="space-y-7 md:space-y-9" role="status" aria-label={label}>
-      {/* Hero skeleton */}
-      <div className="h-56 animate-pulse rounded-2xl bg-[#14244B]/10 motion-reduce:animate-none sm:h-64" />
-
-      {/* 4 Metrics skeleton */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[0, 1, 2, 3].map((item) => (
-          <div
-            key={item}
-            className="h-24 animate-pulse rounded-2xl border border-[#DCE4F3]/70 bg-white motion-reduce:animate-none"
-          />
+    <div className="space-y-8" role="status" aria-label={label}>
+      <div className="space-y-2">
+        <div className={`${block} h-7 w-40`} />
+        <div className={`${block} h-4 w-72 max-w-full`} />
+      </div>
+      <div className={`${block} h-24`} />
+      <div className="space-y-3">
+        <div className={`${block} h-5 w-36`} />
+        <div className={`${block} h-48`} />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className={`${block} h-56`} />
         ))}
       </div>
-
-      {/* 3 Modes skeleton */}
-      <div className="space-y-4">
-        <div className="h-6 w-44 animate-pulse rounded-lg bg-[#DCE4F3]/70 motion-reduce:animate-none" />
-        <div className="grid gap-5 md:grid-cols-3">
-          {[0, 1, 2].map((item) => (
-            <div
-              key={item}
-              className="h-48 animate-pulse rounded-2xl border border-[#DCE4F3]/70 bg-white motion-reduce:animate-none"
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Jobs skeleton */}
-      <div className="space-y-4">
-        <div className="h-6 w-52 animate-pulse rounded-lg bg-[#DCE4F3]/70 motion-reduce:animate-none" />
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {[0, 1, 2].map((item) => (
-            <div
-              key={item}
-              className="h-64 animate-pulse rounded-2xl border border-[#DCE4F3]/70 bg-white motion-reduce:animate-none"
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Recent activity skeleton */}
-      <div className="h-52 animate-pulse rounded-2xl border border-[#DCE4F3]/70 bg-white motion-reduce:animate-none" />
-
+      <div className={`${block} h-48`} />
       <span className="sr-only">{label}</span>
     </div>
   );
@@ -220,13 +191,9 @@ export type DashboardOverviewProps = Props & {
 };
 
 /**
- * Modern, intuitive, and action-oriented Dashboard Overview:
- * 1. Warm Hero Banner with clear Quick Start CTAs
- * 2. 4 Key Metrics (Score, Sessions, Streak, Time)
- * 3. Compact AI Insight for improvement (if available)
- * 4. 3 Practice Modes (Video, Voice, Chat)
- * 5. Suggested Target Jobs
- * 6. Recent Practice Activity
+ * The candidate's home page, plain and in this order: greeting with the one
+ * main action, an unfinished session, this week's numbers, the skill to
+ * practise next, the practice modes, suggested jobs and recent sessions.
  */
 export function DashboardOverview({
   onNavigate,
@@ -308,19 +275,39 @@ export function DashboardOverview({
   };
 
   const firstName = greetingName(userName);
+  const openAnswered =
+    openSession && typeof openSession.answeredTurns === "number" && openSession.totalTurns
+      ? `Đã trả lời ${openSession.answeredTurns}/${openSession.totalTurns} câu`
+      : null;
+  // One plain line about where the candidate is, from their own numbers.
+  const statusLine = isGuest
+    ? "Số liệu bên dưới là dữ liệu mẫu. Đăng nhập để lưu kết quả của bạn."
+    : openSession
+      ? "Bạn còn một buổi chưa xong."
+      : week.sessions > 0
+        ? (
+            <>
+              Tuần này bạn đã luyện <strong className="font-semibold text-[#204195]">{week.sessions} buổi</strong>.
+            </>
+          )
+        : practiced.length > 0
+          ? "Tuần này bạn chưa luyện buổi nào."
+          : "Buổi đầu tiên cho biết điểm xuất phát của bạn.";
+  // Only one dark button on the page: resuming wins over starting a new session.
+  const startClass = openSession ? LIGHT_BUTTON : DARK_BUTTON;
 
   return (
-    <div className="space-y-7 md:space-y-9">
+    <div className="space-y-8 text-[#2A2F38]">
       {/* Alerts */}
       {videoError ? (
-        <div className="flex items-start justify-between gap-4 rounded-2xl bg-[#FDF2F2] px-5 py-3.5 text-sm text-[#C43B3B]" role="alert">
+        <div className="flex items-start justify-between gap-4 rounded-lg border border-[#F1D3D3] bg-[#FDF5F5] px-4 py-3 text-sm text-[#9B2C2C]" role="alert">
           <p>
             <strong>{t("userDash.error.videoTitle")}</strong> {t("userDash.error.videoBody")}
           </p>
           <button
             type="button"
             onClick={onDismissVideoError}
-            className="grid min-h-8 min-w-8 place-items-center rounded-full hover:bg-white/60"
+            className="grid min-h-8 min-w-8 place-items-center rounded-md hover:bg-white"
             aria-label={t("userDash.error.dismiss")}
           >
             ×
@@ -329,12 +316,12 @@ export function DashboardOverview({
       ) : null}
 
       {error ? (
-        <div className="flex flex-col gap-3 rounded-2xl bg-[#FDF2F2] px-5 py-4 text-sm text-[#C43B3B] sm:flex-row sm:items-center sm:justify-between" role="alert">
+        <div className="flex flex-col gap-3 rounded-lg border border-[#F1D3D3] bg-[#FDF5F5] px-4 py-3 text-sm text-[#9B2C2C] sm:flex-row sm:items-center sm:justify-between" role="alert">
           <p>{t("userDash.error.profiles")}</p>
           <button
             type="button"
             onClick={onRetry}
-            className="min-h-9 rounded-full bg-white px-4 font-semibold text-[#C43B3B] transition-colors hover:bg-white/70"
+            className="min-h-9 rounded-md border border-[#F1D3D3] bg-white px-3 font-medium hover:bg-[#FDF5F5]"
           >
             {t("userDash.error.retry")}
           </button>
@@ -342,185 +329,95 @@ export function DashboardOverview({
       ) : null}
 
       {closeError ? (
-        <p className="rounded-2xl bg-[#FDF2F2] px-5 py-3 text-sm text-[#C43B3B]" role="alert">
+        <p className="rounded-lg border border-[#F1D3D3] bg-[#FDF5F5] px-4 py-3 text-sm text-[#9B2C2C]" role="alert">
           {t("uxWs.dash.stale.closeError")}
         </p>
       ) : null}
 
-      {/* Guest Mode Notice */}
-      {isGuest && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#204195]/20 bg-gradient-to-r from-[#EEF2FD] via-white to-[#FFF9E6] px-5 py-3.5 text-sm text-[#14244B] shadow-xs">
-          <div className="flex items-center gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#204195] text-white shadow-xs">
-              <Sparkles className="size-4 text-[#FCB625]" />
-            </span>
-            <div>
-              <p className="font-semibold text-[#14244B]">Bạn đang xem Dashboard ở chế độ dùng thử (Khách)</p>
-              <p className="text-xs text-[#607096]">Số liệu và phiên phỏng vấn bên dưới là dữ liệu mẫu. Hãy đăng nhập để lưu kết quả và nhận lộ trình tối ưu cho riêng bạn.</p>
-            </div>
-          </div>
-          <Link
-            href="/login"
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-4 h-9 text-xs font-bold text-white shadow-xs transition hover:bg-[#183275]"
-          >
-            <span>Đăng nhập ngay</span>
-            <ArrowRight className="size-3.5" />
-          </Link>
+      {/* 1. Greeting and the main action */}
+      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold text-[#16181D] [overflow-wrap:anywhere]">
+            {isGuest ? "Xem thử trang chủ" : `Chào ${firstName || "bạn"},`}
+          </h1>
+          <p className="mt-1 text-[15px] text-[#4A505C]">{statusLine}</p>
         </div>
-      )}
-
-      {/* 1. Hero Welcome Banner */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#14244B] via-[#1B3574] to-[#204195] p-5 text-white shadow-md sm:p-7">
-        {/* Subtle decorative glow */}
-        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-[#FCB625]/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-16 right-32 h-64 w-64 rounded-full bg-[#204195]/40 blur-3xl" />
-
-        <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0 max-w-3xl flex-1">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1 text-xs font-semibold text-white/90 backdrop-blur-xs">
-              <Sparkles className="size-3.5 text-[#FCB625]" />
-              <span>Nền tảng luyện phỏng vấn AI thông minh</span>
-            </div>
-
-            <h1 className="mt-3 font-display text-xl font-black tracking-tight text-white [overflow-wrap:anywhere] sm:text-2xl">
-              {isGuest
-                ? "Chào mừng bạn đến với Intervia 👋"
-                : `Chào ${firstName || "bạn"}, sẵn sàng bứt phá hôm nay? 👋`}
-            </h1>
-
-            <p className="mt-2 text-sm leading-relaxed text-white/80">
-              {isGuest
-                ? "Khám phá giao diện Dashboard luyện phỏng vấn AI. Đăng nhập để lưu tiến độ thực chiến và mở khóa toàn bộ tính năng."
-                : "Rèn luyện phản xạ đối thoại thực chiến, nhận nhận xét đa chiều tức thì và tự tin chinh phục nhà tuyển dụng hàng đầu."}
-            </p>
-
-            {/* In-progress session notice if any */}
-            {openSession && (
-              <div className="mt-4.5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#FCB625]/30 bg-[#FCB625]/10 px-4 py-2.5 backdrop-blur-xs">
-                <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-white">
-                  <span className="relative flex h-2 w-2 shrink-0">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#FCB625] opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-[#FCB625]" />
-                  </span>
-                  <span className="min-w-0 [overflow-wrap:anywhere]">
-                    Buổi dang dở: <strong>{openSession.jobTitle || "Phiên phỏng vấn"}</strong>
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onNavigate(sessionHref(openSession))}
-                  className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-[#FCB625] hover:underline"
-                >
-                  <span>Tiếp tục ngay</span>
-                  <ArrowRight className="size-3" />
+        <div className="flex flex-wrap items-center gap-2">
+          {isGuest ? (
+            <>
+              <Link href="/login" className={DARK_BUTTON}>
+                Đăng nhập để lưu tiến độ
+              </Link>
+              <button type="button" onClick={beginRecommended} className={LIGHT_BUTTON}>
+                Luyện thử
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={beginRecommended} className={startClass}>
+                Bắt đầu phỏng vấn ngay
+              </button>
+              {lastReport ? (
+                <button type="button" onClick={() => onNavigate(sessionHref(lastReport))} className={LIGHT_BUTTON}>
+                  Báo cáo gần nhất
                 </button>
-              </div>
-            )}
+              ) : null}
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => onNavigate("/dashboard/jobs")}
+            className="min-h-10 px-2 text-sm font-semibold text-[#204195] underline-offset-4 hover:underline"
+          >
+            Xem việc làm
+          </button>
+        </div>
+      </header>
 
-            {/* Quick CTAs */}
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              {isGuest ? (
-                <>
-                  <Link
-                    href="/login"
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#FCB625] px-6 text-sm font-bold text-[#14244B] shadow-md transition-all hover:-translate-y-0.5 hover:bg-[#ffc54a] active:translate-y-0"
-                  >
-                    <span>Đăng nhập lưu tiến độ</span>
-                    <ArrowRight className="size-4" />
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={beginRecommended}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-xs transition-all hover:bg-white/20 active:translate-y-0"
-                  >
-                    <Play className="size-4 fill-current" />
-                    <span>Luyện phỏng vấn thử</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate("/dashboard/jobs")}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-xs transition-all hover:bg-white/20 active:translate-y-0"
-                  >
-                    <Briefcase className="size-4" />
-                    <span>Khám phá việc làm</span>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={beginRecommended}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#FCB625] px-6 text-sm font-bold text-[#14244B] shadow-md transition-all hover:-translate-y-0.5 hover:bg-[#ffc54a] active:translate-y-0"
-                  >
-                    <Play className="size-4 fill-current" />
-                    <span>Bắt đầu phỏng vấn ngay</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => onNavigate("/dashboard/jobs")}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-xs transition-all hover:bg-white/20 active:translate-y-0"
-                  >
-                    <Briefcase className="size-4" />
-                    <span>Khám phá việc làm</span>
-                  </button>
-
-                  {lastReport && (
-                    <button
-                      type="button"
-                      onClick={() => onNavigate(sessionHref(lastReport))}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-xs transition-all hover:bg-white/20 active:translate-y-0"
-                    >
-                      <span>Xem báo cáo gần nhất</span>
-                      <ArrowUpRight className="size-4" />
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
+      {/* An unfinished session comes first, as a plain row */}
+      {openSession ? (
+        <div className="flex flex-col gap-3 rounded-lg border border-[#F2D49B] border-l-4 border-l-[#E8912D] bg-[#FFF8EB] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 text-sm">
+            <p className="text-[#16181D] [overflow-wrap:anywhere]">
+              <span className="mr-1.5 inline-flex rounded-md bg-[#FDE7C2] px-1.5 py-0.5 text-[13px] font-semibold text-[#8A5300]">Buổi dang dở</span>
+              <strong className="font-semibold">{openSession.jobTitle || "Phiên phỏng vấn"}</strong>
+            </p>
+            {openAnswered ? <p className="mt-1 font-medium text-[#8A5300]">{openAnswered}</p> : null}
           </div>
-
-          {/* Right Mascot card (Desktop) */}
-          <div className="hidden shrink-0 lg:block">
-            <div className="flex w-64 flex-col items-center rounded-2xl border border-white/15 bg-white/10 p-5 text-center backdrop-blur-md">
-              <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-white/20 bg-white shadow-md p-1">
-                <img src="/logo.jpg" alt="Intervia AI" className="h-full w-full rounded-full object-cover" />
-              </div>
-              <span className="mt-3 text-xs font-bold text-white">Bạn đồng hành Intervia</span>
-              <p className="mt-1 text-[11.5px] leading-relaxed text-white/75">
-                Mỗi buổi luyện tập giúp bạn tự tin hơn 30% khi đối mặt với nhà tuyển dụng thật!
-              </p>
-            </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {onCloseSession ? (
+              <button
+                type="button"
+                onClick={() => setClosingSession(openSession)}
+                className="min-h-10 px-2 text-sm font-medium text-[#607096] underline-offset-4 hover:text-[#204195] hover:underline"
+              >
+                Kết thúc buổi này
+              </button>
+            ) : null}
+            <button type="button" onClick={() => onNavigate(sessionHref(openSession))} className={DARK_BUTTON}>
+              Tiếp tục ngay
+            </button>
           </div>
         </div>
-      </section>
+      ) : null}
 
-      {/* Gentle CV onboarding notice when user has 0 CVs */}
-      {cvCount === 0 ? (
-        <div className="flex flex-col gap-4 rounded-2xl border border-[#204195]/20 bg-gradient-to-r from-[#F0F4FC] via-white to-[#F0F4FC] p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div className="flex items-center gap-3.5">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#204195]/10 text-[#204195]">
-              <FileText className="size-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-[#14244B]">Bạn chưa tải hồ sơ CV nào</h3>
-              <p className="mt-0.5 text-xs text-[#607096]">
-                Tải CV lên để AI phân tích độ tương thích và tối ưu bộ câu hỏi phỏng vấn sát nhất với năng lực của bạn.
-              </p>
-            </div>
-          </div>
+      {/* No CV yet: one line and a link */}
+      {cvCount === 0 && !isGuest ? (
+        <div className="flex flex-col gap-2 rounded-lg border border-[#CFDCF5] bg-[#EEF3FD] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[#4A505C]">
+            <span className="font-semibold text-[#16181D]">Bạn chưa tải CV.</span> Có CV, câu hỏi sẽ bám theo kinh nghiệm của bạn.
+          </p>
           <button
             type="button"
             onClick={() => onNavigate("/dashboard/cvs")}
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#204195] px-4 h-9 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#183275]"
+            className="shrink-0 self-start text-sm font-semibold text-[#204195] underline underline-offset-4 sm:self-auto"
           >
-            <span>Tải CV ngay</span>
-            <ArrowRight className="size-3.5" />
+            Tải CV lên
           </button>
         </div>
       ) : null}
 
-      {/* 2. 4 Key Metrics Overview */}
+      {/* 2. This week's numbers */}
       <OverviewMetrics
         latestScore={scoredSessions[0]?.overallScore ?? null}
         prevScore={scoredSessions[1]?.overallScore ?? null}
@@ -532,7 +429,7 @@ export function DashboardOverview({
         t={t}
       />
 
-      {/* 3. Compact AI Insight for improvement (if available) */}
+      {/* 3. The skill to practise next (if any) */}
       {focus ? (
         <ImprovementFocus
           focus={focus}
@@ -540,7 +437,7 @@ export function DashboardOverview({
         />
       ) : null}
 
-      {/* 4. 3 Practice Modes */}
+      {/* 4. Practice modes */}
       <PracticeModes
         onSelectMode={(mode) => onNavigate(`/interview/select?mode=${mode}`)}
         onStartVideo={beginRecommended}
