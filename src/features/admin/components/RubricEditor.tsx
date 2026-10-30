@@ -38,11 +38,15 @@ export default function RubricEditor({
   onChange,
   error,
   disabled = false,
+  title,
+  hint,
 }: {
   criteria: RubricCriterionInput[];
   onChange: (criteria: RubricCriterionInput[]) => void;
   error?: string;
   disabled?: boolean;
+  title?: string;
+  hint?: string;
 }) {
   const { t } = useLanguage();
   const totalPercent = criteria.reduce((sum, criterion) => sum + criterion.weight * 100, 0);
@@ -83,8 +87,8 @@ export default function RubricEditor({
     <section className="min-w-0 space-y-3 rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] p-4 sm:p-5" aria-labelledby="question-rubric-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h2 id="question-rubric-title" className="text-sm font-bold text-[#14244B]">{t("fixAdmin.ops.qb.author.rubric")}</h2>
-          <p className="mt-1 text-xs leading-5 text-[#607096]">{t("fixAdmin.ops.qb.author.rubricHint")}</p>
+          <h2 id="question-rubric-title" className="text-sm font-bold text-[#14244B]">{title ?? t("fixAdmin.ops.qb.author.rubric")}</h2>
+          <p className="mt-1 text-xs leading-5 text-[#607096]">{hint ?? t("fixAdmin.ops.qb.author.rubricHint")}</p>
         </div>
         <div className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold tabular-nums ${totalValid ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`} aria-live="polite">
           {fmt(t("fixAdmin.ops.qb.author.rubricTotal"), { total: totalPercent.toFixed(2) })}

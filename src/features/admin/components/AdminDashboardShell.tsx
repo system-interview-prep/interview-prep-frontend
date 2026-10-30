@@ -12,7 +12,6 @@ import {
   Users,
   Briefcase,
   FileQuestion,
-  ClipboardCheck,
   MessageSquare,
   MessageSquareQuote,
   Cpu,
@@ -134,7 +133,6 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
       practice: pathname.startsWith("/admin/practice"),
       systemHealth: pathname.startsWith("/admin/system"),
       taxonomy: pathname.startsWith("/admin/taxonomy"),
-      rubrics: pathname.startsWith("/admin/rubrics"),
       knowledgeBase: pathname.startsWith("/admin/knowledge-base"),
       interviews: pathname.startsWith("/admin/interviews"),
       matching: pathname.startsWith("/admin/matching"),
@@ -228,7 +226,6 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     { href: "/admin/question-bank", label: t("admin.sidebar.questionBank"), Icon: FileQuestion, active: isActive.questionBank },
     { href: "/admin/question-quality", label: t("adminOps.quality.title"), Icon: ChartColumn, active: isActive.questionQuality },
     { href: "/admin/taxonomy", label: t("fixAdmin.shell.taxonomy"), Icon: Tags, active: isActive.taxonomy },
-    { href: "/admin/rubrics", label: t("admin.sidebar.rubrics"), Icon: ClipboardCheck, active: isActive.rubrics },
     // Knowledge base (/admin/knowledge-base) hidden 26/10: it needs a separate RAG service that is not
     // part of this stack, and nothing in interviews, grading or matching reads it. The page still exists.
   ];

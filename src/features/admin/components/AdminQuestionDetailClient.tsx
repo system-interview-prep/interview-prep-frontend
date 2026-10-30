@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { fmt } from "@/i18n/format";
 import AdminPageHeader from "@features/admin/components/primitives/AdminPageHeader";
 import AdminStatusBadge from "@features/admin/components/primitives/AdminStatusBadge";
 import { lifecycleTone } from "@features/admin/components/primitives/statusTone";
 import AdminEmptyState from "@features/admin/components/primitives/AdminEmptyState";
-import { DIFFICULTY_BANDS, QUESTION_TYPES, questionBankApi, type ActionPermission, type QuestionAction, type QuestionDetail, type ReviewDecision, type UpdateDraftPayload } from "@features/admin/services/questionBank.service";
-import { RUBRIC_TEMPLATE_JSON, parseRubricCriteria } from "./questionRubricTemplate";
+import { DIFFICULTY_BANDS, QUESTION_TYPES, questionBankApi, type ActionPermission, type QuestionAction, type QuestionDetail, type ReviewDecision, type RubricCriterionInput, type UpdateDraftPayload } from "@features/admin/services/questionBank.service";
+import RubricEditor, { validateRubric } from "./RubricEditor";
+import { RUBRIC_TEMPLATE } from "./questionRubricTemplate";
 import QuestionSuggestionsSection from "./QuestionSuggestionsSection";
 
 const EDITABLE = new Set(["DRAFT", "NEEDS_REVISION"]);
@@ -17,6 +18,13 @@ const REVISABLE = new Set(["APPROVED", "CALIBRATED", "REJECTED"]);
 const IN_REVIEW = new Set(["IN_REVIEW", "PILOT_READY"]);
 // Reasons that only mean "this step is not for now" (wrong status or role): hide the button.
 const HIDDEN_REASONS = new Set(["no_role", "not_editable", "not_in_review", "not_finished"]);
+const copyRubricCriteria = (criteria: NonNullable<QuestionDetail["rubric"]>["criteria"]) => criteria.map((criterion) => ({
+  ...criterion,
+  anchors: ([0, 1, 2, 3] as const).map((level) => ({
+    level,
+    description: criterion.anchors?.find((anchor) => anchor.level === level)?.description ?? "",
+  })),
+}));
 
 /**
  * Permission of one action. The backend sends it (question_bank/permissions.py);
@@ -60,12 +68,25 @@ export default function AdminQuestionDetailClient({ questionId }: { questionId: 
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [rubricJson, setRubricJson] = useState(RUBRIC_TEMPLATE_JSON);
+  const [rubricCriteria, setRubricCriteria] = useState<RubricCriterionInput[]>([]);
+  const [rubricError, setRubricError] = useState<string | null>(null);
+  const rubricDraftVersionId = useRef<string | null>(null);
   const [comment, setComment] = useState("");
   const [reviewType, setReviewType] = useState("CONTENT");
 
   const load = useCallback(async () => {
-    try { setQuestion((await questionBankApi.get(questionId)).data); setState("ready"); }
+    try {
+      const nextQuestion = (await questionBankApi.get(questionId)).data;
+      setQuestion(nextQuestion);
+      if (rubricDraftVersionId.current !== nextQuestion.currentVersion.questionVersionId) {
+        rubricDraftVersionId.current = nextQuestion.currentVersion.questionVersionId;
+        setRubricCriteria(nextQuestion.rubric
+          ? copyRubricCriteria(nextQuestion.rubric.criteria)
+          : copyRubricCriteria(RUBRIC_TEMPLATE));
+        setRubricError(null);
+      }
+      setState("ready");
+    }
     catch { setState("error"); }
   }, [questionId]);
   useEffect(() => { void load(); }, [load]);
@@ -96,9 +117,10 @@ export default function AdminQuestionDetailClient({ questionId }: { questionId: 
   const reviewTypes = question.reviewTypes ?? ["CONTENT"];
   const named = (key: string, fallback: string) => { const text = t(key); return text && text !== key ? text : fallback; };
   const attachRubric = () => {
-    const parsed = parseRubricCriteria(rubricJson);
-    if ("error" in parsed) { setMessage(parsed.error); return; }
-    void run(() => questionBankApi.attachRubric(versionId, { criteria: parsed.criteria }), t("fixAdmin.qd.rubricAttached"));
+    const validationError = validateRubric(rubricCriteria);
+    if (validationError) { setRubricError(t(validationError)); return; }
+    setRubricError(null);
+    void run(() => questionBankApi.attachRubric(versionId, { criteria: rubricCriteria }), t("fixAdmin.qd.rubricAttached"));
   };
   const mappings = [
     ...(question.taxonomy.primaryCompetency ? [["PRIMARY_COMPETENCY", question.taxonomy.primaryCompetency.conceptId]] : []),
@@ -120,12 +142,25 @@ export default function AdminQuestionDetailClient({ questionId }: { questionId: 
       {editable && question.approvedVersionId && question.approvedVersionId !== versionId && <p className="rounded-xl bg-[#EEF2FD] p-3 text-xs">{t("fixAdmin.qd.revisionNote")}</p>}
       {editable && <DraftEditor key={versionId} version={version} busy={busy} onSave={(payload) => run(() => questionBankApi.updateDraft(versionId, payload), t("fixAdmin.qd.draftSaved"))} />}
     </section>
-    <section className="min-w-0 space-y-3 rounded-2xl border border-[#DCE4F3] bg-white p-4 text-sm text-[#14244B] sm:p-6">
+    {editable ? <div className="space-y-3">
+      <RubricEditor
+        title={t("fixAdmin.qd.rubricHeading")}
+        hint={t("fixAdmin.ops.qb.author.rubricHint")}
+        criteria={rubricCriteria}
+        onChange={(criteria) => { setRubricCriteria(criteria); setRubricError(null); }}
+        error={rubricError ?? undefined}
+        disabled={busy}
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        {question.rubric && <span className="text-xs text-[#607096] [overflow-wrap:anywhere]">{fmt(t("fixAdmin.qd.rubricMeta"), { key: question.rubric.stableKey, version: question.rubric.version })}</span>}
+        <button type="button" disabled={busy} onClick={attachRubric} className={`${button} border border-[#DCE4F3] text-[#14244B]`}>{question.rubric ? t("fixAdmin.qd.replaceRubric") : t("fixAdmin.qd.attachRubric")}</button>
+      </div>
+    </div> : <section className="min-w-0 space-y-3 rounded-2xl border border-[#DCE4F3] bg-white p-4 text-sm text-[#14244B] sm:p-6">
       <div className="min-w-0">
         <h2 className="font-bold">{t("fixAdmin.qd.rubricHeading")}</h2>
         {question.rubric && <p className="mt-0.5 text-xs text-[#607096] [overflow-wrap:anywhere]">{fmt(t("fixAdmin.qd.rubricMeta"), { key: question.rubric.stableKey, version: question.rubric.version })}</p>}
       </div>
-      {question.rubric ? <ul className="divide-y divide-[#EAEFF8] rounded-xl border border-[#EAEFF8]">{question.rubric.criteria.map((criterion) => <li key={criterion.stableKey} className="min-w-0 space-y-1 p-3">
+      {question.rubric ? <ul className="divide-y divide-[#EAEFF8] rounded-xl border border-[#EAEFF8]">{question.rubric.criteria.map((criterion) => <li key={criterion.stableKey} className="min-w-0 space-y-2 p-3">
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
           <p className="min-w-0 flex-1 font-semibold [overflow-wrap:anywhere]">{criterion.name}</p>
           <span className="flex shrink-0 flex-wrap gap-1.5">
@@ -134,9 +169,12 @@ export default function AdminQuestionDetailClient({ questionId }: { questionId: 
           </span>
         </div>
         <p className="text-xs text-[#607096] break-words [overflow-wrap:anywhere]">{criterion.description || t("fixAdmin.qd.noDescription")}</p>
+        {Boolean(criterion.anchors?.length) && <div className="grid gap-2 border-t border-[#EAEFF8] pt-2 sm:grid-cols-2">{criterion.anchors?.map((anchor) => <div key={anchor.level} className="min-w-0 rounded-lg bg-[#F8FAFC] p-2">
+          <p className="text-[11px] font-semibold text-[#33446B]">{named(`fixAdmin.ops.qb.author.rubricLevel${anchor.level}`, `Mức ${anchor.level}`)}</p>
+          <p className="mt-1 whitespace-pre-wrap text-xs text-[#607096] break-words [overflow-wrap:anywhere]">{anchor.description}</p>
+        </div>)}</div>}
       </li>)}</ul> : <p className="text-[#607096]">{t("fixAdmin.qd.noRubric")}</p>}
-      {editable && <><label className="block text-xs font-semibold">{t("fixAdmin.qd.rubricJsonLabel")}<textarea className="mt-1 w-full min-w-0 rounded-xl border border-[#DCE4F3] p-2 font-mono text-xs" rows={10} value={rubricJson} onChange={(e) => setRubricJson(e.target.value)} /></label><button type="button" disabled={busy} onClick={attachRubric} className={`${button} border border-[#DCE4F3] text-[#14244B]`}>{question.rubric ? t("fixAdmin.qd.replaceRubric") : t("fixAdmin.qd.attachRubric")}</button></>}
-    </section>
+    </section>}
     <section className="min-w-0 space-y-3 rounded-2xl border border-[#DCE4F3] bg-white p-4 text-sm text-[#14244B] sm:p-6">
       <h2 className="font-bold">{t("fixAdmin.qd.lifecycle")}</h2>
       <p className="text-xs text-[#607096]">{t("fixAdmin.qd.lifecycleDesc")}</p>

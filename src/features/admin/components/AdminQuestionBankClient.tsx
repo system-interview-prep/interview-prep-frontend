@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FileQuestion, Inbox, Search, Sparkles } from "lucide-react";
+import { Download, FileQuestion, Inbox, Search, Sparkles, Trash2 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
 import { Pagination } from "@components/shared/Pagination";
 import { DIFFICULTY_BANDS, questionBankApi, type QuestionBankItem, type WorkBucket, type WorkSummary } from "@features/admin/services/questionBank.service";
+import ConfirmDialog from "@components/shared/ConfirmDialog";
 import AdminEmptyState from "./primitives/AdminEmptyState";
 import AdminMetricCard from "./primitives/AdminMetricCard";
 import AdminPageHeader from "./primitives/AdminPageHeader";
@@ -50,6 +52,10 @@ export default function AdminQuestionBankClient() {
   const [state, setState] = useState<"loading" | "ready" | "error" | "forbidden">("loading");
   const [view, setView] = useState<BankView>("all");
   const [work, setWork] = useState<WorkSummary | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [retireTarget, setRetireTarget] = useState<string[] | null>(null);
+  const [retiring, setRetiring] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   useEffect(() => {
     questionBankApi.workSummary().then(({ data }) => setWork(data)).catch(() => setWork(null));
@@ -74,8 +80,15 @@ export default function AdminQuestionBankClient() {
     return () => window.clearTimeout(timer);
   }, [searchQuery, difficultyFilter, view, page, reloadToken]);
 
+  useEffect(() => { setSelectedIds(new Set()); }, [searchQuery, difficultyFilter, view, page]);
+
   const pending = state === "loading";
   const abilities = work ? bankAbilities(work.roles) : { add: true, import: true };
+  const canRetire = Boolean(work?.roles.some((role) => role.toUpperCase() === "ADMIN"));
+  const canExport = Boolean(work?.roles.some((role) => ["ADMIN", "QUESTION_AUTHOR"].includes(role.toUpperCase())));
+  const visibleIds = questions.map((question) => question.questionId);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  const columnCount = canExport ? 7 : 6;
   const buckets = (Object.keys(work?.buckets ?? {}) as WorkBucket[]);
   const waiting = buckets.reduce((sum, bucket) => sum + (work?.buckets[bucket] ?? 0), 0);
   const views: { key: BankView; label: string; count?: number }[] = [
@@ -84,6 +97,62 @@ export default function AdminQuestionBankClient() {
     { key: "ai", label: t("adminRoles.work.ai"), count: work?.generatedInReview },
   ];
   const th = "px-4 py-4 first:pl-6 last:pr-6";
+  const toggleQuestion = (questionId: string) => setSelectedIds((current) => {
+    const next = new Set(current);
+    if (next.has(questionId)) next.delete(questionId);
+    else next.add(questionId);
+    return next;
+  });
+  const toggleVisibleQuestions = () => setSelectedIds((current) => {
+    const next = new Set(current);
+    if (allVisibleSelected) visibleIds.forEach((id) => next.delete(id));
+    else visibleIds.forEach((id) => next.add(id));
+    return next;
+  });
+  const exportSelected = () => {
+    const selected = questions.filter((question) => selectedIds.has(question.questionId));
+    if (selected.length === 0) return;
+    const columns = ["stable_key", "version", "status", "question", "locale", "type", "difficulty", "answer_seconds", "primary_competency", "target_roles", "skills"];
+    const csvCell = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const rows = selected.map((question) => [
+      question.stableKey,
+      question.currentVersion.version,
+      question.currentVersion.status,
+      question.currentVersion.canonicalText,
+      question.currentVersion.canonicalLocale,
+      question.currentVersion.questionType,
+      question.currentVersion.difficultyBand,
+      question.currentVersion.softAnswerSeconds,
+      question.taxonomy.primaryCompetency?.conceptId,
+      question.taxonomy.roles.map((item) => item.conceptId).join("; "),
+      question.taxonomy.skills.map((item) => item.conceptId).join("; "),
+    ]);
+    const csv = `\uFEFF${[columns, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `question-bank-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setActionMessage(fmt(t("fixAdmin.ops.qb.exportSuccess"), { n: selected.length }));
+  };
+  const doRetire = async () => {
+    if (!retireTarget?.length) return;
+    setRetiring(true);
+    setActionMessage(null);
+    try {
+      const { data } = await questionBankApi.retire(retireTarget);
+      setSelectedIds(new Set());
+      setRetireTarget(null);
+      setPage(1);
+      setActionMessage(fmt(t("fixAdmin.ops.qb.retireSuccess"), { n: data.retiredCount }));
+      setReloadToken((n) => n + 1);
+    } catch {
+      setActionMessage(t("fixAdmin.ops.qb.retireFailed"));
+    } finally {
+      setRetiring(false);
+    }
+  };
   return <div className="space-y-6">
     <AdminPageHeader
       title={t("admin.questionBank.title")}
@@ -116,9 +185,15 @@ export default function AdminQuestionBankClient() {
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("fixAdmin.ops.qb.difficultyFilter")}>
         {["all", ...DIFFICULTY_BANDS].map((value) => <button key={value} type="button" aria-pressed={difficultyFilter === value} onClick={() => { setDifficultyFilter(value); setPage(1); }} className={`rounded-full px-3.5 py-1.5 text-xs font-semibold ${difficultyFilter === value ? "bg-[#204195] text-white" : "border border-[#DCE4F3] text-[#607096] hover:text-[#204195]"}`}>{value === "all" ? t("admin.common.all") : label("difficulty", value)}</button>)}
       </div>
+      <div className="flex shrink-0 items-center justify-end gap-2">
+        {canExport && <button type="button" onClick={exportSelected} disabled={selectedIds.size === 0 || pending} className="inline-flex items-center gap-2 rounded-full border border-[#DCE4F3] bg-white px-3.5 py-2 text-xs font-semibold text-[#204195] hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-45"><Download className="size-4" aria-hidden="true" />{fmt(t("fixAdmin.ops.qb.exportSelected"), { n: selectedIds.size })}</button>}
+        {canRetire && <button type="button" onClick={() => setRetireTarget(Array.from(selectedIds))} disabled={selectedIds.size === 0 || pending || retiring} title={t("fixAdmin.ops.qb.retireSelected")} aria-label={t("fixAdmin.ops.qb.retireSelected")} className="inline-flex size-9 items-center justify-center rounded-full border border-[#E7C9CC] bg-white text-[#A16A72] hover:bg-rose-50 hover:text-[#8F4F58] disabled:cursor-not-allowed disabled:opacity-35"><Trash2 className="size-4" aria-hidden="true" /></button>}
+      </div>
     </div>
+    {actionMessage && <p role="status" className="rounded-xl border border-[#DCE4F3] bg-white px-4 py-3 text-sm text-[#33446B]">{actionMessage}</p>}
     <div className="overflow-hidden rounded-3xl border border-[#DCE4F3] bg-white shadow-xs">
-      <div className="overflow-x-auto"><table className="w-full min-w-[880px] table-fixed text-left text-xs"><thead><tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase text-[#607096]">
+      <div className="overflow-x-auto"><table className="w-full min-w-[940px] table-fixed text-left text-xs"><thead><tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase text-[#607096]">
+        {canExport && <th className="w-12 px-3 py-4 text-center"><input type="checkbox" checked={allVisibleSelected} onChange={toggleVisibleQuestions} disabled={visibleIds.length === 0} aria-label={t("fixAdmin.ops.qb.selectPage")} className="size-4 rounded border-[#CBD5E1] accent-[#9FB2D4]" /></th>}
         <th className={`${th} w-[38%]`}>{t("fixAdmin.ops.qb.table.question")}</th>
         <th className={`${th} w-[18%]`}>{t("fixAdmin.ops.qb.table.competency")}</th>
         <th className={`${th} w-[10%] whitespace-nowrap text-center`}>{t("fixAdmin.ops.qb.table.difficulty")}</th>
@@ -126,11 +201,12 @@ export default function AdminQuestionBankClient() {
         <th className={`${th} w-[10%] whitespace-nowrap text-center`}>{t("fixAdmin.ops.qb.table.duration")}</th>
         <th className={`${th} w-[12%] whitespace-nowrap text-right`}>{t("fixAdmin.ops.qb.table.status")}</th>
       </tr></thead><tbody className="divide-y divide-[#EAEFF8]">
-        {pending ? <tr><td colSpan={6} className="p-8 text-center text-[#607096]">{t("fixAdmin.ops.qb.loading")}</td></tr>
-          : state === "forbidden" ? <tr><td colSpan={6} className="p-8 text-center text-[#C43B3B]">{t("fixAdmin.ops.qb.forbidden")}</td></tr>
-          : state === "error" ? <tr><td colSpan={6} className="p-8"><AdminEmptyState variant="error" title={t("fixAdmin.ops.qb.errorTitle")} description={t("fixAdmin.ops.qb.errorDesc")} onRetry={() => setReloadToken((n) => n + 1)} /></td></tr>
-          : questions.length === 0 ? <tr><td colSpan={6} className="p-8"><AdminEmptyState title={t("fixAdmin.ops.qb.emptyTitle")} description={t("fixAdmin.ops.qb.emptyDesc")} /></td></tr>
+        {pending ? <tr><td colSpan={columnCount} className="p-8 text-center text-[#607096]">{t("fixAdmin.ops.qb.loading")}</td></tr>
+          : state === "forbidden" ? <tr><td colSpan={columnCount} className="p-8 text-center text-[#C43B3B]">{t("fixAdmin.ops.qb.forbidden")}</td></tr>
+          : state === "error" ? <tr><td colSpan={columnCount} className="p-8"><AdminEmptyState variant="error" title={t("fixAdmin.ops.qb.errorTitle")} description={t("fixAdmin.ops.qb.errorDesc")} onRetry={() => setReloadToken((n) => n + 1)} /></td></tr>
+          : questions.length === 0 ? <tr><td colSpan={columnCount} className="p-8"><AdminEmptyState title={t("fixAdmin.ops.qb.emptyTitle")} description={t("fixAdmin.ops.qb.emptyDesc")} /></td></tr>
           : questions.map((question) => <tr key={question.questionId} className="hover:bg-[#F8FAFC]">
+            {canExport && <td className="px-3 py-4 text-center align-top"><input type="checkbox" checked={selectedIds.has(question.questionId)} onChange={() => toggleQuestion(question.questionId)} aria-label={fmt(t("fixAdmin.ops.qb.selectQuestion"), { key: question.stableKey })} className="size-4 rounded border-[#CBD5E1] accent-[#9FB2D4]" /></td>}
             <td className="px-4 py-4 align-top"><div className="min-w-0 space-y-1">
               <Link href={`/admin/question-bank/${question.questionId}`} title={question.stableKey} className="block font-bold text-[#14244B] [overflow-wrap:anywhere] hover:underline">{question.stableKey}</Link>
               <span className="flex flex-wrap gap-1.5">
@@ -152,5 +228,18 @@ export default function AdminQuestionBankClient() {
         </div>
       )}
     </div>
+    <ConfirmDialog
+      open={retireTarget !== null}
+      title={t("fixAdmin.ops.qb.retireConfirmTitle")}
+      body={retireTarget?.length === 1
+        ? fmt(t("fixAdmin.ops.qb.retireConfirmSingle"), { key: questions.find((question) => question.questionId === retireTarget[0])?.stableKey ?? retireTarget[0] })
+        : t("fixAdmin.ops.qb.retireConfirmBody")}
+      confirmLabel={retiring ? t("admin.common.loading") : t("fixAdmin.ops.qb.retireConfirm")}
+      cancelLabel={t("admin.common.cancel")}
+      tone="danger"
+      busy={retiring}
+      onConfirm={() => void doRetire()}
+      onCancel={() => setRetireTarget(null)}
+    />
   </div>;
 }
