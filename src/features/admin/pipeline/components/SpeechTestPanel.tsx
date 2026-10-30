@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Play, Radio, Volume2 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { API_BASE_URL } from "@/constants";
 import AdminSection from "@features/admin/components/primitives/AdminSection";
 import { resolveBackendErrorMessage } from "@/utils/backendError";
 import { pipelineService, type SpeechTestConfig } from "../services/pipeline.service";
@@ -65,7 +66,7 @@ export default function SpeechTestPanel() {
   const [text, setText] = useState(DEFAULT_TEXT);
   const [ttsBusy, setTtsBusy] = useState(false);
   const [ttsError, setTtsError] = useState("");
-  const [audioUrl, setAudioUrl] = useState("");
+  const [ttsStreaming, setTtsStreaming] = useState(false);
   const [ttsElapsed, setTtsElapsed] = useState<number | null>(null);
   const [ttsResultAdapter, setTtsResultAdapter] = useState("");
   const [recording, setRecording] = useState(false);
@@ -75,9 +76,18 @@ export default function SpeechTestPanel() {
   const [transcript, setTranscript] = useState("");
   const [sttElapsed, setSttElapsed] = useState<number | null>(null);
   const [sttResultAdapter, setSttResultAdapter] = useState("");
-  const recorderRef = useRef<MediaRecorder | null>(null);
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const [liveAdapter, setLiveAdapter] = useState("");
   const streamRef = useRef<MediaStream | null>(null);
-  const objectUrlRef = useRef("");
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const muteRef = useRef<GainNode | null>(null);
+  const socketRef = useRef<WebSocket | null>(null);
+  const liveStartedAtRef = useRef<number | null>(null);
+  const ttsSocketRef = useRef<WebSocket | null>(null);
+  const ttsAudioContextRef = useRef<AudioContext | null>(null);
+  const ttsScheduleRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -90,7 +100,13 @@ export default function SpeechTestPanel() {
     return () => {
       active = false;
       streamRef.current?.getTracks().forEach((track) => track.stop());
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      processorRef.current?.disconnect();
+      sourceRef.current?.disconnect();
+      muteRef.current?.disconnect();
+      void audioContextRef.current?.close();
+      socketRef.current?.close();
+      ttsSocketRef.current?.close();
+      void ttsAudioContextRef.current?.close();
     };
   }, [t]);
 
@@ -102,31 +118,104 @@ export default function SpeechTestPanel() {
     setSttError("");
   };
 
+  const stopLiveRecognition = () => {
+    processorRef.current?.disconnect();
+    sourceRef.current?.disconnect();
+    muteRef.current?.disconnect();
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    void audioContextRef.current?.close();
+    audioContextRef.current = null;
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "stop" }));
+    }
+    setRecording(false);
+  };
+
   const toggleRecording = async () => {
-    if (recorderRef.current?.state === "recording") {
-      recorderRef.current.stop();
-      setRecording(false);
+    if (recording) {
+      stopLiveRecognition();
       return;
     }
     setSttError("");
     setTranscript("");
+    setInterimTranscript("");
+    setSttElapsed(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      const preferredType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]
-        .find((type) => MediaRecorder.isTypeSupported(type));
-      const recorder = preferredType ? new MediaRecorder(stream, { mimeType: preferredType }) : new MediaRecorder(stream);
-      const chunks: BlobPart[] = [];
-      recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
-      recorder.onstop = () => {
-        saveRecording(new Blob(chunks, { type: recorder.mimeType || "audio/webm" }));
-        stream.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
+      const token = localStorage.getItem("accessToken") ?? (() => {
+        const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/);
+        try { return match ? decodeURIComponent(match[1]) : ""; } catch { return ""; }
+      })();
+      if (!token) throw new Error(t("aiPipeline.speech.test.authRequired"));
+      const endpoint = new URL("/admin/ai/speech/test/transcribe/stream", API_BASE_URL);
+      endpoint.protocol = endpoint.protocol === "https:" ? "wss:" : "ws:";
+      const socket = new WebSocket(endpoint, ["bearer", token]);
+      socketRef.current = socket;
+      socket.binaryType = "arraybuffer";
+      socket.onmessage = (message) => {
+        let event: { type?: string; text?: string; provider?: string; model?: string; detail?: string };
+        try { event = JSON.parse(String(message.data)); } catch { return; }
+        if (event.type === "ready") {
+          const adapter = [event.provider, event.model].filter(Boolean).join(" · ");
+          setLiveAdapter(adapter);
+          setSttResultAdapter(adapter);
+          return;
+        }
+        if (event.type === "interim") setInterimTranscript(event.text ?? "");
+        if (event.type === "final") {
+          const finalText = (event.text ?? "").trim();
+          if (finalText) setTranscript((previous) => [previous, finalText].filter(Boolean).join(" "));
+          setInterimTranscript("");
+        }
+        if (event.type === "error") setSttError(event.detail || t("aiPipeline.speech.test.sttError"));
+        if (event.type === "stopped") {
+          setRecording(false);
+          const startedAt = liveStartedAtRef.current;
+          setSttElapsed(startedAt === null ? null : Date.now() - startedAt);
+          liveStartedAtRef.current = null;
+        }
       };
-      recorderRef.current = recorder;
-      recorder.start();
+      socket.onerror = () => setSttError(t("aiPipeline.speech.test.sttError"));
+      socket.onclose = () => setRecording(false);
+      await new Promise<void>((resolve, reject) => {
+        socket.onopen = () => resolve();
+        socket.addEventListener("error", () => reject(new Error(t("aiPipeline.speech.test.sttError"))), { once: true });
+      });
+      const context = new AudioContext();
+      audioContextRef.current = context;
+      const source = context.createMediaStreamSource(stream);
+      const processor = context.createScriptProcessor(4096, 1, 1);
+      const mute = context.createGain();
+      mute.gain.value = 0;
+      sourceRef.current = source;
+      processorRef.current = processor;
+      muteRef.current = mute;
+      processor.onaudioprocess = (event) => {
+        if (socket.readyState !== WebSocket.OPEN) return;
+        const input = event.inputBuffer.getChannelData(0);
+        const ratio = context.sampleRate / 16_000;
+        const count = Math.max(1, Math.floor(input.length / ratio));
+        const pcm = new Int16Array(count);
+        for (let index = 0; index < count; index += 1) {
+          const position = index * ratio;
+          const left = Math.floor(position);
+          const right = Math.min(left + 1, input.length - 1);
+          const fraction = position - left;
+          const sample = Math.max(-1, Math.min(1, input[left] * (1 - fraction) + input[right] * fraction));
+          pcm[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+        }
+        socket.send(pcm.buffer);
+      };
+      source.connect(processor);
+      processor.connect(mute);
+      mute.connect(context.destination);
+      liveStartedAtRef.current = Date.now();
       setRecording(true);
     } catch (error) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
       setSttError(resolveBackendErrorMessage(error, t, "aiPipeline.speech.test.micError"));
     }
   };
@@ -136,17 +225,70 @@ export default function SpeechTestPanel() {
     setTtsBusy(true);
     setTtsError("");
     setTtsElapsed(null);
+    setTtsStreaming(false);
     try {
-      const result = await pipelineService.testSpeechSynthesis(text.trim());
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-      const nextUrl = URL.createObjectURL(result.audio);
-      objectUrlRef.current = nextUrl;
-      setAudioUrl(nextUrl);
-      setTtsElapsed(result.elapsedMs);
-      setTtsResultAdapter([result.provider, result.model].filter(Boolean).join(" · "));
+      const token = localStorage.getItem("accessToken") ?? (() => {
+        const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/);
+        try { return match ? decodeURIComponent(match[1]) : ""; } catch { return ""; }
+      })();
+      if (!token) throw new Error(t("aiPipeline.speech.test.authRequired"));
+      const endpoint = new URL("/admin/ai/speech/test/speak/stream", API_BASE_URL);
+      endpoint.protocol = endpoint.protocol === "https:" ? "wss:" : "ws:";
+      const socket = new WebSocket(endpoint, ["bearer", token]);
+      socket.binaryType = "arraybuffer";
+      ttsSocketRef.current = socket;
+      const context = new AudioContext();
+      ttsAudioContextRef.current = context;
+      await context.resume();
+      ttsScheduleRef.current = context.currentTime + 0.04;
+      let sampleRate = 16_000;
+      let channels = 1;
+      await new Promise<void>((resolve, reject) => {
+        socket.onopen = () => socket.send(JSON.stringify({ text: text.trim() }));
+        socket.onmessage = (message) => {
+          if (typeof message.data === "string") {
+            const event = JSON.parse(message.data) as { type?: string; provider?: string; model?: string; sampleRate?: number; channels?: number; elapsedMs?: number; detail?: string };
+            if (event.type === "ready") setTtsResultAdapter([event.provider, event.model].filter(Boolean).join(" · "));
+            if (event.type === "audio") {
+              sampleRate = event.sampleRate ?? sampleRate;
+              channels = event.channels ?? channels;
+              setTtsStreaming(true);
+            }
+            if (event.type === "done") {
+              setTtsElapsed(event.elapsedMs ?? null);
+              socket.close();
+            }
+            if (event.type === "error") {
+              setTtsError(event.detail || t("aiPipeline.speech.test.ttsError"));
+              socket.close();
+              reject(new Error(event.detail || t("aiPipeline.speech.test.ttsError")));
+            }
+            return;
+          }
+          const pcm = new Int16Array(message.data as ArrayBuffer);
+          const frameCount = Math.floor(pcm.length / channels);
+          if (!frameCount) return;
+          const audio = context.createBuffer(channels, frameCount, sampleRate);
+          for (let channel = 0; channel < channels; channel += 1) {
+            const output = audio.getChannelData(channel);
+            for (let index = 0; index < frameCount; index += 1) {
+              output[index] = pcm[index * channels + channel] / 32768;
+            }
+          }
+          const source = context.createBufferSource();
+          source.buffer = audio;
+          source.connect(context.destination);
+          const startAt = Math.max(ttsScheduleRef.current, context.currentTime + 0.02);
+          source.start(startAt);
+          ttsScheduleRef.current = startAt + audio.duration;
+        };
+        socket.onerror = () => reject(new Error(t("aiPipeline.speech.test.ttsError")));
+        socket.onclose = () => resolve();
+      });
     } catch (error) {
       setTtsError(resolveBackendErrorMessage(error, t, "aiPipeline.speech.test.ttsError"));
     } finally {
+      setTtsStreaming(false);
       setTtsBusy(false);
     }
   };
@@ -214,10 +356,8 @@ export default function SpeechTestPanel() {
             <span className="text-xs text-[#607096]">{text.length}/4096</span>
             {ttsElapsed !== null ? <span className="text-xs text-[#287A4B]">{fill(t("aiPipeline.speech.test.elapsed"), { ms: ttsElapsed })}</span> : null}
           </div>
-          {audioUrl ? <>
-            {ttsResultAdapter ? <p className="mt-3 text-xs font-medium text-[#607096]">{ttsResultAdapter}</p> : null}
-            <audio className="mt-2 w-full" controls src={audioUrl}>{t("aiPipeline.speech.test.audioUnsupported")}</audio>
-          </> : null}
+          {ttsResultAdapter ? <p className="mt-3 text-xs font-medium text-[#607096]">{ttsResultAdapter}</p> : null}
+          {ttsStreaming ? <p role="status" className="mt-2 text-xs text-[#287A4B]">{t("aiPipeline.speech.test.speaking")}</p> : null}
           {ttsError ? <p role="alert" className="mt-2 text-sm text-[#C43B3B]">{ttsError}</p> : null}
         </div>
 
@@ -225,7 +365,7 @@ export default function SpeechTestPanel() {
           <div className="mb-3 flex items-center gap-2 text-sm font-bold text-[#14244B]"><Radio size={17} />{t("aiPipeline.speech.test.sttTitle")}</div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => void toggleRecording()} disabled={!canRunStt || sttBusy} className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${recording ? "bg-[#FDF2F2] text-[#C43B3B]" : "bg-[#204195] text-white hover:bg-[#173477]"}`}>
-              {recording ? <MicOff size={16} /> : <Mic size={16} />}{recording ? t("aiPipeline.speech.test.stopRecording") : t("aiPipeline.speech.test.record")}
+              {recording ? <MicOff size={16} /> : <Mic size={16} />}{recording ? t("aiPipeline.speech.test.stopRecording") : t("aiPipeline.speech.test.liveRecord")}
             </button>
             <button type="button" onClick={() => fileInputRef.current?.click()} disabled={!canRunStt || recording || sttBusy} className="rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2 text-sm font-semibold text-[#204195] hover:bg-[#F7F9FD] disabled:cursor-not-allowed disabled:opacity-50">
               {t("aiPipeline.speech.test.chooseFile")}
@@ -236,7 +376,17 @@ export default function SpeechTestPanel() {
               event.target.value = "";
             }} />
           </div>
-          <p className="mt-2 text-xs text-[#607096]">{recordedFile ? `${recordedFile.name} · ${(recordedFile.size / 1024).toFixed(0)} KB` : t("aiPipeline.speech.test.sttHelp")}</p>
+          <p className="mt-2 text-xs text-[#607096]">{recording ? t("aiPipeline.speech.test.liveHelp") : recordedFile ? `${recordedFile.name} · ${(recordedFile.size / 1024).toFixed(0)} KB` : t("aiPipeline.speech.test.sttHelp")}</p>
+          {liveAdapter ? <p className="mt-2 text-xs font-medium text-[#607096]">{liveAdapter}</p> : null}
+          {recording || transcript || interimTranscript ? (
+            <div aria-live="polite" className="mt-3 min-h-20 rounded-xl bg-[#F7F9FD] p-3 text-sm leading-6 text-[#14244B]">
+              {transcript || interimTranscript ? <>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#607096]">{t("aiPipeline.speech.test.liveTranscript")}</p>
+                {transcript ? <span>{transcript} </span> : null}
+                {interimTranscript ? <span className="text-[#607096]">{interimTranscript}</span> : null}
+              </> : <span className="text-[#607096]">{t("aiPipeline.speech.test.listening")}</span>}
+            </div>
+          ) : null}
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <button type="button" onClick={() => void runStt()} disabled={!canRunStt || !recordedFile || recording || sttBusy} className="rounded-xl bg-[#204195] px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#173477] disabled:cursor-not-allowed disabled:opacity-50">
               {sttBusy ? t("aiPipeline.speech.test.working") : t("aiPipeline.speech.test.transcribe")}
