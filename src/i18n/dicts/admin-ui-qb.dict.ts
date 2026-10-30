@@ -31,7 +31,6 @@ export const adminUiQbVi: Record<string, string> = {
   "fixAdmin.qd.weight": "Trọng số {w}",
   "fixAdmin.qd.critical": "Bắt buộc",
   "fixAdmin.qd.noDescription": "Không có mô tả.",
-  "fixAdmin.qd.rubricJsonLabel": "Bộ tiêu chí (JSON: tổng trọng số = 1.0, mỗi tiêu chí đủ mốc 0-3)",
   "fixAdmin.qd.attachRubric": "Gắn bộ tiêu chí",
   "fixAdmin.qd.replaceRubric": "Thay bộ tiêu chí",
   "fixAdmin.qd.rubricAttached": "Đã gắn bộ tiêu chí.",
