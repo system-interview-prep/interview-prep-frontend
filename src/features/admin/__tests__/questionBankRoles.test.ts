@@ -11,6 +11,8 @@ describe("admin access by role", () => {
     expect(canOpenAdminPath("/admin/question-bank/abc", ["QUESTION_AUTHOR"])).toBe(true);
     expect(canOpenAdminPath("/admin/rubrics", ["QUESTION_AUTHOR"])).toBe(true);
     expect(canOpenAdminPath("/admin/question-quality", ["QUESTION_AUTHOR"])).toBe(false);
+    // The interview expert configures the interview blueprint (stage policy).
+    expect(canOpenAdminPath("/admin/interview-blueprints/v1", ["QUESTION_AUTHOR"])).toBe(true);
     // Reviewer and bank admin were folded into ADMIN (28/10): they open nothing.
     expect(canOpenAdminPath("/admin/question-bank", ["QUESTION_REVIEWER"])).toBe(false);
     expect(canOpenAdminPath("/admin/question-bank", ["QUESTION_BANK_ADMIN"])).toBe(false);

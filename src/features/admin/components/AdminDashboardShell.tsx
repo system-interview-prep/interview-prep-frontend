@@ -35,6 +35,7 @@ import {
   CalendarCheck,
   HeartPulse,
   BookOpenCheck,
+  ListOrdered,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { ConfirmDialog } from "@components/shared/ConfirmDialog";
@@ -135,6 +136,7 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
       taxonomy: pathname.startsWith("/admin/taxonomy"),
       knowledgeBase: pathname.startsWith("/admin/knowledge-base"),
       interviews: pathname.startsWith("/admin/interviews"),
+      interviewBlueprints: pathname.startsWith("/admin/interview-blueprints"),
       matching: pathname.startsWith("/admin/matching"),
       cvParsing: pathname.startsWith("/admin/cv-parsing"),
       aiOverview: pathname === "/admin/ai",
@@ -168,6 +170,7 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
     "/admin/rubrics": "admin.sidebar.rubrics",
     "/admin/knowledge-base": "admin.sidebar.knowledgeBase",
     "/admin/interviews": "admin.sidebar.interviews",
+    "/admin/interview-blueprints": "blueprint.title",
     "/admin/cv-parsing": "cvParse.title",
     "/admin/matching": "matching.title",
     "/admin/ai": "admin.sidebar.aiOverview",
@@ -232,6 +235,7 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
 
   const navGroupInterviews: NavItem[] = [
     { href: "/admin/interviews", label: t("admin.sidebar.interviews"), Icon: MessageSquare, active: isActive.interviews },
+    { href: "/admin/interview-blueprints", label: t("blueprint.title"), Icon: ListOrdered, active: isActive.interviewBlueprints },
     { href: "/admin/practice", label: t("adminOps.practice.title"), Icon: CalendarCheck, active: isActive.practice },
     { href: "/admin/cv-parsing", label: t("cvParse.title"), Icon: FileScan, active: isActive.cvParsing },
     { href: "/admin/matching", label: t("matching.title"), Icon: GitCompareArrows, active: isActive.matching },
