@@ -895,6 +895,16 @@ export const aiPipelineVi: Record<string, string> = {
 
 // The product UI is Vietnamese only; English keys missing below fall back to Vietnamese.
 export const aiPipelineEn: Record<string, string> = {
+  "adminNotify.title": "Notifications",
+  "adminNotify.bell": "Notifications",
+  "adminNotify.bellUnread": "Notifications, {n} unread",
+  "adminNotify.markAll": "Mark all as read",
+  "adminNotify.loading": "Loading…",
+  "adminNotify.empty": "No notifications yet.",
+  "adminNotify.unread": "Unread",
+  "adminNotify.justNow": "just now",
+  "adminNotify.minutesAgo": "{n} min ago",
+  "adminNotify.hoursAgo": "{n} h ago",
   ...aiPipelineVi,
   "aiPipeline.speech.test.title": "TTS and STT tests",
   "aiPipeline.speech.test.subtitle": "Test the integrated TTS/STT adapters with the server's current configuration. STT calls its adapter directly and does not use an LLM to generate a transcript.",

@@ -22,6 +22,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { CandidateNotificationBell } from "@features/admin/notifications/AdminNotificationBell";
 import { useLocalStorageValue } from "@/hooks/useLocalStorageValue";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { formatUserRole } from "@/i18n/roles";
@@ -240,6 +241,7 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
               <HelpCircle className="size-3.5" />
               <span>{t("common.helpCenter")}</span>
             </Link>
+            {!signedOut && <CandidateNotificationBell align="left" />}
           </div>
           {signedOut ? (
             <div className="flex flex-col gap-2 rounded-2xl border border-[#204195]/20 bg-[#F5F8FF] p-3">
@@ -402,9 +404,12 @@ export function UserDashboardShell({ children }: { children: ReactNode }) {
               {t("uxWs.shell.signIn")}
             </Link>
           ) : (
-            <Link href="/dashboard/profile" aria-label={t("userDash.nav.profile")} title={displayName} suppressHydrationWarning>
-              {avatar()}
-            </Link>
+            <div className="flex shrink-0 items-center gap-2">
+              <CandidateNotificationBell />
+              <Link href="/dashboard/profile" aria-label={t("userDash.nav.profile")} title={displayName} suppressHydrationWarning>
+                {avatar()}
+              </Link>
+            </div>
           )}
         </header>
 

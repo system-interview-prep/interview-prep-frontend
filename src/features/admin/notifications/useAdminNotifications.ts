@@ -163,9 +163,15 @@ export function notificationsSnapshot(): Snapshot {
   return snapshot;
 }
 
-export function useAdminNotifications(): Snapshot & { unread: number } {
+/** The signed-in person's notifications, polled; candidates use this (no admin socket). */
+export function useNotifications(): Snapshot & { unread: number } {
   const current = useSyncExternalStore(subscribe, () => snapshot, () => SERVER);
+  return { ...current, unread: current.items.filter((item) => !item.read).length };
+}
+
+export function useAdminNotifications(): Snapshot & { unread: number } {
+  const state = useNotifications();
   // A push means new rows exist: load them now instead of at the next poll.
   useNotificationPush(() => void load());
-  return { ...current, unread: current.items.filter((item) => !item.read).length };
+  return state;
 }
