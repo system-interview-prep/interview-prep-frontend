@@ -167,6 +167,8 @@ export type CreateInterviewRuntimeSessionRequest = {
   focusArea?: FocusArea;
   /** "Luyện lại ý này": the planner asks this skill again with a question not met before. */
   reaskConceptId?: string;
+  /** The interview type the candidate chose (admin-approved blueprint); omitted: the default type. */
+  blueprintId?: string;
 };
 
 /** Rounds made of technical questions (backend interview_rounds.FOCUSABLE_AREAS). */

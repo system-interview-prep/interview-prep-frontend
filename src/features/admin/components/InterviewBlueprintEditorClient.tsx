@@ -39,6 +39,7 @@ export default function InterviewBlueprintEditorClient({ id }: { id: string }) {
   const [draft, setDraft] = useState<BlueprintDefinition | null>(null);
   const [name, setName] = useState("");
   const [summary, setSummary] = useState("");
+  const [description, setDescription] = useState("");
   const [preview, setPreview] = useState<BlueprintPreviewRow[]>([]);
   const [previewErrors, setPreviewErrors] = useState<string[]>([]);
   const [invalid, setInvalid] = useState(false);
@@ -54,6 +55,7 @@ export default function InterviewBlueprintEditorClient({ id }: { id: string }) {
     setDraft(next.definition);
     setName(next.name);
     setSummary(next.changeSummary);
+    setDescription(next.description);
     setPreview(next.preview);
     setPreviewErrors(next.activationErrors);
     setInvalid(false);
@@ -108,10 +110,11 @@ export default function InterviewBlueprintEditorClient({ id }: { id: string }) {
     }
   };
 
-  const save = () => run(() => interviewBlueprintApi.update(id, { name, changeSummary: summary, definition: draft! }), "blueprint.saved");
+  const fields = () => ({ name, description, changeSummary: summary, definition: draft! });
+  const save = () => run(() => interviewBlueprintApi.update(id, fields()), "blueprint.saved");
   const submit = () =>
     run(async () => {
-      await interviewBlueprintApi.update(id, { name, changeSummary: summary, definition: draft! });
+      await interviewBlueprintApi.update(id, fields());
       return interviewBlueprintApi.submit(id);
     }, "blueprint.submitted");
 
@@ -262,6 +265,7 @@ export default function InterviewBlueprintEditorClient({ id }: { id: string }) {
           <AdminSection title={t("blueprint.name")}>
             <div className="space-y-3">
               <input value={name} disabled={!editable} onChange={(event) => setName(event.target.value)} maxLength={160} className="w-full rounded-xl border border-[#DCE4F3] px-3 py-2 text-sm disabled:bg-[#F8FAFC]" aria-label={t("blueprint.name")} />
+              <textarea value={description} disabled={!editable} onChange={(event) => setDescription(event.target.value)} maxLength={400} rows={2} placeholder={t("blueprint.type.descriptionPlaceholder")} className="w-full rounded-xl border border-[#DCE4F3] px-3 py-2 text-sm disabled:bg-[#F8FAFC]" aria-label={t("blueprint.type.description")} />
               <textarea value={summary} disabled={!editable} onChange={(event) => setSummary(event.target.value)} rows={2} placeholder={t("blueprint.changeSummary")} className="w-full rounded-xl border border-[#DCE4F3] px-3 py-2 text-sm disabled:bg-[#F8FAFC]" aria-label={t("blueprint.changeSummary")} />
             </div>
           </AdminSection>

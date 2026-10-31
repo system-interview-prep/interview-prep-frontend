@@ -43,8 +43,11 @@ export type BlueprintPreviewRow = {
 
 export type BlueprintVersion = {
   id: string;
+  blueprintId: string | null;
   version: number;
   name: string;
+  /** Shown to candidates once this version is activated. */
+  description: string;
   status: BlueprintStatus;
   definition: BlueprintDefinition;
   changeSummary: string;
@@ -62,10 +65,25 @@ export type BlueprintVersion = {
   actions: { edit: boolean; submit: boolean; activate: boolean; reject: boolean };
 };
 
+/** An interview type candidates choose; its versions are what experts edit and admins approve. */
+export type InterviewTypeAdmin = {
+  id: string;
+  name: string;
+  description: string;
+  isDefault: boolean;
+  isListed: boolean;
+  displayOrder: number;
+  activeVersion: { id: string; version: number } | null;
+  preview: BlueprintPreviewRow[];
+  pendingReview: number;
+  stats: { sessions: number; completionRate: number | null; averageScore: number | null };
+  versions: BlueprintVersion[];
+  actions: { newDraft: boolean; toggleListed: boolean; makeDefault: boolean };
+};
+
 export type BlueprintList = {
-  items: BlueprintVersion[];
-  activeVersionId: string | null;
-  systemDefault: { name: string; definition: BlueprintDefinition; preview: BlueprintPreviewRow[] };
+  items: InterviewTypeAdmin[];
+  systemDefault: { name: string; preview: BlueprintPreviewRow[] };
 };
 
 const BASE = "/admin/interview-blueprints";
@@ -73,9 +91,18 @@ const BASE = "/admin/interview-blueprints";
 export const interviewBlueprintApi = {
   list: () => api.get<BlueprintList>(BASE),
   get: (id: string) => api.get<BlueprintVersion>(`${BASE}/${encodeURIComponent(id)}`),
-  create: (body: { name?: string; basedOnId?: string | null; changeSummary?: string }) =>
+  createType: (body: { name: string; description?: string }) => api.post<BlueprintVersion>(`${BASE}/types`, body),
+  updateType: (id: string, body: { isListed?: boolean; isDefault?: boolean; displayOrder?: number }) =>
+    api.patch<{ id: string; isListed: boolean; isDefault: boolean; displayOrder: number }>(
+      `${BASE}/types/${encodeURIComponent(id)}`,
+      body,
+    ),
+  create: (body: { blueprintId?: string; basedOnId?: string | null; name?: string; changeSummary?: string }) =>
     api.post<BlueprintVersion>(BASE, body),
-  update: (id: string, body: { name?: string; definition?: BlueprintDefinition; changeSummary?: string }) =>
+  update: (
+    id: string,
+    body: { name?: string; description?: string; definition?: BlueprintDefinition; changeSummary?: string },
+  ) =>
     api.patch<BlueprintVersion>(`${BASE}/${encodeURIComponent(id)}`, body),
   submit: (id: string) => api.post<BlueprintVersion>(`${BASE}/${encodeURIComponent(id)}/submit`),
   activate: (id: string) => api.post<BlueprintVersion>(`${BASE}/${encodeURIComponent(id)}/activate`, {}),

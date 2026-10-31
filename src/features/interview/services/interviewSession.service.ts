@@ -24,6 +24,8 @@ export type StartInterviewParams = {
   focusArea?: FocusArea;
   /** "Luyện lại ý này" on the progress page: the skill asked again with a new question. */
   reaskConceptId?: string;
+  /** The interview type the candidate chose; omitted: the default type. Ignored for the demo package. */
+  blueprintId?: string;
 };
 
 /**
@@ -41,6 +43,12 @@ type Translate = (key: string) => string;
 const translateVi: Translate = (key) => pickerVi[key] ?? key;
 
 export const QUESTION_UNAVAILABLE_MESSAGE = translateVi("picker.startError.questionUnavailable");
+
+/** True when the chosen interview type was hidden after the page loaded: the candidate picks again. */
+export function isInterviewTypeUnavailableError(error: unknown): boolean {
+  const detail = (error as { response?: { data?: { detail?: { errorCode?: string } } } })?.response?.data?.detail;
+  return typeof detail === "object" && detail?.errorCode === "blueprint_unavailable";
+}
 
 /** True when startInterviewSession failed because the question bank cannot cover this position. */
 export function isQuestionUnavailableError(error: unknown): boolean {
@@ -63,6 +71,7 @@ export function describeStartInterviewError(error: unknown, t: Translate = trans
     });
   }
   if (code === "JOB_OUT_OF_SCOPE") return t("picker.startError.jobOutOfScope");
+  if (isInterviewTypeUnavailableError(error)) return t("picker.startError.typeUnavailable");
   if (code === "PLAN_NOT_READY") return t("picker.startError.planNotReady");
   if (status === 401) return t("picker.startError.sessionExpired");
   if (status === 404) return t("picker.startError.notFound");
@@ -80,6 +89,7 @@ export async function startInterviewSession({
   durationMinutes = 25,
   focusArea,
   reaskConceptId,
+  blueprintId,
 }: StartInterviewParams): Promise<string> {
   // Interviews are Vietnamese-only; the backend enforces it as well.
   const languageParam = "Vietnamese";
@@ -111,6 +121,7 @@ export async function startInterviewSession({
     durationMinutes,
     ...(focusArea ? { focusArea } : {}),
     ...(reaskConceptId ? { reaskConceptId } : {}),
+    ...(blueprintId ? { blueprintId } : {}),
   });
   const sessionId = session.sessionId;
 
