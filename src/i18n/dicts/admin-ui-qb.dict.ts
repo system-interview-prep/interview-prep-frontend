@@ -46,7 +46,7 @@ export const adminUiQbVi: Record<string, string> = {
   "fixAdmin.qd.reviewRequestChanges": "Duyệt: yêu cầu sửa",
   "fixAdmin.qd.reviewComment": "Nhận xét khi duyệt (tuỳ chọn)",
   "fixAdmin.qd.approveRecorded": "Đã ghi nhận chấp thuận.",
-  "fixAdmin.qd.lifecycleDesc": "Tác giả gửi duyệt → người duyệt chấp thuận nội dung → quản trị ngân hàng câu hỏi phê duyệt cuối. Người phê duyệt cuối phải khác tác giả.",
+  "fixAdmin.qd.lifecycleDesc": "Chuyên gia phỏng vấn soạn và gửi duyệt → quản trị viên duyệt nội dung và phê duyệt cuối. Người duyệt phải khác người soạn câu hỏi.",
   "fixAdmin.qd.revisionCreated": "Đã tạo bản sửa đổi ở trạng thái Bản nháp.",
 
   // Question import
