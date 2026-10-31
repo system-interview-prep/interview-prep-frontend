@@ -62,6 +62,7 @@ export function describeStartInterviewError(error: unknown, t: Translate = trans
       min: entryBlock.minMatchPercent ?? "",
     });
   }
+  if (code === "JOB_OUT_OF_SCOPE") return t("picker.startError.jobOutOfScope");
   if (code === "PLAN_NOT_READY") return t("picker.startError.planNotReady");
   if (status === 401) return t("picker.startError.sessionExpired");
   if (status === 404) return t("picker.startError.notFound");
@@ -146,6 +147,15 @@ export async function startInterviewSession({
           "question_unavailable: Ngân hàng câu hỏi chưa có đủ câu hỏi đã duyệt phù hợp với vị trí này để bắt đầu phỏng vấn."
         ),
         { code: "QUESTION_UNAVAILABLE", response: (error as { response?: unknown })?.response }
+      );
+    }
+    // The planner found no IT skill or specialisation in the JD (e.g. a non-IT job).
+    if (rawMsg.includes("taxonomy-backed interview competencies")) {
+      throw Object.assign(
+        new Error(
+          "job_out_of_scope: JD này chưa có kỹ năng hoặc chuyên ngành CNTT nào mà hệ thống nhận ra, nên chưa thể tạo buổi phỏng vấn."
+        ),
+        { code: "JOB_OUT_OF_SCOPE", response: (error as { response?: unknown })?.response }
       );
     }
     throw error;
