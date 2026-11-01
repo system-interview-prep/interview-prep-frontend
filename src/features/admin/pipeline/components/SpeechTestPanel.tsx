@@ -17,19 +17,13 @@ async function toMonoWav16k(file: File): Promise<File> {
   try {
     const source = await context.decodeAudioData(await file.arrayBuffer());
     const sampleCount = Math.max(1, Math.floor(source.duration * STT_SAMPLE_RATE));
-    const mono = new Float32Array(sampleCount);
-    const channels = Array.from({ length: source.numberOfChannels }, (_, index) => source.getChannelData(index));
-    for (let targetIndex = 0; targetIndex < sampleCount; targetIndex += 1) {
-      const sourcePosition = targetIndex * source.sampleRate / STT_SAMPLE_RATE;
-      const leftIndex = Math.floor(sourcePosition);
-      const rightIndex = Math.min(leftIndex + 1, source.length - 1);
-      const fraction = sourcePosition - leftIndex;
-      let mixed = 0;
-      for (const channel of channels) {
-        mixed += channel[leftIndex] * (1 - fraction) + channel[rightIndex] * fraction;
-      }
-      mono[targetIndex] = mixed / channels.length;
-    }
+    const offline = new OfflineAudioContext(1, sampleCount, STT_SAMPLE_RATE);
+    const sourceNode = offline.createBufferSource();
+    sourceNode.buffer = source;
+    sourceNode.connect(offline.destination);
+    sourceNode.start();
+    const normalizedAudio = await offline.startRendering();
+    const mono = normalizedAudio.getChannelData(0);
 
     const wav = new ArrayBuffer(44 + sampleCount * 2);
     const view = new DataView(wav);
@@ -142,7 +136,14 @@ export default function SpeechTestPanel() {
     setInterimTranscript("");
     setSttElapsed(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: { ideal: 1 },
+        },
+      });
       streamRef.current = stream;
       const token = localStorage.getItem("accessToken") ?? (() => {
         const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/);
@@ -183,7 +184,14 @@ export default function SpeechTestPanel() {
         socket.onopen = () => resolve();
         socket.addEventListener("error", () => reject(new Error(t("aiPipeline.speech.test.sttError"))), { once: true });
       });
-      const context = new AudioContext();
+      let context: AudioContext;
+      try {
+        // Ask the browser to resample the microphone through its audio pipeline
+        // instead of downsampling 48 kHz input with linear interpolation here.
+        context = new AudioContext({ sampleRate: STT_SAMPLE_RATE });
+      } catch {
+        context = new AudioContext();
+      }
       audioContextRef.current = context;
       const source = context.createMediaStreamSource(stream);
       const processor = context.createScriptProcessor(4096, 1, 1);
