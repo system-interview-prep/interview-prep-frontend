@@ -21,6 +21,22 @@ export const ROOMS: RoomName[] = ["chat", "voice"];
 /** A drop of this much in the overview is told as a drop (the flat band of the trends). */
 export const DROP_AT = -0.5;
 
+/** Overall score comparison scoped to one target job and one already-filtered room. */
+export function overviewForJob(progress: PracticeProgress, jobId: string): ScoreOverview {
+  const sessions = progress.sessions
+    .filter((session) => session.jobId === jobId && session.valid !== false && session.overallScore !== null)
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const scores = sessions.map((session) => session.overallScore as number);
+  const count = scores.length;
+  const window = count >= 6 ? 3 : count >= 4 ? 2 : 0;
+  const latest = scores.at(-1) ?? null;
+  if (!window) return { sessions: count, window: 0, start: null, recent: null, change: null, latest };
+  const start = scores.slice(0, window).reduce((sum, score) => sum + score, 0) / window;
+  const recent = scores.slice(-window).reduce((sum, score) => sum + score, 0) / window;
+  return { sessions: count, window, start, recent, change: recent - start, latest };
+}
+
 export function roomCounts(progress: PracticeProgress): Record<RoomName, number> & { camera: number } {
   const rooms = progress.rooms;
   return {
@@ -71,6 +87,24 @@ export function roundsToPractise(job: JobReadiness | null): RoundReadiness[] {
   return job.rounds
     .filter((round) => (round.series?.length ?? 0) > 0 && (round.level ?? 0) < ROUND_READY_LEVEL)
     .sort((a, b) => distance(a) - distance(b));
+}
+
+/** Show a trend only when the comparison window is valid; otherwise show the actual latest score. */
+export function scoreSummaryOf(overview?: ScoreOverview):
+  | { kind: "comparison"; score: number; change: number; start: number | null; window: number }
+  | { kind: "latest"; score: number }
+  | null {
+  if (!overview) return null;
+  if (overview.window > 0 && overview.change !== null && overview.recent !== null) {
+    return {
+      kind: "comparison",
+      score: overview.recent,
+      change: overview.change,
+      start: overview.start,
+      window: overview.window,
+    };
+  }
+  return overview.latest === null ? null : { kind: "latest", score: overview.latest };
 }
 
 /** Change of a round between its two latest sessions. */
@@ -146,8 +180,9 @@ export type LatestFeedback = {
   fix: GapItem | null;
 };
 
-export function latestFeedbackOf(progress: PracticeProgress): LatestFeedback | null {
-  const session = latestValidSession(progress.sessions);
+export function latestFeedbackOf(progress: PracticeProgress, jobId?: string): LatestFeedback | null {
+  const sessions = jobId ? progress.sessions.filter((item) => item.jobId === jobId) : progress.sessions;
+  const session = latestValidSession(sessions);
   if (!session) return null;
   const entry = (progress.timeline ?? []).find((item) => item.sessionId === session.sessionId) ?? null;
   const up = entry?.levelChanges.find((change) => change.to > change.from);

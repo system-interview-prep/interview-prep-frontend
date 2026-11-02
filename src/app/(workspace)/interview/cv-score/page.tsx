@@ -504,6 +504,7 @@ function ScorePageContent() {
   const focusArea = asFocusArea(params.get("focus"));
   // "Luyện lại ý này": the skill the planner must ask again, with a question not met before.
   const reaskConceptId = params.get("reask")?.trim().slice(0, 120) || undefined;
+  const reaskQuestionVersionId = params.get("reaskQuestionVersionId")?.trim().slice(0, 64) || undefined;
   const reaskSkill = params.get("reaskSkill")?.trim().slice(0, 120) || "";
 
   const [activeContext, setActiveContext] = useState<{
@@ -790,6 +791,7 @@ function ScorePageContent() {
         durationMinutes,
         focusArea,
         reaskConceptId,
+        reaskQuestionVersionId,
       });
       setStartStage(2);
       router.push(targetUrl);

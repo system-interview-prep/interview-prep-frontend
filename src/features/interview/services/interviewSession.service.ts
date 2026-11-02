@@ -24,6 +24,8 @@ export type StartInterviewParams = {
   focusArea?: FocusArea;
   /** "Luyện lại ý này" on the progress page: the skill asked again with a new question. */
   reaskConceptId?: string;
+  /** Exact due question to repeat before adding new questions for that skill. */
+  reaskQuestionVersionId?: string;
 };
 
 /**
@@ -79,6 +81,7 @@ export async function startInterviewSession({
   durationMinutes = 25,
   focusArea,
   reaskConceptId,
+  reaskQuestionVersionId,
 }: StartInterviewParams): Promise<string> {
   // Interviews are Vietnamese-only; the backend enforces it as well.
   const languageParam = "Vietnamese";
@@ -110,6 +113,7 @@ export async function startInterviewSession({
     durationMinutes,
     ...(focusArea ? { focusArea } : {}),
     ...(reaskConceptId ? { reaskConceptId } : {}),
+    ...(reaskQuestionVersionId ? { reaskQuestionVersionId } : {}),
   });
   const sessionId = session.sessionId;
 

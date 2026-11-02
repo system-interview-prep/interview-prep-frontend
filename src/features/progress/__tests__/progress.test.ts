@@ -382,6 +382,11 @@ describe("progress page v2: ladder, week, records, timeline (research 24/10)", (
     expect(practiceHref("job-be", "cv-1", "data", { conceptId: "redis", skill: "Redis" })).toBe(
       "/interview/cv-score?candidateId=cv-1&jobId=job-be&focus=data&reask=redis&reaskSkill=Redis",
     );
+    expect(practiceHref("job-be", "cv-1", "data", {
+      conceptId: "redis", skill: "Redis", questionVersionId: "qv-123",
+    })).toBe(
+      "/interview/cv-score?candidateId=cv-1&jobId=job-be&focus=data&reask=redis&reaskSkill=Redis&reaskQuestionVersionId=qv-123",
+    );
     expect(practiceHref("job-be", "cv-1", "project", { conceptId: "label:kể dự án", skill: "Dự án" })).toBe(
       "/interview/cv-score?candidateId=cv-1&jobId=job-be",
     );

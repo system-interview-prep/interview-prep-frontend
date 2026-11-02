@@ -6,20 +6,23 @@ import { ArrowRight, ChevronDown, Flame, Play } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { localeOf } from "@/i18n/format";
 import { cn } from "@/utils";
+import type { JobProfile } from "@features/admin/services/jobProfile.service";
+import { JobInterviewCvModal } from "@features/user-dashboard/components/JobInterviewCvModal";
 import type { GapItem, JobReadiness, PracticeProgress, ProgressSession, RoomName, RoundReadiness } from "../services/progress.service";
 import { fill, longDate, percent, shortDate, trendLabel } from "../utils/progressFormat";
-import { adviceRoundOf, dueOf, lastResumeFor, practiceHref, readyCountOf, recentRecords, ROUND_READY_LEVEL } from "../utils/progressModel";
+import { adviceRoundOf, dueOf, readyCountOf, recentRecords, ROUND_READY_LEVEL, skillStats } from "../utils/progressModel";
 import {
   conclusionOf,
   defaultRoom,
   isRepeated,
   latestFeedbackOf,
+  overviewForJob,
   plotPoints,
-  repeatedGapOf,
   roomCounts,
   roomProgressOf,
   ROOMS,
   roundsToPractise,
+  scoreSummaryOf,
   yOf,
 } from "../utils/progressV3";
 import { ladderRule, recordText } from "./ProgressOverview";
@@ -67,22 +70,61 @@ export function ProgressV3({
   progress,
   onGoal,
   savingGoal,
+  targetJobs = [],
+  targetJobId = null,
+  onTargetJobChange = () => undefined,
 }: {
   progress: PracticeProgress;
   onGoal: (goal: number) => void;
   savingGoal: boolean;
+  targetJobs?: JobProfile[];
+  targetJobId?: string | null;
+  onTargetJobChange?: (jobId: string) => void;
 }) {
   const { t } = useLanguage();
   const [room, setRoom] = useState<RoomName>(() => defaultRoom(progress));
-  const counts = roomCounts(progress);
+  const hasRoomSplit = Boolean(progress.rooms);
+  const allRoomCounts = roomCounts(progress);
   const data = useMemo(() => roomProgressOf(progress, room), [progress, room]);
   const jobs = data.readiness ?? [];
-  const [jobId, setJobId] = useState<string | null>(null);
-  const job = jobs.find((item) => item.jobId === jobId) ?? jobs[0] ?? null;
+  const [legacyJobId, setLegacyJobId] = useState<string | null>(null);
+  const chosenProfile = targetJobs.find((item) => item.id === targetJobId) ?? null;
+  const selectedId = chosenProfile?.id ?? legacyJobId;
+  const selectedReadiness = jobs.find((item) => item.jobId === selectedId)
+    ?? (!chosenProfile ? jobs.find((item) => item.jobId === legacyJobId) ?? jobs[0] : null);
+  const job: JobReadiness | null = useMemo(
+    () => selectedReadiness ?? (chosenProfile ? {
+      jobId: chosenProfile.id,
+      jobTitle: chosenProfile.title,
+      sessions: 0,
+      rounds: [],
+    } : null),
+    [selectedReadiness, chosenProfile],
+  );
+  const scopedRoomSessions = job ? progress.sessions.filter((session) => session.jobId === job.jobId) : null;
+  const roomForSession = (session: ProgressSession): RoomName => session.room ?? (session.mode === "text" ? "chat" : "voice");
+  const counts = scopedRoomSessions ? {
+    chat: scopedRoomSessions.filter((session) => roomForSession(session) === "chat").length,
+    voice: scopedRoomSessions.filter((session) => roomForSession(session) === "voice").length,
+    camera: scopedRoomSessions.filter((session) => session.mode === "video" || session.camera).length,
+  } : allRoomCounts;
+  const validCounts: Record<RoomName, number> = scopedRoomSessions
+    ? {
+        chat: scopedRoomSessions.filter((session) => roomForSession(session) === "chat" && session.valid !== false && session.overallScore !== null).length,
+        voice: scopedRoomSessions.filter((session) => roomForSession(session) === "voice" && session.valid !== false && session.overallScore !== null).length,
+      }
+    : {
+        chat: progress.rooms?.chat.overview.sessions ?? progress.sessions.filter((session) => roomForSession(session) === "chat" && session.valid !== false && session.overallScore !== null).length,
+        voice: progress.rooms?.voice.overview.sessions ?? progress.sessions.filter((session) => roomForSession(session) === "voice" && session.valid !== false && session.overallScore !== null).length,
+      };
+  const [selectedPractice, setSelectedPractice] = useState<{ id: string; title: string; reaskConceptId?: string; reaskQuestionVersionId?: string } | null>(null);
   const gaps = useMemo(
     () => (data.gaps?.open ?? []).filter((gap) => !job || gap.lastSeen.jobId === job.jobId),
     [data.gaps, job],
   );
+  const dueGaps = useMemo(() => dueOf(gaps).due, [gaps]);
+  const primaryDueGap = dueGaps[0] ?? null;
+  const hasScoredJobSession = Boolean(job && data.sessions.some((session) => session.jobId === job.jobId && session.valid !== false && session.overallScore !== null));
   const [tab, setTab] = useState<Tab>("topics");
   const [openArea, setOpenArea] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -109,7 +151,22 @@ export function ProgressV3({
   return (
     <div className="space-y-5 text-[#16181D]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="tablist" aria-label={t("practiceProgress.v3.room.label")} className="flex flex-wrap gap-2">
+        {targetJobs.length > 0 ? (
+          <label className="flex w-full flex-col gap-1 text-sm font-semibold text-[#4A505C] sm:w-auto">
+            {t("practiceProgress.v3.job.target")}
+            <select className="h-11 w-full min-w-0 rounded-xl border border-[#DCE4F3] bg-white px-3 text-[15px] font-semibold text-[#14244B] sm:w-72" value={chosenProfile?.id ?? ""} onChange={(event) => onTargetJobChange(event.target.value)}>
+              {targetJobs.map((choice) => <option key={choice.id} value={choice.id}>{choice.title}{choice.company?.name ? ` · ${choice.company.name}` : ""}</option>)}
+            </select>
+          </label>
+        ) : jobs.length > 0 ? (
+          <label className="flex w-full flex-col gap-1 text-sm font-semibold text-[#4A505C] sm:w-auto">
+            {t("practiceProgress.v3.job.target")}
+            <select className="h-11 w-full min-w-0 rounded-xl border border-[#DCE4F3] bg-white px-3 text-[15px] font-semibold text-[#14244B] sm:w-72" value={selectedReadiness?.jobId ?? ""} onChange={(event) => setLegacyJobId(event.target.value)}>
+              {jobs.map((choice) => <option key={choice.jobId} value={choice.jobId}>{choice.jobTitle ?? choice.jobId}</option>)}
+            </select>
+          </label>
+        ) : null}
+        {hasRoomSplit && <div role="tablist" aria-label={t("practiceProgress.v3.room.label")} className="flex flex-wrap gap-2">
           {ROOMS.map((name) => {
             const on = name === room;
             return (
@@ -127,38 +184,29 @@ export function ProgressV3({
                 {t(`practiceProgress.v3.room.${name}`)}
                 <span className={cn("ml-2 text-sm font-medium", on ? "text-white/85" : muted)}>
                   {name === "voice" && counts.camera > 0
-                    ? fill(t("practiceProgress.v3.room.countCamera"), { n: counts.voice, camera: counts.camera })
-                    : fill(t("practiceProgress.v3.room.count"), { n: counts[name] })}
+                    ? fill(t("practiceProgress.v3.room.countCamera"), { n: counts.voice, valid: validCounts.voice, camera: counts.camera })
+                    : fill(t("practiceProgress.v3.room.count"), { n: counts[name], valid: validCounts[name] })}
                 </span>
               </button>
             );
           })}
-        </div>
-        {jobs.length > 1 && job && (
-          <label className="flex w-full flex-col gap-1 text-sm font-semibold text-[#4A505C] sm:w-auto">
-            {t("practiceProgress.v2.job")}
-            <select
-              className="h-11 w-full min-w-0 rounded-xl border border-[#DCE4F3] bg-white px-3 text-[15px] font-semibold text-[#14244B] focus:border-[#204195] sm:w-72"
-              value={job.jobId}
-              onChange={(event) => setJobId(event.target.value)}
-            >
-              {jobs.map((choice) => (
-                <option key={choice.jobId} value={choice.jobId}>
-                  {choice.jobTitle ?? choice.jobId}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+        </div>}
       </div>
 
-      {counts[room] === 0 || !job ? (
+      {!job ? (
         <EmptyRoom room={room} other={other} otherCount={counts[other]} onSwitch={() => setRoom(other)} />
+      ) : !hasScoredJobSession ? (
+        <FirstPracticeCard
+          job={chosenProfile}
+          jobId={job.jobId}
+          dueGap={primaryDueGap}
+          onStart={(args) => setSelectedPractice(args)}
+        />
       ) : (
         <>
           <StatusCard progress={data} job={job} onGoal={onGoal} savingGoal={savingGoal} onTopic={goTopic} />
-          <TodayCard progress={progress} job={job} gaps={gaps} />
-          <FeedbackCard progress={data} />
+          <TodayCard progress={data} job={job} dueGap={primaryDueGap} onStart={(args) => setSelectedPractice(args)} />
+          <FeedbackCard progress={data} jobId={job.jobId} />
           <div className="flex flex-wrap items-start gap-5">
             <DetailCard
               progress={data}
@@ -169,15 +217,25 @@ export function ProgressV3({
               onOpenArea={setOpenArea}
               flash={flash}
               room={room}
+              jobId={job.jobId}
+              onPractice={(args) => setSelectedPractice(args)}
             />
             <aside className="flex min-w-0 flex-[1_1_320px] flex-col gap-5">
-              <DueList progress={progress} gaps={gaps} />
+              <DueList gaps={dueGaps.slice(primaryDueGap ? 1 : 0)} jobId={job.jobId} jobTitle={job.jobTitle ?? job.jobId} onStart={(args) => setSelectedPractice(args)} />
               <RecordsList progress={data} jobId={job.jobId} />
             </aside>
           </div>
-          <HowItWorks k={data.overview?.window ?? 0} />
+          <HowItWorks k={overviewForJob(data, job.jobId).window} />
         </>
       )}
+      <JobInterviewCvModal
+        open={selectedPractice !== null}
+        jobTitle={selectedPractice?.title ?? ""}
+        jobProfileId={selectedPractice?.id}
+        reaskConceptId={selectedPractice?.reaskConceptId}
+        reaskQuestionVersionId={selectedPractice?.reaskQuestionVersionId}
+        onClose={() => setSelectedPractice(null)}
+      />
     </div>
   );
 }
@@ -193,9 +251,8 @@ function EmptyRoom({ room, other, otherCount, onSwitch }: { room: RoomName; othe
           ? fill(t("practiceProgress.v3.empty.desc"), { other: t(`practiceProgress.v3.room.${other}`), n: otherCount })
           : t("practiceProgress.v3.empty.first")}
       </p>
-      <Link href="/interview/select" className={cn(darkButton, "w-full")}>
-        <Play className="size-4" aria-hidden="true" />
-        {fill(t("practiceProgress.v3.empty.cta"), { room: name })}
+      <Link href="/dashboard/jobs" className={cn(darkButton, "w-full")}>
+        {t("practiceProgress.v3.job.noSaved")}
       </Link>
       {otherCount > 0 && (
         <button type="button" onClick={onSwitch} className="min-h-11 text-[17px] font-semibold text-[#204195] underline">
@@ -221,14 +278,15 @@ function StatusCard({
 }) {
   const { t } = useLanguage();
   const [editGoal, setEditGoal] = useState(false);
-  const overview = progress.overview;
+  const overview = overviewForJob(progress, job.jobId);
   const conclusion = conclusionOf(job, overview);
   const ready = readyCountOf(job);
   const total = job.rounds.length;
   const toPractise = roundsToPractise(job);
   const streak = progress.streak;
-  const compared = Boolean(overview && overview.window > 0 && overview.change !== null);
-  const change = overview?.change ?? 0;
+  const scoreSummary = scoreSummaryOf(overview);
+  const compared = scoreSummary?.kind === "comparison";
+  const change = compared ? scoreSummary.change : 0;
   const tile = "flex min-w-0 flex-col gap-1.5 rounded-lg border p-4";
   return (
     <section className={cn(card, "space-y-4")} aria-label={t("practiceProgress.v3.status.label")}>
@@ -244,18 +302,21 @@ function StatusCard({
       )}
 
       <div className="grid gap-3 sm:grid-cols-3">
-        {/* Average now, and how it moved since the first sessions */}
+        {/* Show a latest score before there is enough data to compare a trend. */}
         <div className={cn(tile, "border-[#E4E4E0] bg-white")}>
-          <p className={cn("text-sm font-medium", muted)}>{t("practiceProgress.v3.status.avg")}</p>
-          {compared && overview ? (
+          <p className={cn("text-sm font-medium", muted)}>
+            {compared ? t("practiceProgress.v3.status.avg") : t("practiceProgress.v3.status.latest")}
+          </p>
+          {scoreSummary ? (
             <>
               <p className="flex flex-wrap items-baseline gap-2">
-                <span className={cn("text-[32px] font-bold leading-none tabular-nums", scoreTone(overview.recent ?? 0).text)}>
-                  {overview.recent?.toFixed(1)}
+                <span className={cn("text-[32px] font-bold leading-none tabular-nums", scoreTone(scoreSummary.score).text)}>
+                  {scoreSummary.score.toFixed(1)}
+                  <span className="ml-1 text-base font-semibold text-[#4A505C]">/10</span>
                 </span>
                 <span
                   className={cn(
-                    scoreChip,
+                    compared ? scoreChip : "hidden",
                     "text-sm",
                     change <= -0.5 ? "bg-[#FDE8E6] text-[#B42318]" : change >= 0.5 ? "bg-[#E3F4E7] text-[#1E6B34]" : "bg-[#F0F0ED] text-[#4A505C]",
                   )}
@@ -264,12 +325,24 @@ function StatusCard({
                   {`${change > 0 ? "+" : ""}${change.toFixed(1)}`}
                 </span>
               </p>
-              <p className={cn("text-sm", muted)}>
-                {fill(t("practiceProgress.v3.status.since"), { k: overview.window, start: overview.start?.toFixed(1) ?? "—" })}
-              </p>
+              {compared ? (
+                <p className={cn("text-sm", muted)}>
+                  {fill(t("practiceProgress.v3.status.since"), {
+                    k: scoreSummary.window,
+                    start: scoreSummary.start?.toFixed(1) ?? "—",
+                  })}
+                </p>
+              ) : (
+                <p className={cn("text-sm", muted)}>{t("practiceProgress.v3.status.latestHelp")}</p>
+              )}
             </>
           ) : (
-            <p className={cn("text-sm", muted)}>{fill(t("practiceProgress.v3.status.few"), { n: overview?.sessions ?? 0 })}</p>
+            <p className={cn("text-sm", muted)}>
+              {fill(t("practiceProgress.v3.status.few"), {
+                n: overview?.sessions ?? 0,
+                total: progress.sessions.filter((session) => session.jobId === job.jobId).length,
+              })}
+            </p>
           )}
         </div>
 
@@ -357,46 +430,89 @@ function StatusCard({
   );
 }
 
-function TodayCard({ progress, job, gaps }: { progress: PracticeProgress; job: JobReadiness; gaps: GapItem[] }) {
+function TodayCard({ progress, job, dueGap, onStart }: { progress: PracticeProgress; job: JobReadiness; dueGap: GapItem | null; onStart: (args: { id: string; title: string; reaskConceptId?: string; reaskQuestionVersionId?: string }) => void }) {
   const { t } = useLanguage();
-  const advice = adviceRoundOf(job);
-  const repeated = repeatedGapOf(advice?.round ?? null, gaps);
-  const resume = lastResumeFor(progress, job.jobId);
-  const href = practiceHref(
-    job.jobId,
-    resume,
-    advice?.round.area,
-    isRepeated(repeated) ? { conceptId: repeated.skillKey, skill: repeated.skill } : null,
-  );
-  const why = !advice
-    ? t("practiceProgress.v3.today.topWhy")
-    : isRepeated(repeated)
-      ? fill(t("practiceProgress.v3.today.repeat"), { point: repeated.point, missed: repeated.timesMissed, asked: repeated.timesAsked })
-      : advice.reason === "risk"
-        ? fill(t("practiceProgress.v3.today.risk"), { round: areaName(advice.round.area, t) })
-        : ladderRule(advice.round, t);
+  const latestMiss = dueGap ? null : latestFeedbackOf(progress, job.jobId)?.fix ?? null;
+  const targetGap = dueGap ?? latestMiss;
+  const advice = targetGap ? null : adviceRoundOf(job);
+  const weakestSkill = advice?.round.skills.slice().sort((a, b) => a.estimate - b.estimate)[0] ?? null;
+  const reask = dueGap
+    ? { conceptId: dueGap.skillKey, skill: dueGap.skill, questionVersionId: dueGap.lastSeen.questionVersionId }
+    : latestMiss
+      ? { conceptId: latestMiss.skillKey, skill: latestMiss.skill }
+      : weakestSkill
+        ? { conceptId: weakestSkill.conceptId, skill: weakestSkill.label }
+        : null;
+  const title = dueGap
+    ? t("practiceProgress.v3.today.repeatTitle")
+    : latestMiss
+      ? fill(t("practiceProgress.v3.today.newFocusTitle"), { skill: latestMiss.skill })
+    : advice
+      ? fill(t("practiceProgress.v3.today.title"), { round: areaName(advice.round.area, t) })
+      : t("practiceProgress.v3.today.top");
+  const why = dueGap
+    ? fill(t("practiceProgress.v3.today.repeatTask"), {
+        point: dueGap.point,
+        skill: dueGap.skill,
+        question: dueGap.lastSeen.question || t("practiceProgress.skills.questionUnknown"),
+      })
+    : latestMiss
+      ? fill(t("practiceProgress.v3.today.newFromMiss"), { point: latestMiss.point })
+    : weakestSkill && advice
+      ? fill(t("practiceProgress.v3.today.newTask"), {
+          skill: weakestSkill.label,
+          round: areaName(advice.round.area, t),
+        })
+      : !advice
+        ? t("practiceProgress.v3.today.topWhy")
+        : advice.reason === "risk"
+          ? fill(t("practiceProgress.v3.today.risk"), { round: areaName(advice.round.area, t) })
+          : ladderRule(advice.round, t);
   return (
     <section className={cn(card, "flex flex-wrap items-center gap-x-6 gap-y-4 border-[#CFDCF5] border-l-4 border-l-[#204195] bg-[#F7F9FE]")} aria-labelledby="v3-today">
       <div className="min-w-0 flex-[999_1_380px] space-y-2">
-        <p className="text-[15px] font-semibold text-[#204195]">{t("practiceProgress.v3.today.label")}</p>
-        <h2 id="v3-today" className="text-[22px] font-semibold leading-snug">
-          {advice ? fill(t("practiceProgress.v3.today.title"), { round: areaName(advice.round.area, t) }) : t("practiceProgress.v3.today.top")}
-        </h2>
+        <p className="text-[15px] font-semibold text-[#204195]">
+          {dueGap
+            ? t("practiceProgress.v3.today.reviewLabel")
+            : latestMiss
+              ? t("practiceProgress.v3.today.improveLabel")
+              : t("practiceProgress.v3.today.label")}
+        </p>
+        <h2 id="v3-today" className="text-[22px] font-semibold leading-snug">{title}</h2>
         <p className="text-base text-[#2A2F38]">{why}</p>
       </div>
-      <Link href={href} className={cn(darkButton, "flex-[1_1_240px]")}>
+      <button type="button" onClick={() => onStart({ id: job.jobId, title: job.jobTitle ?? job.jobId, ...(reask ? { reaskConceptId: reask.conceptId, reaskQuestionVersionId: reask.questionVersionId ?? undefined } : {}) })} className={cn(darkButton, "flex-[1_1_240px]")}>
         <Play className="size-4" aria-hidden="true" />
-        {t("practiceProgress.v3.today.cta")}
-      </Link>
+        {dueGap ? t("practiceProgress.v3.today.repeatCta") : t("practiceProgress.v3.today.cta")}
+      </button>
     </section>
   );
 }
 
-function FeedbackCard({ progress }: { progress: PracticeProgress }) {
+function FirstPracticeCard({ job, jobId, dueGap, onStart }: { job: JobProfile | null; jobId: string; dueGap: GapItem | null; onStart: (args: { id: string; title: string; reaskConceptId?: string; reaskQuestionVersionId?: string }) => void }) {
+  const { t } = useLanguage();
+  const requirement = job?.keywords?.find((item) => item.trim()) || job?.primaryTaxonomy?.label || job?.title || t("practiceProgress.v3.today.firstFallback");
+  const name = job?.title ?? jobId;
+  return (
+    <section className={cn(card, "flex flex-wrap items-center gap-x-6 gap-y-4 border-[#CFDCF5] border-l-4 border-l-[#204195] bg-[#F7F9FE]")}>
+      <div className="min-w-0 flex-[999_1_380px] space-y-2">
+        <p className="text-[15px] font-semibold text-[#204195]">{t("practiceProgress.v3.today.firstLabel")}</p>
+        <h2 className="text-[22px] font-semibold leading-snug">{fill(t("practiceProgress.v3.today.firstTitle"), { job: name })}</h2>
+        <p className="text-base text-[#2A2F38]">{dueGap ? fill(t("practiceProgress.v3.today.repeatTask"), { point: dueGap.point, skill: dueGap.skill, question: dueGap.lastSeen.question }) : fill(t("practiceProgress.v3.today.firstTask"), { requirement })}</p>
+        <p className="text-sm text-[#607096]">{t("practiceProgress.v3.today.noScoreYet")}</p>
+      </div>
+      <button type="button" onClick={() => onStart({ id: jobId, title: name, ...(dueGap ? { reaskConceptId: dueGap.skillKey, reaskQuestionVersionId: dueGap.lastSeen.questionVersionId ?? undefined } : {}) })} className={cn(darkButton, "flex-[1_1_240px]")}>
+        <Play className="size-4" aria-hidden="true" />{dueGap ? t("practiceProgress.v3.today.repeatCta") : t("practiceProgress.v3.today.firstCta")}
+      </button>
+    </section>
+  );
+}
+
+function FeedbackCard({ progress, jobId }: { progress: PracticeProgress; jobId: string }) {
   const { t, lang } = useLanguage();
   const locale = localeOf(lang);
   const [showQuestion, setShowQuestion] = useState(false);
-  const feedback = latestFeedbackOf(progress);
+  const feedback = latestFeedbackOf(progress, jobId);
   if (!feedback) return null;
   const { session, better, fix } = feedback;
   const report = `/interview/results/${session.sessionId}`;
@@ -467,6 +583,8 @@ function DetailCard({
   onOpenArea,
   flash,
   room,
+  jobId,
+  onPractice,
 }: {
   progress: PracticeProgress;
   job: JobReadiness;
@@ -476,6 +594,8 @@ function DetailCard({
   onOpenArea: (area: string | null) => void;
   flash: string | null;
   room: RoomName;
+  jobId: string;
+  onPractice: (args: { id: string; title: string }) => void;
 }) {
   const { t } = useLanguage();
   const tabs: Tab[] = ["topics", "answers", "knowledge", "history"];
@@ -503,26 +623,26 @@ function DetailCard({
           </button>
         ))}
       </div>
-      {tab === "topics" && <TopicsTab progress={progress} job={job} openArea={openArea} onOpenArea={onOpenArea} flash={flash} />}
-      {tab === "answers" && <AnswersTab progress={progress} room={room} />}
-      {tab === "knowledge" && <KnowledgeTab progress={progress} />}
-      {tab === "history" && <HistoryTab progress={progress} />}
+      {tab === "topics" && <TopicsTab job={job} openArea={openArea} onOpenArea={onOpenArea} flash={flash} onPractice={onPractice} />}
+      {tab === "answers" && <AnswersTab progress={progress} room={room} jobId={jobId} />}
+      {tab === "knowledge" && <KnowledgeTab progress={progress} jobId={jobId} />}
+      {tab === "history" && <HistoryTab progress={progress} jobId={jobId} />}
     </section>
   );
 }
 
 function TopicsTab({
-  progress,
   job,
   openArea,
   onOpenArea,
   flash,
+  onPractice,
 }: {
-  progress: PracticeProgress;
   job: JobReadiness;
   openArea: string | null;
   onOpenArea: (area: string | null) => void;
   flash: string | null;
+  onPractice: (args: { id: string; title: string }) => void;
 }) {
   const { t } = useLanguage();
   const rounds = job.rounds.filter((round) => (round.series?.length ?? 0) > 0);
@@ -534,13 +654,13 @@ function TopicsTab({
         rounds.map((round, index) => (
           <TopicRow
             key={round.area}
-            progress={progress}
             job={job}
             round={round}
             first={index === 0}
             open={openArea === round.area}
             flash={flash === round.area}
             onToggle={() => onOpenArea(openArea === round.area ? null : round.area)}
+            onPractice={onPractice}
           />
         ))
       )}
@@ -549,21 +669,21 @@ function TopicsTab({
 }
 
 function TopicRow({
-  progress,
   job,
   round,
   first,
   open,
   flash,
   onToggle,
+  onPractice,
 }: {
-  progress: PracticeProgress;
   job: JobReadiness;
   round: RoundReadiness;
   first: boolean;
   open: boolean;
   flash: boolean;
   onToggle: () => void;
+  onPractice: (args: { id: string; title: string }) => void;
 }) {
   const { t, lang } = useLanguage();
   const locale = localeOf(lang);
@@ -572,6 +692,7 @@ function TopicRow({
   const reached = level >= ROUND_READY_LEVEL;
   const top = level >= 3 || next?.kind === "top";
   const series = round.series ?? [];
+  const latestScore = series[series.length - 1]?.score;
   return (
     <div id={`topic-${round.area}`} className={cn("scroll-mt-4", !first && "border-t border-[#ECECE8]")}>
       <button
@@ -597,6 +718,11 @@ function TopicRow({
           <span className="w-24 text-[15px] font-semibold" style={{ color: LEVEL_TEXT[level] }}>
             {levelName(level, t)}
           </span>
+          {latestScore !== undefined && (
+            <span className={cn(scoreChip, "text-sm", scoreTone(latestScore).chip)}>
+              {t("practiceProgress.v3.topics.latest")}: {latestScore.toFixed(1)}/10
+            </span>
+          )}
           <span className="min-w-0 flex-[1_1_120px] text-[15px] text-[#4A505C]">
             {top ? (
               t("practiceProgress.v3.topics.top")
@@ -642,12 +768,9 @@ function TopicRow({
               <p className="text-[17px] text-[#2A2F38]">{ladderRule(round, t)}</p>
               {round.atRisk && <p className="text-base text-[#9C3D08]">{t("practiceProgress.v3.topics.riskNote")}</p>}
             </div>
-            <Link
-              href={practiceHref(job.jobId, lastResumeFor(progress, job.jobId), round.area)}
-              className={lightButton}
-            >
+            <button type="button" onClick={() => onPractice({ id: job.jobId, title: job.jobTitle ?? job.jobId })} className={lightButton}>
               {t("practiceProgress.v3.topics.practise")}
-            </Link>
+            </button>
           </div>
         </div>
       )}
@@ -722,23 +845,27 @@ export function ScoreChart({ points, locale }: { points: { score: number; date: 
   );
 }
 
-function AnswersTab({ progress, room }: { progress: PracticeProgress; room: RoomName }) {
+function AnswersTab({ progress, room, jobId }: { progress: PracticeProgress; room: RoomName; jobId: string }) {
   const { t } = useLanguage();
-  const first = progress.behavior.firstTimeSufficientRate;
-  const skipped = progress.behavior.skippedPerSession;
+  const sessions = progress.sessions
+    .filter((session) => session.jobId === jobId && session.valid !== false)
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const latest = sessions.at(-1);
+  const insufficientTrend = { status: "insufficient" as const, delta: null };
   const rows = [
     {
       key: "first",
       name: t("practiceProgress.v3.answers.first"),
-      value: percent(first.latest),
-      trend: first.trend,
+      value: percent(latest?.behavior.firstTimeSufficientRate ?? null),
+      trend: insufficientTrend,
       note: t("practiceProgress.v3.answers.firstNote"),
     },
     {
       key: "skipped",
       name: t("practiceProgress.v3.answers.skipped"),
-      value: skipped.latest === null ? "—" : String(skipped.latest),
-      trend: skipped.trend,
+      value: latest ? String(latest.behavior.skipped) : "—",
+      trend: insufficientTrend,
       note: t("practiceProgress.v3.answers.skippedNote"),
     },
   ];
@@ -761,9 +888,16 @@ function AnswersTab({ progress, room }: { progress: PracticeProgress; room: Room
   );
 }
 
-function KnowledgeTab({ progress }: { progress: PracticeProgress }) {
+function KnowledgeTab({ progress, jobId }: { progress: PracticeProgress; jobId: string }) {
   const { t } = useLanguage();
-  const skills = progress.skills.filter((skill) => !skill.minor).sort((a, b) => a.latest - b.latest);
+  const skills = progress.skills
+    .filter((skill) => !skill.minor)
+    .map((skill) => {
+      const points = skill.points.filter((point) => point.jobId === jobId);
+      return { ...skill, ...skillStats(points, progress.calibration), latest: points.at(-1)?.score ?? null };
+    })
+    .filter((skill) => skill.points.length > 0 && skill.latest !== null)
+    .sort((a, b) => (a.latest ?? 0) - (b.latest ?? 0));
   if (skills.length === 0) return <p className="px-5 py-6 text-base text-[#2A2F38] sm:px-6">{t("practiceProgress.v3.topics.none")}</p>;
   return (
     <ul>
@@ -774,17 +908,17 @@ function KnowledgeTab({ progress }: { progress: PracticeProgress }) {
           <span className="rounded bg-[#F2F2EF] px-2 py-0.5 text-sm font-semibold text-[#2A2F38]">
             {skill.points.length < 3 ? t("practiceProgress.v3.knowledge.thin") : trendLabel(skill.trend.status, t)}
           </span>
-          <span className={cn("w-16 text-right text-lg font-bold tabular-nums", scoreTone(skill.latest).text)}>{skill.latest.toFixed(1)}</span>
+          <span className={cn("w-16 text-right text-lg font-bold tabular-nums", scoreTone(skill.latest ?? 0).text)}>{skill.latest?.toFixed(1)}</span>
         </li>
       ))}
     </ul>
   );
 }
 
-function HistoryTab({ progress }: { progress: PracticeProgress }) {
+function HistoryTab({ progress, jobId }: { progress: PracticeProgress; jobId: string }) {
   const { t, lang } = useLanguage();
   const locale = localeOf(lang);
-  const sessions = [...progress.sessions].sort((a, b) => b.date.localeCompare(a.date));
+  const sessions = progress.sessions.filter((session) => session.jobId === jobId).sort((a, b) => b.date.localeCompare(a.date));
   return (
     <ul>
       {sessions.map((session, index) => (
@@ -821,33 +955,34 @@ function HistoryTab({ progress }: { progress: PracticeProgress }) {
   );
 }
 
-function DueList({ progress, gaps }: { progress: PracticeProgress; gaps: GapItem[] }) {
+function DueList({ gaps, jobId, jobTitle, onStart }: {
+  gaps: GapItem[];
+  jobId: string;
+  jobTitle: string;
+  onStart: (args: { id: string; title: string; reaskConceptId?: string; reaskQuestionVersionId?: string }) => void;
+}) {
   const { t } = useLanguage();
-  const { due } = dueOf(gaps);
-  if (due.length === 0) return null;
+  if (gaps.length === 0) return null;
   return (
     <section className={cn(card, "space-y-3")} aria-labelledby="v3-due">
       <h2 id="v3-due" className="text-[17px] font-semibold text-[#8A5300]">
         {t("practiceProgress.v3.due.title")}
       </h2>
       <ul className="space-y-2">
-        {due.slice(0, 4).map((gap) => (
+        {gaps.slice(0, 4).map((gap) => (
           <li key={`${gap.skillKey}-${gap.point}`} className="flex items-center gap-3">
             <span className="min-w-0 flex-1">
               <span className="block text-base font-medium">{gap.point}</span>
               <span className="block text-[15px] text-[#2A2F38]">{gap.skill}</span>
             </span>
-            <Link
-              href={practiceHref(
-                gap.lastSeen.jobId,
-                gap.lastSeen.resumeId ?? (gap.lastSeen.jobId ? lastResumeFor(progress, gap.lastSeen.jobId) : null),
-                gap.area,
-                { conceptId: gap.skillKey, skill: gap.skill },
-              )}
-              className={lightButton}
-            >
+            <button type="button" onClick={() => onStart({
+              id: jobId,
+              title: jobTitle,
+              reaskConceptId: gap.skillKey,
+              reaskQuestionVersionId: gap.lastSeen.questionVersionId ?? undefined,
+            })} className={lightButton}>
               {t("practiceProgress.v3.due.cta")}
-            </Link>
+            </button>
           </li>
         ))}
       </ul>
@@ -888,27 +1023,30 @@ function RecordsList({ progress, jobId }: { progress: PracticeProgress; jobId: s
   );
 }
 
-/** How scores are compared and how levels work, always shown at the end of the page (no toggle). */
+/** Keep scoring rules available without letting them dominate the practice page. */
 function HowItWorks({ k }: { k: number }) {
   const { t } = useLanguage();
   return (
-    <section className="grid gap-5 rounded-[10px] border border-[#E4E4E0] bg-[#FAFAF8] p-5 text-sm leading-relaxed text-[#4A505C] sm:p-6 md:grid-cols-2">
-      <div className="space-y-2">
-        <h2 className="text-[15px] font-semibold text-[#16181D]">{t("practiceProgress.v3.status.howLabel")}</h2>
-        <p>{fill(t("practiceProgress.v3.status.how"), { k: k > 0 ? k : 2 })}</p>
+    <details className="rounded-[10px] border border-[#E4E4E0] bg-[#FAFAF8] p-5 text-sm leading-relaxed text-[#4A505C] sm:p-6">
+      <summary className="cursor-pointer font-semibold text-[#16181D]">{t("practiceProgress.v3.howDetails")}</summary>
+      <div className="mt-4 grid gap-5 md:grid-cols-2">
+        <div className="space-y-2">
+          <h2 className="text-[15px] font-semibold text-[#16181D]">{t("practiceProgress.v3.status.howLabel")}</h2>
+          <p>{fill(t("practiceProgress.v3.status.how"), { k: k > 0 ? k : 2 })}</p>
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-[15px] font-semibold text-[#16181D]">{t("practiceProgress.v3.topics.rules")}</h2>
+          <ul className="space-y-1.5">
+            {[0, 1, 2, 3].map((level) => (
+              <li key={level}>
+                <b style={{ color: LEVEL_TEXT[level] }}>{levelName(level, t)}</b>: {t(`practiceProgress.v3.topics.rule.${level}`)}
+              </li>
+            ))}
+            <li>{t("practiceProgress.v3.topics.rule.chain")}</li>
+            <li>{t("practiceProgress.v3.topics.rule.down")}</li>
+          </ul>
+        </div>
       </div>
-      <div className="space-y-2">
-        <h2 className="text-[15px] font-semibold text-[#16181D]">{t("practiceProgress.v3.topics.rules")}</h2>
-        <ul className="space-y-1.5">
-          {[0, 1, 2, 3].map((level) => (
-            <li key={level}>
-              <b style={{ color: LEVEL_TEXT[level] }}>{levelName(level, t)}</b>: {t(`practiceProgress.v3.topics.rule.${level}`)}
-            </li>
-          ))}
-          <li>{t("practiceProgress.v3.topics.rule.chain")}</li>
-          <li>{t("practiceProgress.v3.topics.rule.down")}</li>
-        </ul>
-      </div>
-    </section>
+    </details>
   );
 }

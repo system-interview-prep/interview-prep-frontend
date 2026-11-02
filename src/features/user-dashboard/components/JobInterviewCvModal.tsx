@@ -133,10 +133,12 @@ type JobInterviewCvModalProps = {
   open: boolean;
   jobTitle: string;
   jobProfileId?: string;
+  reaskConceptId?: string;
+  reaskQuestionVersionId?: string;
   onClose: () => void;
 };
 
-export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: JobInterviewCvModalProps) {
+export function JobInterviewCvModal({ open, jobTitle, jobProfileId, reaskConceptId, reaskQuestionVersionId, onClose }: JobInterviewCvModalProps) {
   const { t, lang } = useLanguage();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -370,8 +372,15 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, onClose }: J
     }
 
     showNavigationLoading();
+    const params = new URLSearchParams({
+      candidateId: selectedCvId,
+      jobId: jobProfileId,
+      jobTitle,
+    });
+    if (reaskConceptId) params.set("reask", reaskConceptId);
+    if (reaskQuestionVersionId) params.set("reaskQuestionVersionId", reaskQuestionVersionId);
     router.push(
-      `/interview/cv-score?candidateId=${encodeURIComponent(selectedCvId)}&jobId=${encodeURIComponent(jobProfileId)}&jobTitle=${encodeURIComponent(jobTitle)}`
+      `/interview/cv-score?${params.toString()}`
     );
   };
 

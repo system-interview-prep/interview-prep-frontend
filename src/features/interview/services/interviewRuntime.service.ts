@@ -167,6 +167,8 @@ export type CreateInterviewRuntimeSessionRequest = {
   focusArea?: FocusArea;
   /** "Luyện lại ý này": the planner asks this skill again with a question not met before. */
   reaskConceptId?: string;
+  /** Exact approved question to repeat for a due missed answer. */
+  reaskQuestionVersionId?: string;
 };
 
 /** Rounds made of technical questions (backend interview_rounds.FOCUSABLE_AREAS). */

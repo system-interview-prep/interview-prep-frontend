@@ -7,6 +7,7 @@ import { localeOf } from "@/i18n/format";
 import { JobCard, mapJobToJobCard } from "@/components/jobs";
 import type { JobProfile } from "@features/admin/services/jobProfile.service";
 import type { CachedFit } from "@features/matching/utils/fitCache";
+import type { GapItem } from "@features/progress/services/progress.service";
 import { cn } from "@/utils";
 
 export type CompetencyScore = { competency: string; score: number; weight?: number };
@@ -226,7 +227,7 @@ export function OverviewMetrics({
               so với buổi trước
             </>
           ) : (
-            "Buổi đã chấm gần nhất"
+            "Điểm buổi gần nhất cho cùng vị trí"
           )
         }
       />
@@ -325,44 +326,107 @@ export function weakestCompetency(sessions: StoredDashboardSession[]) {
   return { latest, items, weakest: (named.length ? named : items)[0] };
 }
 
-/**
- * The skill to practise next: the weakest competency of the latest graded
- * session, with one action to practise that position again.
- */
-export function ImprovementFocus({
+/** A daily task grounded in the selected job and the candidate's own missed answers. */
+export function DailyGoal({
+  job,
+  jobs,
   focus,
+  focusConceptId,
+  dueGap,
+  completedToday,
+  onSelectJob,
   onPractice,
+  onBrowseJobs,
 }: {
-  focus: NonNullable<ReturnType<typeof weakestCompetency>>;
-  onPractice: (job: { id: string; title: string }) => void;
+  job: JobProfile | null;
+  jobs: JobProfile[];
+  focus: NonNullable<ReturnType<typeof weakestCompetency>> | null;
+  focusConceptId?: string | null;
+  dueGap: GapItem | null;
+  completedToday: boolean;
+  onSelectJob: (jobId: string) => void;
+  onPractice: (job: { id: string; title: string; reaskConceptId?: string; reaskQuestionVersionId?: string }) => void;
+  onBrowseJobs: () => void;
 }) {
-  const { latest, weakest } = focus;
-  const roleTitle = latest.jobTitle || "Vị trí gần nhất";
+  const roleTitle = job?.title || focus?.latest.jobTitle || "";
+  const roleJobId = job?.id || focus?.latest.jobId || undefined;
+  const keyword = job?.keywords?.find((item) => item.trim()) || job?.primaryTaxonomy?.label;
+  const skill = dueGap?.skill || focus?.weakest.competency || keyword || "yêu cầu chính của vị trí";
+  const task = dueGap
+    ? `Trả lời lại câu hỏi của hôm qua về ${dueGap.skill}.`
+    : focus
+      ? `Ở câu tiếp theo về ${skill}, nêu cách bạn xử lý và một kết quả cụ thể.`
+      : `Chọn một dự án có dùng ${skill}; nêu bài toán, quyết định của bạn và kết quả đo được.`;
 
   return (
-    <section
-      aria-labelledby="focus-title"
-      className={cn(CARD, "flex flex-col gap-3 border-l-4 border-l-[#E8912D] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5")}
-    >
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-[#B45309]">Nên luyện tiếp</p>
-        <h3 id="focus-title" className="mt-0.5 text-base font-semibold text-[#16181D] [overflow-wrap:anywhere]">
-          {weakest.competency}
-          <Chip className={cn("ml-2 align-middle", scoreTone(weakest.score).chip)}>{weakest.score.toFixed(1)}/10</Chip>
-        </h3>
-        <p className="mt-0.5 text-sm text-[#4A505C] [overflow-wrap:anywhere]">
-          Điểm thấp nhất ở buổi gần nhất · {roleTitle}
-        </p>
+    <section id="daily-goal" aria-labelledby="daily-goal-title" className={cn(CARD, "border-l-4 border-l-[#E8912D] p-4 sm:p-5")}>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-[#B45309]">Mục tiêu hôm nay</p>
+            {completedToday ? <Chip className="bg-[#E3F4E7] text-[#1E6B34]">✓ Đã luyện hôm nay</Chip> : null}
+          </div>
+          {jobs.length ? (
+            <label className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[#4A505C]">
+              <span>Vị trí mục tiêu</span>
+              <select
+                aria-label="Vị trí mục tiêu hôm nay"
+                value={job?.id ?? ""}
+                onChange={(event) => onSelectJob(event.target.value)}
+                className="min-h-9 max-w-full rounded-lg border border-[#DCE4F3] bg-white px-2.5 font-semibold text-[#16181D]"
+              >
+                {jobs.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+              </select>
+            </label>
+          ) : null}
+          {roleTitle ? (
+            <h2 id="daily-goal-title" className="mt-2 text-lg font-semibold text-[#16181D] [overflow-wrap:anywhere]">{roleTitle}</h2>
+          ) : null}
+          {!job && !focus ? (
+            <p className="mt-2 text-sm text-[#4A505C]">Chọn một vị trí đang ứng tuyển để tạo bài luyện tập riêng cho công việc đó.</p>
+          ) : (
+            <>
+              <p className="mt-2 text-sm font-medium text-[#16181D]">{task}</p>
+              {dueGap ? (
+                <div className="mt-3 rounded-lg bg-[#FFF8EB] p-3 text-sm text-[#4A505C]">
+                  <p className="font-medium text-[#16181D]">Câu hỏi cần trả lời lại</p>
+                  <p className="mt-1">{dueGap.lastSeen.question}</p>
+                  <p className="mt-1 text-[#8A5300]">Lần trước còn thiếu: {dueGap.point}</p>
+                </div>
+              ) : focus ? (
+                <p className="mt-1 text-sm text-[#4A505C]">
+                  Năng lực cần rèn: {focus.weakest.competency} · Điểm gần nhất {focus.weakest.score.toFixed(1)}/10
+                </p>
+              ) : null}
+              <p className="mt-2 text-xs text-[#607096]">
+                Tiến độ hôm nay: {completedToday ? "1/1 buổi hoàn thành" : "0/1 buổi hoàn thành"}
+                {completedToday ? " · Có thể tiếp tục với câu hỏi mới." : " · Mục tiêu: hoàn thành một buổi cho vị trí này."}
+              </p>
+            </>
+          )}
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2 md:pt-6">
+          {!roleJobId ? (
+            <button type="button" onClick={onBrowseJobs} className={LIGHT_BUTTON}>Chọn vị trí ứng tuyển</button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onPractice({
+                id: roleJobId,
+                title: roleTitle,
+                ...(dueGap
+                  ? { reaskConceptId: dueGap.skillKey, reaskQuestionVersionId: dueGap.lastSeen.questionVersionId ?? undefined }
+                  : focusConceptId
+                    ? { reaskConceptId: focusConceptId }
+                    : {}),
+              })}
+              className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl bg-[#204195] px-4 text-sm font-bold text-white hover:bg-[#183275]"
+            >
+              {dueGap ? "Luyện lại câu này" : completedToday ? "Luyện thêm câu mới" : "Bắt đầu bài luyện"}
+            </button>
+          )}
+        </div>
       </div>
-      {latest.jobId ? (
-        <button
-          type="button"
-          onClick={() => onPractice({ id: latest.jobId!, title: roleTitle })}
-          className={LIGHT_BUTTON}
-        >
-          Luyện lại vị trí này
-        </button>
-      ) : null}
     </section>
   );
 }

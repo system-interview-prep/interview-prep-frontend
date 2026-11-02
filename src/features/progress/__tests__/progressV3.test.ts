@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { GapItem, JobReadiness, PracticeProgress, RoundReadiness } from "../services/progress.service";
+import type { GapItem, JobReadiness, PracticeProgress, ProgressSession, RoundReadiness } from "../services/progress.service";
 import {
   conclusionOf,
   defaultRoom,
   isRepeated,
   latestFeedbackOf,
+  overviewForJob,
   repeatedGapOf,
   roomProgressOf,
   roundsToPractise,
+  scoreSummaryOf,
   yOf,
 } from "../utils/progressV3";
 
@@ -65,12 +67,83 @@ describe("progress page v3", () => {
     expect(roundsToPractise(job(rounds)).map((r) => r.area)).toEqual(["data", "project"]);
   });
 
+  it("shows the latest real score before there is enough data to compare trends", () => {
+    expect(scoreSummaryOf({ sessions: 2, window: 0, start: null, recent: null, change: null, latest: 6.4 })).toEqual({
+      kind: "latest",
+      score: 6.4,
+    });
+    expect(scoreSummaryOf({ sessions: 4, window: 2, start: 5.8, recent: 6.4, change: 0.6, latest: 6.8 })).toEqual({
+      kind: "comparison",
+      score: 6.4,
+      change: 0.6,
+      start: 5.8,
+      window: 2,
+    });
+  });
+
+  it("compares only valid scores for the selected job", () => {
+    const session = (sessionId: string, jobId: string, score: number, valid = true): ProgressSession => ({
+      sessionId,
+      date: `2026-10-${10 + Number(sessionId.slice(1))}T08:00:00Z`,
+      jobId,
+      jobTitle: jobId,
+      overallScore: score,
+      tier: "standard",
+      difficulty: null,
+      resumeId: "cv",
+      resumeName: null,
+      behavior: {} as never,
+      valid,
+    });
+    const progress = { sessions: [
+      session("s0", "job-a", 5),
+      session("s1", "job-a", 5.5),
+      session("s2", "job-b", 10),
+      session("s3", "job-a", 7),
+      session("s4", "job-a", 7.5),
+      session("s5", "job-a", 10, false),
+    ] } as PracticeProgress;
+
+    expect(overviewForJob(progress, "job-a")).toMatchObject({
+      sessions: 4,
+      window: 2,
+      start: 5.25,
+      recent: 7.25,
+      change: 2,
+      latest: 7.5,
+    });
+  });
+
   it("says a point is repeated only with its denominator of times asked", () => {
     const withGap = round("data", 1, [6.0, 6.5], { topGap: { point: "Hết hạn cache", skill: "Redis", timesMissed: 3 } });
     const found = repeatedGapOf(withGap, [gap("Hết hạn cache", 4, 3)]);
     expect(found?.timesAsked).toBe(4);
     expect(isRepeated(found)).toBe(true);
     expect(isRepeated(gap("Hết hạn cache", 1, 1))).toBe(false);
+  });
+
+  it("keeps the latest answer to improve scoped to the selected job", () => {
+    const session = (sessionId: string, jobId: string, date: string): ProgressSession => ({
+      sessionId,
+      jobId,
+      date,
+      jobTitle: jobId,
+      overallScore: 6,
+      tier: "standard",
+      difficulty: null,
+      resumeId: "cv",
+      resumeName: null,
+      behavior: {} as never,
+    });
+    const firstGap = { ...gap("Add business context", 1, 1, "a1"), lastSeen: { ...gap("Add business context", 1, 1, "a1").lastSeen, jobId: "job-a" } };
+    const secondGap = { ...gap("Explain trade-offs", 1, 1, "b1"), lastSeen: { ...gap("Explain trade-offs", 1, 1, "b1").lastSeen, jobId: "job-b" } };
+    const progress = {
+      sessions: [session("a1", "job-a", "2026-10-20T08:00:00Z"), session("b1", "job-b", "2026-10-25T08:00:00Z")],
+      gaps: { open: [firstGap, secondGap], fixed: [] },
+      timeline: [],
+    } as unknown as PracticeProgress;
+
+    expect(latestFeedbackOf(progress, "job-a")?.fix?.point).toBe("Add business context");
   });
 
   it("reads one room at a time and skips a session that did not count", () => {

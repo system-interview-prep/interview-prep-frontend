@@ -202,10 +202,10 @@ export type GapItem = {
   status: "MISSING" | "PARTIAL" | "INCORRECT" | "COVERED";
   timesAsked: number;
   timesMissed: number;
-  /** Time to practise it again (7, 14, then 30 days after it was last asked). */
+  /** Due the day after an incomplete answer. Covered points leave the open queue. */
   due?: boolean;
   dueAt?: string;
-  lastSeen: { sessionId: string; date: string; question: string; jobId: string | null; resumeId: string | null };
+  lastSeen: { sessionId: string; date: string; question: string; questionVersionId?: string | null; jobId: string | null; resumeId: string | null };
 };
 export type RoundStatus = "ready" | "almost" | "practice" | "thin" | "unseen";
 /** 0 Bắt đầu · 1 Cơ bản · 2 Vững · 3 Thành thạo (backend progress.round_ladder). */

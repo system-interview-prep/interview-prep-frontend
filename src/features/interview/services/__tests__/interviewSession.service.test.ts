@@ -48,6 +48,8 @@ describe("startInterviewSession", () => {
       candidateId: " cv-1 ",
       jobId: " job-1 ",
       durationMinutes: 30,
+      reaskConceptId: "skill-ai",
+      reaskQuestionVersionId: "question-version-1",
     });
 
     expect(createRuntimeSession).toHaveBeenCalledWith({
@@ -57,6 +59,8 @@ describe("startInterviewSession", () => {
       experienceType: "question_practice",
       locale: "vi-VN",
       durationMinutes: 30,
+      reaskConceptId: "skill-ai",
+      reaskQuestionVersionId: "question-version-1",
     });
     expect(buildRuntimePlan).toHaveBeenCalledWith("runtime-1");
     expect(selectRuntimeQuestions).toHaveBeenCalledWith("runtime-1");

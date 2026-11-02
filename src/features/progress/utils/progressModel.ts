@@ -560,7 +560,7 @@ export function practiceHref(
   jobId: string | null,
   resumeId: string | null,
   area?: SkillArea | null,
-  reask?: { conceptId: string; skill: string } | null,
+  reask?: { conceptId: string; skill: string; questionVersionId?: string | null } | null,
 ): string {
   if (!jobId || !resumeId) return "/interview/select";
   const params = new URLSearchParams({ candidateId: resumeId, jobId });
@@ -569,6 +569,7 @@ export function practiceHref(
   if (reask && reask.conceptId && !reask.conceptId.startsWith("label:")) {
     params.set("reask", reask.conceptId);
     params.set("reaskSkill", reask.skill);
+    if (reask.questionVersionId) params.set("reaskQuestionVersionId", reask.questionVersionId);
   }
   return `/interview/cv-score?${params.toString()}`;
 }

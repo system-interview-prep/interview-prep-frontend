@@ -8,12 +8,28 @@ import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProf
 import { interviewRuntimeApi } from "@features/interview/services/interviewRuntime.service";
 import { interviewChatApi } from "@features/interview/services/interviewChat.service";
 import { AbortConfirmationModal } from "@components/interview/AbortConfirmationModal";
-import { useFitCache } from "@features/matching/utils/fitCache";
 import { userCvApi } from "@features/resume/services/userCv.service";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
 import { JobInterviewCvModal } from "@features/user-dashboard/components/JobInterviewCvModal";
 import { useSavedJobs } from "@features/user-dashboard/hooks/useSavedJobs";
+import { useTargetJob } from "@features/user-dashboard/hooks/useTargetJob";
 import { progressApi } from "@features/progress/services/progress.service";
+import type { GapItem, PracticeProgress } from "@features/progress/services/progress.service";
+
+async function loadAllJobProfiles(): Promise<JobProfile[]> {
+  const profiles: JobProfile[] = [];
+  let cursor: string | undefined;
+  const seenCursors = new Set<string>();
+  for (;;) {
+    const { data } = await jobProfileApi.list({ limit: 100, order: "desc", cursor });
+    profiles.push(...(data.items ?? []));
+    const next = data.nextCursor;
+    if (!next || seenCursors.has(next)) break;
+    seenCursors.add(next);
+    cursor = next;
+  }
+  return profiles;
+}
 
 const DEMO_SESSIONS: StoredDashboardSession[] = [
   {
@@ -126,22 +142,7 @@ const DEMO_PROFILES: JobProfile[] = [
     updatedAt: new Date().toISOString(),
   },
 ];
-import {
-  ImprovementFocus,
-  OverviewMetrics,
-  PracticeModes,
-  RecentActivity,
-  SuggestedJobs,
-  hasScore,
-  isFailedStart,
-  practiceDays,
-  practiceStreak,
-  sessionHref,
-  weakestCompetency,
-  weekStart,
-  greetingName,
-  type StoredDashboardSession,
-} from "./DashboardSections";
+import { hasScore, isFailedStart, sessionHref, weakestCompetency, greetingName, type StoredDashboardSession } from "./DashboardSections";
 
 const DARK_BUTTON =
   "inline-flex min-h-10 items-center justify-center rounded-xl bg-[#204195] px-4 text-sm font-bold text-white hover:bg-[#183275] active:bg-[#122557]";
@@ -191,9 +192,8 @@ export type DashboardOverviewProps = Props & {
 };
 
 /**
- * The candidate's home page, plain and in this order: greeting with the one
- * main action, an unfinished session, this week's numbers, the skill to
- * practise next, the practice modes, suggested jobs and recent sessions.
+ * The candidate's home page: unfinished session, a job-specific daily goal,
+ * weekly measures, target jobs, recent sessions, then practice formats.
  */
 export function DashboardOverview({
   onNavigate,
@@ -209,49 +209,44 @@ export function DashboardOverview({
   onRetry,
   onCloseSession,
 }: DashboardOverviewProps) {
-  const { t, lang } = useLanguage();
-  const [selectedJob, setSelectedJob] = useState<{ id: string; title: string } | null>(null);
-  const { savedJobIds, toggleSave } = useSavedJobs();
-  const fits = useFitCache();
+  const { t } = useLanguage();
+  const [selectedJob, setSelectedJob] = useState<{ id: string; title: string; reaskConceptId?: string; reaskQuestionVersionId?: string } | null>(null);
+  const { targetJobId } = useTargetJob();
+  const { savedJobIds } = useSavedJobs();
   const [closingSession, setClosingSession] = useState<StoredDashboardSession | null>(null);
   const [closing, setClosing] = useState(false);
   const [closeError, setCloseError] = useState(false);
 
-  const [now] = useState(() => Date.now());
   // Weekly streak from the server; the daily streak below is the fallback while it loads or fails.
-  const [weeklyStreak, setWeeklyStreak] = useState<{ weeks: number; goal: number; thisWeekCount: number } | null>(null);
+  const [practiceProgress, setPracticeProgress] = useState<PracticeProgress | null>(null);
   useEffect(() => {
     let active = true;
-    progressApi
-      .get()
-      .then((progress) => {
-        if (active) setWeeklyStreak(progress.streak);
-      })
-      .catch(() => undefined);
+    const refresh = () => progressApi.get().then((progress) => { if (active) setPracticeProgress(progress); }).catch(() => undefined);
+    void refresh();
+    window.addEventListener("focus", refresh);
     return () => {
       active = false;
+      window.removeEventListener("focus", refresh);
     };
   }, []);
 
-  const activeJob = profiles.find((profile) => savedJobIds.has(profile.id)) ?? profiles[0];
+  const activeJob = profiles.find((profile) => profile.id === targetJobId)
+    ?? profiles.find((profile) => savedJobIds.has(profile.id))
+    ?? (isGuest ? profiles[0] : undefined)
+    ?? null;
   const practiced = useMemo(() => sessions.filter((item) => !isFailedStart(item)), [sessions]);
   const scoredSessions = useMemo(() => practiced.filter(hasScore), [practiced]);
-  const days = useMemo(() => practiceDays(practiced), [practiced]);
-  const focus = useMemo(() => weakestCompetency(practiced), [practiced]);
-
-  const week = useMemo(() => {
-    const start = weekStart(new Date(now)).getTime();
-    const thisWeek = practiced.filter((item) => {
-      const time = new Date(item.startedAt).getTime();
-      return Number.isFinite(time) && time >= start && time <= now;
-    });
-    const minutes = thisWeek.reduce((total, item) => {
-      if (!item.endedAt) return total;
-      const span = (new Date(item.endedAt).getTime() - new Date(item.startedAt).getTime()) / 60000;
-      return Number.isFinite(span) && span > 0 ? total + span : total;
-    }, 0);
-    return { sessions: thisWeek.length, streak: practiceStreak(days, now), minutes: Math.round(minutes) };
-  }, [practiced, days, now]);
+  const jobSessions = useMemo(
+    () => activeJob ? practiced.filter((item) => item.jobId === activeJob.id) : practiced,
+    [practiced, activeJob],
+  );
+  const focus = useMemo(() => weakestCompetency(jobSessions), [jobSessions]);
+  const dueGap: GapItem | null = activeJob
+    ? (practiceProgress?.gaps?.open ?? []).find((gap) => gap.due && !gap.skillKey.startsWith("label:") && gap.lastSeen.jobId === activeJob.id) ?? null
+    : null;
+  const latestJobScore = scoredSessions.find((item) => activeJob && item.jobId === activeJob.id);
+  const weekGoal = practiceProgress?.streak.goal ?? 2;
+  const weekCount = practiceProgress?.streak.thisWeekCount ?? 0;
 
   const beginRecommended = () => (activeJob ? setSelectedJob(activeJob) : void onStartVideo());
 
@@ -284,18 +279,7 @@ export function DashboardOverview({
     ? "Số liệu bên dưới là dữ liệu mẫu. Đăng nhập để lưu kết quả của bạn."
     : openSession
       ? "Bạn còn một buổi chưa xong."
-      : week.sessions > 0
-        ? (
-            <>
-              Tuần này bạn đã luyện <strong className="font-semibold text-[#204195]">{week.sessions} buổi</strong>.
-            </>
-          )
-        : practiced.length > 0
-          ? "Tuần này bạn chưa luyện buổi nào."
-          : "Buổi đầu tiên cho biết điểm xuất phát của bạn.";
-  // Only one dark button on the page: resuming wins over starting a new session.
-  const startClass = openSession ? LIGHT_BUTTON : DARK_BUTTON;
-
+      : "Tiếp tục mục tiêu công việc và luyện tập của bạn.";
   return (
     <div className="space-y-8 text-[#2A2F38]">
       {/* Alerts */}
@@ -354,9 +338,6 @@ export function DashboardOverview({
             </>
           ) : (
             <>
-              <button type="button" onClick={beginRecommended} className={startClass}>
-                Bắt đầu phỏng vấn ngay
-              </button>
               {lastReport ? (
                 <button type="button" onClick={() => onNavigate(sessionHref(lastReport))} className={LIGHT_BUTTON}>
                   Báo cáo gần nhất
@@ -417,51 +398,43 @@ export function DashboardOverview({
         </div>
       ) : null}
 
-      {/* 2. This week's numbers */}
-      <OverviewMetrics
-        latestScore={scoredSessions[0]?.overallScore ?? null}
-        prevScore={scoredSessions[1]?.overallScore ?? null}
-        weekSessions={week.sessions}
-        totalSessions={practiced.length}
-        streak={week.streak}
-        weeklyStreak={weeklyStreak}
-        minutes={week.minutes}
-        t={t}
-      />
-
-      {/* 3. The skill to practise next (if any) */}
-      {focus ? (
-        <ImprovementFocus
-          focus={focus}
-          onPractice={(job) => setSelectedJob(job)}
-        />
-      ) : null}
-
-      {/* 4. Practice modes */}
-      <PracticeModes
-        onSelectMode={(mode) => onNavigate(`/interview/select?mode=${mode}`)}
-        onStartVideo={beginRecommended}
-        t={t}
-      />
-
-      {/* 5. Suggested Target Jobs */}
-      <SuggestedJobs
-        profiles={profiles}
-        savedJobIds={savedJobIds}
-        fits={fits}
-        onToggleSave={toggleSave}
-        onNavigate={onNavigate}
-        onPractice={setSelectedJob}
-        t={t}
-      />
-
-      {/* 6. Recent Activity */}
-      <RecentActivity
-        sessions={sessions}
-        lang={lang}
-        onNavigate={onNavigate}
-        t={t}
-      />
+      <section className="rounded-lg border border-[#E4E4E0] bg-white p-5 sm:p-6" aria-labelledby="home-overview-title">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[#204195]">Tóm tắt nhanh</p>
+            <h2 id="home-overview-title" className="mt-1 text-xl font-semibold text-[#16181D]">{activeJob?.title ?? "Chưa chọn công việc mục tiêu"}</h2>
+            <p className="mt-2 text-sm text-[#4A505C]">
+              {dueGap
+                ? `Hôm nay ôn lại ${dueGap.skill}: ${dueGap.point}.`
+                : focus
+                  ? `Hôm nay phát triển kỹ năng ${focus.weakest.competency} từ câu trả lời gần nhất.`
+                  : activeJob
+                    ? `Bài luyện hôm nay bám theo ${activeJob.keywords?.find((item) => item.trim()) || activeJob.primaryTaxonomy?.label || "yêu cầu chính trong JD"}.`
+                    : "Lưu một việc làm để nhận bài luyện theo yêu cầu cụ thể."}
+            </p>
+            {dueGap ? <p className="mt-1 text-sm text-[#607096]">Câu hỏi: {dueGap.lastSeen.question}</p> : null}
+            {focus ? <p className="mt-1 text-sm text-[#607096]">Điểm gần nhất ở kỹ năng này: {focus.weakest.score.toFixed(1)}/10</p> : null}
+          </div>
+          <div className="grid shrink-0 grid-cols-2 gap-3 sm:min-w-56">
+            <div className="rounded-lg bg-[#F7F9FE] p-3">
+              <p className="text-xs text-[#607096]">Tiến độ tuần</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-[#204195]">{weekCount}/{weekGoal} <span className="text-sm font-medium">buổi</span></p>
+            </div>
+            <div className="rounded-lg bg-[#F7F9FE] p-3">
+              <p className="text-xs text-[#607096]">Điểm buổi gần nhất</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-[#204195]">{latestJobScore ? `${latestJobScore.overallScore.toFixed(1)}/10` : "—"}</p>
+            </div>
+          </div>
+        </div>
+        <button type="button" onClick={() => onNavigate("/dashboard/progress")} className={`${DARK_BUTTON} mt-5 min-h-11`}>
+          Xem tiến độ và luyện hôm nay
+        </button>
+        <nav aria-label="Lối tắt" className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-[#EDEDEA] pt-4 text-sm font-semibold text-[#204195]">
+          <button type="button" onClick={() => onNavigate("/dashboard/jobs")} className="underline-offset-4 hover:underline">Việc làm</button>
+          <button type="button" onClick={() => onNavigate("/dashboard/cvs")} className="underline-offset-4 hover:underline">CV</button>
+          <button type="button" onClick={() => onNavigate("/dashboard/history")} className="underline-offset-4 hover:underline">Lịch sử</button>
+        </nav>
+      </section>
 
       {/* Modals */}
       <AbortConfirmationModal
@@ -474,6 +447,8 @@ export function DashboardOverview({
         open={selectedJob !== null}
         jobTitle={selectedJob?.title ?? ""}
         jobProfileId={selectedJob?.id}
+        reaskConceptId={selectedJob?.reaskConceptId}
+        reaskQuestionVersionId={selectedJob?.reaskQuestionVersionId}
         onClose={() => setSelectedJob(null)}
       />
     </div>
@@ -495,13 +470,13 @@ export function UserDashboardHome(props: Props) {
     if (!silent) setLoading(true);
     setError(false);
     const [profilesResult, sessionsResult, cvsResult] = await Promise.allSettled([
-      jobProfileApi.list({ limit: 6, order: "desc" }),
+      loadAllJobProfiles(),
       interviewRuntimeApi.list(),
       userCvApi.list(1),
     ]);
     setCvCount(cvsResult.status === "fulfilled" ? cvsResult.value.data.total : isGuest ? 0 : null);
     if (profilesResult.status === "fulfilled") {
-      const items = (profilesResult.value.data.items ?? []).filter((profile) => profile.status === "ACTIVE");
+      const items = profilesResult.value.filter((profile) => (profile.listingStatus ?? profile.status) === "ACTIVE");
       setProfiles(items.length > 0 ? items : isGuest ? DEMO_PROFILES : []);
     } else {
       setProfiles(isGuest ? DEMO_PROFILES : []);
