@@ -56,6 +56,24 @@ describe("interview runtime API contract", () => {
       "/api/v1/interviews/sessions/session%201",
     );
   });
+
+  it("loads every session page before reporting a cumulative total", async () => {
+    get.mockReset()
+      .mockResolvedValueOnce({ data: { sessions: Array.from({ length: 100 }, (_, i) => ({ sessionId: `s-${i}` })), total: 101, offset: 0, nextOffset: 100 } })
+      .mockResolvedValueOnce({ data: { sessions: [{ sessionId: "s-100" }], total: 101, offset: 100, nextOffset: null } });
+
+    const sessions = await interviewRuntimeApi.listAll();
+
+    expect(sessions).toHaveLength(101);
+    expect(get).toHaveBeenNthCalledWith(1, "/api/v1/interviews/sessions", { params: { offset: 0, limit: 100 } });
+    expect(get).toHaveBeenNthCalledWith(2, "/api/v1/interviews/sessions", { params: { offset: 100, limit: 100 } });
+  });
+
+  it("rejects an incomplete session list if pagination metadata is unavailable", async () => {
+    get.mockReset().mockResolvedValueOnce({ data: { sessions: [] } });
+
+    await expect(interviewRuntimeApi.listAll()).rejects.toThrow("pagination metadata is missing");
+  });
   it("builds and reads a competency plan", async () => {
     post.mockResolvedValueOnce({
       data: {

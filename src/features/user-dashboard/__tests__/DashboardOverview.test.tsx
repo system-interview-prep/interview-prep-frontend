@@ -2,13 +2,26 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+const targetHookState = vi.hoisted(() => ({
+  selected: null as string | null,
+  saved: [] as string[],
+  select: vi.fn(),
+}));
+
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => undefined }) }));
+vi.mock("../hooks/useTargetJob", () => ({
+  useTargetJob: () => ({ targetJobId: targetHookState.selected, selectTargetJob: targetHookState.select }),
+}));
+vi.mock("../hooks/useSavedJobs", () => ({
+  useSavedJobs: () => ({ savedJobIds: new Set(targetHookState.saved) }),
+}));
 vi.mock("@components/shared/NavigationLoadingProvider", () => ({
   useNavigationLoading: () => ({ showNavigationLoading: () => undefined, hideNavigationLoading: () => undefined }),
 }));
 
 import { DashboardOverview } from "../components/UserDashboardHome";
-import { DailyGoal, greetingName, weakestCompetency, type StoredDashboardSession } from "../components/DashboardSections";
+import { DailyGoal, greetingName, JobPreparationBoard, weakestCompetency, type StoredDashboardSession } from "../components/DashboardSections";
+import { jobPreparations } from "../utils/targetJobs";
 import type { JobProfile } from "@features/admin/services/jobProfile.service";
 import type { GapItem } from "@features/progress/services/progress.service";
 
@@ -58,7 +71,8 @@ function targetJob(id: string, title: string): JobProfile {
     seniority: "mid", experience: { minYears: 2 }, salary: null,
     primaryTaxonomy: { conceptId: "software", label: "Software engineering" }, source: null,
     postedAt: null, listingStatus: "ACTIVE", processingStatus: "DONE", status: "ACTIVE",
-    keywords: ["TypeScript", "Testing"], createdAt: "2026-10-01", updatedAt: "2026-10-01",
+    keywords: ["TypeScript", "Testing"], description: `${title} cần kinh nghiệm xây dựng sản phẩm và kiểm thử.`,
+    createdAt: "2026-10-01", updatedAt: "2026-10-01",
   };
 }
 
@@ -69,20 +83,36 @@ describe("DashboardOverview", () => {
   });
   afterAll(() => vi.useRealTimers());
 
-  it("renders a compact overview, progress CTA and shortcuts", () => {
+  it("renders a compact overview with a clearly named progress CTA and no duplicate shortcuts", () => {
+    targetHookState.selected = null;
+    targetHookState.saved = [];
     const html = render({});
-    expect(html).toContain("Chào An,");
-    expect(html).toContain("Tóm tắt nhanh");
-    expect(html).toContain("Điểm buổi gần nhất");
-    expect(html).toContain("Xem tiến độ và luyện hôm nay");
-    expect(html).toContain("Việc làm");
-    expect(html).toContain("CV");
-    expect(html).toContain("Lịch sử");
+    expect(html).toContain("home-banner-title");
+    expect(html).toContain("%2Fimg%2Fbanner.png");
+    expect(html).toContain("%2Fimg%2FJD_Checklist_Icons.png");
+    expect(html).toContain("%2Fimg%2FClipboard_Search_Icons.png");
+    expect(html).toContain("Buổi luyện gần nhất");
+    expect(html).toContain("Bài tập tiếp theo");
+    expect(html).toContain("Chưa có buổi hoàn thành");
+    expect(html).toContain("Chọn việc làm");
+    expect(html).toContain("Luyện phỏng vấn chung");
+    expect(html).toContain("Tổng số buổi đã tham gia");
+    expect(html).toContain("Chưa có buổi nào");
+    expect(html).toContain("Xem tổng quan");
+    expect(html).toContain("Chưa chọn công việc");
+    expect(html).not.toContain("aria-label=\"Lối tắt\"");
     expect(html).not.toContain("Chế độ luyện tập");
-    // No marketing claims, emoji or gradients on the home page.
+    // Keep other decorative claims out of the candidate overview.
     expect(html).not.toContain("👋");
     expect(html).not.toContain("30%");
-    expect(html).not.toContain("gradient");
+  });
+
+  it("renders useful support and resource shortcuts to existing pages", () => {
+    const html = render({});
+    expect(html).toContain('id="home-resources-title"');
+    expect(html).toContain('href="/dashboard/help"');
+    expect(html).toContain('href="/resources?topic=interview"');
+    expect(html).toContain('href="/resources"');
   });
 
   it("puts an unfinished session first, with its answered count and a resume action", () => {
@@ -97,17 +127,32 @@ describe("DashboardOverview", () => {
     expect(html).toContain("Bạn còn một buổi chưa xong.");
   });
 
+  it("counts all sessions the candidate actually joined, across jobs and score states", () => {
+    const html = render({
+      sessions: [
+        session(0, { jobId: "job-1", answeredTurns: 2, overallScore: null }),
+        session(1, { jobId: "job-2", answeredTurns: 5, overallScore: 8.2 }),
+        session(2, { jobId: "job-3", answeredTurns: 0, overallScore: null }),
+      ],
+    });
+    expect(html).toContain("2 <span class=\"text-sm font-medium\">buổi</span>");
+    expect(html).toContain("Cộng dồn trên mọi công việc và phòng luyện.");
+    expect(html).not.toContain("1/2");
+  });
+
   it("points a candidate to their weakest skill from the latest session", () => {
+    targetHookState.selected = null;
+    targetHookState.saved = [];
     const sessions = [session(0, { overallScore: 7.2 }), session(1, { mode: "voice" })];
     const html = render({ isGuest: true, profiles: [targetJob("job-1", "Backend Developer")], cvCount: 1, sessions });
-    expect(html).toContain("Tóm tắt nhanh");
+    expect(html).toContain("Bài tập tiếp theo");
     expect(html).toContain("System design");
     expect(html).toContain("5.2/10");
-    expect(html).toContain("Xem tiến độ và luyện hôm nay");
+    expect(html).toContain("Xem bài luyện hôm nay");
     expect(html).toContain("Backend Developer");
   });
 
-  it("compares the latest score only with the same target job", () => {
+  it("shows the latest completed session score", () => {
     const html = render({
       isGuest: true,
       profiles: [targetJob("job-1", "Backend Developer"), targetJob("job-2", "AI Engineer")],
@@ -119,6 +164,71 @@ describe("DashboardOverview", () => {
     });
     expect(html).toContain("5.2/10");
     expect(html).not.toContain("9.5/10");
+  });
+
+  it("shows the latest session score even when no target job is selected", () => {
+    const zeroScore = render({
+      isGuest: true,
+      profiles: [targetJob("job-1", "Backend Developer")],
+      sessions: [session(0, { overallScore: 0 })],
+    });
+    expect(zeroScore).toContain("0.0/10");
+
+    const noTarget = render({ sessions: [session(0, { overallScore: 0 })] });
+    expect(noTarget).toContain("0.0/10");
+    expect(noTarget).toContain("Buổi luyện gần nhất");
+    expect(noTarget).not.toContain("Chọn công việc mục tiêu để xem điểm riêng.");
+    expect(noTarget).not.toContain("System design");
+  });
+
+  it("shows the newest completed session in the overview card", () => {
+    const html = render({
+      isGuest: true,
+      sessions: [session(0, { jobTitle: "AI Engineer", overallScore: null, competencyScores: [] })],
+    });
+    expect(html).toContain("Buổi luyện gần nhất");
+    expect(html).toContain("AI Engineer");
+    expect(html).toContain("Chưa có \u0111iểm");
+    expect(html).toContain("Xem báo cáo →");
+  });
+
+  it("keeps the suggested skill scoped to the selected target job without a duplicate Home selector", () => {
+    targetHookState.selected = "job-2";
+    targetHookState.saved = ["job-1", "job-2"];
+    targetHookState.select = vi.fn();
+    const html = render({
+      profiles: [targetJob("job-1", "Backend Developer"), targetJob("job-2", "Frontend Developer")],
+      sessions: [session(0, { jobId: "job-1", jobTitle: "Backend Developer" })],
+    });
+
+    expect(html).not.toContain('aria-label="Chọn công việc mục tiêu trên trang chủ"');
+    expect(html).toContain("Bài luyện hôm nay được cá nhân hóa theo Frontend Developer.");
+    expect(html).toContain("Bắt đầu luyện cho Frontend Developer");
+    expect(html).not.toContain("System design");
+    expect(html).toContain("Gợi ý công việc nên thử");
+    expect(html).toContain('href="/dashboard/jobs/job-1"');
+    expect(html).toContain('href="/dashboard/jobs/job-2"');
+    expect(html).toContain("Frontend Developer cần kinh nghiệm xây dựng sản phẩm và kiểm thử.");
+  });
+
+  it("shows a saved job's due answer as one concrete next action", () => {
+    const job = targetJob("job-1", "Backend Developer");
+    const gap = {
+      due: true,
+      skill: "System design",
+      skillKey: "system-design",
+      point: "Nêu một đánh đổi cụ thể",
+      lastSeen: { jobId: job.id, question: "Bạn thiết kế cache thế nào?", questionVersionId: "qv-1" },
+    } as unknown as GapItem;
+    const [item] = jobPreparations([job], new Set([job.id]), [], [gap]);
+    const html = renderToStaticMarkup(
+      <JobPreparationBoard items={[item]} onAction={() => undefined} onBrowseJobs={() => undefined} />,
+    );
+    expect(html).toContain("Các vị trí bạn đang chuẩn bị");
+    expect(html).toContain("Có câu đến hạn");
+    expect(html).toContain("System design: Nêu một đánh đổi cụ thể");
+    expect(html).toContain("Ôn câu đến hạn");
+    expect((html.match(/<button /g) ?? []).length).toBe(1);
   });
 });
 

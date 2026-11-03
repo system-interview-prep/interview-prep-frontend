@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
+import Image from "next/image";
 import { Award, CalendarCheck, Clock, Flame, MessageSquare, Mic, Video } from "lucide-react";
 import { endReasonKey } from "@/features/interview/components/ChatInterviewProgress";
 import { localeOf } from "@/i18n/format";
@@ -431,6 +432,104 @@ export function DailyGoal({
   );
 }
 
+/** A compact cross-job view; each saved job gets one evidence-based next action. */
+export function JobPreparationBoard({
+  items,
+  onAction,
+  onBrowseJobs,
+}: {
+  items: import("../utils/targetJobs").JobPreparation[];
+  onAction: (item: import("../utils/targetJobs").JobPreparation) => void;
+  onBrowseJobs: () => void;
+}) {
+  const actionLabel = {
+    in_progress: "Tiếp tục buổi",
+    due: "Ôn câu đến hạn",
+    not_started: "Xem bài luyện",
+    practising: "Xem tiến độ",
+    unknown: "Kiểm tra tiến độ",
+  } as const;
+  const statusLabel = {
+    in_progress: "Buổi đang dở",
+    due: "Có câu đến hạn",
+    not_started: "Chưa có buổi luyện",
+    practising: "Đang luyện",
+    unknown: "Chưa có dữ liệu chuẩn bị",
+  } as const;
+
+  return (
+    <section aria-labelledby="preparation-board-title">
+      <SectionHeading
+        id="preparation-board-title"
+        title="Các vị trí bạn đang chuẩn bị"
+        subtitle="Mỗi vị trí có một bước tiếp theo dựa trên lịch sử luyện tập."
+        action={items.length > 3 ? <LinkButton onClick={onBrowseJobs}>Xem tất cả việc đã lưu →</LinkButton> : undefined}
+      />
+      {items.length === 0 ? (
+        <div className={cn(CARD, "flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between")}>
+          <div aria-hidden="true" className="relative h-20 w-24 shrink-0 sm:h-24 sm:w-28">
+            <Image src="/img/Clipboard_Search_Icons.png" alt="" fill sizes="112px" className="object-contain" />
+          </div>
+          <p className="text-sm text-[#4A505C]">Lưu một vị trí ở trang Việc làm để theo dõi các bước chuẩn bị tại đây.</p>
+          <button type="button" onClick={onBrowseJobs} className={LIGHT_BUTTON}>Xem việc làm</button>
+        </div>
+      ) : (
+        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {items.slice(0, 3).map((item) => {
+            const latestAt = item.latestSession?.endedAt ?? item.latestSession?.startedAt;
+            const latestDate = latestAt
+              ? new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" }).format(new Date(latestAt))
+              : null;
+            const detail = item.status === "in_progress"
+              ? typeof item.openSession?.answeredTurns === "number" && typeof item.openSession.totalTurns === "number"
+                ? `${item.openSession.answeredTurns}/${item.openSession.totalTurns} câu đã trả lời`
+                : "Phiên chưa kết thúc"
+              : item.status === "due"
+                ? `${item.dueGap?.skill}: ${item.dueGap?.point}`
+                : item.status === "not_started"
+                  ? "Chưa ghi nhận buổi luyện cho vị trí này."
+                  : item.status === "unknown"
+                    ? "Không tải được lịch sử để xác định trạng thái."
+                    : item.latestScoredSession
+                      ? `${item.sessions.length} buổi${latestDate ? ` · Gần nhất ${latestDate}` : ""} · Điểm gần nhất ${item.latestScoredSession.overallScore.toFixed(1)}/10`
+                      : `${item.sessions.length} buổi${latestDate ? ` · Gần nhất ${latestDate}` : ""} · Chưa có điểm`;
+            return (
+              <li key={item.job.id} className="flex min-w-0 flex-col justify-between gap-4 rounded-xl border border-[#DCE6F6] bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+                <div className="min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-[#14244B] [overflow-wrap:anywhere]">{item.job.title}</h3>
+                      {item.job.company?.name ? <p className="mt-0.5 truncate text-xs text-[#64748B]">{item.job.company.name}</p> : null}
+                    </div>
+                    <span className={cn(
+                      "shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold",
+                      item.status === "due" ? "bg-[#FFF4DD] text-[#8A5300]"
+                        : item.status === "in_progress" ? "bg-[#EAF2FF] text-[#204195]"
+                          : item.status === "practising" ? "bg-[#E8F5EC] text-[#247044]"
+                            : "bg-[#F0F3F8] text-[#52627D]",
+                    )}>{statusLabel[item.status]}</span>
+                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-[#52627D]">{detail}</p>
+                  {item.latestScoredSession ? (
+                    <p className="mt-2 text-xs font-medium text-[#204195]">
+                      Điểm gần nhất: {item.latestScoredSession.overallScore.toFixed(1)}/10
+                      {latestDate ? ` · ${latestDate}` : ""}
+                      {` · ${item.latestScoredSession.mode === "text" ? "Chat" : item.latestScoredSession.mode === "voice" ? "Voice" : "Video"}`}
+                    </p>
+                  ) : null}
+                </div>
+                <button type="button" onClick={() => onAction(item)} className={cn(LIGHT_BUTTON, "w-full sm:w-auto sm:self-start")}>
+                  {actionLabel[item.status]}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 /**
  * The practice modes as one list. Chat and Voice are scored apart; the camera
  * is an option of Voice and is never scored.
@@ -603,6 +702,11 @@ export function RecentActivity({
 }
 
 /** Suggested target jobs */
+function jobDescriptionExcerpt(profile: JobProfile): string | undefined {
+  const description = profile.description?.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return description || profile.keywords?.filter((keyword) => keyword.trim()).slice(0, 4).join(" · ") || profile.primaryTaxonomy?.label || undefined;
+}
+
 export function SuggestedJobs({
   profiles,
   savedJobIds,
@@ -611,22 +715,26 @@ export function SuggestedJobs({
   onNavigate,
   onPractice,
   t,
+  title,
+  subtitle,
 }: {
   profiles: JobProfile[];
   savedJobIds: Set<string>;
   fits: Record<string, CachedFit>;
   onToggleSave: (jobId: string, currentSaved: boolean) => void;
   onNavigate: (href: string) => void;
-  onPractice: (profile: JobProfile) => void;
+  onPractice?: (profile: JobProfile) => void;
   t: Translate;
+  title?: string;
+  subtitle?: string;
 }) {
   const ordered = [...profiles].sort((a, b) => Number(savedJobIds.has(b.id)) - Number(savedJobIds.has(a.id)));
   return (
     <section aria-labelledby="jobs-title">
       <SectionHeading
         id="jobs-title"
-        title={t("uxWs.dash.jobs.title")}
-        subtitle={t("uxWs.dash.jobs.subtitle")}
+        title={title ?? t("uxWs.dash.jobs.title")}
+        subtitle={subtitle ?? t("uxWs.dash.jobs.subtitle")}
         action={<LinkButton onClick={() => onNavigate("/dashboard/jobs")}>{t("userDash.jobProfiles.viewAll")} →</LinkButton>}
       />
       {ordered.length ? (
@@ -636,7 +744,8 @@ export function SuggestedJobs({
               key={profile.id}
               job={mapJobToJobCard(profile, { savedJobIds, fit: fits[profile.id] })}
               onToggleSave={onToggleSave}
-              onInterview={() => onPractice(profile)}
+              onInterview={onPractice ? () => onPractice(profile) : undefined}
+              description={jobDescriptionExcerpt(profile)}
             />
           ))}
         </div>

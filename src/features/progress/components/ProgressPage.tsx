@@ -6,6 +6,7 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
 import { useSavedJobs } from "@features/user-dashboard/hooks/useSavedJobs";
 import { useTargetJob } from "@features/user-dashboard/hooks/useTargetJob";
+import { interviewRuntimeApi, type InterviewRuntimeSession } from "@features/interview/services/interviewRuntime.service";
 import { resolveTargetJobId, savedTargetJobs } from "@features/user-dashboard/utils/targetJobs";
 import { progressApi, SKILL_AREAS, type PracticeProgress, type SkillArea } from "../services/progress.service";
 import { shortDate } from "../utils/progressFormat";
@@ -39,6 +40,8 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
   const [failed, setFailed] = useState(false);
   const [savingGoal, setSavingGoal] = useState(false);
   const [profiles, setProfiles] = useState<JobProfile[]>([]);
+  const [runtimeSessions, setRuntimeSessions] = useState<InterviewRuntimeSession[]>([]);
+  const [runtimeSessionsFailed, setRuntimeSessionsFailed] = useState(false);
   const { savedJobIds } = useSavedJobs();
   const { targetJobId, selectTargetJob } = useTargetJob();
 
@@ -83,6 +86,19 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
     if (!initialProgress) load();
   }, [load, initialProgress]);
 
+  const loadRuntimeSessions = useCallback(() => {
+    void interviewRuntimeApi.list()
+      .then((items) => {
+        setRuntimeSessions(items);
+        setRuntimeSessionsFailed(false);
+      })
+      .catch(() => setRuntimeSessionsFailed(true));
+  }, []);
+
+  useEffect(() => {
+    loadRuntimeSessions();
+  }, [loadRuntimeSessions]);
+
   const changeGoal = async (goal: number) => {
     if (!progress || goal === progress.weeklyGoal) return;
     setSavingGoal(true);
@@ -123,6 +139,9 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
             targetJobs={targetJobs}
             targetJobId={effectiveJobId}
             onTargetJobChange={selectTargetJob}
+            runtimeSessions={runtimeSessions}
+            runtimeSessionsFailed={runtimeSessionsFailed}
+            onRetryRuntimeSessions={loadRuntimeSessions}
           />
           <div className="space-y-3">
             <MoreSection title={t("practiceProgress.more.real")}>

@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { JobProfile } from "@features/admin/services/jobProfile.service";
 import type { PracticeProgress } from "../services/progress.service";
+import type { InterviewRuntimeSession } from "@features/interview/services/interviewRuntime.service";
 import { ProgressV3 } from "../components/ProgressV3";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => undefined }) }));
@@ -52,5 +53,74 @@ describe("ProgressV3 target job", () => {
     expect(html).toContain("Chưa có buổi luyện được tính điểm");
     expect(html).toContain("Chọn CV và bắt đầu");
     expect(html).not.toContain("0.0/10");
+  });
+
+  it("shows a selected job's open session separately from scored progress and offers resume", () => {
+    const session = {
+      sessionId: "open-session",
+      jobId: job.id,
+      jobTitle: job.title,
+      mode: "text",
+      experienceType: "interview_chat",
+      locale: "vi-VN",
+      durationMinutes: 15,
+      status: "OPEN",
+      startedAt: "2026-11-02T10:00:00Z",
+      endedAt: null,
+      endReason: null,
+      plan: null,
+      answeredTurns: 2,
+      totalTurns: 6,
+    } as InterviewRuntimeSession;
+    const html = renderToStaticMarkup(
+      <ProgressV3
+        progress={emptyProgress}
+        onGoal={() => undefined}
+        savingGoal={false}
+        targetJobs={[job]}
+        targetJobId={job.id}
+        runtimeSessions={[session]}
+      />,
+    );
+
+    expect(html).toContain("Buổi chưa xuất hiện trong tiến độ");
+    expect(html).toContain("Buổi đang dở · chưa được tính");
+    expect(html).toContain("Đã trả lời 2 câu");
+    expect(html).toContain('href="/interview/room/open-session"');
+    expect(html).toContain("Xem lại");
+  });
+
+  it("explains that a closed ungraded session is not counted without assuming why", () => {
+    const session = {
+      sessionId: "ungraded-session",
+      jobId: job.id,
+      jobTitle: job.title,
+      mode: "text",
+      experienceType: "interview_chat",
+      locale: "vi-VN",
+      durationMinutes: 15,
+      status: "CLOSED",
+      startedAt: "2026-11-02T10:00:00Z",
+      endedAt: "2026-11-02T10:10:00Z",
+      endReason: "USER_ENDED",
+      plan: null,
+      answeredTurns: 2,
+      totalTurns: 6,
+      overallScore: null,
+    } as InterviewRuntimeSession;
+    const html = renderToStaticMarkup(
+      <ProgressV3
+        progress={emptyProgress}
+        onGoal={() => undefined}
+        savingGoal={false}
+        targetJobs={[job]}
+        targetJobId={job.id}
+        runtimeSessions={[session]}
+      />,
+    );
+
+    expect(html).toContain("Đã kết thúc · chưa có đánh giá nên chưa được tính");
+    expect(html).toContain("Hệ thống không đoán lý do buổi chưa được chấm.");
+    expect(html).not.toContain("Fewer than 3 main questions");
   });
 });

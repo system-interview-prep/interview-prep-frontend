@@ -10,8 +10,11 @@ import {
   roomProgressOf,
   roundsToPractise,
   scoreSummaryOf,
+  runtimeHistoryStatus,
+  unrepresentedRuntimeSessions,
   yOf,
 } from "../utils/progressV3";
+import type { InterviewRuntimeSession } from "@features/interview/services/interviewRuntime.service";
 
 /* Progress page v3 (design 29/10): rooms apart, a conclusion first, the one point to practise. */
 
@@ -45,6 +48,36 @@ const gap = (point: string, timesAsked: number, timesMissed: number, sessionId =
 });
 
 describe("progress page v3", () => {
+  it("lists only runtime sessions missing from the selected job and room's scored history", () => {
+    const runtime = (sessionId: string, jobId: string, mode: "text" | "voice", startedAt: string) => ({
+      sessionId, jobId, mode, startedAt, status: "CLOSED", endReason: null, overallScore: null,
+    }) as InterviewRuntimeSession;
+    const progressSession = {
+      sessionId: "scored-chat", jobId: "job", mode: "text", room: "chat", date: "2026-10-13",
+    } as never;
+
+    expect(unrepresentedRuntimeSessions(
+      [progressSession],
+      [
+        runtime("scored-chat", "job", "text", "2026-10-13T10:00:00Z"),
+        runtime("open-voice", "job", "voice", "2026-10-14T10:00:00Z"),
+        runtime("other-job", "other", "voice", "2026-10-15T10:00:00Z"),
+      ],
+      "job",
+      "voice",
+    ).map((session) => session.sessionId)).toEqual(["open-voice"]);
+  });
+
+  it("labels ungraded sessions without guessing whether they had enough main answers", () => {
+    const session = (status: string, endReason: string | null, overallScore: number | null) => ({
+      status, endReason, overallScore,
+    }) as InterviewRuntimeSession;
+    expect(runtimeHistoryStatus(session("OPEN", null, null))).toBe("in_progress");
+    expect(runtimeHistoryStatus(session("CLOSED", "TECHNICAL_FAILURE", null))).toBe("technical_failure");
+    expect(runtimeHistoryStatus(session("CLOSED", "USER_ENDED", null))).toBe("ungraded");
+    expect(runtimeHistoryStatus(session("CLOSED", null, 0))).toBe("evaluated");
+  });
+
   it("tells the round that grew most, and a drop first when the average falls", () => {
     const rounds = [round("data", 2, [6.0, 7.2, 7.5]), round("project", 1, [5.0, 5.4])];
     expect(conclusionOf(job(rounds), { sessions: 4, window: 2, start: 5.8, recent: 6.8, change: 1.0, latest: 7.1 })).toEqual({

@@ -89,7 +89,7 @@ export function ViJourneyPanel({ journey, onNavigate }: { journey: ViJourney; on
         <div className="space-y-2.5 rounded-2xl bg-[#F8FAFC] p-3 ring-1 ring-[#EAEFF8]">
           <p className="text-[13px] leading-5 text-[#33415F]">{t("guide.allDone")}</p>
           <Link
-            href="/interview/select"
+            href="/dashboard/progress"
             onClick={onNavigate}
             className="inline-flex h-10 items-center rounded-full bg-[#204195] px-4 text-[13px] font-semibold text-white hover:bg-[#183275]"
           >

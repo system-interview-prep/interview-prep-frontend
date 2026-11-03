@@ -8,6 +8,7 @@ import type {
   ScoreOverview,
   TimelineEntry,
 } from "../services/progress.service";
+import type { InterviewRuntimeSession } from "@features/interview/services/interviewRuntime.service";
 import { LADDER_SOLID, ROUND_READY_LEVEL } from "./progressModel";
 
 /*
@@ -20,6 +21,31 @@ import { LADDER_SOLID, ROUND_READY_LEVEL } from "./progressModel";
 export const ROOMS: RoomName[] = ["chat", "voice"];
 /** A drop of this much in the overview is told as a drop (the flat band of the trends). */
 export const DROP_AT = -0.5;
+
+export type RuntimeHistoryStatus = "in_progress" | "technical_failure" | "ungraded" | "evaluated";
+
+/** Runtime sessions not present in scored progress; keep the current job and room scope. */
+export function unrepresentedRuntimeSessions(
+  progressSessions: ProgressSession[],
+  runtimeSessions: InterviewRuntimeSession[],
+  jobId: string,
+  room: RoomName,
+): InterviewRuntimeSession[] {
+  const represented = new Set(progressSessions.filter((session) => session.jobId === jobId).map((session) => session.sessionId));
+  return runtimeSessions
+    .filter((session) => session.jobId === jobId
+      && (session.mode === "text" ? "chat" : "voice") === room
+      && !represented.has(session.sessionId))
+    .slice()
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+}
+
+/** Never infer a missing-answer reason for an ungraded runtime session. */
+export function runtimeHistoryStatus(session: InterviewRuntimeSession): RuntimeHistoryStatus {
+  if (["TECHNICAL_FAILURE", "FAST_FAIL_TECH"].includes(session.endReason ?? "")) return "technical_failure";
+  if (session.status.toUpperCase() !== "CLOSED") return "in_progress";
+  return session.overallScore == null ? "ungraded" : "evaluated";
+}
 
 /** Overall score comparison scoped to one target job and one already-filtered room. */
 export function overviewForJob(progress: PracticeProgress, jobId: string): ScoreOverview {

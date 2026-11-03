@@ -156,6 +156,13 @@ export type InterviewRuntimeSession = {
   answeredTurns?: number;
 };
 
+export type InterviewRuntimeSessionPage = {
+  sessions: InterviewRuntimeSession[];
+  total: number;
+  offset: number;
+  nextOffset: number | null;
+};
+
 export type CreateInterviewRuntimeSessionRequest = {
   resumeId: string;
   jobId: string;
@@ -206,11 +213,40 @@ export const interviewRuntimeApi = {
     return response.data;
   },
 
-  list: async (): Promise<InterviewRuntimeSession[]> => {
-    const response = await apiClient.get<{ sessions: InterviewRuntimeSession[] }>(
+  listPage: async (offset = 0, limit = 100): Promise<InterviewRuntimeSessionPage> => {
+    const response = await apiClient.get<InterviewRuntimeSessionPage>(
       "/api/v1/interviews/sessions",
+      { params: { offset, limit } },
     );
-    return response.data.sessions;
+    return response.data;
+  },
+
+  list: async (): Promise<InterviewRuntimeSession[]> => {
+    const page = await interviewRuntimeApi.listPage();
+    return page.sessions;
+  },
+
+  listAll: async (): Promise<InterviewRuntimeSession[]> => {
+    const sessions: InterviewRuntimeSession[] = [];
+    const seenOffsets = new Set<number>();
+    let offset = 0;
+    for (;;) {
+      if (seenOffsets.has(offset)) throw new Error("Session history pagination did not advance");
+      seenOffsets.add(offset);
+      const page = await interviewRuntimeApi.listPage(offset);
+      if (!Number.isInteger(page.total) || page.total < 0 || !Array.isArray(page.sessions)) {
+        throw new Error("Session history pagination metadata is missing");
+      }
+      sessions.push(...page.sessions);
+      if (page.nextOffset === null) {
+        if (sessions.length !== page.total) throw new Error("Session history ended before all sessions were loaded");
+        return sessions;
+      }
+      if (page.total <= offset + page.sessions.length || page.nextOffset <= offset) {
+        throw new Error("Session history pagination returned inconsistent totals");
+      }
+      offset = page.nextOffset;
+    }
   },
 
   buildPlan: async (sessionId: string): Promise<InterviewRuntimePlan> => {

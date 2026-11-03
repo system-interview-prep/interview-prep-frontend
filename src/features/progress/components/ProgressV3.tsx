@@ -7,6 +7,7 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { localeOf } from "@/i18n/format";
 import { cn } from "@/utils";
 import type { JobProfile } from "@features/admin/services/jobProfile.service";
+import type { InterviewRuntimeSession } from "@features/interview/services/interviewRuntime.service";
 import { JobInterviewCvModal } from "@features/user-dashboard/components/JobInterviewCvModal";
 import type { GapItem, JobReadiness, PracticeProgress, ProgressSession, RoomName, RoundReadiness } from "../services/progress.service";
 import { fill, longDate, percent, shortDate, trendLabel } from "../utils/progressFormat";
@@ -21,6 +22,8 @@ import {
   roomCounts,
   roomProgressOf,
   ROOMS,
+  runtimeHistoryStatus,
+  unrepresentedRuntimeSessions,
   roundsToPractise,
   scoreSummaryOf,
   yOf,
@@ -66,6 +69,10 @@ function roomLabel(session: ProgressSession, t: Translate): string {
   return session.camera ? t("practiceProgress.v3.room.voiceCamera") : t("practiceProgress.v3.room.voice");
 }
 
+function progressSessionRoom(session: ProgressSession): RoomName {
+  return session.room ?? (session.mode === "text" ? "chat" : "voice");
+}
+
 export function ProgressV3({
   progress,
   onGoal,
@@ -73,6 +80,9 @@ export function ProgressV3({
   targetJobs = [],
   targetJobId = null,
   onTargetJobChange = () => undefined,
+  runtimeSessions = [],
+  runtimeSessionsFailed = false,
+  onRetryRuntimeSessions = () => undefined,
 }: {
   progress: PracticeProgress;
   onGoal: (goal: number) => void;
@@ -80,6 +90,9 @@ export function ProgressV3({
   targetJobs?: JobProfile[];
   targetJobId?: string | null;
   onTargetJobChange?: (jobId: string) => void;
+  runtimeSessions?: InterviewRuntimeSession[];
+  runtimeSessionsFailed?: boolean;
+  onRetryRuntimeSessions?: () => void;
 }) {
   const { t } = useLanguage();
   const [room, setRoom] = useState<RoomName>(() => defaultRoom(progress));
@@ -102,20 +115,19 @@ export function ProgressV3({
     [selectedReadiness, chosenProfile],
   );
   const scopedRoomSessions = job ? progress.sessions.filter((session) => session.jobId === job.jobId) : null;
-  const roomForSession = (session: ProgressSession): RoomName => session.room ?? (session.mode === "text" ? "chat" : "voice");
   const counts = scopedRoomSessions ? {
-    chat: scopedRoomSessions.filter((session) => roomForSession(session) === "chat").length,
-    voice: scopedRoomSessions.filter((session) => roomForSession(session) === "voice").length,
+    chat: scopedRoomSessions.filter((session) => progressSessionRoom(session) === "chat").length,
+    voice: scopedRoomSessions.filter((session) => progressSessionRoom(session) === "voice").length,
     camera: scopedRoomSessions.filter((session) => session.mode === "video" || session.camera).length,
   } : allRoomCounts;
   const validCounts: Record<RoomName, number> = scopedRoomSessions
     ? {
-        chat: scopedRoomSessions.filter((session) => roomForSession(session) === "chat" && session.valid !== false && session.overallScore !== null).length,
-        voice: scopedRoomSessions.filter((session) => roomForSession(session) === "voice" && session.valid !== false && session.overallScore !== null).length,
+        chat: scopedRoomSessions.filter((session) => progressSessionRoom(session) === "chat" && session.valid !== false && session.overallScore !== null).length,
+        voice: scopedRoomSessions.filter((session) => progressSessionRoom(session) === "voice" && session.valid !== false && session.overallScore !== null).length,
       }
     : {
-        chat: progress.rooms?.chat.overview.sessions ?? progress.sessions.filter((session) => roomForSession(session) === "chat" && session.valid !== false && session.overallScore !== null).length,
-        voice: progress.rooms?.voice.overview.sessions ?? progress.sessions.filter((session) => roomForSession(session) === "voice" && session.valid !== false && session.overallScore !== null).length,
+        chat: progress.rooms?.chat.overview.sessions ?? progress.sessions.filter((session) => progressSessionRoom(session) === "chat" && session.valid !== false && session.overallScore !== null).length,
+        voice: progress.rooms?.voice.overview.sessions ?? progress.sessions.filter((session) => progressSessionRoom(session) === "voice" && session.valid !== false && session.overallScore !== null).length,
       };
   const [selectedPractice, setSelectedPractice] = useState<{ id: string; title: string; reaskConceptId?: string; reaskQuestionVersionId?: string } | null>(null);
   const gaps = useMemo(
@@ -193,6 +205,13 @@ export function ProgressV3({
         </div>}
       </div>
 
+      {runtimeSessionsFailed ? (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#F1D3D3] bg-[#FDF5F5] px-4 py-3 text-sm text-[#9B2C2C]">
+          <span>Không tải được trạng thái các buổi đang dở hoặc chưa được chấm.</span>
+          <button type="button" onClick={onRetryRuntimeSessions} className="font-semibold underline">Thử tải lại</button>
+        </div>
+      ) : null}
+
       {!job ? (
         <EmptyRoom room={room} other={other} otherCount={counts[other]} onSwitch={() => setRoom(other)} />
       ) : !hasScoredJobSession ? (
@@ -228,6 +247,14 @@ export function ProgressV3({
           <HowItWorks k={overviewForJob(data, job.jobId).window} />
         </>
       )}
+      {job ? (
+        <RuntimeSessionStatusCard
+          progressSessions={progress.sessions}
+          runtimeSessions={runtimeSessions}
+          jobId={job.jobId}
+          room={room}
+        />
+      ) : null}
       <JobInterviewCvModal
         open={selectedPractice !== null}
         jobTitle={selectedPractice?.title ?? ""}
@@ -626,7 +653,7 @@ function DetailCard({
       {tab === "topics" && <TopicsTab job={job} openArea={openArea} onOpenArea={onOpenArea} flash={flash} onPractice={onPractice} />}
       {tab === "answers" && <AnswersTab progress={progress} room={room} jobId={jobId} />}
       {tab === "knowledge" && <KnowledgeTab progress={progress} jobId={jobId} />}
-      {tab === "history" && <HistoryTab progress={progress} jobId={jobId} />}
+      {tab === "history" && <HistoryTab progress={progress} jobId={jobId} room={room} />}
     </section>
   );
 }
@@ -915,10 +942,78 @@ function KnowledgeTab({ progress, jobId }: { progress: PracticeProgress; jobId: 
   );
 }
 
-function HistoryTab({ progress, jobId }: { progress: PracticeProgress; jobId: string }) {
+export function RuntimeSessionStatusCard({
+  progressSessions,
+  runtimeSessions,
+  jobId,
+  room,
+}: {
+  progressSessions: ProgressSession[];
+  runtimeSessions: InterviewRuntimeSession[];
+  jobId: string;
+  room: RoomName;
+}) {
+  const { t, lang } = useLanguage();
+  const sessions = unrepresentedRuntimeSessions(progressSessions, runtimeSessions, jobId, room);
+  if (sessions.length === 0) return null;
+  const locale = localeOf(lang);
+  return (
+    <section className={cn(card, "space-y-3")} aria-labelledby="runtime-session-status-title">
+      <div>
+        <h2 id="runtime-session-status-title" className="text-[17px] font-semibold">{t("practiceProgress.v3.history.statusTitle")}</h2>
+        <p className={cn("mt-1 text-sm", muted)}>{t("practiceProgress.v3.history.statusHelp")}</p>
+      </div>
+      <ul className="divide-y divide-[#ECECE8]">
+        {sessions.map((session) => {
+          const state = runtimeHistoryStatus(session);
+          const stateText = state === "in_progress"
+            ? t("practiceProgress.v3.history.inProgress")
+            : state === "technical_failure"
+              ? t("practiceProgress.v3.history.notCountedTechnical")
+              : state === "ungraded"
+                ? t("practiceProgress.v3.history.ungraded")
+                : t("practiceProgress.v3.history.evaluated");
+          const sessionRoom = session.mode === "text" ? "chat" : "voice";
+          const href = session.experienceType === "question_practice"
+            ? `/practice/room/${session.sessionId}`
+            : `/interview/room/${session.sessionId}`;
+          return (
+            <li key={session.sessionId} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0">
+              <span className="min-w-0 flex-[1_1_220px]">
+                <span className="block text-base font-semibold">{longDate(session.startedAt, locale)}</span>
+                <span className={cn("block text-[15px]", muted)}>
+                  {t(`practiceProgress.v3.room.${sessionRoom}`)}{session.jobTitle ? ` · ${session.jobTitle}` : ""}
+                </span>
+                {typeof session.answeredTurns === "number" && session.answeredTurns > 0 ? (
+                  <span className={cn("block text-sm", muted)}>{fill(t("practiceProgress.v3.history.answered"), { n: session.answeredTurns })}</span>
+                ) : null}
+              </span>
+              <span className="rounded-md bg-[#F0F0ED] px-2 py-0.5 text-sm font-semibold text-[#6B6F78]">{stateText}</span>
+              {typeof session.overallScore === "number" ? (
+                <span className={cn(scoreChip, "text-base", scoreTone(session.overallScore).chip)}>{session.overallScore.toFixed(1)}/10</span>
+              ) : null}
+              {state === "in_progress" ? <Link href={href} className={lightButton}>{t("practiceProgress.v3.history.open")}</Link> : null}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function HistoryTab({ progress, jobId, room }: {
+  progress: PracticeProgress;
+  jobId: string;
+  room: RoomName;
+}) {
   const { t, lang } = useLanguage();
   const locale = localeOf(lang);
-  const sessions = progress.sessions.filter((session) => session.jobId === jobId).sort((a, b) => b.date.localeCompare(a.date));
+  const sessions = progress.sessions
+    .filter((session) => session.jobId === jobId && progressSessionRoom(session) === room)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  if (sessions.length === 0) {
+    return <p className="px-5 py-6 text-base text-[#2A2F38] sm:px-6">{t("practiceProgress.v3.history.empty")}</p>;
+  }
   return (
     <ul>
       {sessions.map((session, index) => (
@@ -940,11 +1035,12 @@ function HistoryTab({ progress, jobId }: { progress: PracticeProgress; jobId: st
                 : t("practiceProgress.v3.history.notCounted")}
             </span>
           ) : (
-            session.overallScore === null ? (
-              <span className="text-lg font-semibold">—</span>
-            ) : (
-              <span className={cn(scoreChip, "text-base", scoreTone(session.overallScore).chip)}>{session.overallScore.toFixed(1)}/10</span>
-            )
+            <span className="flex flex-wrap items-center gap-2">
+              {session.valid === true ? <span className="rounded-md bg-[#E3F4E7] px-2 py-0.5 text-sm font-semibold text-[#1E6B34]">{t("practiceProgress.v3.history.eligible")}</span> : null}
+              {session.overallScore === null
+                ? <span className="text-sm font-medium text-[#607096]">{t("practiceProgress.v3.history.noScore")}</span>
+                : <span className={cn(scoreChip, "text-base", scoreTone(session.overallScore).chip)}>{session.overallScore.toFixed(1)}/10</span>}
+            </span>
           )}
           <Link href={`/interview/results/${session.sessionId}`} className={lightButton}>
             {t("practiceProgress.v3.history.open")}
