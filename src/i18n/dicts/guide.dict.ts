@@ -17,7 +17,7 @@ export const guideVi: Record<string, string> = {
   "guide.status.open": "Buổi đang mở",
   "guide.status.busy": "Đang đọc CV · {step}/3",
   "guide.status.todo": "Việc tiếp theo",
-  "guide.status.done": "Mọi thứ đã xong",
+  "guide.status.done": "Hồ sơ đã đủ · luyện tiếp",
   "guide.status.tips": "Mẹo cho trang này",
 
   // Journey.
@@ -35,8 +35,8 @@ export const guideVi: Record<string, string> = {
   "guide.step.job.action": "Xem vị trí tuyển dụng",
   "guide.step.interview.action": "Bắt đầu phỏng vấn",
   "guide.step.report.action": "Xem báo cáo",
-  "guide.allDone": "Bạn đã đi hết hành trình. Luyện thêm một buổi cùng vị trí để xem mình tiến bộ đến đâu.",
-  "guide.allDoneAction": "Phỏng vấn thêm",
+  "guide.allDone": "Các bước CV, vị trí và báo cáo đã hoàn tất. Bạn vẫn có thể tiếp tục luyện và theo dõi tiến bộ theo công việc mục tiêu.",
+  "guide.allDoneAction": "Tiếp tục luyện ở Tiến độ",
   "guide.recent": "Mới cập nhật",
 
   // Events: the short line in the panel and the bubble text.
