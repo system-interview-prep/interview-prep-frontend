@@ -148,7 +148,7 @@ const DEMO_PROFILES: JobProfile[] = [
 ];
 import { hasScore, isFailedStart, JobPreparationBoard, RecentActivity, SuggestedJobs, sessionHref, weakestCompetency, greetingName, type StoredDashboardSession } from "./DashboardSections";
 import { jobPreparations } from "../utils/targetJobs";
-import { useFitCache } from "@features/matching/utils/fitCache";
+import { useFitHistory } from "@features/matching/utils/fitHistory";
 
 const DARK_BUTTON =
   "inline-flex min-h-10 items-center justify-center rounded-xl bg-[#204195] px-4 text-sm font-bold text-white hover:bg-[#183275] active:bg-[#122557]";
@@ -221,7 +221,7 @@ export function DashboardOverview({
   const [selectedJob, setSelectedJob] = useState<{ id: string; title: string; reaskConceptId?: string; reaskQuestionVersionId?: string } | null>(null);
   const { targetJobId, selectTargetJob } = useTargetJob();
   const { savedJobIds, toggleSave } = useSavedJobs();
-  const fits = useFitCache();
+  const fits = useFitHistory(!isGuest);
   const [closingSession, setClosingSession] = useState<StoredDashboardSession | null>(null);
   const [closing, setClosing] = useState(false);
   const [closeError, setCloseError] = useState(false);

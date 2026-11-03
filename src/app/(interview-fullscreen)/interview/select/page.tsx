@@ -28,7 +28,6 @@ import {
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
 import { scoreCvAgainstJobProfile, type CvScoringResponse } from "@/lib/aiService";
 import { mapBackendErrorToI18nKey } from "@/utils/backendError";
-import { countFit, saveFit } from "@features/matching/utils/fitCache";
 import { fmt } from "@/i18n/format";
 import { useInterviewEntryPolicy } from "@features/interview/hooks/useInterviewEntryPolicy";
 import { entryBlockMessageKey, entryWarningMessageKey, evaluateEntry } from "@features/interview/utils/entryGate";
@@ -165,13 +164,6 @@ export default function InterviewSelectPage() {
       .then((result) => {
         if (!active) return;
         setMatch({ key: pairKey, status: "ready", result });
-        saveFit({
-          jobId: selectedJobId,
-          cvId: selectedCvId,
-          cvName: cvs.find((cv) => cv.id === selectedCvId)?.originalName ?? null,
-          ...countFit(result.requirementResults),
-          analyzedAt: new Date().toISOString(),
-        });
       })
       .catch((cause) => {
         if (!active) return;
@@ -180,7 +172,7 @@ export default function InterviewSelectPage() {
     return () => {
       active = false;
     };
-    // cvs only supplies the display name for the fit cache.
+    // pairKey includes the selected CV and job; matchAttempt triggers retries.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairKey, matchAttempt]);
 

@@ -9,9 +9,10 @@ import {
   type JobProfile,
 } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
 import { JobInterviewCvModal } from "@features/user-dashboard/components/JobInterviewCvModal";
 import { useSavedJobs } from "@features/user-dashboard/hooks/useSavedJobs";
-import { useFitCache } from "@features/matching/utils/fitCache";
+import { useFitHistory } from "@features/matching/utils/fitHistory";
 import {
   JobCard,
   JobCardSkeleton,
@@ -34,6 +35,7 @@ function isActiveProfile(profile: JobProfile): boolean {
 
 export default function UserJobsBoard() {
   const { t } = useLanguage();
+  const { profile } = useAuthProfile();
   const [profiles, setProfiles] = useState<JobProfile[]>([]);
   /** Snapshot stack for previous pages to support exact back navigation. */
   const [pageBackStack, setPageBackStack] = useState<PageStart[]>([]);
@@ -50,7 +52,7 @@ export default function UserJobsBoard() {
 
   // Saved jobs: shared with the overview page.
   const { savedJobIds, toggleSave: handleToggleSave } = useSavedJobs();
-  const fits = useFitCache();
+  const fits = useFitHistory(Boolean(profile));
 
   // Client-side quick filter
   const [workplaceFilter, setWorkplaceFilter] = useState<"all" | WorkplaceType>("all");

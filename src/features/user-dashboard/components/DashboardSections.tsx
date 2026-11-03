@@ -7,7 +7,7 @@ import { endReasonKey } from "@/features/interview/components/ChatInterviewProgr
 import { localeOf } from "@/i18n/format";
 import { JobCard, mapJobToJobCard } from "@/components/jobs";
 import type { JobProfile } from "@features/admin/services/jobProfile.service";
-import type { CachedFit } from "@features/matching/utils/fitCache";
+import type { CandidateJobFit } from "@features/matching/utils/fitHistory";
 import type { GapItem } from "@features/progress/services/progress.service";
 import { cn } from "@/utils";
 
@@ -720,7 +720,7 @@ export function SuggestedJobs({
 }: {
   profiles: JobProfile[];
   savedJobIds: Set<string>;
-  fits: Record<string, CachedFit>;
+  fits: Record<string, CandidateJobFit>;
   onToggleSave: (jobId: string, currentSaved: boolean) => void;
   onNavigate: (href: string) => void;
   onPractice?: (profile: JobProfile) => void;

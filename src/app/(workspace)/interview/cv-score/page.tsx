@@ -31,7 +31,6 @@ import { fitVi } from "@/i18n/dicts/fit.dict";
 import { fmt } from "@/i18n/format";
 import { CandidateMatchDetails } from "@features/matching/components/CandidateMatchDetails";
 import { buildHumanizedRequirementsAndGroups } from "@features/matching/utils/match-formatters";
-import { countFit, saveFit } from "@features/matching/utils/fitCache";
 import { useInterviewEntryPolicy } from "@features/interview/hooks/useInterviewEntryPolicy";
 import { entryBlockMessageKey, evaluateEntry } from "@features/interview/utils/entryGate";
 import { EntryWarningDialog } from "@features/interview/components/EntryWarningDialog";
@@ -667,13 +666,6 @@ function ScorePageContent() {
       const [scoringResult, jobData, cvRecord] = await Promise.all([scorePromise, jobPromise, cvPromise]);
 
       setResult(scoringResult);
-      saveFit({
-        jobId,
-        cvId: candidateId,
-        cvName: cvRecord?.originalName ?? null,
-        ...countFit(scoringResult.requirementResults),
-        analyzedAt: new Date().toISOString(),
-      });
       if (jobData) setJobProfile(jobData);
       if (cvRecord) {
         setCvData(cvRecord);
@@ -691,14 +683,7 @@ function ScorePageContent() {
     if (!candidateId || !jobId) return;
     const normalized = normalizeMatchResult(matchResult, candidateId, jobId);
     setResult(normalized);
-    saveFit({
-      jobId,
-      cvId: candidateId,
-      cvName: cvFileName,
-      ...countFit(normalized.requirementResults),
-      analyzedAt: new Date().toISOString(),
-    });
-  }, [candidateId, jobId, cvFileName]);
+  }, [candidateId, jobId]);
 
   useEffect(() => {
     if (candidateId && jobId) {
