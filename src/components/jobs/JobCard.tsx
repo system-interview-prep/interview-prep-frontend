@@ -17,6 +17,7 @@ export function JobCard({
   onClick,
   href,
   className = "",
+  description,
 }: JobCardProps) {
   const targetHref = href || `/dashboard/jobs/${job.id}`;
 
@@ -60,6 +61,8 @@ export function JobCard({
           seniority={job.seniority}
           experience={job.experience}
         />
+
+        {description ? <p className="line-clamp-3 text-sm leading-relaxed text-[#52627D]">{description}</p> : null}
 
         {/* 3. Salary: Clean formatted range or null */}
         <JobSalary salary={job.salary} />

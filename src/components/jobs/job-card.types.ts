@@ -88,4 +88,6 @@ export interface JobCardProps {
   onClick?: (jobId: string) => void;
   href?: string;
   className?: string;
+  /** Optional short JD excerpt for contexts that need to preview requirements. */
+  description?: string;
 }
