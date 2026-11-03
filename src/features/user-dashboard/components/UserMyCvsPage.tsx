@@ -4,6 +4,7 @@ import axios from "axios";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search, RotateCcw, Trash2 } from "lucide-react";
 import CareerClassificationSummary from "@features/resume/components/CareerClassificationSummary";
+import CvPdfViewer from "@features/resume/components/CvPdfViewer";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useCvProcessingStatus } from "@features/resume/hooks/useCvProcessingStatus";
 import { userCvApi, type UserCvDto } from "@features/resume/services/userCv.service";
@@ -56,6 +57,31 @@ function displayName(name: string | undefined) {
   const n = name ?? "";
   const base = n.replace(/\.(pdf|docx?)$/i, "").replace(/[._-]+/g, " ").trim();
   return base || n || "—";
+}
+
+function CvName({
+  file,
+  canPreview,
+  onPreview,
+  previewLabel,
+}: {
+  file: CvFile;
+  canPreview: boolean;
+  onPreview: () => void;
+  previewLabel: string;
+}) {
+  return canPreview ? (
+    <button
+      type="button"
+      onClick={onPreview}
+      className="text-left font-semibold text-[#14244B] decoration-[#204195] underline-offset-4 hover:text-[#204195] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]"
+      aria-label={previewLabel}
+    >
+      {displayName(file.name)}
+    </button>
+  ) : (
+    <p className="font-semibold text-[#14244B] [overflow-wrap:anywhere]">{displayName(file.name)}</p>
+  );
 }
 
 function dtoToCvFile(d: UserCvDto): CvFile {
@@ -164,7 +190,9 @@ export default function UserMyCvsPage() {
   const { t, lang } = useLanguage();
   const [files, setFiles] = useState<CvFile[]>([]);
   const [parsedCv, setParsedCv] = useState<CvFile | null>(null);
+  const [pdfPreviewCv, setPdfPreviewCv] = useState<CvFile | null>(null);
   const closeParsedCv = useCallback(() => setParsedCv(null), []);
+  const closePdfPreview = useCallback(() => setPdfPreviewCv(null), []);
   const [dragOver, setDragOver] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   // Same file uploaded again, or a new file renamed because its name was taken.
@@ -694,7 +722,7 @@ export default function UserMyCvsPage() {
                 >
                   <option value="">{t("userDash.myCvs.filterCareerAll")}</option>
                   {careerTaxonomy.map((item) => (
-                    <option key={item.code} value={item.code}>{item.label} · {item.dimension}</option>
+                    <option key={item.code} value={item.code}>{item.label}</option>
                   ))}
                 </select>
               </div>
@@ -807,7 +835,7 @@ export default function UserMyCvsPage() {
                           <td className="w-full max-w-0 px-4 py-4 align-middle">
                             <div className="flex items-start gap-3">
                               <div className="min-w-0">
-                                <p className="font-semibold text-[#14244B] [overflow-wrap:anywhere]">{displayName(f.name)}</p>
+                                <CvName file={f} canPreview={apiConnected && fileKind(f.name, f.contentType) === "pdf"} onPreview={() => setPdfPreviewCv(f)} previewLabel={fmt(t("userDash.myCvs.pdfPreviewAria"), { name: f.name })} />
                                 <p className="truncate text-xs text-[#607096]" title={f.name}>{f.name}</p>
                                 <CareerClassificationSummary status={effectiveCvStatus(f) ?? undefined} parsedData={f.parsedData} compact />
                                 <CvRowStatusDetail file={f} onOpenParsed={() => setParsedCv(f)} />
@@ -871,7 +899,7 @@ export default function UserMyCvsPage() {
                     >
                       <div className="flex items-start gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-[#14244B] [overflow-wrap:anywhere]">{displayName(f.name)}</p>
+                          <CvName file={f} canPreview={apiConnected && fileKind(f.name, f.contentType) === "pdf"} onPreview={() => setPdfPreviewCv(f)} previewLabel={fmt(t("userDash.myCvs.pdfPreviewAria"), { name: f.name })} />
                           <p className="truncate text-xs text-[#607096]" title={f.name}>{f.name}</p>
                           <CareerClassificationSummary status={effectiveCvStatus(f) ?? undefined} parsedData={f.parsedData} compact />
                           <CvRowStatusDetail file={f} onOpenParsed={() => setParsedCv(f)} />
@@ -972,6 +1000,9 @@ export default function UserMyCvsPage() {
       </div>
       {parsedCv ? (
         <ParsedCvDrawer cvId={parsedCv.id} fileName={parsedCv.name} onClose={closeParsedCv} />
+      ) : null}
+      {pdfPreviewCv ? (
+        <CvPdfViewer cvId={pdfPreviewCv.id} fileName={pdfPreviewCv.name} onClose={closePdfPreview} />
       ) : null}
     </main>
   );
