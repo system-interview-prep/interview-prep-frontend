@@ -104,6 +104,8 @@ export function normalizeUserCvDto(raw: unknown): UserCvDto {
   const score = typeof item.score === "number" ? item.score : undefined;
   const parseSource = String(item.parseSource ?? item.parse_source ?? "").trim() || undefined;
   const parsedData = normalizeParsedCvData(item.parsedData ?? item.parsed_data);
+  const rawTextValue = item.rawText ?? item.raw_text;
+  const rawText = typeof rawTextValue === "string" ? rawTextValue : null;
 
   if (!originalName) originalName = inferNameFromS3Key(s3Key, id);
   if (!originalName) originalName = fallbackNameFromMime(contentType);
@@ -123,6 +125,7 @@ export function normalizeUserCvDto(raw: unknown): UserCvDto {
     ...(score !== undefined ? { score } : {}),
     ...(parseSource ? { parseSource } : {}),
     ...(parsedData ? { parsedData } : {}),
+    ...(rawText !== null ? { rawText } : {}),
   };
 }
 
