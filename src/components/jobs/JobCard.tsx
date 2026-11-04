@@ -44,7 +44,7 @@ export function JobCard({
       />
 
       {/* Main Content Area */}
-      <div className="relative z-[2] flex min-w-0 flex-1 flex-col space-y-3.5">
+      <div className="pointer-events-none relative z-[2] flex min-w-0 flex-1 flex-col space-y-3.5">
         {/* 1. Header: Logo, Title, Company, Category, Verified, Bookmark */}
         <JobCardHeader
           title={job.title}

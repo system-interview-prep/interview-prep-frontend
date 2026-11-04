@@ -102,14 +102,14 @@ export function JobCardHeader({
 
       {/* Right: Save/Bookmark button, or what the caller puts there */}
       {trailing !== undefined ? (
-        trailing ? <div className="relative z-[3] shrink-0">{trailing}</div> : null
+        trailing ? <div className="pointer-events-auto relative z-[3] shrink-0">{trailing}</div> : null
       ) : (
       <button
         type="button"
         onClick={onToggleSave}
         aria-label={saveAriaLabel}
         title={saveAriaLabel}
-        className={`relative z-[3] -mr-1 -mt-1 flex size-9 shrink-0 items-center justify-center rounded-xl transition-all duration-150 active:scale-90 ${
+        className={`pointer-events-auto relative z-[3] -mr-1 -mt-1 flex size-9 shrink-0 items-center justify-center rounded-xl transition-all duration-150 active:scale-90 ${
           saved
             ? "bg-[#EEF2FD] text-[#204195] hover:bg-[#E0E8FA]"
             : "text-[#9AA6C2] hover:bg-[#F1F5F9] hover:text-[#14244B]"

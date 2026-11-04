@@ -79,6 +79,7 @@ export interface JobCardFit {
   cvId: string;
   cvName?: string | null;
   analyzedAt: string;
+  attemptId?: string | null;
 }
 
 export interface JobCardProps {

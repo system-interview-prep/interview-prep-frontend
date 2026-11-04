@@ -15,15 +15,16 @@ export function JobFitBadge({ jobId, fit }: { jobId: string; fit?: JobCardFit })
 
   const ratio = fit.met / fit.total;
   const date = new Date(fit.analyzedAt).toLocaleDateString(localeOf(lang), { day: "2-digit", month: "2-digit" });
-  const href = `/interview/cv-score?${new URLSearchParams({ candidateId: fit.cvId, jobId }).toString()}`;
-
-  return (
-    <Link
-      href={href}
-      onClick={(event) => event.stopPropagation()}
-      className="relative z-[2] block rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-3 py-2 transition-colors hover:border-[#204195]/40 hover:bg-[#F0F4FC]"
-      aria-label={fmt(t("jobs.fit.aria"), { met: fit.met, total: fit.total })}
-    >
+  const href = fit.attemptId
+    ? `/interview/cv-score?${new URLSearchParams({
+        candidateId: fit.cvId,
+        jobId,
+        fitAttemptId: fit.attemptId,
+      }).toString()}`
+    : null;
+  const className = "pointer-events-auto relative z-[3] block rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-3 py-2 transition-colors";
+  const content = (
+    <>
       <span className="flex min-w-0 items-baseline justify-between gap-2">
         <span className="shrink-0 text-[12px] font-bold text-[#14244B] tabular-nums">
           {fmt(t("jobs.fit.label"), { met: fit.met, total: fit.total })}
@@ -38,7 +39,22 @@ export function JobFitBadge({ jobId, fit }: { jobId: string; fit?: JobCardFit })
           style={{ width: `${Math.round(ratio * 100)}%` }}
         />
       </span>
+    </>
+  );
+
+  return href ? (
+    <Link
+      href={href}
+      onClick={(event) => event.stopPropagation()}
+      className={`${className} hover:border-[#204195]/40 hover:bg-[#F0F4FC]`}
+      aria-label={fmt(t("jobs.fit.aria"), { met: fit.met, total: fit.total })}
+    >
+      {content}
     </Link>
+  ) : (
+    <div className={className} aria-label={fmt(t("jobs.fit.aria"), { met: fit.met, total: fit.total })}>
+      {content}
+    </div>
   );
 }
 

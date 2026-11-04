@@ -66,7 +66,7 @@ export function JobCardFooter({
               onInterview();
             }}
             title={interviewCta || t("userDash.jobProfiles.interviewNow") || (lang === "vi" ? "Luyện phỏng vấn" : "Practice Interview")}
-            className="relative z-[3] inline-flex h-9 min-w-0 shrink items-center gap-1 rounded-full border border-[#204195]/20 bg-[#F0F4FC] px-3 text-[12px] font-bold text-[#204195] transition-all hover:border-[#204195] hover:bg-[#204195] hover:text-white active:scale-95"
+            className="pointer-events-auto relative z-[3] inline-flex h-9 min-w-0 shrink items-center gap-1 rounded-full border border-[#204195]/20 bg-[#F0F4FC] px-3 text-[12px] font-bold text-[#204195] transition-all hover:border-[#204195] hover:bg-[#204195] hover:text-white active:scale-95"
           >
             <span className="truncate">{interviewCta || t("userDash.jobProfiles.interviewNow") || (lang === "vi" ? "Luyện phỏng vấn" : "Practice Interview")}</span>
             <Play className="size-2.5 shrink-0 fill-current" aria-hidden="true" />
