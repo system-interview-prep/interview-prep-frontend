@@ -117,6 +117,12 @@ export type UpdateUserProfilePayload = Partial<
 export const userApi = {
   getProfile: () =>
     apiClient.get<UserProfile>('/user/profile'),
+  getCandidateVoices: () =>
+    apiClient.get<{ success: boolean; data: Array<{ id: string; name: string; description?: string; gender?: string }> }>(
+      '/ai/voice-lab/voices',
+    ),
+  previewCandidateVoice: (voice: string) =>
+    apiClient.post<Blob>('/ai/voice-lab/voices/preview', { voice }, { responseType: 'blob' }),
   updateProfile: (data: UpdateUserProfilePayload) =>
     apiClient.patch<UserProfile>('/user/profile', data),
   uploadProfilePicture: (file: File) => {

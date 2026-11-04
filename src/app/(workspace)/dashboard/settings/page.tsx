@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import { useAuthProfile } from "@features/auth/hooks/useAuthProfile";
 import WorkspacePageHeader from "@features/resume/components/WorkspacePageHeader";
@@ -35,53 +35,7 @@ const DEFAULT_SETTINGS: UserSettingsState = {
 
 const STORAGE_KEY = "interview_prep_settings_v1";
 
-const AI_VOICES = [
-  {
-    id: "vi-north-male",
-    lang: "vi",
-    nameKey: "settings.page.voice.viNorthMale.name",
-    sampleKey: "settings.page.voice.viNorthMale.sample",
-  },
-  {
-    id: "vi-south-female",
-    lang: "vi",
-    nameKey: "settings.page.voice.viSouthFemale.name",
-    sampleKey: "settings.page.voice.viSouthFemale.sample",
-  },
-  {
-    id: "vi-north-female",
-    lang: "vi",
-    nameKey: "settings.page.voice.viNorthFemale.name",
-    sampleKey: "settings.page.voice.viNorthFemale.sample",
-  },
-  {
-    id: "vi-south-male",
-    lang: "vi",
-    nameKey: "settings.page.voice.viSouthMale.name",
-    sampleKey: "settings.page.voice.viSouthMale.sample",
-  },
-  {
-    id: "en-us-pro",
-    lang: "en",
-    nameKey: "settings.page.voice.enUsPro.name",
-    // Spoken by an English voice, so the sample stays English in every UI language.
-    sample: "Welcome! I will be your technical interviewer today. Let us begin with your background.",
-  },
-  {
-    id: "en-us-natural",
-    lang: "en",
-    nameKey: "settings.page.voice.enUsNatural.name",
-    // Spoken by an English voice, so the sample stays English in every UI language.
-    sample: "Hi there! I'm excited to help you prepare for your upcoming software engineering interview.",
-  },
-  {
-    id: "en-uk-academic",
-    lang: "en",
-    nameKey: "settings.page.voice.enUkAcademic.name",
-    // Spoken by an English voice, so the sample stays English in every UI language.
-    sample: "Good day. We shall proceed through structured behavioral and domain-specific questions.",
-  },
-];
+type CandidateVoice = { id: string; name: string; description?: string; gender?: string };
 
 /** Browser and OS ("Chrome", "Windows") from the user agent; null when it can't be told. No IP or location is known. */
 function describeThisDevice(ua: string): { browser: string | null; os: string | null } | null {
@@ -155,6 +109,11 @@ export default function SettingsPage() {
 
   // Voice Preview State
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const [voiceList, setVoiceList] = useState<CandidateVoice[]>([]);
+  const [isLoadingVoices, setIsLoadingVoices] = useState(true);
+  const [voiceLoadError, setVoiceLoadError] = useState(false);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
 
   // Modal: Change Password
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -176,6 +135,34 @@ export default function SettingsPage() {
   const newPasswordId = useId();
   const confirmPasswordId = useId();
   const deleteConfirmId = useId();
+
+  useEffect(() => {
+    let alive = true;
+    userApi.getCandidateVoices()
+      .then(({ data }) => {
+        if (!alive) return;
+        const voices = data.data ?? [];
+        setVoiceList(voices);
+        setVoiceLoadError(false);
+        setSettings((current) => ({
+          ...current,
+          aiVoice: voices.some((voice) => voice.id === current.aiVoice)
+            ? current.aiVoice
+            : (voices[0]?.id ?? current.aiVoice),
+        }));
+      })
+      .catch(() => {
+        if (alive) setVoiceLoadError(true);
+      })
+      .finally(() => {
+        if (alive) setIsLoadingVoices(false);
+      });
+    return () => {
+      alive = false;
+      previewAudioRef.current?.pause();
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
+  }, []);
 
   // Load initial settings from localStorage
   useEffect(() => {
@@ -228,29 +215,35 @@ export default function SettingsPage() {
     }
   }, [showToast, t]);
 
-  // Voice Preview synthesis
-  const handlePreviewVoice = useCallback(() => {
-    const selectedVoiceObj = AI_VOICES.find((v) => v.id === settings.aiVoice) || AI_VOICES[0];
-
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const sampleText = selectedVoiceObj.sampleKey ? t(selectedVoiceObj.sampleKey) : (selectedVoiceObj.sample ?? "");
-      const utterance = new SpeechSynthesisUtterance(sampleText);
-      utterance.rate = settings.speechRate;
-      utterance.lang = selectedVoiceObj.lang === "vi" ? "vi-VN" : "en-US";
-
-      utterance.onstart = () => setIsPlayingVoice(true);
-      utterance.onend = () => setIsPlayingVoice(false);
-      utterance.onerror = () => setIsPlayingVoice(false);
-
-      window.speechSynthesis.speak(utterance);
-    } else {
-      setIsPlayingVoice(true);
-      setTimeout(() => setIsPlayingVoice(false), 2200);
-      const sampleText = selectedVoiceObj.sampleKey ? t(selectedVoiceObj.sampleKey) : (selectedVoiceObj.sample ?? "");
-      showToast(fmt(t("settings.page.toast.voiceSample"), { sample: sampleText }), "info");
+  // Voice Preview synthesis through the authenticated VieNeu proxy.
+  const handlePreviewVoice = useCallback(async () => {
+    if (!settings.aiVoice) return;
+    previewAudioRef.current?.pause();
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    setIsPlayingVoice(true);
+    try {
+      const { data } = await userApi.previewCandidateVoice(settings.aiVoice);
+      const url = URL.createObjectURL(data);
+      previewUrlRef.current = url;
+      const audio = new Audio(url);
+      previewAudioRef.current = audio;
+      audio.onended = () => {
+        setIsPlayingVoice(false);
+        URL.revokeObjectURL(url);
+        previewUrlRef.current = null;
+      };
+      audio.onerror = () => {
+        setIsPlayingVoice(false);
+        URL.revokeObjectURL(url);
+        previewUrlRef.current = null;
+        showToast(t("settings.page.ai.previewFailed"), "error");
+      };
+      await audio.play();
+    } catch {
+      setIsPlayingVoice(false);
+      showToast(t("settings.page.ai.previewFailed"), "error");
     }
-  }, [settings.aiVoice, settings.speechRate, showToast, t]);
+  }, [settings.aiVoice, showToast, t]);
 
   // Export User Data
   const handleExportData = useCallback(() => {
@@ -440,7 +433,15 @@ export default function SettingsPage() {
                       </label>
                       <button
                         type="button"
-                        onClick={handlePreviewVoice}
+                        onClick={() => {
+                          if (isPlayingVoice) {
+                            previewAudioRef.current?.pause();
+                            setIsPlayingVoice(false);
+                          } else {
+                            void handlePreviewVoice();
+                          }
+                        }}
+                        disabled={isLoadingVoices || voiceList.length === 0}
                         className="inline-flex h-9 items-center rounded-xl bg-[#F8FAFC] px-3.5 text-sm font-semibold text-[#204195] border border-[#DCE4F3] transition-colors hover:bg-[#F0F4FC]"
                         aria-label={t("settings.page.ai.previewAria")}
                       >
@@ -453,16 +454,19 @@ export default function SettingsPage() {
                         id={voiceSelectId}
                         value={settings.aiVoice}
                         onChange={(e) => setSettings({ ...settings, aiVoice: e.target.value })}
+                        disabled={isLoadingVoices || voiceList.length === 0}
                         className="w-full appearance-none rounded-xl border-0 bg-[#F8FAFC] px-4 py-2.5 pr-10 text-sm font-medium text-[#14244B] border border-[#DCE4F3] transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]"
                       >
-                        {AI_VOICES.map((v) => (
-                          <option key={v.id} value={v.id}>
-                            {t(v.nameKey)}
+                        {voiceList.map((voice) => (
+                          <option key={voice.id} value={voice.id}>
+                            {voice.name}{voice.description ? ` — ${voice.description}` : ""}
                           </option>
                         ))}
                       </select>
                       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 size-4 text-[#607096]" aria-hidden="true" />
                     </div>
+                    {isLoadingVoices && <p className="text-xs text-[#607096]">{t("settings.page.ai.voicesLoading")}</p>}
+                    {voiceLoadError && <p role="status" className="text-xs text-[#B42318]">{t("settings.page.ai.voicesUnavailable")}</p>}
                   </div>
 
                   {/* Field 2: Tốc độ phản hồi */}
