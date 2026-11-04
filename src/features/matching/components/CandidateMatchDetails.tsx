@@ -70,8 +70,12 @@ export function CandidateMatchDetails({
   );
   const [clarificationRequests, setClarificationRequests] = useState<ClarificationRequest[]>([]);
   const [clarificationAnalysis, setClarificationAnalysis] = useState<MatchClarificationAnalysis | null>(null);
+  const [clarificationPreparing, setClarificationPreparing] = useState(false);
   const [clarificationLoading, setClarificationLoading] = useState(false);
   const [clarificationPhase, setClarificationPhase] = useState<"idle" | "generating" | "ready" | "unavailable" | "error">("idle");
+  const [clarificationCandidateIds, setClarificationCandidateIds] = useState<Set<string>>(() => new Set());
+  const [expandedRequirementId, setExpandedRequirementId] = useState<string | null>(null);
+  const [clarificationDrafts, setClarificationDrafts] = useState<Record<string, string>>({});
   const [clarificationError, setClarificationError] = useState<string | null>(null);
   const [clarificationSubmitting, setClarificationSubmitting] = useState(false);
   const [clarificationSubmitError, setClarificationSubmitError] = useState<string | null>(null);
@@ -110,8 +114,11 @@ export function CandidateMatchDetails({
       setClarificationRequests([]);
       setClarificationAnalysis(null);
       setClarificationError(null);
+      setClarificationPreparing(false);
       setClarificationLoading(false);
       setClarificationPhase("idle");
+      setClarificationCandidateIds(new Set());
+      setExpandedRequirementId(null);
       return;
     }
 
@@ -119,6 +126,10 @@ export function CandidateMatchDetails({
     const loadClarifications = async () => {
       // Jev runs first. Do not show a question-generation spinner while the
       // system is still deciding whether asking the candidate is appropriate.
+      setClarificationRequests([]);
+      setClarificationAnalysis(null);
+      setClarificationCandidateIds(new Set());
+      setClarificationPreparing(true);
       setClarificationLoading(false);
       setClarificationPhase("idle");
       setClarificationError(null);
@@ -127,10 +138,11 @@ export function CandidateMatchDetails({
         if (cancelled) return;
 
         const clarificationCandidates = preparation.clarificationCandidates ?? [];
+        setClarificationCandidateIds(new Set(clarificationCandidates.map((item) => item.requirementId)));
         if (preparation.clarificationStatus !== "ready" || clarificationCandidates.length === 0) {
           setClarificationRequests([]);
           setClarificationAnalysis(null);
-          setClarificationPhase("idle");
+          setClarificationPhase("unavailable");
           return;
         }
 
@@ -166,7 +178,10 @@ export function CandidateMatchDetails({
           setClarificationPhase("error");
         }
       } finally {
-        if (!cancelled) setClarificationLoading(false);
+        if (!cancelled) {
+          setClarificationPreparing(false);
+          setClarificationLoading(false);
+        }
       }
     };
 
@@ -186,6 +201,11 @@ export function CandidateMatchDetails({
         jobId,
         initialAnalysis: clarificationAnalysis,
         answers,
+      });
+      setClarificationDrafts((current) => {
+        const next = { ...current };
+        answers.forEach(({ requirementId }) => delete next[requirementId]);
+        return next;
       });
       setProcessedAnswers(result.processedAnswers);
       onMatchUpdated?.(result.finalMatchResult);
@@ -267,6 +287,79 @@ export function CandidateMatchDetails({
     { id: "not_met", label: t("fit.status.notMet"), count: summaryCounts.notMet },
   ];
 
+  const renderRequirementCard = (item: HumanizedRequirement, key: string, isNestedChild = false) => {
+    const isUnknown = item.status === "unknown";
+    const isExpanded = isUnknown && expandedRequirementId === item.id;
+    const request = clarificationRequests.find((candidate) => candidate.requirementId === item.id);
+    let expandedContent: React.ReactNode = null;
+
+    if (isExpanded) {
+      if (clarificationPreparing) {
+        expandedContent = (
+          <p className="text-sm text-[#607096]" role="status">
+            {t("fit.clar.loading")}
+          </p>
+        );
+      } else if (clarificationError) {
+        expandedContent = (
+          <ClarificationPanel
+            requests={[]}
+            requirements={allRequirements}
+            error={clarificationError}
+            onRetry={() => setClarificationReload((n) => n + 1)}
+          />
+        );
+      } else if (!clarificationCandidateIds.has(item.id)) {
+        expandedContent = (
+          <div className="rounded-xl bg-[#FFF8E8] px-4 py-3 text-sm text-[#79520A]" role="status">
+            <p className="font-semibold">{t("fit.clar.reviewTitle")}</p>
+            <p className="mt-1">{t("fit.clar.reviewCv")}</p>
+          </div>
+        );
+      } else {
+        expandedContent = (
+          <ClarificationPanel
+            requests={request ? [request] : []}
+            requirements={allRequirements}
+            loading={clarificationLoading}
+            error={
+              clarificationError ||
+              (clarificationPhase === "unavailable" ? "clarification_generation_unavailable" : null)
+            }
+            submitting={clarificationSubmitting}
+            submissionError={clarificationSubmitError ? t(clarificationSubmitError) : null}
+            processedAnswers={processedAnswers.filter((answer) => answer.requirementId === item.id)}
+            answers={clarificationDrafts}
+            onAnswerChange={(requirementId, answerText) =>
+              setClarificationDrafts((current) => ({ ...current, [requirementId]: answerText }))
+            }
+            onSubmit={(answers) => void submitClarificationAnswers(answers)}
+            onRetry={
+              clarificationError === "clarification_unavailable"
+                ? () => setClarificationReload((n) => n + 1)
+                : undefined
+            }
+          />
+        );
+      }
+    }
+
+    return (
+      <RequirementItemCard
+        key={key}
+        item={item}
+        isNestedChild={isNestedChild}
+        selectedId={selectedRequirementId ?? undefined}
+        expanded={isExpanded}
+        expandedContent={expandedContent}
+        onSelect={(id) => {
+          setSelectedRequirementId(id);
+          setExpandedRequirementId((current) => (isUnknown && current !== id ? id : null));
+        }}
+      />
+    );
+  };
+
   const renderSection = (
     label: string,
     section: { standalone: HumanizedRequirement[]; groups: RequirementGroup[] },
@@ -287,28 +380,19 @@ export function CandidateMatchDetails({
         <div className="space-y-2">
           {section.groups.map((group) => (
             group.items.length === 1 ? (
-              <RequirementItemCard
-                key={group.groupId}
-                item={group.items[0]}
-                selectedId={selectedRequirementId ?? undefined}
-                onSelect={setSelectedRequirementId}
-              />
+              renderRequirementCard(group.items[0], group.groupId)
             ) : (
               <RequirementGroupCard
                 key={group.groupId}
                 group={group}
                 selectedId={selectedRequirementId ?? undefined}
                 onSelect={setSelectedRequirementId}
+                renderChild={(item) => renderRequirementCard(item, item.id, true)}
               />
             )
           ))}
           {section.standalone.map((item) => (
-            <RequirementItemCard
-              key={item.id}
-              item={item}
-              selectedId={selectedRequirementId ?? undefined}
-              onSelect={setSelectedRequirementId}
-            />
+            renderRequirementCard(item, item.id)
           ))}
         </div>
       </section>
@@ -386,26 +470,6 @@ export function CandidateMatchDetails({
             </div>
           )}
 
-          {summaryCounts.unknown > 0 && clarificationPhase !== "idle" && (
-            <ClarificationPanel
-              requests={clarificationRequests}
-              requirements={allRequirements}
-              loading={clarificationLoading}
-              error={
-                clarificationError ||
-                (clarificationPhase === "unavailable" ? "clarification_generation_unavailable" : null)
-              }
-              submitting={clarificationSubmitting}
-              submissionError={clarificationSubmitError ? t(clarificationSubmitError) : null}
-              processedAnswers={processedAnswers}
-              onSubmit={(answers) => void submitClarificationAnswers(answers)}
-              onRetry={
-                clarificationError === "clarification_unavailable"
-                  ? () => setClarificationReload((n) => n + 1)
-                  : undefined
-              }
-            />
-          )}
         </div>
 
         <aside className="hidden min-w-0 lg:block" aria-label={t("fit.details.evidenceAria")}>

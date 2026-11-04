@@ -12,6 +12,7 @@ import { CandidateMatchDetails } from "../components/CandidateMatchDetails";
 import { MatchStatusBadge } from "../components/MatchStatusBadge";
 import { EvidenceDrawer } from "../components/EvidenceDrawer";
 import { EvidenceInspector } from "../components/EvidenceInspector";
+import { RequirementItemCard } from "../components/RequirementItemCard";
 import type { HumanizedRequirement, RequirementGroup } from "../types/match-details.types";
 
 describe("Candidate Job Match Details UI — Professional ATS", () => {
@@ -362,6 +363,29 @@ describe("Candidate Job Match Details UI — Professional ATS", () => {
 
       expect(html).toContain("Hệ thống chưa hỗ trợ phân tích tự động tiêu chí này");
       expect(html).not.toContain("CV có thể có thông tin liên quan");
+    });
+  });
+
+  describe("Unknown criterion clarification disclosure", () => {
+    it("shows the question inside an expanded unknown criterion card", () => {
+      const html = renderToStaticMarkup(
+        React.createElement(RequirementItemCard, {
+          item: {
+            id: "req-unknown",
+            label: "Kinh nghiệm triển khai AWS",
+            category: "skill",
+            priority: "must_have",
+            status: "unknown",
+            statusLabel: "Cần xác nhận",
+          },
+          expanded: true,
+          expandedContent: React.createElement("p", null, "Bạn đã triển khai AWS trong dự án nào?"),
+        })
+      );
+
+      expect(html).toContain('aria-expanded="true"');
+      expect(html).toContain('data-testid="unknown-question-req-unknown"');
+      expect(html).toContain("Bạn đã triển khai AWS trong dự án nào?");
     });
   });
 });

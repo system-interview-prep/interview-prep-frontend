@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import type { RequirementGroup } from "../types/match-details.types";
+import type { HumanizedRequirement, RequirementGroup } from "../types/match-details.types";
 import { MatchStatusBadge } from "./MatchStatusBadge";
 import { RequirementItemCard } from "./RequirementItemCard";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -12,9 +12,10 @@ interface RequirementGroupCardProps {
   group: RequirementGroup;
   selectedId?: string;
   onSelect?: (id: string) => void;
+  renderChild?: (item: HumanizedRequirement) => React.ReactNode;
 }
 
-export function RequirementGroupCard({ group, selectedId, onSelect }: RequirementGroupCardProps) {
+export function RequirementGroupCard({ group, selectedId, onSelect, renderChild }: RequirementGroupCardProps) {
   const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(true);
 
@@ -60,13 +61,15 @@ export function RequirementGroupCard({ group, selectedId, onSelect }: Requiremen
       {isOpen && (
         <div className="space-y-2 pl-2 border-l-2 border-[#DCE4F3]">
           {group.items.map((child) => (
-            <RequirementItemCard
-              key={child.id}
-              item={child}
-              isNestedChild={true}
-              selectedId={selectedId}
-              onSelect={onSelect}
-            />
+            renderChild ? renderChild(child) : (
+              <RequirementItemCard
+                key={child.id}
+                item={child}
+                isNestedChild={true}
+                selectedId={selectedId}
+                onSelect={onSelect}
+              />
+            )
           ))}
         </div>
       )}

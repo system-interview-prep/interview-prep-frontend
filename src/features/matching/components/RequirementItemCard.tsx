@@ -13,6 +13,9 @@ interface RequirementItemCardProps {
   selectedId?: string;
   /** Desktop: callback to update right panel */
   onSelect?: (id: string) => void;
+  /** Parent-controlled inline panel, used for questions attached to unknown criteria. */
+  expanded?: boolean;
+  expandedContent?: React.ReactNode;
 }
 
 export function RequirementItemCard({
@@ -20,6 +23,8 @@ export function RequirementItemCard({
   isNestedChild = false,
   selectedId,
   onSelect,
+  expanded = false,
+  expandedContent,
 }: RequirementItemCardProps) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
 
@@ -28,6 +33,7 @@ export function RequirementItemCard({
     onSelect?.(item.id);
     setMobileExpanded((prev) => !prev);
   };
+  const isExpanded = expanded || mobileExpanded;
 
   return (
     <div
@@ -44,7 +50,7 @@ export function RequirementItemCard({
         type="button"
         onClick={handleClick}
         className="block w-full px-4 py-3.5 text-left"
-        aria-expanded={mobileExpanded}
+        aria-expanded={isExpanded}
       >
         <div className="flex items-start gap-2.5">
           <span
@@ -75,7 +81,7 @@ export function RequirementItemCard({
           <MatchStatusBadge status={item.status} labelOverride={item.statusLabel} size="sm" />
           <ChevronRight
             className={`size-4 shrink-0 text-[#9AA6C2] transition-transform ${
-              mobileExpanded ? "rotate-90 lg:rotate-0" : ""
+              isExpanded ? "rotate-90 lg:rotate-0" : ""
             } ${isSelected ? "text-[#204195]" : ""}`}
             aria-hidden="true"
           />
@@ -83,13 +89,19 @@ export function RequirementItemCard({
       </button>
 
       {/* Mobile inline evidence — only shown when no desktop panel handler */}
-      {mobileExpanded && (
+      {mobileExpanded && !expandedContent && (
         <div className="px-4 pb-4 lg:hidden">
           <div className="border-t border-[#EAEFF8] pt-4">
             <EvidenceInspector requirement={item} compact />
           </div>
         </div>
       )}
+
+      {expanded && expandedContent ? (
+        <div className="border-t border-[#EAEFF8] px-4 py-4" data-testid={`unknown-question-${item.id}`}>
+          {expandedContent}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -18,6 +18,8 @@ export interface ClarificationPanelProps {
   error?: string | null;
   submissionError?: string | null;
   processedAnswers?: ClarificationAnswerOutcome[];
+  answers?: Record<string, string>;
+  onAnswerChange?: (requirementId: string, answerText: string) => void;
   onSubmit?: (answers: CandidateClarificationAnswer[]) => void;
   /** Shown as "Thử lại" when loading the questions failed. */
   onRetry?: () => void;
@@ -38,11 +40,14 @@ export function ClarificationPanel({
   error = null,
   submissionError = null,
   processedAnswers = [],
+  answers: controlledAnswers,
+  onAnswerChange,
   onSubmit,
   onRetry,
 }: ClarificationPanelProps) {
   const { t } = useLanguage();
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [localAnswers, setLocalAnswers] = useState<Record<string, string>>({});
+  const answers = controlledAnswers ?? localAnswers;
 
   if (loading) {
     return (
@@ -81,7 +86,7 @@ export function ClarificationPanel({
   const byId = new Map(requirements.map((item) => [item.id, item]));
   const outcomeById = new Map(processedAnswers.map((item) => [item.requirementId, item]));
   const readyAnswers = requests.flatMap((request) => {
-    const answerText = (answers[request.requirementId] ?? "").trim();
+          const answerText = (answers[request.requirementId] ?? "").trim();
     return answerText ? [{ requirementId: request.requirementId, answerText }] : [];
   });
 
@@ -127,12 +132,11 @@ export function ClarificationPanel({
               <textarea
                 id={`clarification-answer-${request.requirementId}`}
                 value={answers[request.requirementId] ?? ""}
-                onChange={(event) =>
-                  setAnswers((current) => ({
-                    ...current,
-                    [request.requirementId]: event.target.value,
-                  }))
-                }
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (onAnswerChange) onAnswerChange(request.requirementId, value);
+                  else setLocalAnswers((current) => ({ ...current, [request.requirementId]: value }));
+                }}
                 rows={3}
                 maxLength={5000}
                 placeholder={t("fit.clar.placeholder")}
