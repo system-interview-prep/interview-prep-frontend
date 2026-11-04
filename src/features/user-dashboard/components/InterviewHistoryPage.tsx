@@ -14,8 +14,13 @@ import {
 import { endReasonKey } from "@/features/interview/components/ChatInterviewProgress";
 import { MODE_NAME_KEY, modeKeyFromRuntime } from "@/features/interview/utils/interviewModes";
 import { scoreToLevel, type DebriefLevel } from "@/features/interview/utils/debrief";
+import {
+  loadAllCandidateJobFitAttempts,
+  type CandidateJobFitAttempt,
+} from "@features/matching/utils/fitHistory";
 
 type Filter = "all" | "reported" | "open" | "failed";
+type HistoryTab = "interviews" | "matching";
 
 const PAGE_SIZE = 10;
 
@@ -42,6 +47,9 @@ export default function InterviewHistoryPage() {
   const { t, lang } = useLanguage();
   const [sessions, setSessions] = useState<InterviewRuntimeSession[] | null>(null);
   const [error, setError] = useState(false);
+  const [fitAttempts, setFitAttempts] = useState<CandidateJobFitAttempt[] | null>(null);
+  const [fitError, setFitError] = useState(false);
+  const [activeTab, setActiveTab] = useState<HistoryTab>("interviews");
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -53,17 +61,28 @@ export default function InterviewHistoryPage() {
   const load = useCallback(async () => {
     setError(false);
     try {
-      setSessions(await interviewRuntimeApi.list());
+      setSessions(await interviewRuntimeApi.listAll());
     } catch {
       setError(true);
       setSessions([]);
     }
   }, []);
 
+  const loadFitAttempts = useCallback(async () => {
+    setFitError(false);
+    try {
+      setFitAttempts(await loadAllCandidateJobFitAttempts());
+    } catch {
+      setFitError(true);
+      setFitAttempts([]);
+    }
+  }, []);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-  }, [load]);
+    void loadFitAttempts();
+  }, [load, loadFitAttempts]);
 
   const counts = useMemo(() => {
     const result: Record<Filter, number> = { all: 0, reported: 0, open: 0, failed: 0 };
@@ -83,9 +102,20 @@ export default function InterviewHistoryPage() {
         (!needle || (session.jobTitle ?? "").toLocaleLowerCase().includes(needle)),
     );
   }, [filter, query, sessions]);
-  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const matchingVisible = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    return (fitAttempts ?? []).filter(
+      (attempt) =>
+        !needle ||
+        (attempt.jobTitle ?? "").toLocaleLowerCase().includes(needle) ||
+        (attempt.cvName ?? "").toLocaleLowerCase().includes(needle),
+    );
+  }, [fitAttempts, query]);
+  const activeCount = activeTab === "interviews" ? visible.length : matchingVisible.length;
+  const pageCount = Math.max(1, Math.ceil(activeCount / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageItems = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const matchingPageItems = matchingVisible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const goToPage = (next: number) => {
     setPage(next);
     document.getElementById("history-list")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -122,13 +152,21 @@ export default function InterviewHistoryPage() {
     { id: "failed", label: t("history.filter.failed") },
   ];
 
-  if (sessions == null) {
+  if (sessions == null || fitAttempts == null) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-label={t("userDash.loading")}>
         <div className="w-full max-w-3xl space-y-3">{[0, 1, 2].map((item) => <div key={item} className="anim-shimmer h-20 rounded-2xl" />)}</div>
       </div>
     );
   }
+  const openFitAttempt = (attempt: CandidateJobFitAttempt) => {
+    const params = new URLSearchParams({
+      candidateId: attempt.cvId,
+      jobId: attempt.jobId,
+      fitAttemptId: attempt.id,
+    });
+    router.push(`/interview/cv-score?${params.toString()}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -136,24 +174,47 @@ export default function InterviewHistoryPage() {
         title={t("history.title")}
         subtitle={t("history.subtitle")}
         aside={
-          sessions.length > 0 ? (
+          activeTab === "interviews" && sessions.length > 0 ? (
             <p className="rounded-2xl border border-[#DCE4F3] bg-white px-4 py-3 text-sm text-[#607096] shadow-xs" role="status">
               {fmt(t("uxWs.history.summary"), { all: counts.all, reported: counts.reported, open: counts.open })}
               {counts.open > 0 ? <span className="mt-0.5 block text-xs">{t("uxWs.history.openHint")}</span> : null}
+            </p>
+          ) : activeTab === "matching" && fitAttempts.length > 0 ? (
+            <p className="rounded-2xl border border-[#DCE4F3] bg-white px-4 py-3 text-sm text-[#607096] shadow-xs" role="status">
+              {fmt(t("history.matching.summary"), { count: fitAttempts.length })}
             </p>
           ) : null
         }
       >
         <button
           type="button"
-          onClick={() => router.push("/interview/select")}
+          onClick={() => router.push(activeTab === "interviews" ? "/interview/select" : "/dashboard/jobs")}
           className="inline-flex h-10 items-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
         >
-          {t("userDash.activity.startNew")}
+          {activeTab === "interviews" ? t("userDash.activity.startNew") : t("history.matching.browseJobs")}
         </button>
       </WorkspacePageHeader>
 
-      {error && (
+      <nav className="inline-flex rounded-xl border border-[#DCE4F3] bg-white p-1" aria-label={t("history.tabs.aria")}>
+        <button
+          type="button"
+          aria-pressed={activeTab === "interviews"}
+          onClick={() => { setActiveTab("interviews"); setPage(1); setQuery(""); }}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === "interviews" ? "bg-[#204195] text-white" : "text-[#607096] hover:bg-[#F0F4FC]"}`}
+        >
+          {t("history.tabs.interviews")} <span className="ml-1 tabular-nums">{sessions.length}</span>
+        </button>
+        <button
+          type="button"
+          aria-pressed={activeTab === "matching"}
+          onClick={() => { setActiveTab("matching"); setPage(1); setQuery(""); }}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === "matching" ? "bg-[#204195] text-white" : "text-[#607096] hover:bg-[#F0F4FC]"}`}
+        >
+          {t("history.tabs.matching")} <span className="ml-1 tabular-nums">{fitAttempts.length}</span>
+        </button>
+      </nav>
+
+      {activeTab === "interviews" && error && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#FDF2F2] px-4 py-3 text-sm text-[#C43B3B]" role="alert">
           <span>{t("history.error")}</span>
           <button type="button" onClick={() => void load()} className="font-semibold underline">
@@ -162,7 +223,16 @@ export default function InterviewHistoryPage() {
         </div>
       )}
 
-      {trend.length >= 2 && (
+      {activeTab === "matching" && fitError && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#FDF2F2] px-4 py-3 text-sm text-[#C43B3B]" role="alert">
+          <span>{t("history.matching.error")}</span>
+          <button type="button" onClick={() => void loadFitAttempts()} className="font-semibold underline">
+            {t("history.retry")}
+          </button>
+        </div>
+      )}
+
+      {activeTab === "interviews" && trend.length >= 2 && (
         <section className="rounded-2xl bg-white p-4 border border-[#DCE4F3] sm:p-5" aria-labelledby="history-trend">
           <h2 id="history-trend" className="text-lg font-bold text-[#14244B]">
             {t("history.trend.title")}
@@ -192,6 +262,7 @@ export default function InterviewHistoryPage() {
         </section>
       )}
 
+      {activeTab === "interviews" ? (
       <section aria-label={t("history.title")} id="history-list" className="scroll-mt-6">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("fixApp.history.filterAria")}>
@@ -329,6 +400,73 @@ export default function InterviewHistoryPage() {
           </>
         )}
       </section>
+      ) : (
+        <section aria-labelledby="matching-history-title" id="history-list" className="scroll-mt-6">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 id="matching-history-title" className="text-lg font-bold text-[#14244B]">{t("history.matching.title")}</h2>
+              <p className="mt-1 text-sm text-[#607096]">{t("history.matching.subtitle")}</p>
+            </div>
+            {fitAttempts.length > 0 ? (
+              <label className="relative block w-full sm:w-72">
+                <span className="sr-only">{t("history.matching.search")}</span>
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#9AA6C2]" aria-hidden="true" />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => { setQuery(event.target.value); setPage(1); }}
+                  placeholder={t("history.matching.search")}
+                  className="h-10 w-full rounded-xl border border-[#DCE4F3] bg-white pl-10 pr-4 text-sm text-[#14244B] outline-none transition placeholder:text-[#9AA6C2] focus:border-[#204195] focus:ring-2 focus:ring-[#204195]/15"
+                />
+              </label>
+            ) : null}
+          </div>
+
+          {fitAttempts.length === 0 && !fitError ? (
+            <div className="rounded-2xl border border-[#DCE4F3] bg-white px-6 py-10 text-center">
+              <p className="text-lg font-semibold text-[#14244B]">{t("history.matching.empty.title")}</p>
+              <p className="mx-auto mt-1.5 max-w-md text-sm leading-6 text-[#607096]">{t("history.matching.empty.body")}</p>
+              <button type="button" onClick={() => router.push("/dashboard/jobs")} className="mt-5 inline-flex h-10 items-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white hover:bg-[#183275]">
+                {t("history.matching.browseJobs")}
+              </button>
+            </div>
+          ) : matchingVisible.length === 0 ? (
+            <div className="rounded-2xl border border-[#DCE4F3] bg-white px-6 py-8 text-center text-sm text-[#607096]">
+              {t("history.matching.noResults")}
+            </div>
+          ) : (
+            <>
+              <ul className="divide-y divide-[#EAEFF8] overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white">
+                {matchingPageItems.map((attempt) => (
+                  <li key={attempt.id} className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-[#F8FAFC] sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-[#14244B]" title={attempt.jobTitle ?? undefined}>
+                        {attempt.jobTitle || t("history.matching.untitledJob")}
+                      </p>
+                      <p className="mt-1 truncate text-sm text-[#607096]" title={attempt.cvName ?? undefined}>
+                        {attempt.cvName || t("history.matching.unknownCv")}
+                      </p>
+                      <p className="mt-1 text-xs text-[#607096]">
+                        {new Date(attempt.analyzedAt).toLocaleString(localeOf(lang), { dateStyle: "medium", timeStyle: "short" })}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className="rounded-full bg-[#EEF2FD] px-3 py-1 text-sm font-semibold tabular-nums text-[#204195]">
+                        {fmt(t("history.matching.requirementsMet"), { met: attempt.met, total: attempt.total })}
+                      </span>
+                      <button type="button" onClick={() => openFitAttempt(attempt)} className="inline-flex h-9 items-center justify-center gap-1 rounded-xl px-4 text-[13px] font-semibold text-[#204195] ring-1 ring-[#C9D7F1] transition-colors hover:bg-[#204195] hover:text-white">
+                        {t("history.matching.view")}
+                        <span aria-hidden="true">→</span>
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <Pagination className="mt-4" page={currentPage} pageSize={PAGE_SIZE} total={matchingVisible.length} onPageChange={goToPage} />
+            </>
+          )}
+        </section>
+      )}
     </div>
   );
 }

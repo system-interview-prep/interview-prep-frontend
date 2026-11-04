@@ -47,6 +47,7 @@ describe("startInterviewSession", () => {
       lang: "vi",
       candidateId: " cv-1 ",
       jobId: " job-1 ",
+      fitAttemptId: "attempt-selected",
       durationMinutes: 30,
       reaskConceptId: "skill-ai",
       reaskQuestionVersionId: "question-version-1",
@@ -55,6 +56,7 @@ describe("startInterviewSession", () => {
     expect(createRuntimeSession).toHaveBeenCalledWith({
       resumeId: "cv-1",
       jobId: "job-1",
+      fitAttemptId: "attempt-selected",
       mode: "text",
       experienceType: "question_practice",
       locale: "vi-VN",

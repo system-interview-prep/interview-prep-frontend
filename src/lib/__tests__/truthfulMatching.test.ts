@@ -6,16 +6,26 @@ import {
   CompactMatchSummary,
   MatchBreakdown,
   ReportContent,
+  resolveFitAttemptId,
   resolveFitBandGaugeColor,
   resolveReasonCodeText,
   resolveWarningText,
 } from "../../app/(workspace)/interview/cv-score/page";
 
 describe("Truthful Matching UI Remediation — Phase 1 & 1.1 Hardening", () => {
+  it("recognizes the fitAttemptId used by matching history links", () => {
+    expect(resolveFitAttemptId(new URLSearchParams("fitAttemptId=saved-attempt"))).toBe("saved-attempt");
+  });
+
+  it("continues to accept the older attemptId query parameter", () => {
+    expect(resolveFitAttemptId(new URLSearchParams("attemptId=legacy-attempt"))).toBe("legacy-attempt");
+  });
+
   it("preserves conceptResults and groupOperator while normalizing backend payloads", () => {
     const normalized = normalizeMatchResult(
       {
         schemaVersion: "2.1",
+        fitAttemptId: "attempt-123",
         suitabilityScore: null,
         eligibility: "review_required",
         requirementResults: [{
@@ -41,6 +51,7 @@ describe("Truthful Matching UI Remediation — Phase 1 & 1.1 Hardening", () => {
     );
 
     expect(normalized.requirementResults?.[0].groupOperator).toBe("all_of");
+    expect(normalized.fitAttemptId).toBe("attempt-123");
     expect(normalized.requirementResults?.[0].conceptResults?.[0].evidenceRefs).toEqual(["cv-1"]);
     expect(normalized.requirementResults?.[0].conceptResults?.[0].evidenceStrength).toBe("applied");
   });
@@ -561,6 +572,13 @@ describe("Truthful Matching UI Remediation — Phase 1 & 1.1 Hardening", () => {
       expect(resolveReasonCodeText("skill_level_below_minimum")).toContain("Cấp độ kỹ năng");
       expect(resolveReasonCodeText("education_requirement_needs_specialized_evaluator")).toContain("học vấn");
       expect(resolveReasonCodeText("certificate_requirement_needs_specialized_evaluator")).toContain("chuyên viên nhân sự xác minh");
+      expect(resolveReasonCodeText("language_credential_not_evidenced")).not.toContain(
+        "language_credential_not_evidenced",
+      );
+      expect(resolveReasonCodeText("certification_evidenced")).not.toContain("certification_evidenced");
+      expect(resolveReasonCodeText("research_or_competition_not_evidenced")).not.toContain(
+        "research_or_competition_not_evidenced",
+      );
     });
 
     it("maps backend warnings correctly", () => {

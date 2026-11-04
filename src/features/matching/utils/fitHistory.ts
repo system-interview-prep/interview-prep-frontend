@@ -11,9 +11,18 @@ export type CandidateJobFit = {
   met: number;
   total: number;
   analyzedAt: string;
+  attemptId?: string | null;
 };
 
+export type CandidateJobFitAttempt = CandidateJobFit & {
+  id: string;
+  jobTitle?: string | null;
+  hasSnapshot?: boolean;
+};
+export type CandidateJobFitAttemptDetail = CandidateJobFitAttempt & { resultSnapshot?: unknown | null };
+
 type FitHistoryResponse = { items?: CandidateJobFit[] };
+type FitAttemptHistoryResponse = { items?: CandidateJobFitAttempt[] };
 type FitState = { token: string; fits: Record<string, CandidateJobFit> };
 
 function subscribeToAuth(onChange: () => void) {
@@ -33,6 +42,35 @@ function accessTokenSnapshot(): string | null {
   } catch {
     return null;
   }
+}
+
+export async function loadCandidateJobFitAttempts(jobId: string): Promise<CandidateJobFitAttempt[]> {
+  const { data } = await apiClient.get<FitAttemptHistoryResponse>(
+    `/api/v1/matching/fit-history/${encodeURIComponent(jobId)}`,
+  );
+  return data.items ?? [];
+}
+
+/** The endpoint orders attempts newest first; select the newest for this CV. */
+export function findLatestCandidateJobFitAttempt(
+  attempts: CandidateJobFitAttempt[],
+  cvId: string,
+): CandidateJobFitAttempt | null {
+  return attempts.find((attempt) => attempt.cvId === cvId) ?? null;
+}
+
+export async function loadAllCandidateJobFitAttempts(): Promise<CandidateJobFitAttempt[]> {
+  const { data } = await apiClient.get<FitAttemptHistoryResponse>(
+    "/api/v1/matching/fit-history/attempts",
+  );
+  return data.items ?? [];
+}
+
+export async function loadCandidateJobFitAttempt(attemptId: string): Promise<CandidateJobFitAttemptDetail> {
+  const { data } = await apiClient.get<CandidateJobFitAttemptDetail>(
+    `/api/v1/matching/fit-history/attempts/${encodeURIComponent(attemptId)}`,
+  );
+  return data;
 }
 
 /**

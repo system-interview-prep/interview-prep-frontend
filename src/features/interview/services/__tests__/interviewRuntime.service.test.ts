@@ -31,6 +31,7 @@ describe("interview runtime API contract", () => {
     const session = await interviewRuntimeApi.create({
       resumeId: "cv-1",
       jobId: "job-1",
+      fitAttemptId: "attempt-old",
       mode: "text",
       locale: "vi-VN",
     });
@@ -38,6 +39,7 @@ describe("interview runtime API contract", () => {
     expect(post).toHaveBeenCalledWith("/api/v1/interviews/sessions", {
       resumeId: "cv-1",
       jobId: "job-1",
+      fitAttemptId: "attempt-old",
       mode: "text",
       experienceType: "question_practice",
       locale: "vi-VN",

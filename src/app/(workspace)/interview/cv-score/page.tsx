@@ -36,6 +36,7 @@ import { entryBlockMessageKey, evaluateEntry } from "@features/interview/utils/e
 import { EntryWarningDialog } from "@features/interview/components/EntryWarningDialog";
 import { PracticeTierNote } from "@features/interview/components/PracticeTierNote";
 import { asFocusArea } from "@features/interview/services/interviewRuntime.service";
+import { loadCandidateJobFitAttempt } from "@features/matching/utils/fitHistory";
 
 /* ── Helper Resolvers ── */
 
@@ -169,6 +170,7 @@ const KNOWN_REASON_CODES = new Set([
   "skill_not_evidenced",
   "skill_not_found",
   "language_not_found",
+  "language_credential_not_evidenced",
   "education_not_evidenced",
   "experience_not_evidenced",
   "resume_section_incomplete",
@@ -177,6 +179,12 @@ const KNOWN_REASON_CODES = new Set([
   "generic_requirement_evidence_weak",
   "requirement_not_evidenced",
   "requirement_not_found",
+  "certification_evidenced",
+  "certification_needs_confirmation",
+  "certification_not_evidenced",
+  "research_or_competition_evidenced",
+  "research_or_competition_not_evidenced",
+  "research_or_competition_evidence_missing",
   "credential_level_not_evidenced",
   "experience_duration_not_evidenced",
   "experience_duration_below_minimum",
@@ -277,6 +285,10 @@ export function resolveWarningText(warning: string, t: Translate = viT): string 
     default:
       return t("fit.warn.other");
   }
+}
+
+export function resolveFitAttemptId(params: Pick<URLSearchParams, "get">): string {
+  return params.get("fitAttemptId")?.trim() || params.get("attemptId")?.trim() || "";
 }
 
 export function resolveFitBandGaugeColor(fitBand?: string, hasScore?: boolean): string {
@@ -499,6 +511,7 @@ function ScorePageContent() {
   const urlCandidateId = params.get("candidateId")?.trim() ?? "";
   const urlJobId = params.get("jobId")?.trim() ?? "";
   const urlJobTitle = params.get("jobTitle")?.trim() || "";
+  const urlAttemptId = resolveFitAttemptId(params);
   // "Luyện vòng này" on the progress page: the round this session focuses on.
   const focusArea = asFocusArea(params.get("focus"));
   // "Luyện lại ý này": the skill the planner must ask again, with a question not met before.
@@ -530,6 +543,7 @@ function ScorePageContent() {
   const [interviewStartError, setInterviewStartError] = useState<string | null>(null);
   const [showModeChooser, setShowModeChooser] = useState(false);
   const [logoError, setLogoError] = useState(false);
+  const [historicalReanalyzed, setHistoricalReanalyzed] = useState(false);
 
   // Sync / Auto-recover context if URL params are missing
   useEffect(() => {
@@ -652,10 +666,13 @@ function ScorePageContent() {
 
     setLoading(true);
     setError(null);
+    setHistoricalReanalyzed(false);
 
     try {
       // 1. Chấm điểm CV qua matching engine
-      const scorePromise = scoreCvAgainstJobProfile({ candidateId, jobId });
+      const scorePromise = urlAttemptId
+        ? null
+        : scoreCvAgainstJobProfile({ candidateId, jobId });
 
       // 2. Tải Job Profile để hiển thị thông tin công ty, địa điểm, mức lương và raw requirement labels
       const jobPromise = jobProfileApi.get(jobId).then((res) => res.data).catch(() => null);
@@ -663,7 +680,28 @@ function ScorePageContent() {
       // 3. Tải thông tin CV người dùng đầy đủ (kèm parsedData và evidence)
       const cvPromise = userCvApi.get(candidateId).then((res) => res.data).catch(() => null);
 
-      const [scoringResult, jobData, cvRecord] = await Promise.all([scorePromise, jobPromise, cvPromise]);
+      const [jobData, cvRecord] = await Promise.all([jobPromise, cvPromise]);
+      let scoringResult: CvScoringResponse;
+      if (urlAttemptId) {
+        const attempt = await loadCandidateJobFitAttempt(urlAttemptId);
+        if (attempt.cvId !== candidateId || attempt.jobId !== jobId) {
+          throw new Error("Assessment history does not match this CV and job");
+        }
+        if (attempt.resultSnapshot && typeof attempt.resultSnapshot === "object") {
+          scoringResult = normalizeMatchResult(attempt.resultSnapshot, candidateId, jobId);
+        } else {
+          // Older attempts stored only their summary. Recompute a view without
+          // appending another row to the candidate's assessment history.
+          scoringResult = await scoreCvAgainstJobProfile({
+            candidateId,
+            jobId,
+            recordFitHistory: false,
+          });
+          setHistoricalReanalyzed(true);
+        }
+      } else {
+        scoringResult = await scorePromise!;
+      }
 
       setResult(scoringResult);
       if (jobData) setJobProfile(jobData);
@@ -677,7 +715,7 @@ function ScorePageContent() {
     } finally {
       setLoading(false);
     }
-  }, [candidateId, jobId]);
+  }, [candidateId, jobId, urlAttemptId]);
 
   const handleMatchingResult = useCallback((matchResult: MatchResult) => {
     if (!candidateId || !jobId) return;
@@ -773,6 +811,9 @@ function ScorePageContent() {
         jobTitle: activeJobTitle,
         candidateId,
         jobId,
+        fitAttemptId: !historicalReanalyzed
+          ? (urlAttemptId || result?.fitAttemptId || undefined)
+          : result?.fitAttemptId || undefined,
         durationMinutes,
         focusArea,
         reaskConceptId,
@@ -931,6 +972,11 @@ function ScorePageContent() {
             )}
           </WorkspacePageHeader>
 
+          {historicalReanalyzed && !loading && !error && (
+            <div className="mb-5 rounded-xl border border-[#F3D58A] bg-[#FFF8E6] px-4 py-3 text-sm text-[#765200]" role="status">
+              {t("fit.page.historyReanalyzed")}
+            </div>
+          )}
 
           {showModeChooser && (
             <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 sm:p-6">

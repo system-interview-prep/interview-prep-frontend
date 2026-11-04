@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { ArrowLeft, Clock3, FileText, History, LoaderCircle, X } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useNavigationLoading } from "@components/shared/NavigationLoadingProvider";
 import { useCvProcessingStatus } from "@features/resume/hooks/useCvProcessingStatus";
@@ -22,6 +22,10 @@ import {
 } from "@features/resume/utils/cvStatus";
 import StatusNote from "@components/shared/StatusNote";
 import { useDialogA11y } from "@components/shared/useDialogA11y";
+import {
+  loadCandidateJobFitAttempts,
+  type CandidateJobFitAttempt,
+} from "@features/matching/utils/fitHistory";
 
 type CvFile = {
   id: string;
@@ -121,6 +125,7 @@ function isSelectableCvFile(file: CvFile) {
 }
 
 const STATE_ORDER: Record<CvViewState, number> = { ready: 0, processing: 1, slow: 2, failed: 3 };
+type EntryMode = "checking" | "options" | "history" | "history-error" | "cv-picker";
 
 function pickSelectableCvId(items: CvFile[], preferred: string | null = null) {
   if (preferred && items.some((item) => item.id === preferred && isSelectableCvFile(item))) {
@@ -154,6 +159,9 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, reaskConcept
   const [failedVisibleCvIds, setFailedVisibleCvIds] = useState<string[]>([]);
   /** The fox's line after an upload in this modal finishes parsing. */
   const [foxDone, setFoxDone] = useState(false);
+  const [entryMode, setEntryMode] = useState<EntryMode>("checking");
+  const [fitAttempts, setFitAttempts] = useState<CandidateJobFitAttempt[]>([]);
+  const [historyRetry, setHistoryRetry] = useState(0);
   /** True while the file itself is being sent, before parsing starts. */
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -234,28 +242,66 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, reaskConcept
     queueMicrotask(() => setMounted(true));
   }, []);
 
+  const openHistoricalAssessment = (attempt: CandidateJobFitAttempt) => {
+    if (!jobProfileId) return;
+    const params = new URLSearchParams({
+      candidateId: attempt.cvId,
+      jobId: jobProfileId,
+      jobTitle,
+      attemptId: attempt.id,
+    });
+    showNavigationLoading();
+    onClose();
+    router.push(`/interview/cv-score?${params.toString()}`);
+  };
+
   useEffect(() => {
     if (!open) {
       queueMicrotask(() => setFailedVisibleCvIds([]));
       return;
     }
-    queueMicrotask(() => {
-      setAnalyzeError(null);
-      setListError(null);
-      setFoxDone(false);
-      void loadFiles();
-    });
+    let current = true;
+    setAnalyzeError(null);
+    setListError(null);
+    setFoxDone(false);
+    setFitAttempts([]);
+    setEntryMode("checking");
+
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("accessToken") ?? localStorage.getItem("access_token")
+        : null;
+    if (!jobProfileId || !token) {
+      setEntryMode("cv-picker");
+    } else {
+      void loadCandidateJobFitAttempts(jobProfileId)
+        .then((items) => {
+          if (!current) return;
+          setFitAttempts(items);
+          setEntryMode(items.length ? "options" : "cv-picker");
+        })
+        .catch(() => {
+          if (!current) return;
+          setEntryMode("history-error");
+        });
+    }
     try {
       const title = jobTitle.trim();
-      if (!title) return;
-      sessionStorage.setItem(
-        "interview.pendingJob",
-        JSON.stringify(jobProfileId ? { jobProfileId, title } : { title })
-      );
+      if (title) {
+        sessionStorage.setItem(
+          "interview.pendingJob",
+          JSON.stringify(jobProfileId ? { jobProfileId, title } : { title })
+        );
+      }
     } catch {
       /* ignore */
     }
-  }, [open, jobTitle, jobProfileId, loadFiles]);
+    return () => { current = false; };
+  }, [open, jobTitle, jobProfileId, historyRetry]);
+
+  useEffect(() => {
+    if (open && entryMode === "cv-picker") void loadFiles();
+  }, [open, entryMode, loadFiles]);
 
   const hasInFlightCv = useMemo(
     () =>
@@ -388,6 +434,16 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, reaskConcept
   if (!mounted || !open) return null;
 
   const titleId = "job-cv-modal-title";
+  const modalTitle = entryMode === "options"
+    ? t("userDash.jobCvModal.historyChoiceTitle")
+    : entryMode === "history"
+      ? t("userDash.jobCvModal.historyTitle")
+      : t("userDash.jobCvModal.title");
+  const modalSubtitle = entryMode === "options"
+    ? t("userDash.jobCvModal.historyChoiceSubtitle")
+    : entryMode === "history"
+      ? jobTitle
+      : t("interview.cvUpload.subtitle").replace("{role}", jobTitle);
 
   const modal = (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6">
@@ -402,14 +458,11 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, reaskConcept
       >
         <div className="flex items-start justify-between gap-3 border-b border-[#EAEFF8] bg-white px-5 py-5 sm:px-6">
           <div className="min-w-0">
-            <h2
-              id={titleId}
-              className="text-xl font-semibold text-[#14244B]"
-            >
-              {t("userDash.jobCvModal.title")}
+            <h2 id={titleId} className="text-xl font-semibold text-[#14244B]">
+              {modalTitle}
             </h2>
             <p className="mt-1 break-words text-sm text-[#607096]">
-              {t("interview.cvUpload.subtitle").replace("{role}", jobTitle)}
+              {modalSubtitle}
             </p>
           </div>
           <button
@@ -422,7 +475,8 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, reaskConcept
           </button>
         </div>
 
-        <>
+        {entryMode === "cv-picker" ? (
+          <>
             <div className="flex-1 space-y-5 overflow-y-auto bg-white px-5 py-5 sm:px-6">
               <div>
                 <p className="mb-1 text-sm font-semibold text-[#204195]">
@@ -619,7 +673,117 @@ export function JobInterviewCvModal({ open, jobTitle, jobProfileId, reaskConcept
                 <span>{t("userDash.jobCvModal.nextChooseMode")}</span>
               </button>
             </div>
-        </>
+          </>
+        ) : (
+          <div className="flex-1 overflow-y-auto bg-white px-5 py-5 sm:px-6">
+            {entryMode === "checking" ? (
+              <div className="flex min-h-40 items-center justify-center gap-3 text-sm text-[#607096]" role="status">
+                <LoaderCircle className="size-5 animate-spin text-[#204195]" aria-hidden="true" />
+                {t("userDash.jobCvModal.historyChecking")}
+              </div>
+            ) : entryMode === "history-error" ? (
+              <div className="flex min-h-40 flex-col items-center justify-center gap-3 text-center" role="alert">
+                <p className="text-sm text-[#C43B3B]">{t("userDash.jobCvModal.historyError")}</p>
+                <button
+                  type="button"
+                  onClick={() => setHistoryRetry((count) => count + 1)}
+                  className="inline-flex h-10 items-center rounded-full bg-[#204195] px-5 text-sm font-semibold text-white hover:bg-[#183275]"
+                >
+                  {t("userDash.jobCvModal.historyRetry")}
+                </button>
+              </div>
+            ) : entryMode === "options" ? (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setEntryMode("history")}
+                  className="flex w-full items-start gap-3 rounded-2xl border border-[#DCE4F3] p-4 text-left transition hover:border-[#204195]/50 hover:bg-[#F8FAFC]"
+                >
+                  <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF2FD] text-[#204195]">
+                    <History className="size-5" aria-hidden="true" />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-bold text-[#14244B]">
+                      {t("userDash.jobCvModal.historyOption")}
+                    </span>
+                    <span className="mt-1 block text-xs leading-relaxed text-[#607096]">
+                      {t("userDash.jobCvModal.historyOptionDesc")}
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEntryMode("cv-picker")}
+                  className="flex w-full items-start gap-3 rounded-2xl border border-[#DCE4F3] p-4 text-left transition hover:border-[#204195]/50 hover:bg-[#F8FAFC]"
+                >
+                  <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF2FD] text-[#204195]">
+                    <FileText className="size-5" aria-hidden="true" />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-bold text-[#14244B]">
+                      {t("userDash.jobCvModal.newMatchOption")}
+                    </span>
+                    <span className="mt-1 block text-xs leading-relaxed text-[#607096]">
+                      {t("userDash.jobCvModal.newMatchOptionDesc")}
+                    </span>
+                  </span>
+                </button>
+              </div>
+            ) : (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setEntryMode("options")}
+                  className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[#204195] hover:underline"
+                >
+                  <ArrowLeft className="size-4" aria-hidden="true" />
+                  {t("userDash.jobCvModal.historyBack")}
+                </button>
+                {fitAttempts.length ? (
+                  <ol className="space-y-2.5">
+                    {fitAttempts.map((attempt) => (
+                      <li key={attempt.id}>
+                        <button
+                          type="button"
+                          onClick={() => openHistoricalAssessment(attempt)}
+                          className="group w-full rounded-2xl border border-[#DCE4F3] bg-[#F8FAFC] p-3.5 text-left transition hover:border-[#204195]/40 hover:bg-[#F0F4FC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]"
+                          aria-label={`${fmt(t("userDash.jobCvModal.historyResult"), { met: attempt.met, total: attempt.total })} · ${new Date(attempt.analyzedAt).toLocaleString(localeOf(lang))}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#204195]">
+                              <Clock3 className="size-4" aria-hidden="true" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-semibold text-[#14244B]">
+                                {attempt.cvName || t("userDash.jobCvModal.historyCvUnavailable")}
+                                <span className="ml-2 text-xs font-semibold text-[#204195]">
+                                  {t("userDash.jobCvModal.historyOpen")}
+                                </span>
+                              </span>
+                              <span className="mt-0.5 block text-xs text-[#607096]">
+                                {new Date(attempt.analyzedAt).toLocaleString(localeOf(lang))}
+                              </span>
+                              <span className="mt-2 inline-flex rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-[#204195]">
+                                {fmt(t("userDash.jobCvModal.historyResult"), {
+                                  met: attempt.met,
+                                  total: attempt.total,
+                                })}
+                              </span>
+                            </span>
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="rounded-2xl bg-[#F8FAFC] p-4 text-sm text-[#607096]">
+                    {t("userDash.jobCvModal.historyEmpty")}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

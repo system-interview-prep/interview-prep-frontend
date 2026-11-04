@@ -26,7 +26,7 @@ import {
   startInterviewSession,
 } from "@features/interview/services/interviewSession.service";
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
-import { scoreCvAgainstJobProfile, type CvScoringResponse } from "@/lib/aiService";
+import { normalizeMatchResult, scoreCvAgainstJobProfile, type CvScoringResponse } from "@/lib/aiService";
 import { mapBackendErrorToI18nKey } from "@/utils/backendError";
 import { fmt } from "@/i18n/format";
 import { useInterviewEntryPolicy } from "@features/interview/hooks/useInterviewEntryPolicy";
@@ -36,6 +36,11 @@ import { PracticeTierNote } from "@features/interview/components/PracticeTierNot
 import { userCvApi, type UserCvDto } from "@features/resume/services/userCv.service";
 import { RECOMMENDED_MODE } from "@features/interview/utils/interviewModes";
 import { localeOf } from "@/i18n/format";
+import {
+  findLatestCandidateJobFitAttempt,
+  loadCandidateJobFitAttempt,
+  loadCandidateJobFitAttempts,
+} from "@features/matching/utils/fitHistory";
 
 const FIT_BAND_LABEL_KEYS: Record<string, string> = {
   strong_fit: "fit.band.strong.label",
@@ -147,6 +152,8 @@ export default function InterviewSelectPage() {
     key: string;
     status: "loading" | "ready" | "error";
     result?: CvScoringResponse;
+    assessmentAttemptId?: string;
+    sessionFitAttemptId?: string;
     errorKey?: string;
   } | null>(null);
   const [matchAttempt, setMatchAttempt] = useState(0);
@@ -160,15 +167,59 @@ export default function InterviewSelectPage() {
     }
     let active = true;
     setMatch({ key: pairKey, status: "loading" });
-    scoreCvAgainstJobProfile({ candidateId: selectedCvId, jobId: selectedJobId })
-      .then((result) => {
+    async function loadPairAssessment() {
+      try {
+        const attempts = await loadCandidateJobFitAttempts(selectedJobId);
         if (!active) return;
-        setMatch({ key: pairKey, status: "ready", result });
-      })
-      .catch((cause) => {
+        const previousAttempt = findLatestCandidateJobFitAttempt(attempts, selectedCvId);
+
+        if (previousAttempt) {
+          const attempt = await loadCandidateJobFitAttempt(previousAttempt.id);
+          if (!active) return;
+          if (attempt.cvId !== selectedCvId || attempt.jobId !== selectedJobId) {
+            throw new Error("Saved matching attempt does not match the selected CV and job");
+          }
+          if (attempt.resultSnapshot && typeof attempt.resultSnapshot === "object") {
+            const result = normalizeMatchResult(attempt.resultSnapshot, selectedCvId, selectedJobId);
+            result.fitAttemptId = attempt.id;
+            setMatch({
+              key: pairKey,
+              status: "ready",
+              result,
+              assessmentAttemptId: attempt.id,
+              sessionFitAttemptId: attempt.id,
+            });
+            return;
+          }
+
+          // Legacy history rows without a snapshot may be re-evaluated for
+          // display, but this read must not create another matching attempt.
+          const result = await scoreCvAgainstJobProfile({
+            candidateId: selectedCvId,
+            jobId: selectedJobId,
+            recordFitHistory: false,
+          });
+          if (!active) return;
+          setMatch({ key: pairKey, status: "ready", result, assessmentAttemptId: attempt.id });
+          return;
+        }
+
+        const result = await scoreCvAgainstJobProfile({ candidateId: selectedCvId, jobId: selectedJobId });
+        if (!active) return;
+        setMatch({
+          key: pairKey,
+          status: "ready",
+          result,
+          assessmentAttemptId: result.fitAttemptId ?? undefined,
+          sessionFitAttemptId: result.fitAttemptId ?? undefined,
+        });
+      } catch (cause) {
         if (!active) return;
         setMatch({ key: pairKey, status: "error", errorKey: mapBackendErrorToI18nKey(cause) ?? undefined });
-      });
+      }
+    }
+
+    void loadPairAssessment();
     return () => {
       active = false;
     };
@@ -187,6 +238,9 @@ export default function InterviewSelectPage() {
         candidateId: selectedCvId,
         jobId: selectedJobId,
         jobTitle: selectedJob?.title ?? "",
+        ...(match?.key === pairKey && match.assessmentAttemptId
+          ? { fitAttemptId: match.assessmentAttemptId }
+          : {}),
       }).toString()}`
     : "";
 
@@ -243,6 +297,7 @@ export default function InterviewSelectPage() {
         candidateId: selectedCvId,
         jobId: selectedJobId,
         jobTitle: selectedJob?.title,
+        fitAttemptId: match?.sessionFitAttemptId,
       });
       window.clearTimeout(phaseTimer);
       setStartPhase(2);

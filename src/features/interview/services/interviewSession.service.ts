@@ -19,6 +19,8 @@ export type StartInterviewParams = {
   candidateId?: string;
   /** Canonical job description id used by the structured interview runtime. */
   jobId?: string;
+  /** Exact CV–JD assessment selected in history or created for this report. */
+  fitAttemptId?: string;
   durationMinutes?: number;
   /** Practise one round (from the progress page); ignored when not a technical round. */
   focusArea?: FocusArea;
@@ -78,6 +80,7 @@ export async function startInterviewSession({
   jobTitle,
   candidateId,
   jobId,
+  fitAttemptId,
   durationMinutes = 25,
   focusArea,
   reaskConceptId,
@@ -107,6 +110,7 @@ export async function startInterviewSession({
   const session = await interviewRuntimeApi.create({
     resumeId: normalizedCandidateId,
     jobId: normalizedJobId,
+    ...(fitAttemptId ? { fitAttemptId } : {}),
     mode: runtimeMode,
     experienceType: runtimeExperience,
     locale,

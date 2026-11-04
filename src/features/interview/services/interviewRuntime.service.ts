@@ -166,6 +166,7 @@ export type InterviewRuntimeSessionPage = {
 export type CreateInterviewRuntimeSessionRequest = {
   resumeId: string;
   jobId: string;
+  fitAttemptId?: string;
   mode: InterviewRuntimeMode;
   experienceType?: InterviewRuntimeExperience;
   locale: string;

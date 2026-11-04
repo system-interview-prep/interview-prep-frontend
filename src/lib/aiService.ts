@@ -179,6 +179,7 @@ export type CvScoringCriterion = {
 export type CvScoringResponse = {
   candidateId: string;
   jobId: string;
+  fitAttemptId?: string | null;
   score: {
     raw: number | null;
     max: number;
@@ -536,6 +537,7 @@ export function normalizeMatchResult(raw: any, candidateId: string, jobId: strin
   return {
     candidateId,
     jobId,
+    fitAttemptId: raw.fitAttemptId || raw.fit_attempt_id || null,
     score: {
       raw: typeof raw.score?.raw === "number"
         ? raw.score.raw
@@ -583,6 +585,7 @@ export function normalizeMatchResult(raw: any, candidateId: string, jobId: strin
 export async function scoreCvAgainstJobProfile(params: {
   candidateId: string;
   jobId: string;
+  recordFitHistory?: boolean;
   matchingPolicy?: MatchingPolicy;
   candidatePreferences?: CandidatePreferences;
 }): Promise<CvScoringResponse> {
@@ -600,6 +603,7 @@ export async function scoreCvAgainstJobProfile(params: {
       jobDescriptionId: params.jobId,
       matchingPolicy: params.matchingPolicy,
       candidatePreferences: params.candidatePreferences,
+      recordFitHistory: params.recordFitHistory,
     }),
   });
 
@@ -618,6 +622,7 @@ export async function scoreCvAgainstJobProfile(params: {
         jobDescriptionId: params.jobId,
         matchingPolicy: params.matchingPolicy,
         candidatePreferences: params.candidatePreferences,
+        recordFitHistory: params.recordFitHistory,
       }),
     });
   }
