@@ -132,6 +132,7 @@ export function useLiveKitRoom({
   const [speechOutputError, setSpeechOutputError] = useState<string | null>(null);
   const [terminalEvent, setTerminalEvent] = useState<LiveKitTerminalEvent | null>(null);
   const [turnState, setTurnState] = useState<LiveKitTurnState | null>(null);
+  const [lastUserActivityAt, setLastUserActivityAt] = useState<number | null>(null);
   // When an admin last joined the room as a hidden listener (intervia.observer).
   const [observedAt, setObservedAt] = useState<number | null>(null);
   // The room handler outlives renders; read the latest callback through a ref.
@@ -182,6 +183,7 @@ export function useLiveKitRoom({
     recentTranscriptRef.current.clear();
     userSpeakingRef.current = false;
     agentSpeakingRef.current = false;
+    setLastUserActivityAt(Date.now());
 
     const room = new Room({
       adaptiveStream: true,
@@ -228,6 +230,7 @@ export function useLiveKitRoom({
       const localIdentity = room.localParticipant.identity;
       const userSpeaking = speakers.some((participant) => participant.identity === localIdentity);
       const agentSpeaking = speakers.some((participant) => participant.identity !== localIdentity);
+      if (userSpeaking !== userSpeakingRef.current) setLastUserActivityAt(Date.now());
       userSpeakingRef.current = userSpeaking;
       agentSpeakingRef.current = agentSpeaking;
       setIsUserSpeaking(userSpeaking);
@@ -269,6 +272,7 @@ export function useLiveKitRoom({
 
     const handleReconnected = () => {
       setTransportError(null);
+      setLastUserActivityAt(Date.now());
       setStatus(agentConnectedRef.current ? 'connected' : 'waiting-agent');
     };
 
@@ -307,6 +311,7 @@ export function useLiveKitRoom({
         if (!speaker) continue;
 
         const text = normalizeVoiceTranscript(segment.text, locale, speaker);
+        if (speaker === 'user') setLastUserActivityAt(Date.now());
         if (!segment.final) {
           if (speaker === 'user') setInterimTranscript(text);
           continue;
@@ -463,22 +468,25 @@ export function useLiveKitRoom({
     }
   }, [locale]);
 
-  const toggleMic = useCallback(async () => {
+  const setMicrophoneEnabled = useCallback(async (enabled: boolean) => {
     const room = roomRef.current;
     if (!room) return;
-    const next = !micEnabled;
     try {
-      await room.localParticipant.setMicrophoneEnabled(next, {
+      await room.localParticipant.setMicrophoneEnabled(enabled, {
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
       });
-      setMicEnabled(next);
+      setMicEnabled(enabled);
       setError(null);
     } catch (mediaError) {
       setError(errorMessage(mediaError));
     }
-  }, [micEnabled]);
+  }, []);
+
+  const toggleMic = useCallback(async () => {
+    await setMicrophoneEnabled(!micEnabled);
+  }, [micEnabled, setMicrophoneEnabled]);
 
   const toggleCamera = useCallback(async () => {
     const room = roomRef.current;
@@ -515,6 +523,7 @@ export function useLiveKitRoom({
     connect,
     disconnect,
     toggleMic,
+    setMicrophoneEnabled,
     toggleCamera,
     sendAnswerCommand,
     localVideoRef,
@@ -534,6 +543,7 @@ export function useLiveKitRoom({
     speechOutputError,
     terminalEvent,
     turnState,
+    lastUserActivityAt,
     observedAt,
   };
 }

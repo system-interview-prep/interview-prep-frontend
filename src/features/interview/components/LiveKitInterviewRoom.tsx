@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Camera, CameraOff, Mic, MicOff, PhoneOff, VideoOff } from 'lucide-react';
 import { AbortConfirmationModal } from '@/components/interview/AbortConfirmationModal';
@@ -25,9 +25,11 @@ import {
 } from './VoiceRoomParts';
 import { VoiceWaveform, type VoiceOrbState } from './VoiceWaveform';
 import { CurrentQuestionCard, QuestionTimer } from './CurrentQuestionCard';
+import { SilencePauseModal } from './SilencePauseModal';
 import { getStageLabel } from './ChatInterviewProgress';
 import { useLanguage } from '@/i18n/LanguageProvider';
 import { fmt } from '@/i18n/format';
+import { noResponsePauseDeadline } from '../utils/noResponsePause';
 
 export default function LiveKitInterviewRoom({
   sessionId,
@@ -49,6 +51,17 @@ export default function LiveKitInterviewRoom({
   const [dismissedObservedAt, setDismissedObservedAt] = useState<number | null>(null);
   const [showEndModal, setShowEndModal] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showSilencePause, setShowSilencePause] = useState(false);
+  const [silencePauseClock, setSilencePauseClock] = useState<{
+    questionKey: string | null;
+    startedAt: number | null;
+    totalPausedMs: number;
+  }>({ questionKey: null, startedAt: null, totalPausedMs: 0 });
+  const [dismissedPause, setDismissedPause] = useState<{
+    questionKey: string;
+    activityAt: number | null;
+  } | null>(null);
+  const autoPausedMicWasEnabledRef = useRef(false);
   // True when the dialog was opened by the candidate saying "dừng", not by the
   // End button: choosing to continue then replays the interrupted question.
   const [spokenAbort, setSpokenAbort] = useState(false);
@@ -56,6 +69,7 @@ export default function LiveKitInterviewRoom({
     connect,
     disconnect,
     toggleMic,
+    setMicrophoneEnabled,
     toggleCamera,
     sendAnswerCommand,
     localVideoRef,
@@ -75,6 +89,7 @@ export default function LiveKitInterviewRoom({
     terminalEvent,
     turnState,
     observedAt,
+    lastUserActivityAt,
   } = useLiveKitRoom({
     sessionId,
     locale,
@@ -107,6 +122,82 @@ export default function LiveKitInterviewRoom({
   // must not keep answering into a room that cannot hear them.
   const sttDown = isConnected && Boolean(transportError);
   const barStatus = sttDown ? { label: t('room.voice.status.unheard'), tone: 'error' as const } : currentStatus;
+
+  const currentQuestionKey = progress?.question?.startedAt ?? null;
+  const pauseDeadline = noResponsePauseDeadline(currentQuestionKey, lastUserActivityAt);
+  const dismissedForCurrentQuestion = Boolean(
+    currentQuestionKey && dismissedPause?.questionKey === currentQuestionKey &&
+    dismissedPause.activityAt === lastUserActivityAt,
+  );
+  const pauseClockForQuestion = silencePauseClock.questionKey === currentQuestionKey ? silencePauseClock : null;
+  const pausedQuestionMs = pauseClockForQuestion?.totalPausedMs ?? 0;
+
+  useEffect(() => {
+    if (
+      !isConnected || !isAgentConnected || turnState !== 'listening' || isAgentSpeaking || isUserSpeaking ||
+      sttDown || progress?.isClosed || !currentQuestionKey || pauseDeadline === null || showSilencePause ||
+      showEndModal || showLeaveConfirm || terminalEvent || dismissedForCurrentQuestion
+    ) return;
+
+    const openPause = () => {
+      autoPausedMicWasEnabledRef.current = micEnabled;
+      setSilencePauseClock((previous) => ({
+        questionKey: currentQuestionKey,
+        startedAt: Date.now(),
+        totalPausedMs: previous.questionKey === currentQuestionKey ? previous.totalPausedMs : 0,
+      }));
+      setShowSilencePause(true);
+      if (micEnabled) void setMicrophoneEnabled(false);
+    };
+    const delay = pauseDeadline - Date.now();
+    if (delay <= 0) {
+      openPause();
+      return;
+    }
+    const timer = window.setTimeout(openPause, delay);
+    return () => window.clearTimeout(timer);
+  }, [
+    currentQuestionKey,
+    dismissedForCurrentQuestion,
+    isAgentConnected,
+    isAgentSpeaking,
+    isConnected,
+    isUserSpeaking,
+    micEnabled,
+    pauseDeadline,
+    progress?.isClosed,
+    setMicrophoneEnabled,
+    showEndModal,
+    showLeaveConfirm,
+    showSilencePause,
+    sttDown,
+    terminalEvent,
+    turnState,
+  ]);
+
+  const continueAfterSilencePause = () => {
+    setSilencePauseClock((previous) => previous.questionKey !== currentQuestionKey || previous.startedAt === null
+      ? previous
+      : {
+          ...previous,
+          startedAt: null,
+          totalPausedMs: previous.totalPausedMs + Math.max(0, Date.now() - previous.startedAt),
+        });
+    setShowSilencePause(false);
+    if (currentQuestionKey) {
+      setDismissedPause({ questionKey: currentQuestionKey, activityAt: lastUserActivityAt });
+    }
+    if (autoPausedMicWasEnabledRef.current) void setMicrophoneEnabled(true);
+    autoPausedMicWasEnabledRef.current = false;
+  };
+
+  const questionTimerStartedAt = (() => {
+    const startedAt = progress?.question?.startedAt;
+    if (!startedAt) return null;
+    const startedAtMs = Date.parse(startedAt);
+    if (!Number.isFinite(startedAtMs)) return startedAt;
+    return new Date(startedAtMs + pausedQuestionMs).toISOString();
+  })();
 
   const waveformState: VoiceOrbState =
     !isConnected
@@ -218,10 +309,10 @@ export default function LiveKitInterviewRoom({
                     size="compact"
                     timer={
                       <QuestionTimer
-                        startedAt={progress?.question?.startedAt ?? null}
+                        startedAt={questionTimerStartedAt}
                         softSeconds={progress?.question?.softAnswerSeconds ?? null}
                         hardSeconds={progress?.question?.hardAnswerSeconds ?? null}
-                        paused={progress?.isClosed}
+                        paused={progress?.isClosed || showSilencePause}
                       />
                     }
                   />
@@ -268,10 +359,10 @@ export default function LiveKitInterviewRoom({
                     size="compact"
                     timer={
                       <QuestionTimer
-                        startedAt={progress?.question?.startedAt ?? null}
+                        startedAt={questionTimerStartedAt}
                         softSeconds={progress?.question?.softAnswerSeconds ?? null}
                         hardSeconds={progress?.question?.hardAnswerSeconds ?? null}
-                        paused={progress?.isClosed}
+                        paused={progress?.isClosed || showSilencePause}
                       />
                     }
                   />
@@ -400,6 +491,8 @@ export default function LiveKitInterviewRoom({
         onConfirm={(reason) => void endRoom(reason)}
         isSubmitting={isEnding}
       />
+
+      <SilencePauseModal open={showSilencePause} onContinue={continueAfterSilencePause} />
 
       <ConfirmDialog
         open={showLeaveConfirm}
