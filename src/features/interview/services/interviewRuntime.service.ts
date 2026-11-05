@@ -177,6 +177,8 @@ export type CreateInterviewRuntimeSessionRequest = {
   reaskConceptId?: string;
   /** Exact approved question to repeat for a due missed answer. */
   reaskQuestionVersionId?: string;
+  /** The interview type the candidate chose (admin-approved blueprint); omitted: the default type. */
+  blueprintId?: string;
 };
 
 /** Rounds made of technical questions (backend interview_rounds.FOCUSABLE_AREAS). */

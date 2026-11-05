@@ -11,6 +11,7 @@ import { adminMatchingVi } from "./dicts/admin-matching.dict";
 import { adminCvParsingVi } from "./dicts/admin-cv-parsing.dict";
 import { adminObserveVi } from "./dicts/admin-observe.dict";
 import { adminOpsVi } from "./dicts/admin-ops.dict";
+import { adminBlueprintVi } from "./dicts/admin-blueprint.dict";
 import { guideVi } from "./dicts/guide.dict";
 import { adminUiJdVi } from "./dicts/admin-ui-jd.dict";
 import { adminUiQbVi } from "./dicts/admin-ui-qb.dict";
@@ -990,8 +991,8 @@ const en: Dict = {
   "userDash.role.admin": "Administrator",
   "userDash.role.USER": "User",
   "userDash.role.user": "User",
-  "userDash.role.QUESTION_AUTHOR": "Question Author",
-  "userDash.role.question_author": "Question Author",
+  "userDash.role.QUESTION_AUTHOR": "Interview Expert",
+  "userDash.role.question_author": "Interview Expert",
   "userDash.role.QUESTION_REVIEWER": "Question Reviewer",
   "userDash.role.question_reviewer": "Question Reviewer",
   "userDash.role.DATA_CURATOR": "Data Curator",
@@ -3146,8 +3147,8 @@ const vi: Dict = {
   "userDash.role.admin": "Quản trị viên",
   "userDash.role.USER": "Người dùng",
   "userDash.role.user": "Người dùng",
-  "userDash.role.QUESTION_AUTHOR": "Tác giả câu hỏi",
-  "userDash.role.question_author": "Tác giả câu hỏi",
+  "userDash.role.QUESTION_AUTHOR": "Chuyên gia phỏng vấn",
+  "userDash.role.question_author": "Chuyên gia phỏng vấn",
   "userDash.role.QUESTION_REVIEWER": "Người duyệt câu hỏi",
   "userDash.role.question_reviewer": "Người duyệt câu hỏi",
   "userDash.role.DATA_CURATOR": "Người quản lý dữ liệu",
@@ -4593,6 +4594,7 @@ const vi: Dict = {
   ...adminCvParsingVi,
   ...adminObserveVi,
   ...adminOpsVi,
+  ...adminBlueprintVi,
   ...guideVi,
 };
 

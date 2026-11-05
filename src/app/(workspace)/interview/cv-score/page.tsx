@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import { DEMO_DURATION_MINUTES, totalQuestionCount } from "@features/interview/utils/questionBudget";
+import { questionCountOf, useInterviewTypes } from "@features/interview/services/interviewTypes.service";
+import { InterviewTypePicker } from "@features/interview/components/InterviewTypePicker";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import WorkspacePageHeader from "@features/resume/components/WorkspacePageHeader";
@@ -23,6 +25,7 @@ import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProf
 import { userCvApi, type UserCvDto } from "@features/resume/services/userCv.service";
 import {
   describeStartInterviewError,
+  isInterviewTypeUnavailableError,
   startInterviewSession,
 } from "@features/interview/services/interviewSession.service";
 import { formatSalary, formatExperience, getCompanyInitials } from "@/components/jobs/job-card.utils";
@@ -751,6 +754,9 @@ function ScorePageContent() {
   }, [jobProfile]);
 
   const [durationMinutes, setDurationMinutes] = useState<number>(25);
+  // Interview type (expert-designed, admin-approved). The demo package and the
+  // progress-page shortcuts (one round, one skill again) use the default type.
+  const interviewTypes = useInterviewTypes();
   /** 0 creating the session, 1 preparing questions, 2 opening the room (time-based captions of one request). */
   const [startStage, setStartStage] = useState(0);
   useEffect(() => {
@@ -818,16 +824,22 @@ function ScorePageContent() {
         focusArea,
         reaskConceptId,
         reaskQuestionVersionId,
+        blueprintId: typeChoice ? interviewTypes.selectedId ?? undefined : undefined,
       });
       setStartStage(2);
       router.push(targetUrl);
     } catch (cause) {
       setStartingInterview(false);
+      if (isInterviewTypeUnavailableError(cause)) interviewTypes.reload();
       setInterviewStartError(describeStartInterviewError(cause, t));
     }
   };
 
   const displayJobTitle = jobProfile?.title || queryJobTitle || t("fit.page.defaultJobTitle");
+  const typeChoice = !focusArea && !reaskConceptId && durationMinutes !== DEMO_DURATION_MINUTES;
+  /** Questions of a package with the chosen type (Core preview); the default formula until it loads. */
+  const packageQuestions = (minutes: number) =>
+    (typeChoice ? questionCountOf(interviewTypes.selected, minutes) : null) ?? totalQuestionCount(minutes);
 
   // Staged status text while the existing loading flags are on. The request is
   // a single round trip, so these are time-based captions, not real progress.
@@ -1019,6 +1031,16 @@ function ScorePageContent() {
                       {fmt(t("practiceProgress.focus.banner"), { round: t(`practiceProgress.area.${focusArea}`) })}
                     </p>
                   )}
+                  {typeChoice && (
+                    <div className="mb-4">
+                      <InterviewTypePicker
+                        items={interviewTypes.items}
+                        selectedId={interviewTypes.selectedId}
+                        onSelect={interviewTypes.setSelectedId}
+                        durationMinutes={durationMinutes}
+                      />
+                    </div>
+                  )}
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-semibold text-[#607096]">
                       {t("fit.mode.duration")}
@@ -1030,9 +1052,9 @@ function ScorePageContent() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {[
                       { minutes: DEMO_DURATION_MINUTES, label: t("fixApp.mode.demo"), time: fmt(t("fit.mode.minutes"), { n: DEMO_DURATION_MINUTES }), q: fmt(t("fit.mode.questions"), { n: totalQuestionCount(DEMO_DURATION_MINUTES) }), tag: t("fit.mode.tag.demo") },
-                      { minutes: 15, label: t("fixApp.mode.flash"), time: fmt(t("fit.mode.minutes"), { n: 15 }), q: fmt(t("fit.mode.questions"), { n: totalQuestionCount(15) }), tag: t("fit.mode.tag.flash") },
-                      { minutes: 25, label: t("fixApp.mode.standard"), time: fmt(t("fit.mode.minutes"), { n: 25 }), q: fmt(t("fit.mode.questions"), { n: totalQuestionCount(25) }), tag: t("fit.mode.tag.standard") },
-                      { minutes: 45, label: t("fixApp.mode.deep"), time: fmt(t("fit.mode.minutes"), { n: 45 }), q: fmt(t("fit.mode.questions"), { n: totalQuestionCount(45) }), tag: t("fit.mode.tag.deep") },
+                      { minutes: 15, label: t("fixApp.mode.flash"), time: fmt(t("fit.mode.minutes"), { n: 15 }), q: fmt(t("fit.mode.questions"), { n: packageQuestions(15) }), tag: t("fit.mode.tag.flash") },
+                      { minutes: 25, label: t("fixApp.mode.standard"), time: fmt(t("fit.mode.minutes"), { n: 25 }), q: fmt(t("fit.mode.questions"), { n: packageQuestions(25) }), tag: t("fit.mode.tag.standard") },
+                      { minutes: 45, label: t("fixApp.mode.deep"), time: fmt(t("fit.mode.minutes"), { n: 45 }), q: fmt(t("fit.mode.questions"), { n: packageQuestions(45) }), tag: t("fit.mode.tag.deep") },
                     ].map((pkg) => {
                       const active = durationMinutes === pkg.minutes;
                       return (

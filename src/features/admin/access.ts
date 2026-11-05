@@ -10,8 +10,8 @@
 
 export const QUESTION_BANK_ROLES = ["QUESTION_AUTHOR"] as const;
 
-/** Pages the question author can use (their APIs accept that role). */
-const QUESTION_BANK_PAGES = ["/admin/question-bank", "/admin/rubrics", "/admin/profile"];
+/** Pages the interview expert (QUESTION_AUTHOR) can use (their APIs accept that role). */
+const QUESTION_BANK_PAGES = ["/admin/question-bank", "/admin/rubrics", "/admin/interview-blueprints", "/admin/profile"];
 
 const upper = (roles: readonly string[] | null | undefined) => (roles ?? []).map((role) => role.toUpperCase());
 

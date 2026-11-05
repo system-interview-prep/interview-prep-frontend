@@ -21,7 +21,7 @@ vi.mock("../interviewRuntime.service", () => ({
   },
 }));
 
-import { startInterviewSession } from "../interviewSession.service";
+import { describeStartInterviewError, startInterviewSession } from "../interviewSession.service";
 
 describe("startInterviewSession", () => {
   beforeEach(() => {
@@ -185,6 +185,25 @@ describe("startInterviewSession", () => {
     await expect(
       startInterviewSession({ mode: "chat", lang: "vi", candidateId: "cv-1", jobId: "job-1" }),
     ).rejects.toMatchObject({ code: "QUESTION_UNAVAILABLE" });
+  });
+
+  it("explains a JD outside the supported IT taxonomy instead of a generic failure", async () => {
+    createRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-plan-422" });
+    buildRuntimePlan.mockRejectedValueOnce(
+      Object.assign(new Error("Request failed with status code 422"), {
+        response: {
+          status: 422,
+          data: { detail: "No applicable taxonomy-backed interview competencies could be derived from the job" },
+        },
+      }),
+    );
+    closeRuntimeSession.mockResolvedValueOnce({ sessionId: "runtime-plan-422" });
+
+    await expect(
+      startInterviewSession({ mode: "chat", lang: "vi", candidateId: "cv-1", jobId: "job-1" }),
+    ).rejects.toMatchObject({ code: "JOB_OUT_OF_SCOPE", message: expect.stringMatching(/chuyên ngành CNTT/) });
+    expect(closeRuntimeSession).toHaveBeenCalledWith("runtime-plan-422", "TECHNICAL_FAILURE");
+    expect(describeStartInterviewError({ code: "JOB_OUT_OF_SCOPE", response: { status: 422 } })).toMatch(/ngành CNTT/);
   });
 
   it("rejects an unlocked or empty selector response before room entry", async () => {

@@ -28,6 +28,8 @@ export type StartInterviewParams = {
   reaskConceptId?: string;
   /** Exact due question to repeat before adding new questions for that skill. */
   reaskQuestionVersionId?: string;
+  /** The interview type the candidate chose; omitted: the default type. Ignored for the demo package. */
+  blueprintId?: string;
 };
 
 /**
@@ -45,6 +47,12 @@ type Translate = (key: string) => string;
 const translateVi: Translate = (key) => pickerVi[key] ?? key;
 
 export const QUESTION_UNAVAILABLE_MESSAGE = translateVi("picker.startError.questionUnavailable");
+
+/** True when the chosen interview type was hidden after the page loaded: the candidate picks again. */
+export function isInterviewTypeUnavailableError(error: unknown): boolean {
+  const detail = (error as { response?: { data?: { detail?: { errorCode?: string } } } })?.response?.data?.detail;
+  return typeof detail === "object" && detail?.errorCode === "blueprint_unavailable";
+}
 
 /** True when startInterviewSession failed because the question bank cannot cover this position. */
 export function isQuestionUnavailableError(error: unknown): boolean {
@@ -66,6 +74,8 @@ export function describeStartInterviewError(error: unknown, t: Translate = trans
       min: entryBlock.minMatchPercent ?? "",
     });
   }
+  if (code === "JOB_OUT_OF_SCOPE") return t("picker.startError.jobOutOfScope");
+  if (isInterviewTypeUnavailableError(error)) return t("picker.startError.typeUnavailable");
   if (code === "PLAN_NOT_READY") return t("picker.startError.planNotReady");
   if (status === 401) return t("picker.startError.sessionExpired");
   if (status === 404) return t("picker.startError.notFound");
@@ -85,6 +95,7 @@ export async function startInterviewSession({
   focusArea,
   reaskConceptId,
   reaskQuestionVersionId,
+  blueprintId,
 }: StartInterviewParams): Promise<string> {
   // Interviews are Vietnamese-only; the backend enforces it as well.
   const languageParam = "Vietnamese";
@@ -118,6 +129,7 @@ export async function startInterviewSession({
     ...(focusArea ? { focusArea } : {}),
     ...(reaskConceptId ? { reaskConceptId } : {}),
     ...(reaskQuestionVersionId ? { reaskQuestionVersionId } : {}),
+    ...(blueprintId ? { blueprintId } : {}),
   });
   const sessionId = session.sessionId;
 
@@ -154,6 +166,15 @@ export async function startInterviewSession({
           "question_unavailable: Ngân hàng câu hỏi chưa có đủ câu hỏi đã duyệt phù hợp với vị trí này để bắt đầu phỏng vấn."
         ),
         { code: "QUESTION_UNAVAILABLE", response: (error as { response?: unknown })?.response }
+      );
+    }
+    // The planner found no IT skill or specialisation in the JD (e.g. a non-IT job).
+    if (rawMsg.includes("taxonomy-backed interview competencies")) {
+      throw Object.assign(
+        new Error(
+          "job_out_of_scope: JD này chưa có kỹ năng hoặc chuyên ngành CNTT nào mà hệ thống nhận ra, nên chưa thể tạo buổi phỏng vấn."
+        ),
+        { code: "JOB_OUT_OF_SCOPE", response: (error as { response?: unknown })?.response }
       );
     }
     throw error;

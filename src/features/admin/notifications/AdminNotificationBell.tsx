@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { AlertOctagon, AlertTriangle, Bell, BellRing, CheckCheck, Info } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useNow } from "@features/admin/pipeline/hooks/useNow";
@@ -14,6 +14,7 @@ import {
   requestPermission,
   severityOf,
   useAdminNotifications,
+  useNotifications,
 } from "./useAdminNotifications";
 
 const SEVERITY = {
@@ -41,8 +42,55 @@ export function timeAgo(iso: string, now: number, t: (key: string) => string): s
  */
 export default function AdminNotificationBell({ align = "right" }: { align?: "right" | "left" }) {
   const { t } = useLanguage();
+  const state = useAdminNotifications();
+  const { permission } = state;
+  return (
+    <NotificationBell
+      align={align}
+      state={state}
+      footer={(close) => (
+        <div className="border-t border-[#EAEFF8] bg-[#FBFCFE] px-4 py-2.5 text-xs text-[#607096]">
+          {permission === "default" ? (
+            <button
+              type="button"
+              onClick={() => void requestPermission()}
+              className="font-semibold text-[#204195] hover:underline"
+            >
+              {t("adminNotify.enableDesktop")}
+            </button>
+          ) : permission === "granted" ? (
+            t("adminNotify.desktopOn")
+          ) : permission === "denied" ? (
+            t("adminNotify.desktopBlocked")
+          ) : (
+            t("adminNotify.desktopUnsupported")
+          )}
+          <Link href="/admin/ai" onClick={close} className="mt-1.5 block font-semibold text-[#204195] hover:underline">
+            {t("adminNotify.openHealth")}
+          </Link>
+        </div>
+      )}
+    />
+  );
+}
+
+/** The candidate's bell: same list, polled only (no admin socket, no admin links). */
+export function CandidateNotificationBell({ align = "right" }: { align?: "right" | "left" }) {
+  return <NotificationBell align={align} state={useNotifications()} />;
+}
+
+function NotificationBell({
+  align,
+  state,
+  footer,
+}: {
+  align: "right" | "left";
+  state: ReturnType<typeof useNotifications>;
+  footer?: (close: () => void) => ReactNode;
+}) {
+  const { t } = useLanguage();
   const router = useRouter();
-  const { items, unread, permission, loaded } = useAdminNotifications();
+  const { items, unread, loaded } = state;
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
@@ -151,30 +199,7 @@ export default function AdminNotificationBell({ align = "right" }: { align?: "ri
             )}
           </ul>
 
-          <div className="border-t border-[#EAEFF8] bg-[#FBFCFE] px-4 py-2.5 text-xs text-[#607096]">
-            {permission === "default" ? (
-              <button
-                type="button"
-                onClick={() => void requestPermission()}
-                className="font-semibold text-[#204195] hover:underline"
-              >
-                {t("adminNotify.enableDesktop")}
-              </button>
-            ) : permission === "granted" ? (
-              t("adminNotify.desktopOn")
-            ) : permission === "denied" ? (
-              t("adminNotify.desktopBlocked")
-            ) : (
-              t("adminNotify.desktopUnsupported")
-            )}
-            <Link
-              href="/admin/ai"
-              onClick={() => setOpen(false)}
-              className="mt-1.5 block font-semibold text-[#204195] hover:underline"
-            >
-              {t("adminNotify.openHealth")}
-            </Link>
-          </div>
+          {footer?.(() => setOpen(false))}
         </div>
       ) : null}
     </div>

@@ -447,7 +447,7 @@ export const adminOpsVi: Record<string, string> = {
   "aiPipeline.access.value.CANDIDATE": "Ứng viên",
   "aiPipeline.access.value.ADMIN": "Quản trị viên",
   "aiPipeline.access.value.QUARANTINE": "Cách ly",
-  "aiPipeline.access.value.QUESTION_AUTHOR": "Tác giả câu hỏi",
+  "aiPipeline.access.value.QUESTION_AUTHOR": "Chuyên gia phỏng vấn",
   "aiPipeline.access.value.QUESTION_REVIEWER": "Người duyệt câu hỏi",
   "aiPipeline.access.value.DATA_CURATOR": "Người quản lý dữ liệu",
   "aiPipeline.access.value.QUESTION_BANK_ADMIN": "Quản trị ngân hàng câu hỏi",

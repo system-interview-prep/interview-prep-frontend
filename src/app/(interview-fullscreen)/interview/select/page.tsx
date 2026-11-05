@@ -23,8 +23,11 @@ import { UserDashboardShell } from "@features/user-dashboard/components/UserDash
 import { useLanguage } from "@/i18n/LanguageProvider";
 import {
   describeStartInterviewError,
+  isInterviewTypeUnavailableError,
   startInterviewSession,
 } from "@features/interview/services/interviewSession.service";
+import { useInterviewTypes } from "@features/interview/services/interviewTypes.service";
+import { InterviewTypePicker } from "@features/interview/components/InterviewTypePicker";
 import { jobProfileApi, type JobProfile } from "@features/admin/services/jobProfile.service";
 import { normalizeMatchResult, scoreCvAgainstJobProfile, type CvScoringResponse } from "@/lib/aiService";
 import { mapBackendErrorToI18nKey } from "@/utils/backendError";
@@ -102,6 +105,8 @@ export default function InterviewSelectPage() {
   const [startPhase, setStartPhase] = useState<number | null>(null);
   const [startFailed, setStartFailed] = useState(false);
   const [cvLimit, setCvLimit] = useState(LIST_CAP);
+  // Interview type (expert-designed, admin-approved); sessions from this page are 25 minutes.
+  const interviewTypes = useInterviewTypes();
   const [jobLimit, setJobLimit] = useState(LIST_CAP);
 
   const startDialogRef = useDialogA11y<HTMLDivElement>(
@@ -298,12 +303,14 @@ export default function InterviewSelectPage() {
         jobId: selectedJobId,
         jobTitle: selectedJob?.title,
         fitAttemptId: match?.sessionFitAttemptId,
+        blueprintId: interviewTypes.selectedId ?? undefined,
       });
       window.clearTimeout(phaseTimer);
       setStartPhase(2);
       router.push(url);
     } catch (error) {
       window.clearTimeout(phaseTimer);
+      if (isInterviewTypeUnavailableError(error)) interviewTypes.reload();
       setContextError({ cause: error });
       setStartFailed(true);
       setStartPhase((phase) => phase ?? 1);
@@ -702,6 +709,13 @@ export default function InterviewSelectPage() {
                 {t("picker.select.contextHint")}
               </p>
             </div>
+
+            <InterviewTypePicker
+              items={interviewTypes.items}
+              selectedId={interviewTypes.selectedId}
+              onSelect={interviewTypes.setSelectedId}
+              durationMinutes={25}
+            />
 
             <div className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-3">
               {modes.map((mode) => {

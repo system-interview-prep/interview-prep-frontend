@@ -858,6 +858,8 @@ export const aiPipelineVi: Record<string, string> = {
   "aiPipeline.llm.flag.answer_off_question": "Câu trả lời không dính câu hỏi",
   "aiPipeline.llm.flag.probe_off_target": "Hỏi thêm không trúng chỗ thiếu",
   "aiPipeline.llm.flag.system_leak": "AI nói về chính nó (prompt, mô hình)",
+  "aiPipeline.llm.flag.system_probe": "AI nhận ra ứng viên dò hệ thống",
+  "aiPipeline.llm.flag.canary_leak": "AI định nói lộ mã bí mật của buổi (đã chặn)",
   "aiPipeline.llm.flag.sufficient_but_low_grade": "Coi là đủ ý nhưng chấm dưới 4",
   "aiPipeline.llm.flag.grade_points_adjusted": "Chấm điểm có trích dẫn bị sửa",
   "aiPipeline.llm.rule.insufficient_answer": "chưa đủ ý → hỏi thêm",
@@ -869,6 +871,7 @@ export const aiPipelineVi: Record<string, string> = {
   "aiPipeline.llm.rule.skip_request": "ứng viên xin đổi câu",
   "aiPipeline.llm.rule.not_an_answer": "không phải câu trả lời → sang câu",
   "aiPipeline.llm.rule.clarify_request": "ứng viên chưa hiểu → giải thích lại",
+  "aiPipeline.llm.rule.system_probe": "ứng viên dò hệ thống → câu trả lời cố định, hỏi lại câu",
   "aiPipeline.llm.rule.abort_request": "ứng viên xin dừng → hỏi xác nhận",
   "aiPipeline.llm.rule.candidate_question": "ứng viên hỏi ngược → trả lời",
   "aiPipeline.llm.rule.answer_timeout": "hết giờ trả lời",
@@ -895,6 +898,16 @@ export const aiPipelineVi: Record<string, string> = {
 
 // The product UI is Vietnamese only; English keys missing below fall back to Vietnamese.
 export const aiPipelineEn: Record<string, string> = {
+  "adminNotify.title": "Notifications",
+  "adminNotify.bell": "Notifications",
+  "adminNotify.bellUnread": "Notifications, {n} unread",
+  "adminNotify.markAll": "Mark all as read",
+  "adminNotify.loading": "Loading…",
+  "adminNotify.empty": "No notifications yet.",
+  "adminNotify.unread": "Unread",
+  "adminNotify.justNow": "just now",
+  "adminNotify.minutesAgo": "{n} min ago",
+  "adminNotify.hoursAgo": "{n} h ago",
   ...aiPipelineVi,
   "aiPipeline.speech.test.title": "TTS and STT tests",
   "aiPipeline.speech.test.subtitle": "Test the integrated TTS/STT adapters with the server's current configuration. STT calls its adapter directly and does not use an LLM to generate a transcript.",

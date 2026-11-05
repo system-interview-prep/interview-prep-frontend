@@ -17,7 +17,7 @@ export default function ImportQuestionsPage() {
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [rows, setRows] = useState<ImportRow[]>([]);
   const [message, setMessage] = useState("");
-  const [templateFormat, setTemplateFormat] = useState<"csv" | "xlsx">("csv");
+  const [templateFormat, setTemplateFormat] = useState<"csv" | "xlsx">("xlsx");
   const [downloading, setDownloading] = useState(false);
   const [committing, setCommitting] = useState(false);
 
@@ -74,7 +74,7 @@ export default function ImportQuestionsPage() {
     <div className="rounded-2xl border border-[#DCE4F3] bg-white p-4 sm:p-6">
       <div className="flex flex-wrap items-center gap-3">
         <label className="sr-only" htmlFor="qb-import-format">{t("fixAdmin.qbImport.formatLabel")}</label>
-        <select id="qb-import-format" value={templateFormat} onChange={(event) => setTemplateFormat(event.target.value as "csv" | "xlsx")} className="rounded-xl border border-[#DCE4F3] bg-white px-3 py-2 text-sm"><option value="csv">CSV</option><option value="xlsx">XLSX</option></select>
+        <select id="qb-import-format" value={templateFormat} onChange={(event) => setTemplateFormat(event.target.value as "csv" | "xlsx")} className="rounded-xl border border-[#DCE4F3] bg-white px-3 py-2 text-sm"><option value="xlsx">Excel (XLSX)</option><option value="csv">CSV</option></select>
         <button type="button" onClick={download} disabled={downloading} className="rounded-xl border border-[#DCE4F3] px-4 py-2 text-sm font-semibold text-[#14244B] disabled:opacity-60">{downloading ? t("fixAdmin.qbImport.downloading") : t("fixAdmin.qbImport.downloadTemplate")}</button>
         <label className="cursor-pointer rounded-xl bg-[#204195] px-4 py-2 text-sm font-semibold text-white">{t("fixAdmin.qbImport.choose")}<input className="hidden" type="file" accept=".csv,.xlsx" onChange={upload} /></label>
       </div>
