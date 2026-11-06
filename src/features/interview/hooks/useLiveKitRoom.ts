@@ -346,6 +346,13 @@ export function useLiveKitRoom({
         if (topic === 'intervia.turn') {
           const state = event.state as LiveKitTurnState;
           if (event.type === 'turn.state' && TURN_STATES.includes(state)) setTurnState(state);
+          if (event.type === 'voice.late_transcript' && typeof event.text === 'string' && event.text.trim()) {
+            const lateText = event.text.trim();
+            setTranscript((previous) => {
+              if (previous.some((line) => line.speaker === 'user' && line.text === lateText)) return previous;
+              return [...previous, { id: `late-${Date.now()}`, speaker: 'user', text: lateText }];
+            });
+          }
           return;
         }
         if (topic === 'intervia.health') {
