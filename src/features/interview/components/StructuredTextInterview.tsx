@@ -14,6 +14,8 @@ import { useLanguage } from '@/i18n/LanguageProvider';
 import { fmt, localeOf } from '@/i18n/format';
 import { ProcessStatus } from '@components/shared/ProcessSteps';
 import { useDialogA11y } from '@components/shared/useDialogA11y';
+import { useTextInactivity } from '../hooks/useTextInactivity';
+import { TextInactivityNotice } from './TextInactivityNotice';
 
 /** Why the room could not load; translated at render so a language switch applies. */
 type LoadError = 'question_unavailable' | 'not_found' | 'network';
@@ -90,6 +92,13 @@ export default function StructuredTextInterview({
   const exitDialogRef = useDialogA11y<HTMLDivElement>(showExitConfirm, isClosing ? undefined : closeExitDialog);
   // Bumped by "Retry" on the fatal error screen to load the room again.
   const [reloadKey, setReloadKey] = useState(0);
+  const inactivity = useTextInactivity({
+    enabled: Boolean(runtime?.currentTurn) && runtime?.sessionStatus !== 'CLOSED' && !runtime?.completed
+      && (!selectedTurnId || selectedTurnId === runtime?.currentTurn?.turnId)
+      && !isLoading && !error && !isSubmitting && !isClosing && !showExitConfirm,
+    scope: `${sessionId}:${runtime?.currentTurn?.turnId ?? 'loading'}`,
+    hasDraft: Boolean(answerInput.trim()),
+  });
 
   // Load session plan (best-effort for agenda sidebar)
   const loadPlan = useCallback(async () => {
@@ -186,7 +195,7 @@ export default function StructuredTextInterview({
 
   // Submit answer
   const handleSubmitAnswer = async () => {
-    if (!runtime?.currentTurn || isSubmitting) return;
+    if (!runtime?.currentTurn || isSubmitting || inactivity.phase === 'paused') return;
     if (activeTurn?.turnId !== runtime.currentTurn.turnId) return;
 
     const trimmed = answerInput.trim();
@@ -331,7 +340,7 @@ export default function StructuredTextInterview({
   const charCount = answerInput.length;
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[#F7F9FD] font-body text-[#14244B]">
+    <div ref={inactivity.rootRef} className="flex h-dvh flex-col overflow-hidden bg-[#F7F9FD] font-body text-[#14244B]">
       <PracticeHeader
         jobTitle={jobTitle}
         isClosed={isSessionClosed}
@@ -341,6 +350,7 @@ export default function StructuredTextInterview({
         onEnd={() => setShowExitConfirm(true)}
       />
 
+      <TextInactivityNotice phase={inactivity.phase} onContinue={inactivity.continueDraft} />
       {!isSessionClosed ? (
         <PracticeTurnStepper
           turns={runtime.turns}

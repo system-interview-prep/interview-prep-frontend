@@ -96,6 +96,9 @@ export type ChatRuntimeResponse = {
     remaining_time?: number;
     [key: string]: unknown;
   };
+  /** Core-authoritative expiry, including the explicit demo allowance if any. */
+  expiresAt?: string | null;
+  serverTime?: string;
   turns?: ChatRuntimeTurn[];
 };
 

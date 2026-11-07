@@ -17,6 +17,9 @@ import { currentQuestionFromRuntime } from '../hooks/useRuntimeProgress';
 import { ChatRoomErrorState, ChatRoomLoadingState } from './ChatRoomStates';
 import { ChatReturnModal } from './ChatReturnModal';
 import { useChatPresence } from '../hooks/useChatPresence';
+import { useTextInactivity } from '../hooks/useTextInactivity';
+import { useChatDeadline } from '../hooks/useChatDeadline';
+import { TextInactivityNotice } from './TextInactivityNotice';
 import { useLanguage } from '@/i18n/LanguageProvider';
 import { fmt } from '@/i18n/format';
 import {
@@ -56,9 +59,25 @@ export default function InterviewChatRoom({
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const deadline = useChatDeadline(sessionId, runtime, setRuntime);
+  const navigatedSessionRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (runtime?.sessionStatus !== 'CLOSED' || navigatedSessionRef.current === sessionId) return;
+    navigatedSessionRef.current = sessionId;
+    router.replace(`/interview/results/${encodeURIComponent(sessionId)}`);
+  }, [runtime?.sessionStatus, router, sessionId]);
 
   // Heartbeat + "left" signal while the room is open; the backend closes an abandoned chat after a grace period.
   const presence = useChatPresence(sessionId, Boolean(runtime) && runtime?.sessionStatus !== 'CLOSED');
+  const inactivity = useTextInactivity({
+    enabled: Boolean(runtime?.currentTurn?.turnId) && runtime?.sessionStatus !== 'CLOSED'
+      && runtime?.isAwaitingCandidate !== false
+      && !loading && !error && !isSending && !isEnding && !deadline.expired
+      && !showEndModal && !showLeaveConfirm && !showSkipConfirm && !presence.awaySince,
+    scope: `${sessionId}:${runtime?.currentTurn?.turnId ?? 'loading'}`,
+    hasDraft: Boolean(inputValue.trim()) || runtime?.currentTurn?.questionType === 'coding'
+      || Boolean(runtime?.currentTurn?.starterCode),
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -123,7 +142,7 @@ export default function InterviewChatRoom({
   const handleSendMessage = async (customContent?: string, telemetry?: Record<string, unknown>) => {
     const rawContent = customContent !== undefined ? customContent : inputValue;
     const trimmed = rawContent.trim();
-    if (!trimmed || isSending || runtime?.sessionStatus === 'CLOSED') return;
+    if (!trimmed || isSending || runtime?.sessionStatus === 'CLOSED' || inactivity.phase === 'paused' || deadline.expired) return;
 
     const pendingRetry = pendingRetryRef.current;
     if (pendingRetry && pendingRetry.content !== trimmed) {
@@ -210,6 +229,12 @@ export default function InterviewChatRoom({
         }
       }
     } catch (err: unknown) {
+      if ((err as { response?: { status?: number } })?.response?.status === 409) {
+        try {
+          const closed = await interviewChatApi.getRuntime(sessionId);
+          if (closed.sessionStatus === 'CLOSED') { setRuntime(closed); return; }
+        } catch { /* Keep the existing retry flow if closure cannot be verified. */ }
+      }
       pendingRetryRef.current = {
         clientMessageId: clientMsgId,
         content: trimmed,
@@ -377,7 +402,7 @@ export default function InterviewChatRoom({
     <ChatComposer
       value={inputValue}
       currentStage={currentStage}
-      isSending={isSending}
+      isSending={isSending || deadline.expired}
       textareaRef={textareaRef}
       compact={compact}
       onChange={handleInputChange}
@@ -390,7 +415,7 @@ export default function InterviewChatRoom({
   );
 
   return (
-    <div className="flex h-dvh flex-col bg-[#F7F9FD] text-[#14244B]">
+    <div ref={inactivity.rootRef} className="flex h-dvh flex-col bg-[#F7F9FD] text-[#14244B]">
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {latestAssistantText}
       </div>
@@ -401,7 +426,7 @@ export default function InterviewChatRoom({
         endReason={runtime?.endReason}
         serverRemainingSeconds={serverRemainingSeconds}
         startedAt={startedAt}
-        isEnding={isEnding}
+        isEnding={isEnding || deadline.expired}
         onBack={() => (isClosed ? router.push(backUrl) : setShowLeaveConfirm(true))}
         onEnd={() => setShowEndModal(true)}
         onLeave={() => router.push(backUrl)}
@@ -412,6 +437,13 @@ export default function InterviewChatRoom({
 
       {/* Like the voice room: no stage stepper; the stage is in the header and on the question card (below lg, in the tip bar). */}
       {!isClosed ? <StageTipBar currentStage={currentStage} /> : null}
+      {deadline.expired ? (
+        <div role="status" className="flex shrink-0 items-center justify-between gap-3 border-b border-[#DCE4F3] bg-[#EEF2FD] px-4 py-3 text-sm text-[#14244B]">
+          <p>{t(deadline.phase === 'error' ? 'room.chat.timeoutError' : 'room.chat.timeoutClosing')}</p>
+          {deadline.phase === 'error' ? <button type="button" onClick={deadline.retry} className="shrink-0 font-bold text-[#204195]">{t('room.common.retry')}</button> : null}
+        </div>
+      ) : null}
+      <TextInactivityNotice phase={inactivity.phase} onContinue={inactivity.continueDraft} />
 
       {isCodingQuestion && !isClosed ? (
         <main className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 lg:overflow-visible">
@@ -440,7 +472,7 @@ export default function InterviewChatRoom({
                 language={runtime?.currentTurn?.language || 'python'}
                 testCode={runtime?.currentTurn?.testCasesCode || ''}
                 onSubmit={handleCodeSubmit}
-                isSubmitting={isSending}
+                isSubmitting={isSending || deadline.expired}
               />
             </div>
           </div>

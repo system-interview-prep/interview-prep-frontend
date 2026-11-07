@@ -390,7 +390,7 @@ export function InterviewCountdownTimer({
     );
   }
 
-  // A session keeps going past its nominal time to finish its stages (Core
+  // Demo sessions can go past nominal time to finish their stages (Core
   // demo_mode); a frozen 00:00 or a warning colour next to a live interviewer
   // only adds pressure, so say calmly that it is wrapping up.
   if (secondsRemaining === 0) {
