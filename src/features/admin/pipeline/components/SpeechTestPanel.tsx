@@ -8,6 +8,7 @@ import AdminSection from "@features/admin/components/primitives/AdminSection";
 import { resolveBackendErrorMessage } from "@/utils/backendError";
 import { pipelineService, type SpeechTestConfig } from "../services/pipeline.service";
 import { fill } from "../utils/pipelineFormat";
+import { LivekitSttClient } from "../services/livekitSttClient";
 
 const DEFAULT_TEXT = "Xin chào, đây là bài kiểm tra giọng nói của hệ thống phỏng vấn.";
 const STT_SAMPLE_RATE = 16_000;
@@ -72,13 +73,12 @@ export default function SpeechTestPanel() {
   const [sttResultAdapter, setSttResultAdapter] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [liveAdapter, setLiveAdapter] = useState("");
-  const streamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const muteRef = useRef<GainNode | null>(null);
-  const socketRef = useRef<WebSocket | null>(null);
-  const liveStartedAtRef = useRef<number | null>(null);
+  const [sttContext, setSttContext] = useState("");
+  const [referenceText, setReferenceText] = useState("");
+  const [sttTestId, setSttTestId] = useState("");
+  const [traceEnabled, setTraceEnabled] = useState<boolean | null>(null);
+  const liveSttRef = useRef<LivekitSttClient | null>(null);
+  const sttAttemptRef = useRef(0);
   const ttsSocketRef = useRef<WebSocket | null>(null);
   const ttsAudioContextRef = useRef<AudioContext | null>(null);
   const ttsScheduleRef = useRef(0);
@@ -93,12 +93,8 @@ export default function SpeechTestPanel() {
       });
     return () => {
       active = false;
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      processorRef.current?.disconnect();
-      sourceRef.current?.disconnect();
-      muteRef.current?.disconnect();
-      void audioContextRef.current?.close();
-      socketRef.current?.close();
+      sttAttemptRef.current += 1;
+      liveSttRef.current?.close();
       ttsSocketRef.current?.close();
       void ttsAudioContextRef.current?.close();
     };
@@ -110,59 +106,36 @@ export default function SpeechTestPanel() {
     setRecordedFile(file);
     setTranscript("");
     setSttError("");
-  };
-
-  const stopLiveRecognition = () => {
-    processorRef.current?.disconnect();
-    sourceRef.current?.disconnect();
-    muteRef.current?.disconnect();
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    void audioContextRef.current?.close();
-    audioContextRef.current = null;
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify({ type: "stop" }));
-    }
-    setRecording(false);
+    setSttTestId("");
+    setTraceEnabled(null);
   };
 
   const toggleRecording = async () => {
     if (recording) {
-      stopLiveRecognition();
+      setSttBusy(true);
+      setRecording(false);
+      await liveSttRef.current?.stop();
       return;
     }
     setSttError("");
     setTranscript("");
     setInterimTranscript("");
     setSttElapsed(null);
+    setSttTestId("");
+    setTraceEnabled(null);
+    setSttBusy(true);
+    const attempt = ++sttAttemptRef.current;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: { ideal: 1 },
-        },
-      });
-      streamRef.current = stream;
-      const token = localStorage.getItem("accessToken") ?? (() => {
-        const match = document.cookie.match(/(?:^|; )access_token=([^;]*)/);
-        try { return match ? decodeURIComponent(match[1]) : ""; } catch { return ""; }
-      })();
-      if (!token) throw new Error(t("aiPipeline.speech.test.authRequired"));
-      const endpoint = new URL("/admin/ai/speech/test/transcribe/stream", API_BASE_URL);
-      endpoint.protocol = endpoint.protocol === "https:" ? "wss:" : "ws:";
-      const socket = new WebSocket(endpoint, ["bearer", token]);
-      socketRef.current = socket;
-      socket.binaryType = "arraybuffer";
-      socket.onmessage = (message) => {
-        let event: { type?: string; text?: string; provider?: string; model?: string; detail?: string };
-        try { event = JSON.parse(String(message.data)); } catch { return; }
+      const token = await pipelineService.createSttTestRoom({ context: sttContext, referenceText });
+      if (attempt !== sttAttemptRef.current) return;
+      setSttTestId(token.testId);
+      setTraceEnabled(token.traceEnabled);
+      const client = new LivekitSttClient((event) => {
         if (event.type === "ready") {
-          const adapter = [event.provider, event.model].filter(Boolean).join(" · ");
+          const adapter = ["LiveKit", event.provider, event.model].filter(Boolean).join(" / ");
           setLiveAdapter(adapter);
           setSttResultAdapter(adapter);
-          return;
+          setTraceEnabled(event.traceEnabled ?? token.traceEnabled);
         }
         if (event.type === "interim") setInterimTranscript(event.text ?? "");
         if (event.type === "final") {
@@ -170,60 +143,29 @@ export default function SpeechTestPanel() {
           if (finalText) setTranscript((previous) => [previous, finalText].filter(Boolean).join(" "));
           setInterimTranscript("");
         }
-        if (event.type === "error") setSttError(event.detail || t("aiPipeline.speech.test.sttError"));
         if (event.type === "stopped") {
           setRecording(false);
-          const startedAt = liveStartedAtRef.current;
-          setSttElapsed(startedAt === null ? null : Date.now() - startedAt);
-          liveStartedAtRef.current = null;
+          setSttBusy(false);
+          setSttElapsed(event.elapsedMs ?? null);
+          if (event.traceDelivered === false || !["stopped", "disconnected"].includes(event.status ?? "")) {
+            setSttError(t("aiPipeline.speech.test.sttError"));
+          }
         }
-      };
-      socket.onerror = () => setSttError(t("aiPipeline.speech.test.sttError"));
-      socket.onclose = () => setRecording(false);
-      await new Promise<void>((resolve, reject) => {
-        socket.onopen = () => resolve();
-        socket.addEventListener("error", () => reject(new Error(t("aiPipeline.speech.test.sttError"))), { once: true });
+      }, (error) => {
+        setRecording(false);
+        setSttBusy(false);
+        setSttError(resolveBackendErrorMessage(error, t, "aiPipeline.speech.test.sttError"));
       });
-      let context: AudioContext;
-      try {
-        // Ask the browser to resample the microphone through its audio pipeline
-        // instead of downsampling 48 kHz input with linear interpolation here.
-        context = new AudioContext({ sampleRate: STT_SAMPLE_RATE });
-      } catch {
-        context = new AudioContext();
-      }
-      audioContextRef.current = context;
-      const source = context.createMediaStreamSource(stream);
-      const processor = context.createScriptProcessor(4096, 1, 1);
-      const mute = context.createGain();
-      mute.gain.value = 0;
-      sourceRef.current = source;
-      processorRef.current = processor;
-      muteRef.current = mute;
-      processor.onaudioprocess = (event) => {
-        if (socket.readyState !== WebSocket.OPEN) return;
-        const input = event.inputBuffer.getChannelData(0);
-        const ratio = context.sampleRate / 16_000;
-        const count = Math.max(1, Math.floor(input.length / ratio));
-        const pcm = new Int16Array(count);
-        for (let index = 0; index < count; index += 1) {
-          const position = index * ratio;
-          const left = Math.floor(position);
-          const right = Math.min(left + 1, input.length - 1);
-          const fraction = position - left;
-          const sample = Math.max(-1, Math.min(1, input[left] * (1 - fraction) + input[right] * fraction));
-          pcm[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
-        }
-        socket.send(pcm.buffer);
-      };
-      source.connect(processor);
-      processor.connect(mute);
-      mute.connect(context.destination);
-      liveStartedAtRef.current = Date.now();
+      liveSttRef.current = client;
+      await client.connect(token);
+      if (attempt !== sttAttemptRef.current) { client.close(); return; }
       setRecording(true);
+      setSttBusy(false);
     } catch (error) {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
+      if (attempt !== sttAttemptRef.current) return;
+      liveSttRef.current?.close();
+      setRecording(false);
+      setSttBusy(false);
       setSttError(resolveBackendErrorMessage(error, t, "aiPipeline.speech.test.micError"));
     }
   };
@@ -306,12 +248,16 @@ export default function SpeechTestPanel() {
     setSttBusy(true);
     setSttError("");
     setTranscript("");
+    setSttTestId("");
+    setTraceEnabled(null);
     try {
       const wavFile = await toMonoWav16k(recordedFile);
-      const result = await pipelineService.testSpeechTranscription(wavFile);
+      const result = await pipelineService.testSpeechTranscription(wavFile, { context: sttContext, referenceText });
       setTranscript(result.text);
       setSttElapsed(result.elapsedMs);
       setSttResultAdapter(`${result.provider} · ${result.model}`);
+      setSttTestId(result.testId);
+      setTraceEnabled(result.traceEnabled);
     } catch (error) {
       setSttError(resolveBackendErrorMessage(error, t, "aiPipeline.speech.test.sttError"));
     } finally {
@@ -321,6 +267,7 @@ export default function SpeechTestPanel() {
 
   const canRunTts = Boolean(config?.ttsReady);
   const canRunStt = Boolean(config?.sttReady);
+  const canRunLiveStt = Boolean(config?.livekitSttReady);
 
   return (
     <AdminSection
@@ -339,7 +286,7 @@ export default function SpeechTestPanel() {
       ) : (
         <p className="mb-4 text-sm text-[#607096]">{t("aiPipeline.speech.test.loading")}</p>
       )}
-      {config && (!canRunTts || !canRunStt) ? (
+      {config && (!canRunTts || !canRunStt || !canRunLiveStt) ? (
         <p role="status" className="mb-4 rounded-xl bg-[#FFF7E6] px-3 py-2 text-sm text-[#8A5A00]">
           {t("aiPipeline.speech.test.adapterNotReady")}
         </p>
@@ -371,8 +318,21 @@ export default function SpeechTestPanel() {
 
         <div className="rounded-xl border border-[#EAEFF8] p-4">
           <div className="mb-3 flex items-center gap-2 text-sm font-bold text-[#14244B]"><Radio size={17} />{t("aiPipeline.speech.test.sttTitle")}</div>
+          <label className="mb-1 block text-xs font-semibold text-[#607096]" htmlFor="stt-test-context">
+            {t("aiPipeline.speech.test.contextLabel")}
+          </label>
+          <input id="stt-test-context" value={sttContext} maxLength={4000} disabled={recording || sttBusy}
+            onChange={(event) => setSttContext(event.target.value)}
+            className="mb-3 w-full rounded-xl border border-[#DCE4F3] px-3 py-2 text-sm text-[#14244B]" />
+          <label className="mb-1 block text-xs font-semibold text-[#607096]" htmlFor="stt-test-reference">
+            {t("aiPipeline.speech.test.referenceLabel")}
+          </label>
+          <textarea id="stt-test-reference" value={referenceText} maxLength={16000} rows={3}
+            disabled={recording || sttBusy} onChange={(event) => setReferenceText(event.target.value)}
+            className="w-full rounded-xl border border-[#DCE4F3] px-3 py-2 text-sm text-[#14244B]" />
+          <p className="mb-3 text-xs text-[#607096]">{t("aiPipeline.speech.test.referenceHelp")}</p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => void toggleRecording()} disabled={!canRunStt || sttBusy} className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${recording ? "bg-[#FDF2F2] text-[#C43B3B]" : "bg-[#204195] text-white hover:bg-[#173477]"}`}>
+            <button type="button" onClick={() => void toggleRecording()} disabled={!canRunLiveStt || sttBusy} className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${recording ? "bg-[#FDF2F2] text-[#C43B3B]" : "bg-[#204195] text-white hover:bg-[#173477]"}`}>
               {recording ? <MicOff size={16} /> : <Mic size={16} />}{recording ? t("aiPipeline.speech.test.stopRecording") : t("aiPipeline.speech.test.liveRecord")}
             </button>
             <button type="button" onClick={() => fileInputRef.current?.click()} disabled={!canRunStt || recording || sttBusy} className="rounded-xl border border-[#DCE4F3] bg-white px-3.5 py-2 text-sm font-semibold text-[#204195] hover:bg-[#F7F9FD] disabled:cursor-not-allowed disabled:opacity-50">
@@ -403,6 +363,12 @@ export default function SpeechTestPanel() {
           </div>
           {transcript ? <div className="mt-3 rounded-xl bg-[#F7F9FD] p-3 text-sm leading-6 text-[#14244B]"><p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#607096]">{sttResultAdapter}</p>{transcript}</div> : null}
           {sttError ? <p role="alert" className="mt-2 text-sm text-[#C43B3B]">{sttError}</p> : null}
+          {sttTestId ? <p className="mt-2 break-all text-xs text-[#607096]">
+            {t("aiPipeline.speech.test.traceId")}: <span className="font-mono">{sttTestId}</span>
+          </p> : null}
+          {traceEnabled === false ? <p role="status" className="mt-2 text-xs text-[#8A5A00]">
+            {t("aiPipeline.speech.test.traceDisabled")}
+          </p> : null}
         </div>
       </div>
     </AdminSection>

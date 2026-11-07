@@ -496,6 +496,7 @@ export type SpeechVerdict = "correct" | "wrong";
 export type SpeechTestConfig = {
   sttProvider: string;
   sttReady: boolean;
+  livekitSttReady: boolean;
   ttsProvider: string;
   ttsReady: boolean;
   ttsModel: string;
@@ -533,6 +534,12 @@ export const pipelineService = {
     const response = await apiClient.get<{ success: boolean } & SpeechTestConfig>("/admin/ai/speech/test/config");
     return response.data;
   },
+  async createSttTestRoom(options: { context: string; referenceText: string }) {
+    const response = await apiClient.post<import("./livekitSttClient").SttTestRoomToken>(
+      "/admin/ai/speech/test/livekit-token", options,
+    );
+    return response.data;
+  },
   async testSpeechSynthesis(text: string): Promise<{ audio: Blob; elapsedMs: number | null; provider: string | null; model: string | null }> {
     const response = await apiClient.post<Blob>("/admin/ai/speech/test/speak", { text }, { responseType: "blob" });
     const rawElapsed = response.headers["x-voice-lab-elapsed-ms"];
@@ -544,10 +551,17 @@ export const pipelineService = {
       model: response.headers["x-speech-model"] ?? null,
     };
   },
-  async testSpeechTranscription(audio: File): Promise<{ text: string; elapsedMs: number; provider: string; model: string }> {
+  async testSpeechTranscription(
+    audio: File,
+    options: { context?: string; referenceText?: string } = {},
+  ): Promise<{ text: string; elapsedMs: number; provider: string; model: string; testId: string; traceEnabled: boolean }> {
     const form = new FormData();
     form.append("audio", audio);
-    const response = await apiClient.post<{ text: string; elapsedMs: number; provider: string; model: string }>(
+    form.append("context", options.context ?? "");
+    form.append("referenceText", options.referenceText ?? "");
+    const response = await apiClient.post<{
+      text: string; elapsedMs: number; provider: string; model: string; testId: string; traceEnabled: boolean;
+    }>(
       "/admin/ai/speech/test/transcribe",
       form,
     );

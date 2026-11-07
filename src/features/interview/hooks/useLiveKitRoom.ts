@@ -11,6 +11,7 @@ import {
   type TranscriptionSegment,
 } from 'livekit-client';
 import { apiClient } from '@/lib/apiClient';
+import { INTERVIEW_MICROPHONE_OPTIONS } from '@/lib/livekitAudio';
 import { normalizeVoiceTranscript, reconcileVoiceTranscript } from '../utils/voiceLanguage';
 import { voiceTransportHealthMessage } from '../utils/voiceTransportHealth';
 import { OBSERVER_TOPIC, parseObserverNotice } from '../utils/observerNotice';
@@ -411,11 +412,7 @@ export function useLiveKitRoom({
         // The first subscribed audio track can still prompt the browser.
       }
 
-      const micPublication = await room.localParticipant.setMicrophoneEnabled(true, {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      });
+      const micPublication = await room.localParticipant.setMicrophoneEnabled(true, INTERVIEW_MICROPHONE_OPTIONS);
       localMicTrackSidRef.current = micPublication?.trackSid || null;
       setMicEnabled(true);
 
