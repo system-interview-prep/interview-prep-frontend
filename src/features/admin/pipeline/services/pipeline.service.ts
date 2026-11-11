@@ -451,7 +451,6 @@ export type SpeechControl = {
   truncated: boolean;
   config: {
     speechV2: boolean;
-    ackMode: string;
     dialect: string;
     maxNhePerTurn: number;
     interjectionShare: number;

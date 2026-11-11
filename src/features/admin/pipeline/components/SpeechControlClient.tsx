@@ -119,9 +119,6 @@ function ConfigFacts({ config }: { config: SpeechControl["config"] }) {
       <Fact label={t("aiPipeline.speech.config.speechV2")}>
         <Chip tone={config.speechV2 ? "good" : "warn"}>{t(config.speechV2 ? "aiPipeline.speech.on" : "aiPipeline.speech.off")}</Chip>
       </Fact>
-      <Fact label={t("aiPipeline.speech.config.ackMode")}>
-        {tr(t, `aiPipeline.speech.ackMode.${config.ackMode}`, config.ackMode)}
-      </Fact>
       <Fact label={t("aiPipeline.speech.config.dialect")}>
         {tr(t, `aiPipeline.speech.dialect.${config.dialect}`, config.dialect)}
       </Fact>

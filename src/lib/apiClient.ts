@@ -92,9 +92,8 @@ export const authApi = {
 };
 
 // ── Interview API ──────────────────────────────────────────────────────────────
-// Structured CV→JD interview flows use /api/v1/interviews/sessions via
+// Interview sessions use /api/v1/interviews/sessions via
 // features/interview/services/interviewRuntime.service.ts.
-// Legacy standalone chat/voice practice still uses /ai/session temporarily.
 
 // ── User API ──────────────────────────────────────────────────────────────────
 export type UserProfile = {

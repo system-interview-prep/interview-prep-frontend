@@ -35,6 +35,8 @@ export type MatchRun = {
   fitBand: string | null;
   /** 0..1 */
   suitabilityScore: number | null;
+  /** 0..1 CV-JD overlap. Present even when suitabilityScore is null. */
+  profileMatchScore: number | null;
   cacheHit: boolean | null;
   currentStep: MatchStepKey | string;
   aiCalls: number;
@@ -65,6 +67,8 @@ export type MatchScoring = {
   eligibility: string | null;
   compatibilityStatus: string | null;
   suitabilityScore: number | null;
+  profileMatchScore: number | null;
+  profileMatchBand: string | null;
   diagnosticScore: number | null;
   fitBand: string | null;
   decision: string | null;

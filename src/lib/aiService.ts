@@ -8,15 +8,6 @@ export type ChatHistoryItem = {
   metadata?: any;
 };
 
-export type LegacyInterviewSession = {
-  id: string;
-  type: "Chat" | "Voice" | "Call";
-  language: string;
-  status: string;
-  startedAt: string;
-  endedAt: string | null;
-};
-
 export type ChatHistoryResponse = {
   history: ChatHistoryItem[];
 };
@@ -48,6 +39,9 @@ export type EligibilityStatus = "eligible" | "ineligible" | "review_required";
 export type CompatibilityStatus = "compatible" | "incompatible" | "unknown" | "not_applicable";
 
 export type FitBand = "strong_fit" | "partial_fit" | "review_required" | "not_eligible" | "insufficient_evidence";
+
+/** Where this pair's CV-JD overlap sits against the corpus, not a quality verdict. */
+export type ProfileMatchBand = "below_typical" | "typical" | "above_typical";
 
 export type MatchingDecision = "assessed" | "abstained";
 
@@ -137,6 +131,15 @@ export type MatchResult = {
   compatibilityStatus: CompatibilityStatus;
   diagnosticScore?: number | null;
   suitabilityScore: number | null;
+  /**
+   * How much of the posting is reflected anywhere in the CV, 0..1.  Published
+   * for every pair including rejected ones, so it is never nulled the way
+   * `suitabilityScore` is.  It answers a different question: high overlap is
+   * NOT a hiring signal - a candidate can read as a close textual match and
+   * still miss a mandatory condition outright.
+   */
+  profileMatchScore?: number | null;
+  profileMatchBand?: ProfileMatchBand | null;
   fitBand: FitBand;
   decision: MatchingDecision;
   requirementResults: RequirementResult[];
@@ -212,6 +215,8 @@ export type CvScoringResponse = {
   eligibility?: EligibilityStatus;
   compatibilityStatus?: CompatibilityStatus;
   suitabilityScore?: number | null;
+  profileMatchScore?: number | null;
+  profileMatchBand?: ProfileMatchBand | null;
   diagnosticScore?: number | null;
   failedMustHaveRequirements?: string[];
   fitBand?: FitBand;
@@ -280,22 +285,6 @@ export async function sendVoiceChatMessage(request: ChatRequest): Promise<ChatVo
   return res.json();
 }
 
-export async function createSession(params?: { type?: "Chat" | "Voice" | "Call"; language?: string }): Promise<{ sessionId: string }> {
-  const res = await fetch(`${API_BASE_URL}/ai/session`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders()
-    },
-    body: JSON.stringify({
-      type: params?.type ?? "Chat",
-      language: params?.language ?? "English",
-    }),
-  });
-  if (!res.ok) throw new Error("Network response was not ok");
-  return res.json();
-}
-
 export async function getChatHistory(sessionId: string = "default-session"): Promise<ChatHistoryResponse> {
   const res = await fetch(`${API_BASE_URL}/ai/history?sessionId=${encodeURIComponent(sessionId)}`, {
     headers: {
@@ -315,30 +304,6 @@ export async function getChatHistory(sessionId: string = "default-session"): Pro
         }))
       : [],
   };
-}
-
-export async function getAllSessions(): Promise<{ sessions: LegacyInterviewSession[] }> {
-  const res = await fetch(`${API_BASE_URL}/ai/sessions`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders()
-    }
-  });
-  if (!res.ok) throw new Error("Network response was not ok");
-  const payload = await res.json() as { sessions?: LegacyInterviewSession[] };
-  return { sessions: Array.isArray(payload.sessions) ? payload.sessions : [] };
-}
-
-export async function closeSession(sessionId: string): Promise<{ sessionId: string; status: string; endedAt: string }> {
-  const res = await fetch(`${API_BASE_URL}/ai/session/${encodeURIComponent(sessionId)}/close`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders()
-    }
-  });
-  if (!res.ok) throw new Error("Network response was not ok");
-  return res.json();
 }
 
 export async function startVideoCall(params: { roomId: string; sessionId?: string }): Promise<{ callId: string; roomId: string; startedAt: string }> {
@@ -392,6 +357,20 @@ export function normalizeMatchResult(raw: any, candidateId: string, jobId: strin
     : typeof raw.diagnostic_score === "number"
     ? raw.diagnostic_score
     : null;
+
+  // Overlap is deliberately NOT gated on eligibility the way suitability is
+  // below: the backend publishes it for every pair, and on a run that failed a
+  // must-have it is the only score there is.  Nulling it here would hide it.
+  const profileMatchScore: number | null = typeof raw.profileMatchScore === "number"
+    ? raw.profileMatchScore
+    : typeof raw.profile_match_score === "number"
+    ? raw.profile_match_score
+    : null;
+  const rawProfileBand = raw.profileMatchBand ?? raw.profile_match_band;
+  const profileMatchBand: ProfileMatchBand | null =
+    rawProfileBand === "below_typical" || rawProfileBand === "typical" || rawProfileBand === "above_typical"
+      ? rawProfileBand
+      : null;
 
   const rawEligibility = raw.eligibility;
   const eligibility: EligibilityStatus =
@@ -568,6 +547,8 @@ export function normalizeMatchResult(raw: any, candidateId: string, jobId: strin
     eligibility,
     compatibilityStatus: raw.compatibilityStatus || raw.compatibility_status || "not_applicable",
     suitabilityScore: suitability,
+    profileMatchScore,
+    profileMatchBand,
     diagnosticScore,
     failedMustHaveRequirements: Array.isArray(raw.failedMustHaveRequirements || raw.failed_must_have_requirements)
       ? (raw.failedMustHaveRequirements || raw.failed_must_have_requirements)
@@ -665,67 +646,6 @@ export async function matchCvDirect(payload: {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.detail || "Matching failed");
   }
-  return res.json();
-}
-
-export type InterviewQuestionPlan = {
-  position: string;
-  language: string;
-  count: number;
-  /** Legacy fields (cũ – có thể không có) */
-  sessionId?: string;
-  candidateId?: string;
-  jobId?: string;
-  stages?: Array<{ name: string; targetCount: number }>;
-};
-
-export type InterviewQuestionItem = {
-  id: string;
-  order: number;
-  /** Tên stage (nếu có plan đa giai đoạn) */
-  stage?: string;
-  /** Vị trí/vai trò phỏng vấn */
-  position?: string;
-  question: string;
-  question_text?: string;
-  created_at?: string;
-};
-
-/**
- * Generate interview questions cho một session.
- *
- * **Kết nối BE**: `POST /ai/session/{session_id}/questions/generate`
- *
- * BE nhận: `{ count, position, language }`
- * BE trả: `{ sessionId, questions: string[], plan: { position, language, count } }`
- *
- * @param params.sessionId  ID session đã tạo bằng createSession()
- * @param params.position   Vị trí/chủ đề phỏng vấn (ví dụ "Software Engineer")
- * @param params.count      Số câu hỏi (1-20, mặc định 5)
- * @param params.language   Ngôn ngữ ("English" | "Vietnamese")
- */
-export async function generateInterviewQuestions(params: {
-  sessionId: string;
-  position?: string;
-  count?: number;
-  language?: string;
-}): Promise<{ sessionId: string; questions: string[]; plan: { position: string; language: string; count: number } }> {
-  const res = await fetch(
-    `${API_BASE_URL}/ai/session/${encodeURIComponent(params.sessionId)}/questions/generate`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...getAuthHeaders(),
-      },
-      body: JSON.stringify({
-        count: params.count ?? 5,
-        position: params.position ?? "General",
-        language: params.language ?? "English",
-      }),
-    }
-  );
-  if (!res.ok) throw new Error("Network response was not ok");
   return res.json();
 }
 

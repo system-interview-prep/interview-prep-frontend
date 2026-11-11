@@ -37,8 +37,7 @@ describe("apiClient Services", () => {
     });
   });
 
-  // NOTE: interviewApi đã bị xóa vì route /interview/* không tồn tại trên BE.
-  // Dùng aiService.createSession() → POST /ai/session để thay thế.
+  // Interview sessions use interviewRuntimeApi → /api/v1/interviews/sessions.
   // it("interviewApi.start should send POST to /interview/start", ...) ← removed
 
   it("userApi.getProfile should send GET to /user/profile", async () => {

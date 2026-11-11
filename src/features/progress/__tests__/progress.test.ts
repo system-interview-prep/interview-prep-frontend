@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { groupByArea, uniqueLabels } from "../components/ProgressPage";
-import { SKILL_AREAS } from "../services/progress.service";
 import { fill, milestoneText, percent, trendTone } from "../utils/progressFormat";
 import { progressVi } from "@/i18n/dicts/progress.dict";
 
@@ -189,22 +188,15 @@ describe("noise-aware progress (research 20/10, mirrors application/progress.py)
 });
 
 describe("skills a candidate can read (research 20/10)", () => {
-  it("groups skills by area in a fixed order and puts unknown ones last", () => {
+  it("groups skills by the area IDs supplied by taxonomy and leaves unclassified skills out", () => {
     const groups = groupByArea([
       { id: "redis", area: "data" as const },
       { id: "cv", area: "project" as const },
       { id: "x" },
       { id: "pg", area: "data" as const },
     ]);
-    expect(groups.map((g) => g.area)).toEqual(["project", "data", "other"]);
-    expect(groups[1].skills.map((s) => s.id)).toEqual(["redis", "pg"]);
-  });
-
-  it("names and explains every area", () => {
-    for (const area of SKILL_AREAS) {
-      expect(progressVi[`practiceProgress.area.${area}`]).toBeTruthy();
-      expect(progressVi[`practiceProgress.area.${area}.desc`]).toBeTruthy();
-    }
+    expect(groups.map((g) => g.area)).toEqual(["data", "project"]);
+    expect(groups[0].skills.map((s) => s.id)).toEqual(["redis", "pg"]);
   });
 });
 

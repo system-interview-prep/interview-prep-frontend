@@ -181,11 +181,11 @@ export type CreateInterviewRuntimeSessionRequest = {
   blueprintId?: string;
 };
 
-/** Rounds made of technical questions (backend interview_rounds.FOCUSABLE_AREAS). */
-export const FOCUS_AREAS = ["language", "framework", "data", "api", "infra", "ai"] as const;
-export type FocusArea = (typeof FOCUS_AREAS)[number];
+/** Taxonomy concept ID selected as a focus group; valid values come from progress data. */
+export type FocusArea = string;
 export function asFocusArea(value: string | null | undefined): FocusArea | undefined {
-  return (FOCUS_AREAS as readonly string[]).includes(value ?? "") ? (value as FocusArea) : undefined;
+  const normalized = value?.trim();
+  return normalized || undefined;
 }
 
 export const interviewRuntimeApi = {

@@ -56,8 +56,11 @@ const scoreChip = "inline-flex items-center rounded-md px-2 py-0.5 font-semibold
 const PIP = ["#A8A8A2", "#E0A030", "#2F8A47", "#204195"];
 const LEVEL_TEXT = ["#4A505C", "#8A5300", "#1E6B34", "#204195"];
 
-function areaName(area: string | undefined, t: Translate): string {
-  return t(`practiceProgress.area.${area ?? "other"}`);
+function areaName(area: string | undefined, t: Translate, labels?: Record<string, string>): string {
+  if (!area) return "";
+  if (labels?.[area]) return labels[area];
+  const translated = t(`practiceProgress.area.${area}`);
+  return translated === `practiceProgress.area.${area}` ? area : translated;
 }
 
 function levelName(level: number, t: Translate): string {
@@ -321,9 +324,9 @@ function StatusCard({
         <p className={cn("text-xl font-semibold leading-snug", conclusion.kind === "down" ? "text-[#B42318]" : "text-[#1E6B34]")}>
           <span aria-hidden="true" className="mr-1.5">{conclusion.kind === "down" ? "▼" : "▲"}</span>
           {conclusion.kind === "up"
-            ? fill(t("practiceProgress.v3.status.up"), { round: areaName(conclusion.round.area, t) })
+            ? fill(t("practiceProgress.v3.status.up"), { round: conclusion.round.areaLabel ?? areaName(conclusion.round.area, t, progress.areaLabels) })
             : conclusion.round
-              ? fill(t("practiceProgress.v3.status.downRound"), { round: areaName(conclusion.round.area, t) })
+              ? fill(t("practiceProgress.v3.status.downRound"), { round: conclusion.round.areaLabel ?? areaName(conclusion.round.area, t, progress.areaLabels) })
               : t("practiceProgress.v3.status.down")}
         </p>
       )}
@@ -447,7 +450,7 @@ function StatusCard({
               className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-3 text-[15px] font-semibold text-[#204195] no-underline hover:border-[#204195] hover:bg-[#F0F4FC]"
             >
               <span aria-hidden="true" className="size-2 rounded-full bg-[#E0A030]" />
-              {areaName(round.area, t)}
+              {round.areaLabel ?? areaName(round.area, t, progress.areaLabels)}
               <ArrowRight className="size-3.5" aria-hidden="true" />
             </a>
           ))}
@@ -475,7 +478,7 @@ function TodayCard({ progress, job, dueGap, onStart }: { progress: PracticeProgr
     : latestMiss
       ? fill(t("practiceProgress.v3.today.newFocusTitle"), { skill: latestMiss.skill })
     : advice
-      ? fill(t("practiceProgress.v3.today.title"), { round: areaName(advice.round.area, t) })
+      ? fill(t("practiceProgress.v3.today.title"), { round: advice.round.areaLabel ?? areaName(advice.round.area, t, progress.areaLabels) })
       : t("practiceProgress.v3.today.top");
   const why = dueGap
     ? fill(t("practiceProgress.v3.today.repeatTask"), {
@@ -488,12 +491,12 @@ function TodayCard({ progress, job, dueGap, onStart }: { progress: PracticeProgr
     : weakestSkill && advice
       ? fill(t("practiceProgress.v3.today.newTask"), {
           skill: weakestSkill.label,
-          round: areaName(advice.round.area, t),
+          round: advice.round.areaLabel ?? areaName(advice.round.area, t, progress.areaLabels),
         })
       : !advice
         ? t("practiceProgress.v3.today.topWhy")
         : advice.reason === "risk"
-          ? fill(t("practiceProgress.v3.today.risk"), { round: areaName(advice.round.area, t) })
+          ? fill(t("practiceProgress.v3.today.risk"), { round: advice.round.areaLabel ?? areaName(advice.round.area, t, progress.areaLabels) })
           : ladderRule(advice.round, t);
   return (
     <section className={cn(card, "flex flex-wrap items-center gap-x-6 gap-y-4 border-[#CFDCF5] border-l-4 border-l-[#204195] bg-[#F7F9FE]")} aria-labelledby="v3-today">
@@ -562,7 +565,7 @@ function FeedbackCard({ progress, jobId }: { progress: PracticeProgress; jobId: 
           <p className="text-sm font-semibold text-[#1E6B34]">▲ {t("practiceProgress.v3.feedback.better")}</p>
           <p className="text-base font-semibold">
             {better.kind === "level"
-              ? fill(t("practiceProgress.v3.feedback.levelUp"), { round: areaName(better.area, t), level: levelName(better.to, t) })
+              ? fill(t("practiceProgress.v3.feedback.levelUp"), { round: areaName(better.area, t, progress.areaLabels), level: levelName(better.to, t) })
               : recordText(better.entry.records[0], t)}
           </p>
         </div>
@@ -732,7 +735,7 @@ function TopicRow({
         )}
       >
         <span className="flex min-w-0 flex-[1_1_180px] flex-wrap items-center gap-2">
-          <span className="text-base font-semibold">{areaName(round.area, t)}</span>
+          <span className="text-base font-semibold">{round.areaLabel ?? areaName(round.area, t)}</span>
           {reached && <span className="rounded-md bg-[#E3F4E7] px-2 py-0.5 text-sm font-semibold text-[#1E6B34]">{t("practiceProgress.v3.topics.reached")}</span>}
           {round.atRisk && <span className="rounded-md bg-[#FDE8E6] px-2 py-0.5 text-sm font-semibold text-[#B42318]">{t("practiceProgress.v3.topics.atRisk")}</span>}
         </span>

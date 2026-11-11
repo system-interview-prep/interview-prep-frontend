@@ -6,7 +6,7 @@ import api from "@/lib/apiClient";
 
 /** Kinds Core accepts (`CONCEPT_KINDS`); kept open so unknown kinds still type-check. */
 export type TaxonomyConceptKind =
-  | "domain" | "occupation" | "job_family" | "job_role" | "skill" | "competency"
+  | "domain" | "occupation" | "job_family" | "job_role" | "skill" | "competency" | "interview_area"
   | (string & {});
 
 export type TaxonomyConcept = {

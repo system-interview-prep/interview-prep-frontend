@@ -89,15 +89,16 @@ export type SkillProgress = {
   level?: number;
   levelEvents?: LevelEvent[];
   /** Area the skill belongs to (application/skill_display.py); `label` is already the candidate-facing name. */
-  area?: SkillArea;
+  area?: SkillArea | null;
+  areaLabel?: string | null;
   taxonomyLabel?: string | null;
   /** Newest first: what was asked, the score and the key points the answer missed. */
   recentQuestions?: SkillQuestion[];
   /** JSON, XML, Git…: listed in job posts, no longer asked as a topic of their own. */
   minor?: boolean;
 };
-export type SkillArea = "project" | "language" | "framework" | "data" | "api" | "infra" | "ai" | "teamwork" | "general" | "other";
-export const SKILL_AREAS: SkillArea[] = ["project", "language", "framework", "data", "api", "infra", "ai", "teamwork", "general", "other"];
+/** Taxonomy concept ID; the taxonomy can add areas without a frontend release. */
+export type SkillArea = string;
 export type SkillQuestion = {
   sessionId: string;
   date: string;
@@ -162,7 +163,7 @@ export type Win = {
 /** "Lần trước – Lần này": a skill asked again after an answer that missed points. */
 export type Retry = {
   skill: string;
-  area: SkillArea;
+  area: SkillArea | null;
   sameQuestion: boolean;
   before: { sessionId: string; date: string; question: string; score: number; missing: SkillQuestion["missing"] };
   now: { question: string; score: number; missing: SkillQuestion["missing"]; covered: number; total: number; checked: boolean };
@@ -196,7 +197,7 @@ export type ProgressCalibration = {
 export type GapItem = {
   skill: string;
   skillKey: string;
-  area: SkillArea;
+  area: SkillArea | null;
   point: string;
   /** Latest status: COVERED for a fixed point. */
   status: "MISSING" | "PARTIAL" | "INCORRECT" | "COVERED";
@@ -230,6 +231,9 @@ export type MatchedPoint = {
 };
 export type RoundReadiness = {
   area: SkillArea;
+  areaLabel?: string | null;
+  focusable?: boolean;
+  alwaysAsked?: boolean;
   status: RoundStatus;
   estimate: number | null;
   sessions: number;
@@ -315,6 +319,9 @@ export type RealInterviewInput = Omit<RealInterviewReport, "id" | "readiness">;
 
 export type PracticeProgress = {
   generatedAt: string;
+  unclassifiedConcepts?: { taxonomyVersion: string | null; conceptId: string; label: string | null }[];
+  areaLabels?: Record<string, string>;
+  areaDefinitions?: { id: SkillArea; label: string; order: number; focusable: boolean; alwaysAsked: boolean }[];
   weeklyGoal: number;
   /** CVs used in graded interviews, most used first (for the CV filter). */
   resumes: { resumeId: string; name: string | null; sessions: number }[];
@@ -367,6 +374,7 @@ export type RoomProgress = Pick<PracticeProgress, "sessions" | "skills" | "jobs"
 export type SkillDelta = { skill: string; before?: number; now: number; delta?: number };
 export type ProgressComparison = {
   sessionId: string;
+  areaLabels?: Record<string, string>;
   previousSessionId: string;
   previousDate: string;
   sameJob: boolean;

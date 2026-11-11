@@ -85,7 +85,7 @@ export function ProgressComparisonCard({ sessionId }: { sessionId: string }) {
         </Link>
       </div>
 
-      {after && <AfterSession after={after} />}
+      {after && <AfterSession after={after} areaLabels={comparison.areaLabels} />}
 
       {overall && (
         <p className="mt-4 text-sm font-semibold text-[#14244B]">
@@ -184,10 +184,10 @@ const AFTER_TONE = {
 };
 
 /** "Sau buổi này": rounds that moved a level, rounds kept, records, against the usual level. */
-function AfterSession({ after }: { after: NonNullable<ProgressComparison["after"]> }) {
+function AfterSession({ after, areaLabels }: { after: NonNullable<ProgressComparison["after"]>; areaLabels?: Record<string, string> }) {
   const { t } = useLanguage();
   const level = (value: number) => t(`practiceProgress.ladder.level.${value}`);
-  const round = (area: string) => t(`practiceProgress.area.${area}`);
+  const round = (area: string) => areaLabels?.[area] ?? (t(`practiceProgress.area.${area}`) === `practiceProgress.area.${area}` ? area : t(`practiceProgress.area.${area}`));
   const downs = after.levelChanges.filter((change) => change.to < change.from);
   return (
     <div className="mt-4 rounded-xl bg-[#FAFBFE] p-3 ring-1 ring-[#DCE4F3] sm:p-4">
@@ -223,7 +223,7 @@ function AfterSession({ after }: { after: NonNullable<ProgressComparison["after"
           <li key={`${record.kind}-${index}`} className="flex flex-wrap items-center gap-2">
             <span className={cn("rounded-lg px-2.5 py-1 text-xs font-bold", AFTER_TONE.best)}>{t("practiceProgress.after.record")}</span>
             <span className="min-w-0">
-              {recordText(record, t)}
+              {recordText(record, t, areaLabels)}
               {record.quote && <span className="italic text-[#33415F]"> “…{record.quote}”</span>}
             </span>
           </li>

@@ -233,11 +233,23 @@ function Scoring({ scoring }: { scoring: NonNullable<MatchRunDetail["scoring"]> 
   const weightTotal = scoring.factors.reduce((sum, factor) => sum + (factor.weight ?? 0), 0) || 1;
   return (
     <div className="space-y-4">
-      <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         <Fact label={t("matching.detail.fit")}>
           {scoring.fitBand ? <Chip tone={FIT_TONE[scoring.fitBand] ?? "neutral"}>{fitBandMatchLabel(scoring.fitBand, t)}</Chip> : "—"}
         </Fact>
         <Fact label={t("matching.detail.suitability")}>{percent(scoring.suitabilityScore)}</Fact>
+        <Fact label={t("matching.detail.profileMatch")} hint={t("matching.detail.profileMatchHint")}>
+          {scoring.profileMatchScore != null ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="tabular-nums">{percent(scoring.profileMatchScore)}</span>
+              {scoring.profileMatchBand ? (
+                <Chip tone="neutral">{t(`matching.band.${scoring.profileMatchBand}`)}</Chip>
+              ) : null}
+            </span>
+          ) : (
+            "—"
+          )}
+        </Fact>
         <Fact label={t("matching.detail.diagnostic")} hint={t("matching.detail.diagnosticHint")}>
           {percent(scoring.diagnosticScore)}
         </Fact>

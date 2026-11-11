@@ -8,7 +8,7 @@ import { useSavedJobs } from "@features/user-dashboard/hooks/useSavedJobs";
 import { useTargetJob } from "@features/user-dashboard/hooks/useTargetJob";
 import { interviewRuntimeApi, type InterviewRuntimeSession } from "@features/interview/services/interviewRuntime.service";
 import { resolveTargetJobId, savedTargetJobs } from "@features/user-dashboard/utils/targetJobs";
-import { progressApi, SKILL_AREAS, type PracticeProgress, type SkillArea } from "../services/progress.service";
+import { progressApi, type PracticeProgress, type SkillArea } from "../services/progress.service";
 import { shortDate } from "../utils/progressFormat";
 import { MoreSection } from "./ProgressOverview";
 import { ProgressV3 } from "./ProgressV3";
@@ -27,11 +27,10 @@ export function uniqueLabels(dates: string[], locale: string): string[] {
     return n === 1 ? base : `${base} (${n})`;
   });
 }
-/** Group skill data in the display order shared with the progress API. */
+/** Group skill data by taxonomy area IDs, preserving the API's first-seen order. */
 export function groupByArea<T extends { area?: SkillArea }>(skills: T[]): { area: SkillArea; skills: T[] }[] {
-  return SKILL_AREAS.map((area) => ({ area, skills: skills.filter((skill) => (skill.area ?? "other") === area) })).filter(
-    (group) => group.skills.length > 0,
-  );
+  const areas = [...new Set(skills.map((skill) => skill.area).filter((area): area is string => Boolean(area)))];
+  return areas.map((area) => ({ area, skills: skills.filter((skill) => skill.area === area) }));
 }
 
 export function ProgressPage({ initialProgress = null }: { initialProgress?: PracticeProgress | null } = {}) {
@@ -132,6 +131,11 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
         </div>
       ) : (
         <>
+          {!!progress.unclassifiedConcepts?.length && (
+            <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              Một số nội dung chưa được phân loại trong taxonomy nên chưa xuất hiện trong tiến độ: {progress.unclassifiedConcepts.map((item) => item.label || item.conceptId).join(", ")}.
+            </p>
+          )}
           <ProgressV3
             progress={progress}
             onGoal={changeGoal}

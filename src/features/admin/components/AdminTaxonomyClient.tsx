@@ -25,9 +25,10 @@ const KIND_TONE: Record<string, string> = {
   domain: "bg-amber-50 text-amber-800",
   occupation: "bg-rose-50 text-rose-700",
   job_family: "bg-indigo-50 text-indigo-700",
+  interview_area: "bg-emerald-50 text-emerald-700",
 };
 
-const KINDS = ["skill", "competency", "domain", "occupation", "job_family"];
+const KINDS = ["skill", "competency", "domain", "occupation", "job_family", "interview_area"];
 const PAGE_SIZE = 20;
 
 type ConceptForm = {
@@ -35,9 +36,10 @@ type ConceptForm = {
   kind: string;
   description: string;
   aliases: string;
+  metadata: string;
   isActive: boolean;
 };
-const EMPTY_CONCEPT: ConceptForm = { label: "", kind: "skill", description: "", aliases: "", isActive: true };
+const EMPTY_CONCEPT: ConceptForm = { label: "", kind: "skill", description: "", aliases: "", metadata: "{}", isActive: true };
 
 /** The concept modal is either adding a new concept or editing one of the active version. */
 type ConceptModal =
@@ -261,6 +263,7 @@ export default function AdminTaxonomyClient() {
       kind: concept.kind,
       description: concept.description || "",
       aliases: (concept.aliases || []).join(", "),
+      metadata: JSON.stringify(concept.metadata ?? {}, null, 2),
       isActive: concept.is_active,
     });
     setConceptModal({ mode: "edit", concept, version: activeVersion });
@@ -284,6 +287,15 @@ export default function AdminTaxonomyClient() {
     }
     const isEdit = conceptModal.mode === "edit";
     const conceptId = isEdit ? conceptModal.concept.concept_id : newConceptId;
+    let metadata: Record<string, unknown>;
+    try {
+      const parsed: unknown = JSON.parse(conceptForm.metadata || "{}");
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("metadata must be an object");
+      metadata = parsed as Record<string, unknown>;
+    } catch {
+      setConceptError("Metadata phải là một đối tượng JSON hợp lệ.");
+      return;
+    }
     if (!conceptId) {
       setConceptError(t("fixAdmin.taxonomy.labelRequired"));
       return;
@@ -301,7 +313,7 @@ export default function AdminTaxonomyClient() {
         kind: conceptForm.kind,
         description: conceptForm.description.trim(),
         aliases: splitAliases(conceptForm.aliases),
-        metadata: isEdit ? conceptModal.concept.metadata ?? {} : {},
+        metadata,
         isActive: conceptForm.isActive,
       });
       setConceptModal(null);
@@ -775,6 +787,19 @@ export default function AdminTaxonomyClient() {
                 onChange={(e) => setConceptForm({ ...conceptForm, aliases: e.target.value })}
                 className={fieldClass}
               />
+            </label>
+            <label className={`${labelClass} sm:col-span-2`}>
+              Metadata (JSON)
+              <textarea
+                rows={7}
+                value={conceptForm.metadata}
+                onChange={(e) => setConceptForm({ ...conceptForm, metadata: e.target.value })}
+                className={`${fieldClass} resize-y font-mono text-xs`}
+                spellCheck={false}
+              />
+              <span className="mt-1 block text-[11px] font-normal text-[#607096]">
+                Area: <code>{'{"interviewArea":{"order":10,"focusable":true,"alwaysAsked":false}}'}</code>. Skill: <code>{'{"interview":{"areaConceptId":"interview-area-data","questionMode":"standalone","trackProgress":true}}'}</code>.
+              </span>
             </label>
             <label className="flex items-center gap-3 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-3 py-2.5 text-sm font-semibold text-[#14244B] sm:col-span-2">
               <input

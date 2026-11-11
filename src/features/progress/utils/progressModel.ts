@@ -521,12 +521,9 @@ export function evidenceOf(sessions: ProgressSession[]): EvidenceMetric[] {
 // Rounds, gaps and practice (research 20/10, "Ứng viên có quan tâm không"):
 // before a real interview a candidate asks "am I ready, what will they ask
 // and where am I still weak, what do I practise now". The backend groups the
-// answers by interview round (core/interview_rounds.py) and follows each key
+// answers by taxonomy skill group (modules/taxonomy/interview_groups.py) and follows each key
 // point across sessions (progress.gap_notebook).
 // --------------------------------------------------------------------------
-
-/** Technical rounds a session can focus on (backend interview_rounds.FOCUSABLE_AREAS). */
-export const FOCUSABLE_AREAS: SkillArea[] = ["language", "framework", "data", "api", "infra", "ai"];
 
 /** The position the readiness card is about: the filtered one, else the most practised. */
 export function jobReadinessOf(progress: PracticeProgress, jobId: string | "all" = "all"): JobReadiness | null {
@@ -564,7 +561,7 @@ export function practiceHref(
 ): string {
   if (!jobId || !resumeId) return "/interview/select";
   const params = new URLSearchParams({ candidateId: resumeId, jobId });
-  if (area && FOCUSABLE_AREAS.includes(area)) params.set("focus", area);
+  if (area) params.set("focus", area);
   // Skills known only by their label cannot be planned again (backend skill_key "label:…").
   if (reask && reask.conceptId && !reask.conceptId.startsWith("label:")) {
     params.set("reask", reask.conceptId);
@@ -621,7 +618,7 @@ export function adviceRoundOf(job: JobReadiness | null): { round: RoundReadiness
     .filter((round) => (round.level ?? 0) < ROUND_READY_LEVEL)
     .sort((a, b) => (a.level ?? 0) - (b.level ?? 0) || last(a) - last(b))[0];
   if (low) return { round: low, reason: "lowest" };
-  const unseen = job.rounds.find((round) => (round.series?.length ?? round.sessions) === 0 && FOCUSABLE_AREAS.includes(round.area));
+  const unseen = job.rounds.find((round) => (round.series?.length ?? round.sessions) === 0 && round.focusable);
   return unseen ? { round: unseen, reason: "lowest" } : null;
 }
 

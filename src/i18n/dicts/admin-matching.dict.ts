@@ -218,6 +218,12 @@ export const adminMatchingVi: Record<string, string> = {
   "matching.detail.suitability": "Điểm phù hợp",
   "matching.detail.diagnostic": "Điểm tham khảo",
   "matching.detail.diagnosticHint": "Tính cả khi chưa qua điều kiện bắt buộc",
+  "matching.detail.profileMatch": "Độ khớp hồ sơ",
+  "matching.detail.profileMatchHint":
+    "Mức trùng khớp giữa nội dung CV và tin tuyển dụng. Luôn có, kể cả khi trượt điều kiện bắt buộc. Trùng nhiều KHÔNG có nghĩa là nên tuyển.",
+  "matching.band.below_typical": "Dưới mức thường gặp",
+  "matching.band.typical": "Mức thường gặp",
+  "matching.band.above_typical": "Trên mức thường gặp",
   "matching.detail.eligibility": "Điều kiện bắt buộc",
   "matching.detail.compatibility": "Hình thức làm việc",
   "matching.detail.provenance": "Cơ sở tính điểm",

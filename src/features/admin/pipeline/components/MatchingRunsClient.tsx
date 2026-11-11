@@ -112,6 +112,16 @@ function RunRow({ run }: { run: MatchRun }) {
               {run.suitabilityScore != null ? (
                 <span className="text-sm font-bold tabular-nums text-[#14244B]">{percent(run.suitabilityScore)}</span>
               ) : null}
+              {/* Overlap is published for every run, including those the gate rejected,
+                  so it is the only number visible on a run with no suitability score. */}
+              {run.profileMatchScore != null ? (
+                <span
+                  className="text-sm tabular-nums text-[#607096]"
+                  title={t("matching.detail.profileMatchHint")}
+                >
+                  {t("matching.detail.profileMatch")} {percent(run.profileMatchScore)}
+                </span>
+              ) : null}
             </span>
             <span className="text-[11px] tabular-nums text-[#607096]">
               {clock(run.startedAt)} · {run.durationMs != null ? formatMs(run.durationMs) : "—"}

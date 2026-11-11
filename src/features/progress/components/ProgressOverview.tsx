@@ -19,7 +19,6 @@ import { fill, shortDate, tierLabel } from "../utils/progressFormat";
 import {
   adviceRoundOf,
   dueOf,
-  FOCUSABLE_AREAS,
   LADDER_BASIC,
   LADDER_SOLID,
   LADDER_SOLID_RUN,
@@ -69,14 +68,17 @@ function levelName(level: number, t: Translate): string {
   return t(`practiceProgress.ladder.level.${level}`);
 }
 
-function areaName(area: string | undefined, t: Translate): string {
-  return t(`practiceProgress.area.${area ?? "other"}`);
+function areaName(area: string | undefined, t: Translate, labels?: Record<string, string>): string {
+  if (!area) return "";
+  if (labels?.[area]) return labels[area];
+  const translated = t(`practiceProgress.area.${area}`);
+  return translated === `practiceProgress.area.${area}` ? area : translated;
 }
 
-export function recordText(record: TimelineRecord, t: Translate): string {
+export function recordText(record: TimelineRecord, t: Translate, labels?: Record<string, string>): string {
   if (record.kind === "best_round") {
     return fill(t("practiceProgress.records.best_round"), {
-      round: areaName(record.area, t),
+      round: areaName(record.area, t, labels),
       tier: tierLabel(record.tier, t),
       score: record.score?.toFixed(1) ?? "—",
     });
@@ -171,12 +173,12 @@ export function WeekCard({ progress, job }: { progress: PracticeProgress; job: J
   );
   // Only good news earns a sentence: a part that moved up this week.
   const sentence = ups.length
-    ? ups.map((up) => fill(t("practiceProgress.week.levelUp"), { round: areaName(up.area, t), level: levelName(up.to, t) })).join(" · ")
+    ? ups.map((up) => fill(t("practiceProgress.week.levelUp"), { round: areaName(up.area, t, progress.areaLabels), level: levelName(up.to, t) })).join(" · ")
     : null;
   const advice = adviceRoundOf(job);
   const adviceText = advice
     ? fill(t(advice.reason === "risk" ? "practiceProgress.week.nextRisk" : "practiceProgress.week.next"), {
-        round: areaName(advice.round.area, t),
+        round: advice.round.areaLabel ?? areaName(advice.round.area, t, progress.areaLabels),
       })
     : t("practiceProgress.week.nextTop");
   const href = practiceHref(job.jobId, lastResumeFor(progress, job.jobId), advice?.round.area);
@@ -311,7 +313,7 @@ function RoundDetail({ progress, job, round }: { progress: PracticeProgress; job
     .filter((item, index, all) => all.findIndex((other) => other.sessionId === item.sessionId && other.question === item.question) === index)
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, QUESTIONS_SHOWN);
-  const focusable = FOCUSABLE_AREAS.includes(round.area);
+  const focusable = Boolean(round.focusable);
   return (
     <div className="space-y-5 rounded-2xl bg-[#F8FAFC] p-4 ring-1 ring-[#EAEFF8] sm:p-5">
       <p className="text-sm font-semibold text-[#14244B]">
@@ -410,7 +412,7 @@ function StrengthRow({
       <button type="button" aria-expanded={open} onClick={onToggle} className="flex w-full items-start gap-3 py-3 text-left">
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-[15px] font-bold text-[#14244B]">{areaName(round.area, t)}</span>
+            <span className="text-[15px] font-bold text-[#14244B]">{round.areaLabel ?? areaName(round.area, t)}</span>
             <span
               className={cn(
                 "whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold",
@@ -501,7 +503,7 @@ export function StrengthsCard({ progress, job }: { progress: PracticeProgress; j
       )}
       {split.unseen.length > 0 && (
         <p className="mt-3 text-xs text-[#607096]">
-          {fill(t("practiceProgress.strengths.unseen"), { rounds: split.unseen.map((round) => areaName(round.area, t)).join(", ") })}
+          {fill(t("practiceProgress.strengths.unseen"), { rounds: split.unseen.map((round) => round.areaLabel ?? areaName(round.area, t, progress.areaLabels)).join(", ") })}
         </p>
       )}
     </section>
@@ -592,7 +594,7 @@ export function DueCard({ progress, gaps }: { progress: PracticeProgress; gaps: 
 }
 
 /** "Kỷ lục gần đây": things done for the first time, and a round's best score at a tier. */
-export function RecordsCard({ timeline, jobId }: { timeline: TimelineEntry[]; jobId: string | null }) {
+export function RecordsCard({ timeline, jobId, labels }: { timeline: TimelineEntry[]; jobId: string | null; labels?: Record<string, string> }) {
   const { t, lang } = useLanguage();
   const locale = localeOf(lang);
   const records = recentRecords(timeline, jobId);
@@ -609,11 +611,11 @@ export function RecordsCard({ timeline, jobId }: { timeline: TimelineEntry[]; jo
                 <Trophy className="size-4 text-[#A86B00]" />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-bold text-[#14244B]">{recordText(record, t)}</span>
+                <span className="block text-sm font-bold text-[#14244B]">{recordText(record, t, labels)}</span>
                 {record.quote && <span className="mt-0.5 block text-xs italic text-[#33415F]">“…{record.quote}”</span>}
                 <Link href={`/interview/results/${record.sessionId}`} className="mt-0.5 block text-xs text-[#607096] hover:underline">
                   {shortDate(record.date, locale)}
-                  {record.kind === "best_round" ? "" : record.area ? ` · ${areaName(record.area, t)}` : ""}
+                  {record.kind === "best_round" ? "" : record.area ? ` · ${areaName(record.area, t, labels)}` : ""}
                 </Link>
               </span>
             </li>
@@ -636,18 +638,19 @@ export function timelineChips(
   entry: TimelineEntry,
   older: TimelineEntry[],
   t: Translate,
+  labels?: Record<string, string>,
 ): { text: string; tone: keyof typeof CHIP }[] {
   const chips: { text: string; tone: keyof typeof CHIP }[] = [];
   for (const change of entry.levelChanges) {
     const key = change.to > change.from ? "practiceProgress.timeline.up" : "practiceProgress.timeline.down";
     chips.push({
-      text: fill(t(key), { round: areaName(change.area, t), level: levelName(change.to, t) }),
+      text: fill(t(key), { round: areaName(change.area, t, labels), level: levelName(change.to, t) }),
       tone: change.to > change.from ? "up" : "down",
     });
   }
   if (entry.kept > 0) chips.push({ text: fill(t("practiceProgress.timeline.kept"), { n: entry.kept }), tone: "same" });
   for (const record of entry.records) {
-    chips.push({ text: fill(t("practiceProgress.timeline.record"), { text: recordText(record, t) }), tone: "best" });
+    chips.push({ text: fill(t("practiceProgress.timeline.record"), { text: recordText(record, t, labels) }), tone: "best" });
   }
   if (older.length > 0 && !older.some((item) => item.tier === entry.tier)) {
     chips.push({ text: fill(t("practiceProgress.timeline.newTier"), { tier: tierLabel(entry.tier, t) }), tone: "down" });
@@ -658,7 +661,7 @@ export function timelineChips(
 const TIMELINE_SHOWN = 5;
 
 /** "Sau mỗi buổi đã thay đổi gì", newest first, each session against the usual level. */
-export function TimelineCard({ timeline, jobId }: { timeline: TimelineEntry[]; jobId: string | null }) {
+export function TimelineCard({ timeline, jobId, labels }: { timeline: TimelineEntry[]; jobId: string | null; labels?: Record<string, string> }) {
   const { t, lang } = useLanguage();
   const locale = localeOf(lang);
   const [shown, setShown] = useState(TIMELINE_SHOWN);
@@ -685,7 +688,7 @@ export function TimelineCard({ timeline, jobId }: { timeline: TimelineEntry[]; j
               {t(`practiceProgress.timeline.baseline.${entry.baseline ?? "none"}`)}
             </span>
             <span className="flex min-w-0 flex-[1_1_300px] flex-wrap gap-1.5">
-              {timelineChips(entry, entries.slice(index + 1), t).map((chip) => (
+              {timelineChips(entry, entries.slice(index + 1), t, labels).map((chip) => (
                 <span key={chip.text} className={cn("rounded-lg px-2.5 py-1 text-xs font-semibold", CHIP[chip.tone])}>
                   {chip.text}
                 </span>
@@ -726,7 +729,7 @@ export function FirstSessionView({ progress, job, gaps }: { progress: PracticePr
             const first = round.series?.[0];
             return (
               <li key={round.area} className="flex min-h-[48px] items-center gap-3 border-t border-[#EEF2F8]">
-                <span className="min-w-0 flex-1 text-[15px] font-semibold text-[#14244B]">{areaName(round.area, t)}</span>
+                <span className="min-w-0 flex-1 text-[15px] font-semibold text-[#14244B]">{round.areaLabel ?? areaName(round.area, t, progress.areaLabels)}</span>
                 <span className="shrink-0 text-sm text-[#607096]">
                   {first ? fill(t("practiceProgress.start.first"), { score: first.score.toFixed(1) }) : t("practiceProgress.start.notAsked")}
                 </span>
@@ -744,7 +747,7 @@ export function FirstSessionView({ progress, job, gaps }: { progress: PracticePr
               <p className="text-[15px] font-bold text-[#14244B]">{t("practiceProgress.start.second")}</p>
               <p className="text-xs text-[#607096]">
                 {advice
-                  ? fill(t("practiceProgress.start.secondDesc"), { round: areaName(advice.round.area, t) })
+                  ? fill(t("practiceProgress.start.secondDesc"), { round: advice.round.areaLabel ?? areaName(advice.round.area, t, progress.areaLabels) })
                   : t("practiceProgress.start.secondAny")}
               </p>
               <Link

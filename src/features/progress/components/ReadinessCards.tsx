@@ -23,7 +23,7 @@ import {
   type Win,
 } from "../services/progress.service";
 import { fill, shortDate } from "../utils/progressFormat";
-import { FOCUSABLE_AREAS, lastResumeFor, practiceHref } from "../utils/progressModel";
+import { lastResumeFor, practiceHref } from "../utils/progressModel";
 
 /*
  * Research 20/10 ("Ứng viên có quan tâm không"): before a real interview the
@@ -93,16 +93,16 @@ export function RoundsCard({
       </div>
       <ul className="mt-4 divide-y divide-[#EEF2F8]">
         {job.rounds.map((round) => {
-          const focusable = FOCUSABLE_AREAS.includes(round.area) && round.status !== "ready";
+          const focusable = Boolean(round.focusable) && round.status !== "ready";
           return (
             <li key={round.area} className="py-3 first:pt-0 last:pb-0">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-[#14244B]">{t(`practiceProgress.area.${round.area}`)}</p>
+                <p className="text-sm font-semibold text-[#14244B]">{round.areaLabel ?? progress.areaLabels?.[round.area] ?? t(`practiceProgress.area.${round.area}`)}</p>
                 <StatusChip status={round.status} />
               </div>
               <p className="mt-1 text-xs text-[#607096]">
                 {round.status === "unseen"
-                  ? t(`practiceProgress.rounds.unseen.${round.area === "project" || round.area === "teamwork" ? "always" : "other"}`)
+                  ? t(`practiceProgress.rounds.unseen.${round.alwaysAsked ? "always" : "other"}`)
                   : fill(t("practiceProgress.rounds.line"), {
                       score: round.estimate?.toFixed(1) ?? "—",
                       n: round.sessions,
@@ -276,7 +276,7 @@ export function GapNotebookCard({
               <p className="mt-0.5 text-sm font-semibold text-[#14244B]">{gap.point}</p>
               <p className="mt-1 text-[11px] text-[#607096]">
                 {fill(t("practiceProgress.gaps.meta"), {
-                  round: t(`practiceProgress.area.${gap.area}`),
+                  round: (gap.area && progress.areaLabels?.[gap.area]) ?? gap.area ?? "",
                   skill: gap.skill,
                   missed: gap.timesMissed,
                   asked: gap.timesAsked,
@@ -343,7 +343,6 @@ export function GapNotebookCard({
 
 const STAGES: RealInterviewStage[] = ["screening", "technical", "final", "other"];
 const RESULTS: RealInterviewResult[] = ["passed", "failed", "waiting"];
-const ASKABLE: SkillArea[] = ["project", "language", "framework", "data", "api", "infra", "ai", "teamwork"];
 const RESULT_TONE: Record<RealInterviewResult, string> = {
   passed: "bg-[#E7F5EC] text-[#1F5C3A] ring-[#BFE3CC]",
   failed: "bg-[#FDECEC] text-[#9B2C2C] ring-[#F3C4C4]",
@@ -371,12 +370,14 @@ function RealInterviewDialog({
   open,
   initial,
   jobs,
+  areas,
   onClose,
   onSaved,
 }: {
   open: boolean;
   initial: RealInterviewReport | null;
   jobs: { jobId: string; jobTitle: string | null }[];
+  areas: { id: SkillArea; label: string }[];
   onClose: () => void;
   onSaved: (report: RealInterviewReport) => void;
 }) {
@@ -515,20 +516,20 @@ function RealInterviewDialog({
         <fieldset className="mt-4">
           <legend className="text-xs font-semibold text-[#607096]">{t("practiceProgress.real.asked")}</legend>
           <div className="mt-2 flex flex-wrap gap-2">
-            {ASKABLE.map((area) => {
-              const on = form.askedAreas.includes(area);
+            {areas.map((area) => {
+              const on = form.askedAreas.includes(area.id);
               return (
                 <button
-                  key={area}
+                  key={area.id}
                   type="button"
                   aria-pressed={on}
-                  onClick={() => toggleArea(area)}
+                  onClick={() => toggleArea(area.id)}
                   className={cn(
                     "rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition-colors",
                     on ? "bg-[#204195] text-white ring-[#204195]" : "bg-white text-[#14244B] ring-[#DCE4F3] hover:bg-[#F0F4FC]",
                   )}
                 >
-                  {t(`practiceProgress.area.${area}`)}
+                  {area.label}
                 </button>
               );
             })}
@@ -654,7 +655,7 @@ export function RealInterviewsCard({ progress, initialReports = null }: { progre
                   {report.askedAreas.length > 0 && (
                     <p className="mt-1 text-xs text-[#607096]">
                       {fill(t("practiceProgress.real.askedLine"), {
-                        rounds: report.askedAreas.map((area) => t(`practiceProgress.area.${area}`)).join(", "),
+                        rounds: report.askedAreas.map((area) => progress.areaLabels?.[area] ?? t(`practiceProgress.area.${area}`)).join(", "),
                       })}
                     </p>
                   )}
@@ -662,7 +663,7 @@ export function RealInterviewsCard({ progress, initialReports = null }: { progre
                   {weak.length > 0 && (
                     <p className="mt-1 text-xs text-[#8A5A0B]">
                       {fill(t("practiceProgress.real.notReady"), {
-                        rounds: weak.map((area) => t(`practiceProgress.area.${area}`)).join(", "),
+                        rounds: weak.map((area) => progress.areaLabels?.[area] ?? t(`practiceProgress.area.${area}`)).join(", "),
                       })}
                     </p>
                   )}
@@ -691,6 +692,7 @@ export function RealInterviewsCard({ progress, initialReports = null }: { progre
         open={dialogOpen}
         initial={editing}
         jobs={jobs}
+        areas={(progress.areaDefinitions ?? []).map(({ id, label }) => ({ id, label }))}
         onClose={() => setDialogOpen(false)}
         onSaved={(saved) => {
           setReports((list) =>
