@@ -469,7 +469,7 @@ export function DashboardOverview({
       </section>
 
       <section className="rounded-lg border border-[#E4E4E0] bg-white p-5 sm:p-6" aria-labelledby="home-overview-title">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
             <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-[#204195]">Bài tập tiếp theo</p>
@@ -496,12 +496,12 @@ export function DashboardOverview({
             {dueGap ? <p className="mt-1 text-sm text-[#607096]">Câu hỏi cần trả lời lại: {dueGap.lastSeen.question}</p> : null}
             {focus ? <p className="mt-1 text-xs text-[#607096]">Nguồn gợi ý: buổi {new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" }).format(new Date(focus.latest.endedAt ?? focus.latest.startedAt))} · {focus.latest.mode === "text" ? "Phòng Chat" : focus.latest.mode === "voice" ? "Phòng Voice" : "Phòng Video"}</p> : null}
           </div>
-            <div aria-hidden="true" className="relative hidden h-32 w-36 shrink-0 sm:block lg:h-36 lg:w-44">
+            <div aria-hidden="true" className="relative hidden shrink-0 xl:block xl:h-36 xl:w-44">
               <Image src="/img/JD_Checklist_Icons.png" alt="" fill sizes="176px" className="object-contain" />
             </div>
           </div>
-          <div className="grid shrink-0 grid-cols-2 gap-3 sm:min-w-56">
-            <div className="rounded-lg bg-[#F7F9FE] p-3">
+          <div className="grid w-full min-w-0 shrink-0 grid-cols-2 gap-3 lg:w-80 xl:w-[22rem]">
+            <div className="min-w-0 rounded-lg bg-[#F7F9FE] p-3">
               <p className="text-xs font-semibold text-[#607096]">Tổng số buổi đã tham gia</p>
               <p className="mt-1 text-xl font-bold tabular-nums text-[#204195]">
                 {!sessionsAvailable
@@ -510,19 +510,19 @@ export function DashboardOverview({
                     ? <>{attendedSessions.length} <span className="text-sm font-medium">buổi</span></>
                     : "Chưa có buổi nào"}
               </p>
-              <p className="mt-1 text-xs leading-snug text-[#607096]">Cộng dồn trên mọi công việc và phòng luyện.</p>
+              <p className="mt-1 text-xs leading-snug text-[#607096] [overflow-wrap:anywhere]">Cộng dồn trên mọi công việc và phòng luyện.</p>
               <button type="button" onClick={() => onNavigate("/dashboard/job-results")} className="mt-1.5 text-xs font-semibold text-[#204195] underline-offset-4 hover:underline">
                 Xem tổng quan →
               </button>
             </div>
-            <div className="rounded-lg bg-[#F7F9FE] p-3">
+            <div className="min-w-0 rounded-lg bg-[#F7F9FE] p-3">
               <p className="text-xs text-[#607096]">Buổi luyện gần nhất</p>
               {lastReport ? (
                 <>
                   <p className="mt-1 text-xl font-bold tabular-nums text-[#204195]">
                     {hasScore(lastReport) ? `${lastReport.overallScore.toFixed(1)}/10` : "Chưa có điểm"}
                   </p>
-                  <p className="mt-1 text-xs leading-snug text-[#607096]">
+                  <p className="mt-1 text-xs leading-snug text-[#607096] [overflow-wrap:anywhere]">
                     {lastReport.jobTitle || "Phỏng vấn chung"} · {new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" }).format(new Date(lastReport.endedAt ?? lastReport.startedAt))} · {lastReport.mode === "text" ? "Phòng Chat" : lastReport.mode === "voice" ? "Phòng Voice" : "Phòng Video"}
                   </p>
                   <button type="button" onClick={() => onNavigate(sessionHref(lastReport))} className="mt-1.5 text-xs font-semibold text-[#204195] underline-offset-4 hover:underline">
