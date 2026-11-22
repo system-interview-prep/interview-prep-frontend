@@ -85,10 +85,15 @@ export function ClarificationPanel({
 
   const byId = new Map(requirements.map((item) => [item.id, item]));
   const outcomeById = new Map(processedAnswers.map((item) => [item.requirementId, item]));
+  // A question that already came back with an outcome has been answered. Leaving
+  // it in here kept the box editable and the button live, so the same answer
+  // could be sent again and again with no sign it had landed the first time.
   const readyAnswers = requests.flatMap((request) => {
-          const answerText = (answers[request.requirementId] ?? "").trim();
+    if (outcomeById.has(request.requirementId)) return [];
+    const answerText = (answers[request.requirementId] ?? "").trim();
     return answerText ? [{ requirementId: request.requirementId, answerText }] : [];
   });
+  const hasUnanswered = requests.some((request) => !outcomeById.has(request.requirementId));
 
   const submitAnswers = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -129,20 +134,31 @@ export function ClarificationPanel({
               <p className="mt-2 text-sm font-medium leading-6 text-[#14244B]">
                 {request.questionText}
               </p>
-              <textarea
-                id={`clarification-answer-${request.requirementId}`}
-                value={answers[request.requirementId] ?? ""}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  if (onAnswerChange) onAnswerChange(request.requirementId, value);
-                  else setLocalAnswers((current) => ({ ...current, [request.requirementId]: value }));
-                }}
-                rows={3}
-                maxLength={5000}
-                placeholder={t("fit.clar.placeholder")}
-                disabled={submitting}
-                className="mt-2 w-full resize-y rounded-xl border border-[#DCE4F3] bg-white px-3 py-2 text-sm text-[#14244B] outline-none transition focus:border-[#204195] focus:ring-2 focus:ring-[#204195]/10 disabled:opacity-60"
-              />
+              {outcome ? (
+                <div className="mt-2 rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-3 py-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8A99B8]">
+                    {t("fit.clar.answered")}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-[#14244B]">
+                    {answers[request.requirementId] ?? ""}
+                  </p>
+                </div>
+              ) : (
+                <textarea
+                  id={`clarification-answer-${request.requirementId}`}
+                  value={answers[request.requirementId] ?? ""}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (onAnswerChange) onAnswerChange(request.requirementId, value);
+                    else setLocalAnswers((current) => ({ ...current, [request.requirementId]: value }));
+                  }}
+                  rows={3}
+                  maxLength={5000}
+                  placeholder={t("fit.clar.placeholder")}
+                  disabled={submitting}
+                  className="mt-2 w-full resize-y rounded-xl border border-[#DCE4F3] bg-white px-3 py-2 text-sm text-[#14244B] outline-none transition focus:border-[#204195] focus:ring-2 focus:ring-[#204195]/10 disabled:opacity-60"
+                />
+              )}
               {outcome && (
                 <p className="mt-2 text-xs text-[#607096]" role="status">
                   {fmt(t("fit.clar.outcomeLine"), { status: t(STATUS_LABEL_KEYS[outcome.status]) })}
@@ -152,7 +168,7 @@ export function ClarificationPanel({
           );
         })}
 
-        <div className="flex justify-end">
+        <div className={`justify-end ${hasUnanswered ? "flex" : "hidden"}`}>
           <button
             type="submit"
             disabled={submitting || readyAnswers.length === 0}

@@ -73,6 +73,9 @@ export type JobProfile = {
   structuredData?: Record<string, unknown> | null;
   /** extractor metadata retained for audit and troubleshooting */
   extractedMetadata?: Record<string, unknown> | null;
+  /** Raw text the parser read out of the uploaded document (BE field: sourceText). */
+  sourceText?: string | null;
+  /** @deprecated The backend sends `sourceText`; kept so older callers still compile. */
   rawJdText?: string | null;
   createdAt: string;
   updatedAt: string;
