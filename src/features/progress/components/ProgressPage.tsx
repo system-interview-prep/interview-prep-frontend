@@ -10,6 +10,7 @@ import { interviewRuntimeApi, type InterviewRuntimeSession } from "@features/int
 import { resolveTargetJobId, savedTargetJobs } from "@features/user-dashboard/utils/targetJobs";
 import { progressApi, type PracticeProgress, type SkillArea } from "../services/progress.service";
 import { shortDate } from "../utils/progressFormat";
+import { GardenCard } from "./GardenCard";
 import { MoreSection } from "./ProgressOverview";
 import { ProgressV3 } from "./ProgressV3";
 import { RealInterviewsCard } from "./ReadinessCards";
@@ -136,6 +137,7 @@ export function ProgressPage({ initialProgress = null }: { initialProgress?: Pra
               Một số nội dung chưa được phân loại trong taxonomy nên chưa xuất hiện trong tiến độ: {progress.unclassifiedConcepts.map((item) => item.label || item.conceptId).join(", ")}.
             </p>
           )}
+          {progress.garden && <GardenCard garden={progress.garden} activity={progress.activity} />}
           <ProgressV3
             progress={progress}
             onGoal={changeGoal}

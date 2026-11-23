@@ -148,6 +148,8 @@ export type WeeklyStreak = {
 /** Practice days of the last 12 weeks (the calendar). */
 export type ActivityDay = { date: string; started: number; valid: number; fixed: number };
 export type Activity = { from: string; to: string; days: ActivityDay[] };
+/** The practice garden: distinct days with a valid session, and the run of days up to today. */
+export type Garden = { days: number; wateredToday: boolean; dayStreak: number };
 
 /** "Ghi nhận nhỏ": a concrete thing done for the first time. */
 export type Win = {
@@ -326,6 +328,8 @@ export type PracticeProgress = {
   /** CVs used in graded interviews, most used first (for the CV filter). */
   resumes: { resumeId: string; name: string | null; sessions: number }[];
   streak: WeeklyStreak;
+  /** Absent on backends older than 23/11. */
+  garden?: Garden;
   sessions: ProgressSession[];
   skills: SkillProgress[];
   jobs: JobProgress[];

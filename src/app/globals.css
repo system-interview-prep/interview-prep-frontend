@@ -163,6 +163,58 @@
   background: linear-gradient(100deg, #F0F4FC 30%, #F8FAFC 50%, #F0F4FC 70%) 0 0 / 200% 100%;
   animation: anim-shimmer 1.4s ease-in-out infinite;
 }
+/* ── Practice garden (progress page) ──
+   garden-drip   one drop swells at the spout, falls, then rests ~3s
+   garden-pour   the can tips once, the first visit after practising that day
+   Drops travel the height of their .garden-track (100cqh), so the same
+   keyframes fit every plant size.                                          */
+.garden-track { container-type: size; }
+.garden-can { transform: rotate(-20deg); }
+.garden-can-pour { animation: garden-pour 3s ease-in-out; }
+.garden-drip { opacity: 0; transform-origin: 50% 0; animation: garden-drip 5.5s linear infinite; }
+.garden-ring { opacity: 0; animation: garden-ring 5.5s linear infinite; }
+.garden-fall { opacity: 0; transform-origin: 50% 0; animation: garden-fall 1s ease-in forwards; }
+.garden-splash { opacity: 0; animation: garden-splash .7s ease-out forwards; }
+.garden-scent path { opacity: 0; animation: garden-scent 5.4s ease-in-out infinite; }
+.garden-scent path:nth-child(2) { animation-delay: 1.8s; }
+.garden-scent path:nth-child(3) { animation-delay: 3.6s; }
+@keyframes garden-pour {
+  0%, 100% { transform: rotate(-20deg); }
+  16%, 84% { transform: translate(-22%, 10%) rotate(-48deg); }
+}
+@keyframes garden-drip {
+  0% { opacity: 0; transform: scale(.1); }
+  3% { opacity: 1; }
+  29% { transform: scale(1); }
+  31% { transform: scale(.9, 1.15); animation-timing-function: cubic-bezier(.5, 0, 1, .5); }
+  42% { opacity: 1; transform: translateY(100cqh) scale(.85, 1.25); }
+  43%, 100% { opacity: 0; transform: translateY(100cqh) scale(.85, 1.25); }
+}
+@keyframes garden-ring {
+  0%, 41% { opacity: 0; transform: scale(.3); }
+  43% { opacity: .9; transform: scale(.3); }
+  53%, 100% { opacity: 0; transform: scale(1.6); }
+}
+@keyframes garden-fall {
+  0% { opacity: 0; transform: scale(.2); }
+  18%, 28% { opacity: 1; transform: scale(1); }
+  92% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(100cqh) scaleY(1.2); }
+}
+@keyframes garden-splash {
+  0% { opacity: .9; transform: scale(.3); }
+  100% { opacity: 0; transform: scale(1.7); }
+}
+@keyframes garden-scent {
+  0% { opacity: 0; transform: translateY(7px); }
+  35% { opacity: .85; }
+  100% { opacity: 0; transform: translateY(-12px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .garden-can-pour, .garden-ring, .garden-fall, .garden-splash { animation: none; }
+  .garden-drip { animation: none; opacity: 1; }
+  .garden-scent path { animation: none; opacity: .6; }
+}
 .press { transition: transform .12s ease-out; }
 .press:active { transform: scale(.97); }
 @media (prefers-reduced-motion: reduce) {

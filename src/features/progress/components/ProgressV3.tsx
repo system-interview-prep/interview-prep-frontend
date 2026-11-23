@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, Flame, Play } from "lucide-react";
+import { ArrowRight, ChevronDown, Play } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { localeOf } from "@/i18n/format";
 import { cn } from "@/utils";
 import type { JobProfile } from "@features/admin/services/jobProfile.service";
 import type { InterviewRuntimeSession } from "@features/interview/services/interviewRuntime.service";
+import { Pagination } from "@components/shared/Pagination";
 import { JobInterviewCvModal } from "@features/user-dashboard/components/JobInterviewCvModal";
 import type { GapItem, JobReadiness, PracticeProgress, ProgressSession, RoomName, RoundReadiness } from "../services/progress.service";
 import { fill, longDate, percent, shortDate, trendLabel } from "../utils/progressFormat";
+import { usePaged } from "../utils/usePaged";
 import { adviceRoundOf, dueOf, readyCountOf, recentRecords, ROUND_READY_LEVEL, skillStats } from "../utils/progressModel";
 import {
   conclusionOf,
@@ -163,6 +165,10 @@ export function ProgressV3({
   };
 
   const other: RoomName = room === "chat" ? "voice" : "chat";
+  // Sessions to resume sit right under today's task; without a scored session they follow the first-practice card.
+  const runtimeCard = job ? (
+    <RuntimeSessionStatusCard progressSessions={progress.sessions} runtimeSessions={runtimeSessions} jobId={job.jobId} room={room} />
+  ) : null;
   return (
     <div className="space-y-5 text-[#16181D]">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -226,8 +232,9 @@ export function ProgressV3({
         />
       ) : (
         <>
-          <StatusCard progress={data} job={job} onGoal={onGoal} savingGoal={savingGoal} onTopic={goTopic} />
           <TodayCard progress={data} job={job} dueGap={primaryDueGap} onStart={(args) => setSelectedPractice(args)} />
+          {runtimeCard}
+          <StatusCard progress={data} job={job} onGoal={onGoal} savingGoal={savingGoal} onTopic={goTopic} />
           <FeedbackCard progress={data} jobId={job.jobId} />
           <div className="flex flex-wrap items-start gap-5">
             <DetailCard
@@ -250,14 +257,7 @@ export function ProgressV3({
           <HowItWorks k={overviewForJob(data, job.jobId).window} />
         </>
       )}
-      {job ? (
-        <RuntimeSessionStatusCard
-          progressSessions={progress.sessions}
-          runtimeSessions={runtimeSessions}
-          jobId={job.jobId}
-          room={room}
-        />
-      ) : null}
+      {hasScoredJobSession ? null : runtimeCard}
       <JobInterviewCvModal
         open={selectedPractice !== null}
         jobTitle={selectedPractice?.title ?? ""}
@@ -390,7 +390,7 @@ function StatusCard({
           </div>
         </div>
 
-        {/* This week against the goal, and the weekly chain */}
+        {/* This week against the goal; the chain itself lives in the garden and the practice calendar */}
         <div className={cn(tile, "border-[#CFDCF5] bg-[#EEF3FD]")}>
           <p className="flex items-center justify-between gap-2">
             <span className={cn("text-sm font-medium", muted)}>{t("practiceProgress.v3.week.short")}</span>
@@ -427,11 +427,6 @@ function StatusCard({
                 ))}
               </select>
             </label>
-          ) : streak.weeks > 0 ? (
-            <p className="flex items-center gap-1.5 text-sm font-semibold text-[#C2410C]">
-              <Flame className="size-4 fill-[#F97316] text-[#EA580C]" aria-hidden="true" />
-              {fill(t("practiceProgress.v3.week.streak"), { n: streak.weeks })}
-            </p>
           ) : null}
         </div>
       </div>
@@ -722,6 +717,7 @@ function TopicRow({
   const reached = level >= ROUND_READY_LEVEL;
   const top = level >= 3 || next?.kind === "top";
   const series = round.series ?? [];
+  const evidence = usePaged([...series].reverse(), 5);
   const latestScore = series[series.length - 1]?.score;
   return (
     <div id={`topic-${round.area}`} className={cn("scroll-mt-4", !first && "border-t border-[#ECECE8]")}>
@@ -777,7 +773,7 @@ function TopicRow({
             <div>
               <p className="text-[15px] font-semibold text-[#2A2F38]">{fill(t("practiceProgress.v3.topics.evidence"), { n: series.length })}</p>
               <ul>
-                {[...series].reverse().map((point) => (
+                {evidence.rows.map((point) => (
                   <li key={point.sessionId} className="flex min-h-12 items-center gap-3 border-b border-[#ECECE8]">
                     <span className="w-28 text-base text-[#2A2F38]">{longDate(point.date, locale)}</span>
                     <span className={cn(scoreChip, "text-base", scoreTone(point.score).chip)}>{point.score.toFixed(1)}/10</span>
@@ -788,6 +784,7 @@ function TopicRow({
                   </li>
                 ))}
               </ul>
+              <Pagination page={evidence.page} pageSize={evidence.pageSize} total={evidence.total} onPageChange={evidence.setPage} className="mt-3" />
             </div>
           </div>
           <div className="min-w-0 flex-[1_1_230px] space-y-4">
@@ -928,10 +925,12 @@ function KnowledgeTab({ progress, jobId }: { progress: PracticeProgress; jobId: 
     })
     .filter((skill) => skill.points.length > 0 && skill.latest !== null)
     .sort((a, b) => (a.latest ?? 0) - (b.latest ?? 0));
+  const paged = usePaged(skills, 8);
   if (skills.length === 0) return <p className="px-5 py-6 text-base text-[#2A2F38] sm:px-6">{t("practiceProgress.v3.topics.none")}</p>;
   return (
+    <>
     <ul>
-      {skills.map((skill, index) => (
+      {paged.rows.map((skill, index) => (
         <li key={skill.conceptId} className={cn("flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3.5 sm:px-6", index > 0 && "border-t border-[#ECECE8]")}>
           <span className="min-w-0 flex-[1_1_200px] text-base font-semibold">{skill.label}</span>
           <span className={cn("text-[15px]", muted)}>{fill(t("practiceProgress.skills.sessions"), { n: skill.points.length })}</span>
@@ -942,6 +941,8 @@ function KnowledgeTab({ progress, jobId }: { progress: PracticeProgress; jobId: 
         </li>
       ))}
     </ul>
+    <Pagination page={paged.page} pageSize={paged.pageSize} total={paged.total} onPageChange={paged.setPage} className="border-t border-[#ECECE8] px-5 py-3 sm:px-6" />
+    </>
   );
 }
 
@@ -958,6 +959,7 @@ export function RuntimeSessionStatusCard({
 }) {
   const { t, lang } = useLanguage();
   const sessions = unrepresentedRuntimeSessions(progressSessions, runtimeSessions, jobId, room);
+  const paged = usePaged(sessions, 5);
   if (sessions.length === 0) return null;
   const locale = localeOf(lang);
   return (
@@ -967,7 +969,7 @@ export function RuntimeSessionStatusCard({
         <p className={cn("mt-1 text-sm", muted)}>{t("practiceProgress.v3.history.statusHelp")}</p>
       </div>
       <ul className="divide-y divide-[#ECECE8]">
-        {sessions.map((session) => {
+        {paged.rows.map((session) => {
           const state = runtimeHistoryStatus(session);
           const stateText = state === "in_progress"
             ? t("practiceProgress.v3.history.inProgress")
@@ -1000,6 +1002,7 @@ export function RuntimeSessionStatusCard({
           );
         })}
       </ul>
+      <Pagination page={paged.page} pageSize={paged.pageSize} total={paged.total} onPageChange={paged.setPage} className="" />
     </section>
   );
 }
@@ -1014,12 +1017,14 @@ function HistoryTab({ progress, jobId, room }: {
   const sessions = progress.sessions
     .filter((session) => session.jobId === jobId && progressSessionRoom(session) === room)
     .sort((a, b) => b.date.localeCompare(a.date));
+  const paged = usePaged(sessions, 6);
   if (sessions.length === 0) {
     return <p className="px-5 py-6 text-base text-[#2A2F38] sm:px-6">{t("practiceProgress.v3.history.empty")}</p>;
   }
   return (
+    <>
     <ul>
-      {sessions.map((session, index) => (
+      {paged.rows.map((session, index) => (
         <li key={session.sessionId} className={cn("flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3.5 sm:px-6", index > 0 && "border-t border-[#ECECE8]")}>
           <span className="min-w-0 flex-[1_1_220px]">
             <span className="block text-base font-semibold">{longDate(session.date, locale)}</span>
@@ -1051,6 +1056,8 @@ function HistoryTab({ progress, jobId, room }: {
         </li>
       ))}
     </ul>
+    <Pagination page={paged.page} pageSize={paged.pageSize} total={paged.total} onPageChange={paged.setPage} className="border-t border-[#ECECE8] px-5 py-3 sm:px-6" />
+    </>
   );
 }
 
@@ -1061,6 +1068,7 @@ function DueList({ gaps, jobId, jobTitle, onStart }: {
   onStart: (args: { id: string; title: string; reaskConceptId?: string; reaskQuestionVersionId?: string }) => void;
 }) {
   const { t } = useLanguage();
+  const paged = usePaged(gaps, 4);
   if (gaps.length === 0) return null;
   return (
     <section className={cn(card, "space-y-3")} aria-labelledby="v3-due">
@@ -1068,7 +1076,7 @@ function DueList({ gaps, jobId, jobTitle, onStart }: {
         {t("practiceProgress.v3.due.title")}
       </h2>
       <ul className="space-y-2">
-        {gaps.slice(0, 4).map((gap) => (
+        {paged.rows.map((gap) => (
           <li key={`${gap.skillKey}-${gap.point}`} className="flex items-center gap-3">
             <span className="min-w-0 flex-1">
               <span className="block text-base font-medium">{gap.point}</span>
@@ -1085,6 +1093,7 @@ function DueList({ gaps, jobId, jobTitle, onStart }: {
           </li>
         ))}
       </ul>
+      <Pagination page={paged.page} pageSize={paged.pageSize} total={paged.total} onPageChange={paged.setPage} className="" />
     </section>
   );
 }

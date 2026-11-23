@@ -7,7 +7,9 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { localeOf } from "@/i18n/format";
 import { cn } from "@/utils";
 import { ConfirmDialog } from "@components/shared/ConfirmDialog";
+import { Pagination } from "@components/shared/Pagination";
 import { useDialogA11y } from "@components/shared/useDialogA11y";
+import { usePaged } from "../utils/usePaged";
 import {
   progressApi,
   type GapItem,
@@ -596,6 +598,7 @@ export function RealInterviewsCard({ progress, initialReports = null }: { progre
   }, [initialReports]);
 
   const passed = reports.filter((report) => report.result === "passed").length;
+  const paged = usePaged(reports, 5);
   const titleOf = (jobId: string | null) => jobs.find((job) => job.jobId === jobId)?.jobTitle ?? null;
   const remove = async () => {
     if (!removing) return;
@@ -638,7 +641,7 @@ export function RealInterviewsCard({ progress, initialReports = null }: { progre
             {fill(t("practiceProgress.real.summary"), { n: reports.length, passed })}
           </p>
           <ul className="mt-3 space-y-3">
-            {reports.map((report) => {
+            {paged.rows.map((report) => {
               const weak = report.result === "failed" ? notReadyAtTheTime(report) : [];
               return (
                 <li key={report.id} className="rounded-xl p-3 ring-1 ring-[#EAEFF8]">
@@ -686,6 +689,7 @@ export function RealInterviewsCard({ progress, initialReports = null }: { progre
               );
             })}
           </ul>
+          <Pagination page={paged.page} pageSize={paged.pageSize} total={paged.total} onPageChange={paged.setPage} className="mt-3" />
         </>
       )}
       <RealInterviewDialog

@@ -12,11 +12,11 @@ const GOALS = [1, 2, 3, 4, 5, 6, 7];
 const DAY_MS = 86_400_000;
 
 /** ISO day (yyyy-mm-dd) of a local date, without time zone shifts. */
-function isoDay(day: Date): string {
+export function isoDay(day: Date): string {
   return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
 }
 
-function parseDay(iso: string): Date {
+export function parseDay(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, (m ?? 1) - 1, d ?? 1);
 }
