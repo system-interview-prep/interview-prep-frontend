@@ -81,6 +81,7 @@ export default function InterviewChatRoom({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sendingRef = useRef(false);
   const pendingRetryRef = useRef<{
     clientMessageId: string;
     content: string;
@@ -142,7 +143,10 @@ export default function InterviewChatRoom({
   const handleSendMessage = async (customContent?: string, telemetry?: Record<string, unknown>) => {
     const rawContent = customContent !== undefined ? customContent : inputValue;
     const trimmed = rawContent.trim();
-    if (!trimmed || isSending || runtime?.sessionStatus === 'CLOSED' || inactivity.phase === 'paused' || deadline.expired) return;
+    if (
+      !trimmed || sendingRef.current || isSending || runtime?.sessionStatus === 'CLOSED'
+      || inactivity.phase === 'paused' || deadline.expired
+    ) return;
 
     const pendingRetry = pendingRetryRef.current;
     if (pendingRetry && pendingRetry.content !== trimmed) {
@@ -150,6 +154,7 @@ export default function InterviewChatRoom({
       setInputValue(pendingRetry.content);
       return;
     }
+    sendingRef.current = true;
     const clientMsgId = pendingRetry?.clientMessageId
       ?? `cli-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const requestTelemetry = pendingRetry?.telemetry ?? telemetry;
@@ -229,24 +234,78 @@ export default function InterviewChatRoom({
         }
       }
     } catch (err: unknown) {
-      if ((err as { response?: { status?: number } })?.response?.status === 409) {
+      const responseStatus = (err as { response?: { status?: number } })?.response?.status;
+      let unresolvedUser: ChatMessage | null = null;
+      if (responseStatus === 409 || responseStatus === undefined) {
         try {
-          const closed = await interviewChatApi.getRuntime(sessionId);
-          if (closed.sessionStatus === 'CLOSED') { setRuntime(closed); return; }
-        } catch { /* Keep the existing retry flow if closure cannot be verified. */ }
+          const errorData = (err as { response?: { data?: { detail?: unknown; message?: unknown } } })
+            ?.response?.data;
+          const detail = typeof errorData?.detail === 'string'
+            ? errorData.detail
+            : typeof errorData?.message === 'string'
+              ? errorData.message
+              : '';
+          const isInProgress = detail.startsWith('IN_PROGRESS:');
+          const mayBeInFlight = isInProgress || responseStatus === undefined;
+          const waitUntil = Date.now() + (mayBeInFlight ? 30_000 : 0);
+          do {
+            const fresh = await interviewChatApi.getRuntime(sessionId);
+            const userIndex = fresh.messages.findIndex(
+              (message) => message.role === 'user' && message.clientMessageId === clientMsgId
+            );
+            const userMessage = userIndex >= 0 ? fresh.messages[userIndex] : null;
+            const assistantResponse = userMessage
+              ? fresh.messages.slice(userIndex + 1).find(
+                  (message) => message.role === 'assistant' && message.sequence > userMessage.sequence
+                )
+              : null;
+            let lastUserIndex = -1;
+            fresh.messages.forEach((message, index) => {
+              if (message.role === 'user') lastUserIndex = index;
+            });
+            const lastUser = lastUserIndex >= 0 ? fresh.messages[lastUserIndex] : null;
+            const lastUserHasReply = lastUser
+              ? fresh.messages.slice(lastUserIndex + 1).some(
+                  (message) => message.role === 'assistant' && message.sequence > lastUser.sequence
+                )
+              : false;
+            unresolvedUser = lastUser && !lastUserHasReply ? lastUser : null;
+
+            if (fresh.sessionStatus === 'CLOSED' || assistantResponse) {
+              pendingRetryRef.current = null;
+              setMessages(fresh.messages);
+              setRuntime(fresh);
+              setInputValue('');
+              setActionError(null);
+              return;
+            }
+            if (!mayBeInFlight || Date.now() >= waitUntil) break;
+            await new Promise<void>((resolve) => window.setTimeout(resolve, 1_500));
+          } while (Date.now() < waitUntil);
+        } catch { /* Keep the pending message available for the candidate to retry. */ }
       }
+      const retryMessageId = unresolvedUser?.clientMessageId || clientMsgId;
+      const retryContent = unresolvedUser?.content || trimmed;
       pendingRetryRef.current = {
-        clientMessageId: clientMsgId,
-        content: trimmed,
-        telemetry: requestTelemetry,
+        clientMessageId: retryMessageId,
+        content: retryContent,
+        telemetry: (unresolvedUser?.metadata?.telemetry as Record<string, unknown> | undefined) ?? requestTelemetry,
       };
       setActionError(chatErrorMessage(err, t('room.chat.sendError')));
       // Remove optimistic message on hard failure
       setMessages((prev) => prev.filter((m) => m.messageId !== clientMsgId));
-      if (customContent === undefined) {
-        setInputValue(trimmed);
+      if (unresolvedUser) {
+        const recoveredUser = unresolvedUser;
+        setMessages((prev) => {
+          const withoutDuplicate = prev.filter((message) => message.messageId !== recoveredUser.messageId);
+          return [...withoutDuplicate, recoveredUser];
+        });
+        setInputValue(retryContent);
+      } else if (customContent === undefined) {
+        setInputValue(retryContent);
       }
     } finally {
+      sendingRef.current = false;
       setIsSending(false);
       setTimeout(() => {
         textareaRef.current?.focus();
