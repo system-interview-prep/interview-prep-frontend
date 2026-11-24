@@ -76,9 +76,23 @@ jobs:
       NEXT_PUBLIC_RAG_API_URL: ${{ vars.NEXT_PUBLIC_RAG_API_URL }}
     steps:
       - name: Check configuration
+        id: config
         # NEXT_PUBLIC_* are baked into the bundle at build time. The login page
         # crashes without a Google client ID, so stop here instead of shipping it.
         run: |
+          # Keep the first line of each value. A second line pasted into a
+          # variable became a build argument of its own on 24/11/2026 and
+          # replaced the API URL with http://localhost:5000 in the live site.
+          for name in NEXT_PUBLIC_API_URL NEXT_PUBLIC_SOCKET_URL NEXT_PUBLIC_GOOGLE_CLIENT_ID NEXT_PUBLIC_RAG_API_URL; do
+            value="${!name}"
+            first="$(printf '%s' "$value" | tr -d '\r' | sed -n '1p' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+            if [ "$first" != "$value" ]; then
+              echo "::warning::$name holds more than one line or stray spaces; only its first line is used"
+            fi
+            printf -v "$name" '%s' "$first"
+            echo "$name=$first" >> "$GITHUB_OUTPUT"
+          done
+
           missing=""
           for name in AWS_REGION AWS_STACK_NAME AWS_DEPLOY_ROLE_ARN NEXT_PUBLIC_API_URL NEXT_PUBLIC_GOOGLE_CLIENT_ID; do
             if [ -z "${!name}" ]; then missing="$missing $name"; fi
@@ -133,10 +147,10 @@ jobs:
             ${{ steps.stack.outputs.repository }}:${{ steps.meta.outputs.tag }}
             ${{ steps.stack.outputs.repository }}:latest
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}
-            NEXT_PUBLIC_SOCKET_URL=${{ env.NEXT_PUBLIC_SOCKET_URL }}
-            NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ env.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
-            NEXT_PUBLIC_RAG_API_URL=${{ env.NEXT_PUBLIC_RAG_API_URL }}
+            NEXT_PUBLIC_API_URL=${{ steps.config.outputs.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_SOCKET_URL=${{ steps.config.outputs.NEXT_PUBLIC_SOCKET_URL }}
+            NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ steps.config.outputs.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+            NEXT_PUBLIC_RAG_API_URL=${{ steps.config.outputs.NEXT_PUBLIC_RAG_API_URL }}
           cache-from: type=gha,scope=frontend-prod
           cache-to: type=gha,mode=max,scope=frontend-prod
 
