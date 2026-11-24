@@ -113,9 +113,25 @@ export type UpdateUserProfilePayload = Partial<
   Pick<UserProfile, 'name' | 'dob'>
 >;
 
+export type CandidateSettings = {
+  aiVoice: string;
+  speechRate: number;
+  autoCameraWebRTC: boolean;
+  aiTone: 'supportive' | 'standard' | 'strict';
+  notifyWeeklyReminder: boolean;
+  notifyJobMatch: boolean;
+  notifyProgressReport: boolean;
+  notifySoundFx: boolean;
+  updatedAt: string;
+};
+
 export const userApi = {
   getProfile: () =>
     apiClient.get<UserProfile>('/user/profile'),
+  getSettings: () =>
+    apiClient.get<CandidateSettings>('/users/me/settings'),
+  updateSettings: (data: Omit<CandidateSettings, 'updatedAt'>) =>
+    apiClient.put<CandidateSettings>('/users/me/settings', data),
   getCandidateVoices: () =>
     apiClient.get<{ success: boolean; data: Array<{ id: string; name: string; description?: string; gender?: string }> }>(
       '/ai/voice-lab/voices',

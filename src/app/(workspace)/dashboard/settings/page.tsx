@@ -34,6 +34,7 @@ const DEFAULT_SETTINGS: UserSettingsState = {
 };
 
 const STORAGE_KEY = "interview_prep_settings_v1";
+const STORAGE_MIGRATED_KEY = "interview_prep_settings_v1_migrated";
 
 type CandidateVoice = { id: string; name: string; description?: string; gender?: string };
 
@@ -97,7 +98,7 @@ export default function SettingsPage() {
 
   // Settings State
   const [settings, setSettings] = useState<UserSettingsState>(DEFAULT_SETTINGS);
-  const [, setIsLoaded] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<{
     text: string;
@@ -164,21 +165,6 @@ export default function SettingsPage() {
     };
   }, []);
 
-  // Load initial settings from localStorage
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setSettings({ ...DEFAULT_SETTINGS, ...parsed });
-      }
-    } catch {
-      // ignore
-    } finally {
-      setIsLoaded(true);
-    }
-  }, []);
-
   // Show toast helper
   const showToast = useCallback((text: string, type: "success" | "info" | "error" = "success") => {
     setToastMessage({ text, type });
@@ -188,14 +174,87 @@ export default function SettingsPage() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Load settings from the account, importing the old browser-only preferences once.
+  useEffect(() => {
+    let alive = true;
+    const loadSettings = async () => {
+      try {
+        const { data } = await userApi.getSettings();
+        let loaded: UserSettingsState = {
+          aiVoice: data.aiVoice,
+          speechRate: data.speechRate,
+          autoCameraWebRTC: data.autoCameraWebRTC,
+          aiTone: data.aiTone,
+          notifyWeeklyReminder: data.notifyWeeklyReminder,
+          notifyJobMatch: data.notifyJobMatch,
+          notifyProgressReport: data.notifyProgressReport,
+          notifySoundFx: data.notifySoundFx,
+        };
+
+        if (localStorage.getItem(STORAGE_MIGRATED_KEY) !== "1") {
+          const legacyRaw = localStorage.getItem(STORAGE_KEY);
+          let migrationComplete = !legacyRaw;
+          if (legacyRaw) {
+            try {
+              const parsed = JSON.parse(legacyRaw) as Partial<UserSettingsState>;
+              const legacy: UserSettingsState = {
+                aiVoice: parsed.aiVoice ?? DEFAULT_SETTINGS.aiVoice,
+                speechRate: parsed.speechRate ?? DEFAULT_SETTINGS.speechRate,
+                autoCameraWebRTC: parsed.autoCameraWebRTC ?? DEFAULT_SETTINGS.autoCameraWebRTC,
+                aiTone: parsed.aiTone ?? DEFAULT_SETTINGS.aiTone,
+                notifyWeeklyReminder: parsed.notifyWeeklyReminder ?? DEFAULT_SETTINGS.notifyWeeklyReminder,
+                notifyJobMatch: parsed.notifyJobMatch ?? DEFAULT_SETTINGS.notifyJobMatch,
+                notifyProgressReport: parsed.notifyProgressReport ?? DEFAULT_SETTINGS.notifyProgressReport,
+                notifySoundFx: parsed.notifySoundFx ?? DEFAULT_SETTINGS.notifySoundFx,
+              };
+              const { data: migrated } = await userApi.updateSettings(legacy);
+              loaded = {
+                aiVoice: migrated.aiVoice,
+                speechRate: migrated.speechRate,
+                autoCameraWebRTC: migrated.autoCameraWebRTC,
+                aiTone: migrated.aiTone,
+                notifyWeeklyReminder: migrated.notifyWeeklyReminder,
+                notifyJobMatch: migrated.notifyJobMatch,
+                notifyProgressReport: migrated.notifyProgressReport,
+                notifySoundFx: migrated.notifySoundFx,
+              };
+              localStorage.removeItem(STORAGE_KEY);
+              migrationComplete = true;
+            } catch {
+              // Keep the server settings if old browser data is malformed or rejected.
+            }
+          }
+          if (migrationComplete) localStorage.setItem(STORAGE_MIGRATED_KEY, "1");
+        }
+        if (alive) setSettings(loaded);
+      } catch {
+        if (alive) showToast(t("settings.page.toast.saveFailed"), "error");
+      } finally {
+        if (alive) setIsLoaded(true);
+      }
+    };
+    void loadSettings();
+    return () => {
+      alive = false;
+    };
+  }, [showToast, t]);
+
   // Save settings handler
   const handleSaveSettings = useCallback(async () => {
     setIsSaving(true);
     try {
-      // Preferences live in this browser only; the interview rooms do not
-      // read them yet, so say exactly that instead of claiming a saved profile.
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-      showToast(t("settings.page.toast.savedLocal"), "info");
+      const { data } = await userApi.updateSettings(settings);
+      setSettings({
+        aiVoice: data.aiVoice,
+        speechRate: data.speechRate,
+        autoCameraWebRTC: data.autoCameraWebRTC,
+        aiTone: data.aiTone,
+        notifyWeeklyReminder: data.notifyWeeklyReminder,
+        notifyJobMatch: data.notifyJobMatch,
+        notifyProgressReport: data.notifyProgressReport,
+        notifySoundFx: data.notifySoundFx,
+      });
+      showToast(t("settings.page.toast.savedLocal"));
     } catch {
       showToast(t("settings.page.toast.saveFailed"), "error");
     } finally {
@@ -204,14 +263,26 @@ export default function SettingsPage() {
   }, [settings, showToast, t]);
 
   // Reset to default settings
-  const handleResetDefaults = useCallback(() => {
+  const handleResetDefaults = useCallback(async () => {
     setResetConfirmOpen(false);
-    setSettings(DEFAULT_SETTINGS);
+    setIsSaving(true);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_SETTINGS));
-      showToast(t("settings.page.toast.resetDone"), "info");
+      const { data } = await userApi.updateSettings(DEFAULT_SETTINGS);
+      setSettings({
+        aiVoice: data.aiVoice,
+        speechRate: data.speechRate,
+        autoCameraWebRTC: data.autoCameraWebRTC,
+        aiTone: data.aiTone,
+        notifyWeeklyReminder: data.notifyWeeklyReminder,
+        notifyJobMatch: data.notifyJobMatch,
+        notifyProgressReport: data.notifyProgressReport,
+        notifySoundFx: data.notifySoundFx,
+      });
+      showToast(t("settings.page.toast.resetDone"));
     } catch {
       showToast(t("settings.page.toast.saveFailed"), "error");
+    } finally {
+      setIsSaving(false);
     }
   }, [showToast, t]);
 
@@ -356,7 +427,7 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={handleSaveSettings}
-              disabled={isSaving}
+              disabled={isSaving || !isLoaded}
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:opacity-60"
               aria-label={t("settings.page.header.saveAria")}
             >
