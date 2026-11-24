@@ -1,0 +1,274 @@
+import axios from 'axios';
+import { API_BASE_URL } from '@/constants';
+
+function readAccessTokenFromCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const m = document.cookie.match(/(?:^|; )access_token=([^;]*)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+let redirectingAfterUnauthorized = false;
+
+function clearExpiredClientSession(): void {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('token');
+  localStorage.removeItem('auth.googleProfile');
+  document.cookie = 'access_token=; Path=/; Max-Age=0; SameSite=Lax';
+  document.cookie = 'role=; Path=/; Max-Age=0; SameSite=Lax';
+}
+
+function redirectToLoginAfterUnauthorized(): void {
+  if (redirectingAfterUnauthorized) return;
+  const { pathname, search, hash } = window.location;
+  if (pathname === '/login' || pathname === '/signup') return;
+  redirectingAfterUnauthorized = true;
+  clearExpiredClientSession();
+  const next = `${pathname}${search}${hash}`;
+  window.location.replace(`/login?next=${encodeURIComponent(next)}`);
+}
+
+apiClient.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const token =
+      localStorage.getItem('accessToken') ?? readAccessTokenFromCookie();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (config.data instanceof FormData && config.headers) {
+      const h = config.headers as Record<string, unknown> & { delete?: (n: string) => void };
+      if (typeof h.delete === 'function') h.delete('Content-Type');
+      else delete h['Content-Type'];
+    }
+  }
+  return config;
+});
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
+      const url = String(error.config?.url ?? '');
+      // Invalid credentials on an auth request must remain on the login form.
+      if (!url.startsWith('/auth/')) redirectToLoginAfterUnauthorized();
+    }
+    return Promise.reject(error);
+  }
+);
+
+// ── Auth API ──────────────────────────────────────────────────────────────────
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string;
+  roles: string[];
+  provider: string;
+  picture: string | null;
+  avatar: string | null;
+};
+
+export type AuthResponse = {
+  access_token: string;
+  user: AuthUser;
+};
+
+export const authApi = {
+  login: (email: string, password: string) =>
+    apiClient.post<AuthResponse>('/auth/login', { email, password }),
+  register: (name: string, email: string, password: string, phone?: string) =>
+    apiClient.post<AuthResponse>('/auth/register', {
+      name,
+      email,
+      password,
+      phone: phone || undefined,
+    }),
+  googleLogin: (token: string) =>
+    apiClient.post<AuthResponse>('/auth/google', { accessToken: token, token }),
+};
+
+// ── Interview API ──────────────────────────────────────────────────────────────
+// Interview sessions use /api/v1/interviews/sessions via
+// features/interview/services/interviewRuntime.service.ts.
+
+// ── User API ──────────────────────────────────────────────────────────────────
+export type UserProfile = {
+  id: string;
+  email: string;
+  name?: string;
+  roles?: string[];
+  provider?: string;
+  dob?: string;
+  picture?: string;
+  avatar?: string;
+  credits?: { cvScansRemaining: number; mockSessionsRemaining: number };
+  created_at?: string;
+};
+
+export type UpdateUserProfilePayload = Partial<
+  Pick<UserProfile, 'name' | 'dob'>
+>;
+
+export const userApi = {
+  getProfile: () =>
+    apiClient.get<UserProfile>('/user/profile'),
+  getCandidateVoices: () =>
+    apiClient.get<{ success: boolean; data: Array<{ id: string; name: string; description?: string; gender?: string }> }>(
+      '/ai/voice-lab/voices',
+    ),
+  previewCandidateVoice: (voice: string) =>
+    apiClient.post<Blob>('/ai/voice-lab/voices/preview', { voice }, { responseType: 'blob' }),
+  updateProfile: (data: UpdateUserProfilePayload) =>
+    apiClient.patch<UserProfile>('/user/profile', data),
+  uploadProfilePicture: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    // BE hỗ trợ cả /users/me/picture và /user/profile/picture (alias)
+    return apiClient.post<UserProfile>('/users/me/picture', formData);
+  },
+};
+
+// ── Admin Portal API ──────────────────────────────────────────────────────────
+export type AdminOverviewData = {
+  totalCandidates: number;
+  totalSessions: number;
+  activeSessions: number;
+  completedSessions: number;
+  /** Closed sessions with a report (the rest ended without one). */
+  gradedSessions?: number;
+  averageScore: number | null;
+  averageTurnaround: number | null;
+  sentimentScore: number | null;
+  monthlyTrend: Array<{ month: string; key?: string; count: number }>;
+  modes: {
+    chat: number;
+    voice: number;
+    video: number;
+  };
+  cohorts: Array<{
+    id: string;
+    name: string;
+    engagement: string;
+    avgScore: string;
+    growth: string;
+    status: 'optimized' | 'monitored';
+  }>;
+  aiEngineStatus: string;
+  updatedAt: string;
+};
+
+export type AdminSessionItem = {
+  id: string;
+  candidateName: string;
+  candidateEmail: string;
+  candidateInitials: string;
+  /** Job title of the session; null when the JD was deleted. */
+  position: string | null;
+  teamAndLocation: string;
+  type: 'video' | 'chat' | 'voice';
+  aiScore: number | null;
+  dateLabel: string;
+  timeLabel: string;
+  /** completed: closed with a report; action_needed: closed without one; scheduled: not closed. */
+  status: 'completed' | 'scheduled' | 'action_needed';
+  actionLabel: string;
+  userId?: string | null;
+  endReason?: string | null;
+};
+
+/** Aggregates over every session matching the filters (not just the current page). */
+export type AdminSessionStats = {
+  active: number;
+  completed: number;
+  /** Percentage (0–100); null when nothing has been graded. */
+  avgScore: number | null;
+  ungraded?: number;
+};
+
+/** Who wrote a follow-up: the model, or a fixed fallback line. Null on sessions before labelling. */
+export type AdminFollowupProvenance = 'llm' | 'fixed_fallback' | null;
+
+export type AdminPlanTurn = {
+  turnId: string;
+  turnIndex: number;
+  status: string;
+  stage: string;
+  /** question_bank, broader_skill, role, generated_unreviewed, *_template, behavioral_star_preset; "~" = inferred for old sessions. */
+  source: string;
+  difficulty: string | null;
+  questionVersionId: string | null;
+  questionText: string | null;
+  objective: string | null;
+  target: string | null;
+  expectedPoints: string[];
+  rubricCriteria: string[];
+  softAnswerSeconds: number | null;
+  hardAnswerSeconds: number | null;
+  answerSeconds: number | null;
+  score: number | null;
+  languageOk: boolean;
+  followups: { type: string; content: string; generatedBy: AdminFollowupProvenance; missingAspect: string | null }[];
+};
+
+export type AdminSessionPlan = {
+  session: {
+    id: string;
+    status: string;
+    mode: string;
+    durationMinutes: number | null;
+    locale: string | null;
+    startedAt: string | null;
+    endReason: string | null;
+    jobTitle: string | null;
+    companyName: string | null;
+    candidateEmail: string | null;
+    candidateName: string | null;
+  };
+  plan: {
+    status: string | null;
+    policyVersion: string | null;
+    questionBudget: number | null;
+    difficulty: { level: string; source: string; seniority?: string | null } | null;
+    sections: { sectionId: string; label: string; durationMinutes: number }[];
+    targets: { label: string; importance: number; questionCount: number; matchStatuses: string[]; priorities: string[] }[];
+    questionSources: Record<string, number>;
+    generatedQuestionCount: number | null;
+    uncoveredTargets: unknown[];
+  };
+  turns: AdminPlanTurn[];
+};
+
+export const adminApi = {
+  getSessionPlan: (sessionId: string) =>
+    apiClient.get<{ success: boolean } & AdminSessionPlan>(`/admin/sessions/${encodeURIComponent(sessionId)}/plan`),
+  getOverview: () =>
+    apiClient.get<{ success: boolean; overview: AdminOverviewData }>('/admin/overview'),
+  getSessions: (params?: { mode?: string; search?: string; report?: string; limit?: number; offset?: number }) =>
+    apiClient.get<{ success: boolean; total: number; stats?: AdminSessionStats; sessions: AdminSessionItem[] }>('/admin/sessions', {
+      params,
+    }),
+};
+
+// ── CV Download API ───────────────────────────────────────────────────────────
+/**
+ * Download file CV gốc (PDF/DOCX) dưới dạng ArrayBuffer.
+ * Khớp với BE: GET /users/me/cvs/{cv_id}/download
+ */
+export const cvDownloadApi = {
+  download: async (cvId: string): Promise<{ buffer: ArrayBuffer; filename?: string }> => {
+    const response = await apiClient.get<ArrayBuffer>(
+      `/users/me/cvs/${encodeURIComponent(cvId)}/download`,
+      { responseType: 'arraybuffer' }
+    );
+    const disposition = response.headers?.['content-disposition'] as string | undefined;
+    const match = disposition?.match(/filename="?([^"\s;]+)/);
+    return { buffer: response.data, filename: match?.[1] };
+  },
+};
+
+export const api = apiClient;
+export default apiClient;

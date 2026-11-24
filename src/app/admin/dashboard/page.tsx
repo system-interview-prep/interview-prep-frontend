@@ -1,13 +1,17 @@
 import { Suspense } from "react";
-import AdminDashboardShell from "../../../../components/admin/AdminDashboardShell";
-import AdminJobProfilesPanel from "../../../../components/admin/AdminJobProfilesPanel";
+import AdminOverviewDashboard from "@features/admin/components/AdminOverviewDashboard";
 
 export default function AdminDashboardPage() {
   return (
-    <AdminDashboardShell>
-      <Suspense fallback={<div className="text-on-surface-variant">…</div>}>
-        <AdminJobProfilesPanel />
-      </Suspense>
-    </AdminDashboardShell>
+    <Suspense
+      fallback={
+        <div
+          className="h-80 animate-pulse rounded-2xl border border-[#DCE4F3] bg-white motion-reduce:animate-none"
+          aria-hidden="true"
+        />
+      }
+    >
+      <AdminOverviewDashboard />
+    </Suspense>
   );
 }

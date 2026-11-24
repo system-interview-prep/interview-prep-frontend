@@ -1,0 +1,343 @@
+import apiClient from "@/lib/apiClient";
+import type { InterviewEntryPolicy } from "@features/interview/utils/entryGate";
+
+export type InterviewRuntimeMode = "text" | "voice" | "video";
+export type InterviewRuntimeExperience =
+  | "question_practice"
+  | "interview_chat"
+  | "voice_interview"
+  | "video_interview";
+
+export type InterviewRuntimePlanSummary = {
+  planId: string;
+  schemaVersion: string;
+  status: "DRAFT" | "READY" | "LOCKED" | "FAILED";
+};
+
+export type InterviewCompetencyTarget = {
+  selectionRank: number | null;
+  taxonomyVersion: string;
+  conceptId: string;
+  label: string;
+  importance: number;
+  targetQuestionCount: number;
+  rationale: {
+    source: string;
+    requirementIds: string[];
+    priorities: string[];
+    matchStatuses: string[];
+    jobEvidenceRefs: string[];
+  };
+};
+
+export type InterviewPlanDifficulty = {
+  level: "foundational" | "intermediate" | "advanced" | "unspecified";
+  source: "job_seniority" | "job_seniority_missing";
+  seniority: string | null;
+};
+
+export type InterviewPlanSection = {
+  sectionId: "warmup" | "core" | "gap_validation" | "closing";
+  label: string;
+  durationMinutes: number;
+  purpose: string;
+};
+
+export type InterviewEvaluationTarget = {
+  requirementId: string;
+  priority: string;
+  kind: string;
+  label: string;
+  groupOperator: "atomic" | "all_of" | "any_of";
+  status: "met" | "not_met" | "unknown" | "not_applicable";
+  reasonCode: string;
+  conceptIds: string[];
+  conceptResults: Array<{
+    conceptId: string;
+    label: string;
+    status: "met" | "not_met" | "unknown" | "not_applicable";
+    confidence: number;
+    reasonCode: string;
+    candidateEvidenceRefs: string[];
+  }>;
+  jobEvidenceRefs: string[];
+  candidateEvidenceRefs: string[];
+  evaluationMode: "competency" | "requirement_validation";
+  attention: "validate_gap" | "verify_claim" | "not_applicable";
+};
+
+export type InterviewRuntimePlan = {
+  planId: string;
+  sessionId: string;
+  schemaVersion: string;
+  status: "DRAFT" | "READY" | "LOCKED" | "FAILED";
+  policyVersion: string | null;
+  fingerprint: string | null;
+  questionBudget: number | null;
+  targetQuestionCount: number;
+  difficulty: InterviewPlanDifficulty | null;
+  sections: InterviewPlanSection[];
+  evaluationTargets: InterviewEvaluationTarget[];
+  sourceContext: Record<string, unknown>;
+  targets: InterviewCompetencyTarget[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type InterviewFrozenTurn = {
+  turnId: string;
+  turnIndex: number;
+  status: string;
+  questionVersionId: string | null;
+  rubricVersionId: string | null;
+  answerText?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  question: {
+    schemaVersion?: string;
+    selectorPolicyVersion?: string;
+    questionVersionId?: string;
+    stableKey?: string;
+    version?: string;
+    questionType?: string;
+    difficulty?: string;
+    locale?: string;
+    canonicalLocale?: string;
+    questionText?: string;
+    objective?: string;
+    expectedPoints?: Array<Record<string, unknown>>;
+    rubric?: Record<string, unknown>;
+    taxonomyTarget?: Record<string, unknown>;
+  };
+};
+
+export type InterviewQuestionSelection = {
+  sessionId: string;
+  planId: string;
+  status: "LOCKED";
+  selectorPolicyVersion: string;
+  fingerprint?: string;
+  turns: InterviewFrozenTurn[];
+};
+
+export type InterviewTextRuntime = {
+  sessionId: string;
+  sessionStatus: string;
+  completed: boolean;
+  progress: {
+    answered: number;
+    total: number;
+  };
+  currentTurn: InterviewFrozenTurn | null;
+  turns: InterviewFrozenTurn[];
+};
+
+export type InterviewRuntimeSession = {
+  sessionId: string;
+  resumeId: string | null;
+  jobId: string | null;
+  jobTitle?: string | null;
+  mode: InterviewRuntimeMode;
+  experienceType?: InterviewRuntimeExperience;
+  locale: string;
+  durationMinutes: number;
+  status: string;
+  startedAt: string;
+  endedAt: string | null;
+  /** COMPLETED · USER_ENDED · TECHNICAL_FAILURE · HARD_TIMEOUT · FAST_FAIL_TECH; null while open. */
+  endReason?: string | null;
+  plan: InterviewRuntimePlanSummary | null;
+  /** List endpoint only: latest overall score (0–10), null when not evaluated. */
+  overallScore?: number | null;
+  evaluatedAt?: string | null;
+  /** List endpoint only: competency scores of that evaluation; absent on older backends. */
+  competencyScores?: Array<{ competency: string; score: number; weight?: number }>;
+  totalTurns?: number;
+  answeredTurns?: number;
+};
+
+export type InterviewRuntimeSessionPage = {
+  sessions: InterviewRuntimeSession[];
+  total: number;
+  offset: number;
+  nextOffset: number | null;
+};
+
+export type CreateInterviewRuntimeSessionRequest = {
+  resumeId: string;
+  jobId: string;
+  fitAttemptId?: string;
+  mode: InterviewRuntimeMode;
+  experienceType?: InterviewRuntimeExperience;
+  locale: string;
+  durationMinutes?: number;
+  /** "Luyện vòng này" on the progress page: half the technical questions come from this round. */
+  focusArea?: FocusArea;
+  /** "Luyện lại ý này": the planner asks this skill again with a question not met before. */
+  reaskConceptId?: string;
+  /** Exact approved question to repeat for a due missed answer. */
+  reaskQuestionVersionId?: string;
+  /** The interview type the candidate chose (admin-approved blueprint); omitted: the default type. */
+  blueprintId?: string;
+};
+
+/** Taxonomy concept ID selected as a focus group; valid values come from progress data. */
+export type FocusArea = string;
+export function asFocusArea(value: string | null | undefined): FocusArea | undefined {
+  const normalized = value?.trim();
+  return normalized || undefined;
+}
+
+export const interviewRuntimeApi = {
+  /** Match threshold for entering a room (GET /api/v1/interviews/entry-policy). */
+  entryPolicy: async (): Promise<InterviewEntryPolicy> => {
+    const response = await apiClient.get<InterviewEntryPolicy>("/api/v1/interviews/entry-policy");
+    return response.data;
+  },
+
+  create: async (
+    payload: CreateInterviewRuntimeSessionRequest,
+  ): Promise<InterviewRuntimeSession> => {
+    const response = await apiClient.post<InterviewRuntimeSession>(
+      "/api/v1/interviews/sessions",
+      {
+        ...payload,
+        experienceType: payload.experienceType ?? "question_practice",
+        durationMinutes: payload.durationMinutes ?? 25,
+      },
+    );
+    return response.data;
+  },
+
+  get: async (sessionId: string): Promise<InterviewRuntimeSession> => {
+    const response = await apiClient.get<InterviewRuntimeSession>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}`,
+    );
+    return response.data;
+  },
+
+  listPage: async (offset = 0, limit = 100): Promise<InterviewRuntimeSessionPage> => {
+    const response = await apiClient.get<InterviewRuntimeSessionPage>(
+      "/api/v1/interviews/sessions",
+      { params: { offset, limit } },
+    );
+    return response.data;
+  },
+
+  list: async (): Promise<InterviewRuntimeSession[]> => {
+    const page = await interviewRuntimeApi.listPage();
+    return page.sessions;
+  },
+
+  listAll: async (): Promise<InterviewRuntimeSession[]> => {
+    const sessions: InterviewRuntimeSession[] = [];
+    const seenOffsets = new Set<number>();
+    let offset = 0;
+    for (;;) {
+      if (seenOffsets.has(offset)) throw new Error("Session history pagination did not advance");
+      seenOffsets.add(offset);
+      const page = await interviewRuntimeApi.listPage(offset);
+      if (!Number.isInteger(page.total) || page.total < 0 || !Array.isArray(page.sessions)) {
+        throw new Error("Session history pagination metadata is missing");
+      }
+      sessions.push(...page.sessions);
+      if (page.nextOffset === null) {
+        if (sessions.length !== page.total) throw new Error("Session history ended before all sessions were loaded");
+        return sessions;
+      }
+      if (page.total <= offset + page.sessions.length || page.nextOffset <= offset) {
+        throw new Error("Session history pagination returned inconsistent totals");
+      }
+      offset = page.nextOffset;
+    }
+  },
+
+  buildPlan: async (sessionId: string): Promise<InterviewRuntimePlan> => {
+    const response = await apiClient.post<InterviewRuntimePlan>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/plan`,
+    );
+    return response.data;
+  },
+
+  getPlan: async (sessionId: string): Promise<InterviewRuntimePlan> => {
+    const response = await apiClient.get<InterviewRuntimePlan>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/plan`,
+    );
+    return response.data;
+  },
+
+  selectQuestions: async (
+    sessionId: string,
+  ): Promise<InterviewQuestionSelection> => {
+    const response = await apiClient.post<InterviewQuestionSelection>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/questions/select`,
+    );
+    return response.data;
+  },
+
+  getTurns: async (sessionId: string): Promise<InterviewFrozenTurn[]> => {
+    const response = await apiClient.get<{
+      sessionId: string;
+      turns: InterviewFrozenTurn[];
+    }>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/turns`,
+    );
+    return response.data.turns;
+  },
+
+  getTextRuntime: async (sessionId: string): Promise<InterviewTextRuntime> => {
+    const response = await apiClient.get<InterviewTextRuntime>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/runtime`,
+    );
+    return response.data;
+  },
+
+  askTurn: async (
+    sessionId: string,
+    turnId: string,
+  ): Promise<InterviewFrozenTurn> => {
+    const response = await apiClient.post<InterviewFrozenTurn>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/turns/${encodeURIComponent(turnId)}/ask`,
+    );
+    return response.data;
+  },
+
+  answerTurn: async (
+    sessionId: string,
+    turnId: string,
+    answerText: string,
+  ): Promise<InterviewFrozenTurn> => {
+    const response = await apiClient.post<InterviewFrozenTurn>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/turns/${encodeURIComponent(turnId)}/answer`,
+      { answerText },
+    );
+    return response.data;
+  },
+
+  completeTextRuntime: async (
+    sessionId: string,
+  ): Promise<InterviewTextRuntime> => {
+    const response = await apiClient.post<InterviewTextRuntime>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/complete`,
+    );
+    return response.data;
+  },
+
+  /**
+   * Close a session outside the chat/text completion contract.
+   *
+   * `reason` defaults to USER_ENDED (abandonment). Pass TECHNICAL_FAILURE when
+   * compensating a failed create -> plan -> lock sequence so the record does not
+   * blame the candidate for a server-side failure.
+   */
+  close: async (
+    sessionId: string,
+    reason: "USER_ENDED" | "TECHNICAL_FAILURE" = "USER_ENDED",
+  ): Promise<InterviewRuntimeSession> => {
+    const response = await apiClient.post<InterviewRuntimeSession>(
+      `/api/v1/interviews/sessions/${encodeURIComponent(sessionId)}/close`,
+      { reason },
+    );
+    return response.data;
+  },
+};

@@ -1,5 +1,0 @@
-import Authentication from "../../../components/Authentication";
-
-export default function LoginPage() {
-  return <Authentication defaultMode="login" />;
-}

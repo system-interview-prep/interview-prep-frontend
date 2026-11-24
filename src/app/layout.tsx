@@ -1,28 +1,16 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { cookies } from "next/headers";
-import LanguageProvider from "../i18n/LanguageProvider";
-import { getDictionary, normalizeLang } from "../i18n/i18n";
-import GoogleAuthProvider from "../components/GoogleAuthProvider";
-import { NavigationLoadingProvider } from "../components/NavigationLoadingProvider";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import LanguageProvider from "@/i18n/LanguageProvider";
+import { normalizeLang } from "@/i18n/i18n";
+import GoogleAuthProvider from "@features/auth/components/GoogleAuthProvider";
+import { NavigationLoadingProvider } from "@components/shared/NavigationLoadingProvider";
+import GlobalMascot from "@features/mascot/components/GlobalMascot";
 
 export const metadata: Metadata = {
-  title: "INTERVIA | Master Your Next Interview",
-  description: "Master Your Next Interview",
-  icons: {
-    icon: "/logo.jpg",
-  },
+  title: "INTERVIA | Luyện phỏng vấn với AI",
+  description: "Intervia: đối chiếu CV với JD và luyện phỏng vấn chat, giọng nói, video cùng AI.",
+  icons: { icon: "/logo.jpg" },
 };
 
 export default async function RootLayout({
@@ -32,38 +20,36 @@ export default async function RootLayout({
 }>) {
   const cookieStore = await cookies();
   const lang = normalizeLang(cookieStore.get("lang")?.value);
-  const t = (key: string) => getDictionary(lang)[key] ?? key;
 
   return (
-    <html lang={lang} className="h-full" suppressHydrationWarning>
+    <html
+      lang={lang}
+      className="h-full"
+      suppressHydrationWarning
+    >
       <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>{t("meta.title")}</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Root layout, so the font loads on every page (the lint rule targets pages/). */}
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&family=Inter:wght@400;500;600&display=swap"
           rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Fraunces:opsz,wght,SOFT@9..144,500..800,0..100&display=swap&subset=vietnamese"
         />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-          rel="stylesheet"
-        />
-        <style>{`.material-symbols-outlined {font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;}
-.ai-pulse {position: relative;}
-.ai-pulse::after {content: ''; position: absolute; width: 8px; height: 8px; background-color: #7029e1; border-radius: 50%; top: -2px; right: -2px;}
-.glass-card {background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);}`}</style>
       </head>
       <body
-        className={`bg-surface font-body text-on-surface ${geistSans.variable} ${geistMono.variable} antialiased h-full`}
+        className="h-full bg-white font-body text-[#14244B] antialiased"
         suppressHydrationWarning
       >
         <GoogleAuthProvider>
           <LanguageProvider initialLang={lang}>
-            <NavigationLoadingProvider>{children}</NavigationLoadingProvider>
+            <NavigationLoadingProvider>
+              {children}
+              <GlobalMascot />
+            </NavigationLoadingProvider>
           </LanguageProvider>
         </GoogleAuthProvider>
       </body>
     </html>
   );
 }
-

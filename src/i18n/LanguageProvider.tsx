@@ -1,73 +1,84 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { getDictionary, type Lang, normalizeLang } from "./i18n";
+import React, {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
+import { getDictionary } from "@/i18n/i18n";
 
-type LanguageContextValue = {
-  lang: Lang;
-  setLang: (lang: Lang) => void;
-  toggleLang: () => void;
+export type Language = "vi" | "en";
+
+type LanguageContextType = {
+  // API chính
+  lang: Language;
+  setLang: (lang: Language) => void;
   t: (key: string) => string;
+
+  // Alias để tương thích code cũ
+  language: Language;
+  setLanguage: (lang: Language) => void;
 };
 
-const LanguageContext = createContext<LanguageContextValue | null>(null);
+const LanguageContext =
+  createContext<LanguageContextType | null>(null);
 
-function setLangCookie(lang: Lang) {
-  // 1 year
-  document.cookie = `lang=${lang}; Path=/; SameSite=Lax; Max-Age=31536000`;
-}
-
-export default function LanguageProvider({
-  initialLang,
-  children,
-}: {
-  initialLang: string;
+interface LanguageProviderProps {
   children: React.ReactNode;
-}) {
-  const router = useRouter();
-  const [lang, setLangState] = useState<Lang>(() => normalizeLang(initialLang));
-
-  const dict = useMemo(() => getDictionary(lang), [lang]);
-  const dictEn = useMemo(() => getDictionary("en"), []);
-
-  const t = useCallback(
-    (key: string) => {
-      const localized = dict[key];
-      if (localized !== undefined && localized !== "") return localized;
-      const english = dictEn[key];
-      if (english !== undefined && english !== "") return english;
-      return key;
-    },
-    [dict, dictEn],
-  );
-
-  const setLang = useCallback(
-    (next: Lang) => {
-      setLangCookie(next);
-      setLangState(next);
-      router.refresh();
-    },
-    [router],
-  );
-
-  const toggleLang = useCallback(() => {
-    setLang(lang === "vi" ? "en" : "vi");
-  }, [lang, setLang]);
-
-  const value = useMemo<LanguageContextValue>(
-    () => ({ lang, setLang, toggleLang, t }),
-    [lang, setLang, toggleLang, t],
-  );
-
-  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
+  initialLang?: Language;
 }
+
+export function LanguageProvider({
+  children,
+}: LanguageProviderProps) {
+  // Sản phẩm chỉ dùng tiếng Việt: bỏ qua initialLang/cookie cũ và không cho đổi.
+  const [lang] = useState<Language>("vi");
+
+  const setLang = () => undefined;
+
+  const t = useMemo(() => {
+    const dict = getDictionary(lang);
+    return (key: string) => dict[key] ?? key;
+  }, [lang]);
+
+  const value = useMemo<LanguageContextType>(
+    () => ({
+      lang,
+      setLang,
+      t,
+
+      // compatibility aliases
+      language: lang,
+      setLanguage: setLang,
+    }),
+    [lang, t],
+  );
+
+  return (
+    <LanguageContext.Provider value={value}>
+      {children}
+    </LanguageContext.Provider>
+  );
+}
+
+// Outside a provider (unit tests, isolated renders) fall back to the app's
+// default language instead of crashing; the app always mounts the provider.
+const viDictionary = getDictionary("vi");
+const DEFAULT_CONTEXT: LanguageContextType = {
+  lang: "vi",
+  setLang: () => undefined,
+  t: (key: string) => viDictionary[key] ?? key,
+  language: "vi",
+  setLanguage: () => undefined,
+};
 
 export function useLanguage() {
-  const ctx = useContext(LanguageContext);
-  if (!ctx) {
-    throw new Error("useLanguage must be used within LanguageProvider");
-  }
-  return ctx;
+  return useContext(LanguageContext) ?? DEFAULT_CONTEXT;
 }
 
+/**
+ * RootLayout hiện dùng:
+ * import LanguageProvider from "@/i18n/LanguageProvider";
+ */
+export default LanguageProvider;
