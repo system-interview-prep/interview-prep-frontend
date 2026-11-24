@@ -56,7 +56,6 @@ export const adminBlueprintVi: Record<string, string> = {
   "blueprint.contract.coverageAll": "Cố gắng hỏi hết câu đã khóa",
   "blueprint.contract.coverageMustHave": "Ưu tiên yêu cầu bắt buộc của vị trí",
   "blueprint.contract.requireBehavioral": "Phải hỏi hành vi nếu giai đoạn này được bật",
-  "blueprint.contract.maxProbes": "Số lần đào sâu tối đa mỗi câu",
   "blueprint.stage.warmUp": "Mở đầu",
   "blueprint.stage.validate": "Xác thực CV",
   "blueprint.stage.technical": "Câu hỏi kỹ thuật",

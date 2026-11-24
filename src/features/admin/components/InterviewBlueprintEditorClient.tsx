@@ -297,17 +297,6 @@ export default function InterviewBlueprintEditorClient({ id }: { id: string }) {
                 </select>
               </label>
               {toggle("contract", "requireBehavioralWhenEnabled", t("blueprint.contract.requireBehavioral"))}
-              <Row label={t("blueprint.contract.maxProbes")}>
-                <input
-                  type="number"
-                  min={0}
-                  max={3}
-                  className={inputClass}
-                  disabled={!editable}
-                  value={draft.contract.maxProbesPerQuestion}
-                  onChange={(event) => set("contract", "maxProbesPerQuestion", Number(event.target.value))}
-                />
-              </Row>
             </div>
           </AdminSection>
 

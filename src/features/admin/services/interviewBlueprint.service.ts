@@ -36,7 +36,6 @@ export type BlueprintDefinition = {
     objective: string;
     coverageTarget: "all_frozen_questions" | "job_must_haves";
     requireBehavioralWhenEnabled: boolean;
-    maxProbesPerQuestion: number;
   };
 };
 
