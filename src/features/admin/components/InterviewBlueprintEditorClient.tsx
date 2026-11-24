@@ -270,6 +270,47 @@ export default function InterviewBlueprintEditorClient({ id }: { id: string }) {
             </div>
           </AdminSection>
 
+          <AdminSection title={t("blueprint.contract.title")}>
+            <div className="space-y-3">
+              <p className="text-xs leading-5 text-[#607096]">{t("blueprint.contract.help")}</p>
+              <label className="block space-y-1 text-sm text-[#14244B]">
+                <span>{t("blueprint.contract.objective")}</span>
+                <textarea
+                  value={draft.contract.objective}
+                  disabled={!editable}
+                  maxLength={500}
+                  rows={3}
+                  onChange={(event) => set("contract", "objective", event.target.value)}
+                  className="w-full rounded-xl border border-[#DCE4F3] px-3 py-2 text-sm disabled:bg-[#F8FAFC]"
+                />
+              </label>
+              <label className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm text-[#14244B]">
+                <span>{t("blueprint.contract.coverage")}</span>
+                <select
+                  value={draft.contract.coverageTarget}
+                  disabled={!editable}
+                  onChange={(event) => set("contract", "coverageTarget", event.target.value as BlueprintDefinition["contract"]["coverageTarget"])}
+                  className="rounded-lg border border-[#DCE4F3] bg-white px-2 py-1.5 text-sm disabled:bg-[#F8FAFC]"
+                >
+                  <option value="all_frozen_questions">{t("blueprint.contract.coverageAll")}</option>
+                  <option value="job_must_haves">{t("blueprint.contract.coverageMustHave")}</option>
+                </select>
+              </label>
+              {toggle("contract", "requireBehavioralWhenEnabled", t("blueprint.contract.requireBehavioral"))}
+              <Row label={t("blueprint.contract.maxProbes")}>
+                <input
+                  type="number"
+                  min={0}
+                  max={3}
+                  className={inputClass}
+                  disabled={!editable}
+                  value={draft.contract.maxProbesPerQuestion}
+                  onChange={(event) => set("contract", "maxProbesPerQuestion", Number(event.target.value))}
+                />
+              </Row>
+            </div>
+          </AdminSection>
+
           <AdminSection title={`1. ${t("blueprint.stage.warmUp")}`}>
             <Row label={t("blueprint.soft")}>{seconds("warmUp", "softAnswerSeconds")}</Row>
             <Row label={t("blueprint.hard")}>{seconds("warmUp", "hardAnswerSeconds")}</Row>

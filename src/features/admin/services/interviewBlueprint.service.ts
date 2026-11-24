@@ -32,6 +32,12 @@ export type BlueprintDefinition = {
     minSecondsToOpen: number;
   };
   pacing: { emergencyCutoffSeconds: number; behindScheduleRatio: number };
+  contract: {
+    objective: string;
+    coverageTarget: "all_frozen_questions" | "job_must_haves";
+    requireBehavioralWhenEnabled: boolean;
+    maxProbesPerQuestion: number;
+  };
 };
 
 export type BlueprintPreviewRow = {
