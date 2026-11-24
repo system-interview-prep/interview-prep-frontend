@@ -10,7 +10,7 @@ import {
   type RemoteTrack,
   type TranscriptionSegment,
 } from 'livekit-client';
-import { apiClient } from '@/lib/apiClient';
+import { apiClient, userApi } from '@/lib/apiClient';
 import { INTERVIEW_MICROPHONE_OPTIONS } from '@/lib/livekitAudio';
 import { normalizeVoiceTranscript, reconcileVoiceTranscript } from '../utils/voiceLanguage';
 import { voiceTransportHealthMessage } from '../utils/voiceTransportHealth';
@@ -398,6 +398,15 @@ export function useLiveKitRoom({
     room.on(RoomEvent.DataReceived, handleData);
 
     try {
+      let autoCameraEnabled = cameraOnStart;
+      if (cameraOnStart) {
+        try {
+          const { data } = await userApi.getSettings();
+          autoCameraEnabled = data.autoCameraWebRTC;
+        } catch {
+          // Keep the current video-room default if settings cannot be loaded.
+        }
+      }
       const roomName = makeRoomName(sessionId);
       const tokenResponse = await apiClient.post<LiveKitTokenResponse>('/ai/voice-lab/livekit-token', {
         sessionId,
@@ -416,7 +425,7 @@ export function useLiveKitRoom({
       localMicTrackSidRef.current = micPublication?.trackSid || null;
       setMicEnabled(true);
 
-      if (cameraOnStart) {
+      if (autoCameraEnabled) {
         try {
           const cameraPublication = await room.localParticipant.setCameraEnabled(true);
           const track = cameraPublication?.track;
