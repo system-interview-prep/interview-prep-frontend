@@ -125,7 +125,7 @@ cd interview-prep-frontend
 pnpm install
 
 # 3. Tạo .env.local
-cp .env .env.local
+cp .env.example .env.local
 # Điền các giá trị vào .env.local
 `
 
@@ -228,6 +228,8 @@ docker build \
   --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID=<prod-client-id> \
   -t intervia-frontend:prod .
 `
+
+Production tại https://phongvan.app (EC2 + Caddy + ECR, CI/CD bằng GitHub Actions): xem [infra/aws/README.md](infra/aws/README.md).
 
 ---
 

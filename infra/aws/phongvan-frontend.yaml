@@ -1,0 +1,965 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  INTERVIA frontend (Next.js 16 standalone) on an always-on EC2 instance in the
+  CloudFormation stack's selected Region, served at https://phongvan.app by a
+  Caddy reverse proxy with automatic Let's Encrypt certificates. Creates a
+  private ECR repository, an Elastic IP for the DNS A record, Session Manager
+  access, optional Route 53 records, and a GitHub Actions OIDC role that can
+  only push to this ECR repository and run this stack's SSM deploy document.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Domain and HTTPS"
+        Parameters:
+          - DomainName
+          - RedirectWww
+          - HostedZoneId
+          - AcmeEmail
+      - Label:
+          default: "Instance and access"
+        Parameters:
+          - InstanceType
+          - RootVolumeSize
+          - AvailabilityZone
+          - AmiId
+          - KeyPairName
+          - SshCidr
+      - Label:
+          default: "Container registry"
+        Parameters:
+          - EcrRepositoryName
+          - ImageRetainCount
+      - Label:
+          default: "GitHub Actions CI/CD"
+        Parameters:
+          - GitHubOwner
+          - GitHubRepo
+          - GitHubDeployBranch
+          - GitHubEnvironment
+          - GitHubOidcProviderArn
+      - Label:
+          default: "Budget alerts (optional)"
+        Parameters:
+          - CreateBudget
+          - BudgetEmail
+          - MonthlyBudgetLimit
+    ParameterLabels:
+      DomainName:
+        default: "Public website domain (apex)"
+      RedirectWww:
+        default: "Also serve www and redirect it to the apex"
+      HostedZoneId:
+        default: "Route 53 hosted zone ID (optional)"
+      AcmeEmail:
+        default: "Email for Let's Encrypt expiry notices"
+      InstanceType:
+        default: "EC2 instance type"
+      RootVolumeSize:
+        default: "Root EBS size (GiB)"
+      AvailabilityZone:
+        default: "Availability Zone (optional)"
+      AmiId:
+        default: "Ubuntu 24.04 LTS AMI (SSM public parameter)"
+      KeyPairName:
+        default: "EC2 SSH key pair (optional)"
+      SshCidr:
+        default: "SSH administrator CIDR (optional)"
+      EcrRepositoryName:
+        default: "ECR repository name"
+      ImageRetainCount:
+        default: "Images kept in ECR"
+      GitHubOwner:
+        default: "GitHub owner (case-sensitive)"
+      GitHubRepo:
+        default: "GitHub repository (case-sensitive)"
+      GitHubDeployBranch:
+        default: "Branch allowed to deploy"
+      GitHubEnvironment:
+        default: "GitHub environment allowed to deploy"
+      GitHubOidcProviderArn:
+        default: "Existing GitHub OIDC provider ARN (optional)"
+      CreateBudget:
+        default: "Create a monthly budget"
+      BudgetEmail:
+        default: "Email for budget alerts"
+      MonthlyBudgetLimit:
+        default: "Monthly account budget (USD)"
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: phongvan.app
+    MinLength: 3
+    MaxLength: 253
+    AllowedPattern: ^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$
+    ConstraintDescription: Lowercase DNS name such as phongvan.app.
+    Description: >
+      Hostname served by Caddy. Point its DNS A record at the PublicIp output
+      (done automatically when HostedZoneId is set). The GPU stack keeps
+      ai.phongvan.app; this stack only uses the apex and, optionally, www.
+
+  RedirectWww:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: >
+      true also requests a certificate for www.<DomainName> and redirects it
+      to the apex. Needs a www A record too (created when HostedZoneId is set).
+
+  HostedZoneId:
+    Type: String
+    Default: ''
+    AllowedPattern: ^(Z[A-Z0-9]{1,31})?$
+    ConstraintDescription: Leave blank or enter a Route 53 hosted zone ID such as Z0123456789ABCDEFGHIJ.
+    Description: >
+      Leave blank when DNS for the domain is managed elsewhere (create the A
+      records by hand). Enter the public hosted zone ID if Route 53 serves it.
+
+  AcmeEmail:
+    Type: String
+    Default: phitruong20192020@gmail.com
+    MinLength: 5
+    MaxLength: 254
+    Description: Contact address given to Let's Encrypt for certificate problems.
+
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+      - t3a.small
+      - t3a.medium
+    Description: >
+      t3.small (2 GiB) is the default; the app is built in GitHub Actions, so
+      the instance only runs the Next.js server and Caddy. t3.micro (1 GiB plus
+      a 2 GiB swap file) also works for light demo traffic.
+
+  RootVolumeSize:
+    Type: Number
+    Default: 20
+    MinValue: 12
+    MaxValue: 100
+    Description: Encrypted gp3 root volume for Docker images and Caddy certificates.
+
+  AvailabilityZone:
+    Type: String
+    Default: ''
+    Description: >
+      Optional Availability Zone in this stack's Region. Leave blank to use the
+      first AZ returned for the Region.
+
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+    Description: >
+      Latest Canonical Ubuntu Server 24.04 LTS amd64 AMI, resolved in this
+      stack's Region. SSM Agent is preinstalled (snap).
+
+  KeyPairName:
+    Type: String
+    Default: ''
+    Description: >
+      Optional existing EC2 key pair in this Region. Leave blank to use only
+      Session Manager (recommended; deploys never need SSH).
+
+  SshCidr:
+    Type: String
+    Default: ''
+    AllowedPattern: ^((\d{1,3}\.){3}\d{1,3}/(\d|[1-2]\d|3[0-2]))?$
+    ConstraintDescription: Leave blank or enter an IPv4 CIDR such as 203.0.113.10/32.
+    Description: >
+      Optional IPv4 CIDR for SSH port 22. SSH is opened only when both this and
+      KeyPairName are set. Do not use 0.0.0.0/0.
+
+  EcrRepositoryName:
+    Type: String
+    Default: intervia-frontend
+    AllowedPattern: ^[a-z0-9]+([._-][a-z0-9]+)*(/[a-z0-9]+([._-][a-z0-9]+)*)*$
+    MinLength: 2
+    MaxLength: 256
+    Description: Private ECR repository that GitHub Actions pushes images to.
+
+  ImageRetainCount:
+    Type: Number
+    Default: 15
+    MinValue: 3
+    MaxValue: 100
+    Description: Older images beyond this count are expired, which limits rollback depth.
+
+  GitHubOwner:
+    Type: String
+    Default: TruongIKPK
+    MinLength: 1
+    Description: GitHub user or organization exactly as in the repository URL.
+
+  GitHubRepo:
+    Type: String
+    Default: interview-prep-frontend
+    MinLength: 1
+    Description: GitHub repository name exactly as in the repository URL.
+
+  GitHubDeployBranch:
+    Type: String
+    Default: main
+    MinLength: 1
+    Description: Workflows from this branch may assume the deploy role.
+
+  GitHubEnvironment:
+    Type: String
+    Default: production
+    MinLength: 1
+    Description: >
+      Jobs using this GitHub environment may assume the deploy role. Protect
+      the environment in GitHub (Settings > Environments) to limit branches or
+      require an approval before deploys.
+
+  GitHubOidcProviderArn:
+    Type: String
+    Default: ''
+    AllowedPattern: ^(arn:aws[a-zA-Z-]*:iam::\d{12}:oidc-provider/token\.actions\.githubusercontent\.com)?$
+    ConstraintDescription: Leave blank or paste the ARN of the existing token.actions.githubusercontent.com provider.
+    Description: >
+      An AWS account can hold only one provider for token.actions.githubusercontent.com.
+      Leave blank to create it here; paste its ARN if it already exists
+      (IAM > Identity providers), otherwise stack creation fails.
+
+  CreateBudget:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: >
+      The GPU stack already creates an account-wide budget. Set true only if
+      this account has no other budget alerts.
+
+  BudgetEmail:
+    Type: String
+    Default: phitruong20192020@gmail.com
+    MinLength: 5
+    MaxLength: 254
+    Description: Email for AWS Budgets notifications when CreateBudget is true.
+
+  MonthlyBudgetLimit:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 150
+    Description: Monthly account-wide actual-cost budget. Alerts only, not a spending cap.
+
+Conditions:
+  UseProvidedAvailabilityZone: !Not [!Equals [!Ref AvailabilityZone, '']]
+  UseWww: !Equals [!Ref RedirectWww, 'true']
+  UseRoute53: !Not [!Equals [!Ref HostedZoneId, '']]
+  UseRoute53Www: !And [!Condition UseRoute53, !Condition UseWww]
+  HasKeyPair: !Not [!Equals [!Ref KeyPairName, '']]
+  AllowSsh: !And [!Condition HasKeyPair, !Not [!Equals [!Ref SshCidr, '']]]
+  CreateGitHubOidcProvider: !Equals [!Ref GitHubOidcProviderArn, '']
+  UseBudget: !Equals [!Ref CreateBudget, 'true']
+
+Resources:
+  # ---------------------------------------------------------------- network
+  WebVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.43.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-vpc'
+        - Key: Project
+          Value: INTERVIA-FRONTEND-2026
+
+  WebPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref WebVpc
+      CidrBlock: 10.43.1.0/24
+      AvailabilityZone: !If
+        - UseProvidedAvailabilityZone
+        - !Ref AvailabilityZone
+        - !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-public-subnet'
+        - Key: Project
+          Value: INTERVIA-FRONTEND-2026
+
+  WebInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-igw'
+        - Key: Project
+          Value: INTERVIA-FRONTEND-2026
+
+  WebInternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref WebVpc
+      InternetGatewayId: !Ref WebInternetGateway
+
+  WebPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref WebVpc
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-public-rt'
+
+  WebDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: WebInternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref WebPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref WebInternetGateway
+
+  WebPublicRouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref WebPublicSubnet
+      RouteTableId: !Ref WebPublicRouteTable
+
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public HTTP/HTTPS for the INTERVIA website; SSH only when configured.
+      VpcId: !Ref WebVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP for ACME validation and redirect to HTTPS
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS website
+        - IpProtocol: udp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTP/3 website
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Package, image, ACME and SSM traffic
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-web'
+        - Key: Project
+          Value: INTERVIA-FRONTEND-2026
+
+  WebSshIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: AllowSsh
+    Properties:
+      GroupId: !Ref WebSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: !Ref SshCidr
+      Description: SSH from the administrator CIDR
+
+  # The Elastic IP is attached to the network interface before the instance
+  # boots, so bootstrap downloads never lose their connection mid-way and the
+  # DNS A record survives stop/start.
+  WebNetworkInterface:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !Ref WebPublicSubnet
+      GroupSet:
+        - !Ref WebSecurityGroup
+      Description: !Sub '${AWS::StackName} web interface'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-eni'
+
+  WebElasticIp:
+    Type: AWS::EC2::EIP
+    DependsOn: WebInternetGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-eip'
+        - Key: Project
+          Value: INTERVIA-FRONTEND-2026
+
+  WebElasticIpAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt WebElasticIp.AllocationId
+      NetworkInterfaceId: !Ref WebNetworkInterface
+
+  # --------------------------------------------------------------- registry
+  FrontendRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref EcrRepositoryName
+      ImageTagMutability: MUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      EmptyOnDelete: true
+      LifecyclePolicy:
+        LifecyclePolicyText: !Sub |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep the newest ${ImageRetainCount} images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": ${ImageRetainCount}
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+      Tags:
+        - Key: Project
+          Value: INTERVIA-FRONTEND-2026
+
+  # ---------------------------------------------------------- instance role
+  WebInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'
+      Policies:
+        - PolicyName: PullFrontendImages
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:DescribeImages
+                Resource: !GetAtt FrontendRepository.Arn
+      Tags:
+        - Key: Project
+          Value: INTERVIA-FRONTEND-2026
+
+  WebInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref WebInstanceRole
+
+  # ---------------------------------------------------------------- instance
+  WebInstance:
+    Type: AWS::EC2::Instance
+    DependsOn:
+      - WebDefaultRoute
+      - WebPublicRouteAssociation
+      - WebElasticIpAssociation
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
+      IamInstanceProfile: !Ref WebInstanceProfile
+      EbsOptimized: true
+      CreditSpecification:
+        CPUCredits: standard
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 1
+        InstanceMetadataTags: enabled
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          NetworkInterfaceId: !Ref WebNetworkInterface
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: !Ref RootVolumeSize
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      # UserData runs only on the first boot. Changing it later does not
+      # reconfigure a running instance; replace the instance instead.
+      UserData:
+        Fn::Base64:
+          Fn::Sub:
+            - |
+              #!/bin/bash
+              set -Eeuo pipefail
+              exec > >(tee -a /var/log/intervia-bootstrap.log | logger -t intervia-bootstrap -s 2>/dev/console) 2>&1
+              export DEBIAN_FRONTEND=noninteractive
+              APT_OPTS="-o Acquire::Retries=5 -o DPkg::Lock::Timeout=300"
+
+              # 2 GiB swap so t3.micro/t3.small survive image pulls and traffic bursts.
+              if [ ! -f /swapfile ]; then
+                fallocate -l 2G /swapfile
+                chmod 600 /swapfile
+                mkswap /swapfile
+                swapon /swapfile
+                echo '/swapfile none swap sw 0 0' >> /etc/fstab
+              fi
+
+              apt-get $APT_OPTS update -y
+              apt-get $APT_OPTS install -y ca-certificates curl gnupg unzip jq
+
+              if ! /usr/local/bin/aws --version >/dev/null 2>&1; then
+                AWS_CLI_TMP="$(mktemp -d)"
+                curl -fsSL --retry 5 https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o "$AWS_CLI_TMP/awscliv2.zip"
+                unzip -q "$AWS_CLI_TMP/awscliv2.zip" -d "$AWS_CLI_TMP"
+                "$AWS_CLI_TMP/aws/install" --update
+                rm -rf "$AWS_CLI_TMP"
+              fi
+
+              # Docker Engine and the Compose plugin from Docker's own apt repository.
+              if ! docker compose version >/dev/null 2>&1; then
+                install -m 0755 -d /etc/apt/keyrings
+                curl -fsSL --retry 5 https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+                chmod a+r /etc/apt/keyrings/docker.asc
+                . /etc/os-release
+                echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $VERSION_CODENAME stable" > /etc/apt/sources.list.d/docker.list
+                apt-get $APT_OPTS update -y
+                apt-get $APT_OPTS install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+              fi
+
+              install -d -m 0755 /etc/docker
+              cat > /etc/docker/daemon.json <<'JSON'
+              {
+                "log-driver": "local",
+                "log-opts": { "max-size": "10m", "max-file": "5" }
+              }
+              JSON
+              systemctl enable docker
+              systemctl restart docker
+              systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service || snap start amazon-ssm-agent || true
+
+              # ---------------------------------------------------- stack settings
+              install -d -m 0755 /etc/intervia
+              cat > /etc/intervia/stack.env <<'ENV'
+              AWS_REGION=${AWS::Region}
+              ECR_REGISTRY=${AWS::AccountId}.dkr.ecr.${AWS::Region}.${AWS::URLSuffix}
+              ECR_REPOSITORY=${FrontendRepository}
+              DOMAIN_NAME=${DomainName}
+              ENV
+
+              install -d -m 0755 /opt/intervia /opt/intervia/caddy
+              [ -f /opt/intervia/release.env ] || : > /opt/intervia/release.env
+
+              cat > /opt/intervia/caddy/Caddyfile <<'CADDY'
+              {
+              	email ${AcmeEmail}
+              }
+
+              ${DomainName} {
+              	encode zstd gzip
+              	header {
+              		Strict-Transport-Security "max-age=31536000"
+              		X-Content-Type-Options "nosniff"
+              		Referrer-Policy "strict-origin-when-cross-origin"
+              		-Server
+              		-X-Powered-By
+              	}
+              	reverse_proxy web:3000
+              	# Shown while the Next.js container is being replaced or is down.
+              	handle_errors 502 503 504 {
+              		header Content-Type "text/html; charset=utf-8"
+              		header Retry-After "30"
+              		respond "<!doctype html><html lang=vi><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>INTERVIA</title><p style='font-family:system-ui,sans-serif;text-align:center;margin-top:30vh'>INTERVIA đang cập nhật phiên bản mới. Vui lòng tải lại trang sau ít phút.</p></html>" 503
+              	}
+              }
+              ${WwwSiteBlock}
+              CADDY
+
+              cat > /opt/intervia/docker-compose.yml <<'COMPOSE'
+              name: intervia
+              services:
+                web:
+                  # Set by /usr/local/sbin/intervia-deploy in /opt/intervia/release.env.
+                  image: ${!WEB_IMAGE:-intervia-web:not-deployed}
+                  container_name: intervia-web
+                  restart: unless-stopped
+                  expose:
+                    - "3000"
+                  environment:
+                    NODE_ENV: production
+                    PORT: "3000"
+                    HOSTNAME: 0.0.0.0
+
+                caddy:
+                  image: caddy:2-alpine
+                  container_name: intervia-caddy
+                  restart: unless-stopped
+                  ports:
+                    - "80:80"
+                    - "443:443"
+                    - "443:443/udp"
+                  volumes:
+                    - /opt/intervia/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+                    - caddy_data:/data
+                    - caddy_config:/config
+
+              volumes:
+                caddy_data:
+                caddy_config:
+              COMPOSE
+
+              # ---------------------------------------------------------- scripts
+              cat > /usr/local/sbin/intervia-ecr-login <<'SCRIPT'
+              #!/bin/bash
+              set -Eeuo pipefail
+              . /etc/intervia/stack.env
+              /usr/local/bin/aws ecr get-login-password --region "$AWS_REGION" \
+                | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+              SCRIPT
+
+              # Starts whatever release is recorded; Caddy alone before the first deploy.
+              cat > /usr/local/sbin/intervia-start <<'SCRIPT'
+              #!/bin/bash
+              set -Eeuo pipefail
+              cd /opt/intervia
+              if grep -q '^WEB_IMAGE=.' release.env; then
+                /usr/local/sbin/intervia-ecr-login || true
+                docker compose --env-file release.env up -d --remove-orphans
+              else
+                docker compose --env-file release.env up -d caddy
+              fi
+              SCRIPT
+
+              # Called by the SSM deploy document with one image tag.
+              cat > /usr/local/sbin/intervia-deploy <<'SCRIPT'
+              #!/bin/bash
+              set -Eeuo pipefail
+              exec 9>/run/intervia-deploy.lock
+              flock -w 600 9
+
+              TAG="$*"
+              if ! printf '%s' "$TAG" | grep -Eq '^[A-Za-z0-9._-]{1,128}$'; then
+                echo "Invalid image tag: '$TAG'" >&2
+                exit 2
+              fi
+
+              . /etc/intervia/stack.env
+              IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$TAG"
+              cd /opt/intervia
+              PREVIOUS="$(sed -n 's/^WEB_IMAGE=//p' release.env)"
+
+              wait_healthy() {
+                for _ in $(seq 1 60); do
+                  STATUS="$(docker inspect --format '{{.State.Health.Status}}' intervia-web 2>/dev/null || echo missing)"
+                  if [ "$STATUS" = healthy ]; then return 0; fi
+                  if [ "$STATUS" = unhealthy ]; then return 1; fi
+                  sleep 3
+                done
+                return 1
+              }
+
+              echo "Deploying $IMAGE (previous: $PREVIOUS)"
+              /usr/local/sbin/intervia-ecr-login
+              docker pull "$IMAGE"
+              printf 'WEB_IMAGE=%s\n' "$IMAGE" > release.env.next
+              mv release.env.next release.env
+              docker compose --env-file release.env up -d --remove-orphans
+
+              if wait_healthy; then
+                echo "Release is healthy: $IMAGE"
+                docker image prune -af --filter "until=168h" >/dev/null || true
+                exit 0
+              fi
+
+              echo "Release did not become healthy: $IMAGE" >&2
+              docker logs --tail 80 intervia-web >&2 || true
+              if [ -n "$PREVIOUS" ] && [ "$PREVIOUS" != "$IMAGE" ]; then
+                echo "Rolling back to $PREVIOUS" >&2
+                printf 'WEB_IMAGE=%s\n' "$PREVIOUS" > release.env
+                docker compose --env-file release.env up -d web
+                wait_healthy && echo "Rollback is healthy: $PREVIOUS" >&2 || echo "Rollback is not healthy either" >&2
+              fi
+              exit 1
+              SCRIPT
+              chmod 0755 /usr/local/sbin/intervia-ecr-login /usr/local/sbin/intervia-start /usr/local/sbin/intervia-deploy
+
+              cat > /etc/systemd/system/intervia.service <<'UNIT'
+              [Unit]
+              Description=INTERVIA frontend (Next.js + Caddy) via Docker Compose
+              Requires=docker.service
+              After=docker.service network-online.target
+              Wants=network-online.target
+
+              [Service]
+              Type=oneshot
+              RemainAfterExit=yes
+              WorkingDirectory=/opt/intervia
+              ExecStart=/usr/local/sbin/intervia-start
+              TimeoutStartSec=0
+
+              [Install]
+              WantedBy=multi-user.target
+              UNIT
+              systemctl daemon-reload
+              systemctl enable --now intervia.service
+
+              # If the stack is recreated after CI already pushed images, go live at once.
+              if /usr/local/bin/aws ecr describe-images --region '${AWS::Region}' \
+                   --repository-name '${FrontendRepository}' --image-ids imageTag=latest >/dev/null 2>&1; then
+                /usr/local/sbin/intervia-deploy latest || echo "Initial deploy of :latest failed; wait for CI" >&2
+              else
+                echo "No image yet. Caddy is up; the first GitHub Actions run deploys the site."
+              fi
+
+              docker --version
+              docker compose version
+              docker compose -f /opt/intervia/docker-compose.yml --env-file /opt/intervia/release.env ps
+            - WwwSiteBlock: !If
+                - UseWww
+                - !Sub |
+                  www.${DomainName} {
+                  	redir https://${DomainName}{uri} permanent
+                  }
+                - ''
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-web'
+        - Key: Project
+          Value: INTERVIA-FRONTEND-2026
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  # ---------------------------------------------------------------- deploy
+  # The only command CI may run on the instance: deploy one validated tag.
+  DeployDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Command
+      DocumentFormat: YAML
+      Content:
+        schemaVersion: '2.2'
+        description: Deploy one INTERVIA frontend image tag from ECR and roll back if it is unhealthy.
+        parameters:
+          ImageTag:
+            type: String
+            description: ECR image tag, for example the Git commit SHA.
+            allowedPattern: ^[A-Za-z0-9._-]{1,128}$
+        mainSteps:
+          - action: aws:runShellScript
+            name: deployFrontend
+            inputs:
+              timeoutSeconds: '900'
+              runCommand:
+                - /usr/local/sbin/intervia-deploy '{{ ImageTag }}'
+      Tags:
+        - Key: Project
+          Value: INTERVIA-FRONTEND-2026
+
+  # ------------------------------------------------------- GitHub Actions
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateGitHubOidcProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      Tags:
+        - Key: Project
+          Value: INTERVIA-FRONTEND-2026
+
+  GitHubDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Assumed by GitHub Actions (OIDC) to push the frontend image and deploy it.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - CreateGitHubOidcProvider
+                - !Ref GitHubOidcProvider
+                - !Ref GitHubOidcProviderArn
+            Action:
+              - sts:AssumeRoleWithWebIdentity
+              - sts:TagSession
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub:
+                  - !Sub 'repo:${GitHubOwner}/${GitHubRepo}:ref:refs/heads/${GitHubDeployBranch}'
+                  - !Sub 'repo:${GitHubOwner}/${GitHubRepo}:environment:${GitHubEnvironment}'
+                  # Since 2026 GitHub adds the immutable owner and repository IDs
+                  # to the subject: repo:<owner>@<id>/<repo>@<id>:...
+                  - !Sub 'repo:${GitHubOwner}@*/${GitHubRepo}@*:ref:refs/heads/${GitHubDeployBranch}'
+                  - !Sub 'repo:${GitHubOwner}@*/${GitHubRepo}@*:environment:${GitHubEnvironment}'
+      Policies:
+        - PolicyName: PushFrontendImage
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:CompleteLayerUpload
+                  - ecr:DescribeImages
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:InitiateLayerUpload
+                  - ecr:PutImage
+                  - ecr:UploadLayerPart
+                Resource: !GetAtt FrontendRepository.Arn
+        - PolicyName: DeployToInstance
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:SendCommand
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:document/${DeployDocument}'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${WebInstance}'
+              - Effect: Allow
+                Action:
+                  - ssm:GetCommandInvocation
+                  - ssm:ListCommandInvocations
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                Resource: !Ref AWS::StackId
+      Tags:
+        - Key: Project
+          Value: INTERVIA-FRONTEND-2026
+
+  # ------------------------------------------------------------------ DNS
+  ApexRecord:
+    Type: AWS::Route53::RecordSet
+    Condition: UseRoute53
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      TTL: '300'
+      ResourceRecords:
+        - !Ref WebElasticIp
+
+  WwwRecord:
+    Type: AWS::Route53::RecordSet
+    Condition: UseRoute53Www
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub 'www.${DomainName}'
+      Type: A
+      TTL: '300'
+      ResourceRecords:
+        - !Ref WebElasticIp
+
+  # --------------------------------------------------------------- budget
+  WebCostBudget:
+    Type: AWS::Budgets::Budget
+    Condition: UseBudget
+    Properties:
+      Budget:
+        BudgetName: !Sub '${AWS::StackName}-${AWS::Region}-monthly'
+        BudgetLimit:
+          Amount: !Ref MonthlyBudgetLimit
+          Unit: USD
+        TimeUnit: MONTHLY
+        BudgetType: COST
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref BudgetEmail
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref BudgetEmail
+
+Outputs:
+  DeploymentRegion:
+    Description: AWS Region of this stack. Use it for the GitHub variable AWS_REGION.
+    Value: !Ref AWS::Region
+
+  StackName:
+    Description: Use it for the GitHub variable AWS_STACK_NAME.
+    Value: !Ref AWS::StackName
+
+  WebsiteUrl:
+    Description: Public website URL.
+    Value: !Sub 'https://${DomainName}'
+
+  PublicIp:
+    Description: Elastic IP. Point the A record of the domain (and www) here.
+    Value: !Ref WebElasticIp
+
+  DnsRecordsToCreate:
+    Description: DNS records the domain needs (already created when HostedZoneId is set).
+    Value: !If
+      - UseWww
+      - !Sub 'A ${DomainName} -> ${WebElasticIp} ; A www.${DomainName} -> ${WebElasticIp}'
+      - !Sub 'A ${DomainName} -> ${WebElasticIp}'
+
+  InstanceId:
+    Description: EC2 instance ID for Session Manager.
+    Value: !Ref WebInstance
+
+  SsmSessionCommand:
+    Description: Open a shell on the instance without SSH.
+    Value: !Sub 'aws ssm start-session --target ${WebInstance} --region ${AWS::Region}'
+
+  EcrRepositoryUri:
+    Description: Image repository that GitHub Actions pushes to.
+    Value: !GetAtt FrontendRepository.RepositoryUri
+
+  DeployDocumentName:
+    Description: SSM document that deploys one image tag on the instance.
+    Value: !Ref DeployDocument
+
+  GitHubDeployRoleArn:
+    Description: Use it for the GitHub variable AWS_DEPLOY_ROLE_ARN.
+    Value: !GetAtt GitHubDeployRole.Arn
+
+  GitHubVariablesCommand:
+    Description: Run once with the GitHub CLI to set the CI/CD variables (add the NEXT_PUBLIC_* ones as well).
+    Value: !Sub 'gh variable set AWS_REGION -b ${AWS::Region} -e ${GitHubEnvironment} -R ${GitHubOwner}/${GitHubRepo} && gh variable set AWS_STACK_NAME -b ${AWS::StackName} -e ${GitHubEnvironment} -R ${GitHubOwner}/${GitHubRepo} && gh variable set AWS_DEPLOY_ROLE_ARN -b ${GitHubDeployRole.Arn} -e ${GitHubEnvironment} -R ${GitHubOwner}/${GitHubRepo}'
+
+  ManualDeployCommand:
+    Description: Deploy or roll back to an existing image tag by hand.
+    Value: !Sub 'aws ssm send-command --region ${AWS::Region} --document-name ${DeployDocument} --instance-ids ${WebInstance} --parameters ImageTag=latest'
+
+  BootstrapLog:
+    Description: First-boot log on the instance.
+    Value: /var/log/intervia-bootstrap.log

@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Self-contained server for the Docker image (.next/standalone/server.js).
+  // `pnpm dev` is unaffected; `pnpm start` still works locally.
+  output: "standalone",
   reactCompiler: true,
   reactStrictMode: false, // Disable double-invoke in dev (Socket.IO join/leave noise)
   turbopack: {

@@ -18,7 +18,9 @@ const REVISABLE = new Set(["APPROVED", "CALIBRATED", "REJECTED"]);
 const IN_REVIEW = new Set(["IN_REVIEW", "PILOT_READY"]);
 // Reasons that only mean "this step is not for now" (wrong status or role): hide the button.
 const HIDDEN_REASONS = new Set(["no_role", "not_editable", "not_in_review", "not_finished"]);
-const copyRubricCriteria = (criteria: NonNullable<QuestionDetail["rubric"]>["criteria"]) => criteria.map((criterion) => ({
+// Accepts both a saved rubric (critical always set) and RUBRIC_TEMPLATE (critical optional).
+type RubricCriterionSource = Omit<RubricCriterionInput, "anchors"> & { anchors?: RubricCriterionInput["anchors"] };
+const copyRubricCriteria = (criteria: readonly RubricCriterionSource[]): RubricCriterionInput[] => criteria.map((criterion) => ({
   ...criterion,
   anchors: ([0, 1, 2, 3] as const).map((level) => ({
     level,
