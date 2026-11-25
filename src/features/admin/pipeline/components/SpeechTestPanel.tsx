@@ -69,6 +69,7 @@ export default function SpeechTestPanel() {
   const [sttBusy, setSttBusy] = useState(false);
   const [sttError, setSttError] = useState("");
   const [transcript, setTranscript] = useState("");
+  const [quality, setQuality] = useState<{ accepted: boolean; reason: string } | null>(null);
   const [sttElapsed, setSttElapsed] = useState<number | null>(null);
   const [sttResultAdapter, setSttResultAdapter] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -105,6 +106,7 @@ export default function SpeechTestPanel() {
     const file = new File([blob], `speech-test-${Date.now()}.webm`, { type: normalizedType });
     setRecordedFile(file);
     setTranscript("");
+    setQuality(null);
     setSttError("");
     setSttTestId("");
     setTraceEnabled(null);
@@ -119,6 +121,7 @@ export default function SpeechTestPanel() {
     }
     setSttError("");
     setTranscript("");
+    setQuality(null);
     setInterimTranscript("");
     setSttElapsed(null);
     setSttTestId("");
@@ -141,6 +144,9 @@ export default function SpeechTestPanel() {
         if (event.type === "final") {
           const finalText = (event.text ?? "").trim();
           if (finalText) setTranscript((previous) => [previous, finalText].filter(Boolean).join(" "));
+          if (typeof event.qualityAccepted === "boolean") {
+            setQuality({ accepted: event.qualityAccepted, reason: event.qualityReason ?? "unknown" });
+          }
           setInterimTranscript("");
         }
         if (event.type === "stopped") {
@@ -248,12 +254,14 @@ export default function SpeechTestPanel() {
     setSttBusy(true);
     setSttError("");
     setTranscript("");
+    setQuality(null);
     setSttTestId("");
     setTraceEnabled(null);
     try {
       const wavFile = await toMonoWav16k(recordedFile);
       const result = await pipelineService.testSpeechTranscription(wavFile, { context: sttContext, referenceText });
       setTranscript(result.text);
+      setQuality({ accepted: result.qualityAccepted, reason: result.qualityReason });
       setSttElapsed(result.elapsedMs);
       setSttResultAdapter(`${result.provider} · ${result.model}`);
       setSttTestId(result.testId);
@@ -362,6 +370,10 @@ export default function SpeechTestPanel() {
             {sttElapsed !== null ? <span className="text-xs text-[#287A4B]">{fill(t("aiPipeline.speech.test.elapsed"), { ms: sttElapsed })}</span> : null}
           </div>
           {transcript ? <div className="mt-3 rounded-xl bg-[#F7F9FD] p-3 text-sm leading-6 text-[#14244B]"><p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#607096]">{sttResultAdapter}</p>{transcript}</div> : null}
+          {quality ? <p role="status" className={`mt-2 text-xs font-semibold ${quality.accepted ? "text-[#287A4B]" : "text-[#C43B3B]"}`}>
+            {t(quality.accepted ? "aiPipeline.speech.test.interviewAccepts" : "aiPipeline.speech.test.interviewRejects")}
+            {!quality.accepted ? ` (${quality.reason})` : ""}
+          </p> : null}
           {sttError ? <p role="alert" className="mt-2 text-sm text-[#C43B3B]">{sttError}</p> : null}
           {sttTestId ? <p className="mt-2 break-all text-xs text-[#607096]">
             {t("aiPipeline.speech.test.traceId")}: <span className="font-mono">{sttTestId}</span>

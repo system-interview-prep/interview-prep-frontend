@@ -1,5 +1,7 @@
 /** Admin AI pipeline: session journey, model calls and AI health (features/admin/pipeline). */
 export const aiPipelineVi: Record<string, string> = {
+  "aiPipeline.speech.test.interviewAccepts": "Transcript đạt bộ lọc STT của interview.",
+  "aiPipeline.speech.test.interviewRejects": "Transcript không đạt bộ lọc STT của interview.",
   "aiPipeline.title": "Hành trình AI của buổi phỏng vấn",
   "aiPipeline.subtitle": "AI đã làm gì ở từng bước, kết quả và lý do của mỗi quyết định.",
   "aiPipeline.loading": "Đang tải hành trình…",
@@ -900,6 +902,8 @@ export const aiPipelineVi: Record<string, string> = {
 
 // The product UI is Vietnamese only; English keys missing below fall back to Vietnamese.
 export const aiPipelineEn: Record<string, string> = {
+  "aiPipeline.speech.test.interviewAccepts": "Transcript passes the interview STT filter.",
+  "aiPipeline.speech.test.interviewRejects": "Transcript fails the interview STT filter.",
   "adminNotify.title": "Notifications",
   "adminNotify.bell": "Notifications",
   "adminNotify.bellUnread": "Notifications, {n} unread",

@@ -553,13 +553,13 @@ export const pipelineService = {
   async testSpeechTranscription(
     audio: File,
     options: { context?: string; referenceText?: string } = {},
-  ): Promise<{ text: string; elapsedMs: number; provider: string; model: string; testId: string; traceEnabled: boolean }> {
+  ): Promise<{ text: string; elapsedMs: number; provider: string; model: string; testId: string; traceEnabled: boolean; qualityAccepted: boolean; qualityReason: string }> {
     const form = new FormData();
     form.append("audio", audio);
     form.append("context", options.context ?? "");
     form.append("referenceText", options.referenceText ?? "");
     const response = await apiClient.post<{
-      text: string; elapsedMs: number; provider: string; model: string; testId: string; traceEnabled: boolean;
+      text: string; elapsedMs: number; provider: string; model: string; testId: string; traceEnabled: boolean; qualityAccepted: boolean; qualityReason: string;
     }>(
       "/admin/ai/speech/test/transcribe",
       form,

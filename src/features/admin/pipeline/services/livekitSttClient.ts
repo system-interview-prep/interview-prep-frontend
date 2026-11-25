@@ -8,6 +8,7 @@ export type SttTestRoomToken = {
 export type SttTestEvent = {
   type: "ready" | "interim" | "final" | "stopped";
   testId: string; text?: string; provider?: string; model?: string; elapsedMs?: number;
+  qualityAccepted?: boolean | null; qualityReason?: string | null;
   traceEnabled?: boolean; traceDelivered?: boolean; status?: string;
 };
 
