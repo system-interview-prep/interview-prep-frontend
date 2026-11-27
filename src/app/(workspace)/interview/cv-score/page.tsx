@@ -718,6 +718,16 @@ function ScorePageContent() {
       }
 
       setResult(scoringResult);
+      // Pin the run in the URL. Without this a reload re-scored from scratch:
+      // another full match, another row in the assessment history, and a
+      // clarification session that could not be told apart from a deliberate
+      // new assessment. With it, a reload reopens this run and a new one is
+      // something the candidate asks for.
+      if (!urlAttemptId && scoringResult.fitAttemptId) {
+        const pinned = new URLSearchParams(window.location.search);
+        pinned.set("fitAttemptId", scoringResult.fitAttemptId);
+        router.replace(`/interview/cv-score?${pinned.toString()}`, { scroll: false });
+      }
       if (jobData) setJobProfile(jobData);
       if (cvRecord) {
         setCvData(cvRecord);
@@ -729,7 +739,7 @@ function ScorePageContent() {
     } finally {
       setLoading(false);
     }
-  }, [candidateId, jobId, urlAttemptId]);
+  }, [candidateId, jobId, urlAttemptId, router]);
 
   const handleMatchingResult = useCallback((matchResult: MatchResult) => {
     if (!candidateId || !jobId) return;
@@ -1251,6 +1261,7 @@ function ScorePageContent() {
               requirementsMap={requirementsMap}
               candidateId={candidateId}
               jobId={jobId}
+              fitAttemptId={urlAttemptId || result?.fitAttemptId || ""}
               onMatchUpdated={handleMatchingResult}
               onChooseInterviewMode={openModeChooser}
               startingInterview={startingInterview}
@@ -1281,6 +1292,7 @@ export function ReportContent({
   cvData,
   candidateId,
   jobId,
+  fitAttemptId = "",
   onMatchUpdated,
   onChooseInterviewMode,
   startingInterview = false,
@@ -1291,6 +1303,8 @@ export function ReportContent({
   cvData?: UserCvDto | null;
   candidateId?: string;
   jobId?: string;
+  /** The matching run on screen; a new assessment asks its questions afresh. */
+  fitAttemptId?: string;
   onMatchUpdated?: (result: MatchResult) => void;
   /** Opens the interview mode chooser (same as the header button). */
   onChooseInterviewMode?: () => void;
@@ -1424,6 +1438,7 @@ export function ReportContent({
           groups={requirementGroups}
           candidateId={candidateId}
           jobId={jobId}
+          fitAttemptId={fitAttemptId}
           onMatchUpdated={onMatchUpdated}
           cvRawText={cvData?.rawText}
           cvContentType={cvData?.contentType}

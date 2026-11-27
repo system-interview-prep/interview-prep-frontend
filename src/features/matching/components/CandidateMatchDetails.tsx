@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
+  fetchStoredClarificationSession,
   generateMatchClarificationQuestions,
   prepareMatchClarifications,
   rescoreMatchClarifications,
@@ -43,6 +44,8 @@ export interface CandidateMatchDetailsProps {
   emptyMessage?: string;
   candidateId?: string;
   jobId?: string;
+  /** The matching run in progress; a new run asks its questions afresh. */
+  fitAttemptId?: string;
   onMatchUpdated?: (result: MatchResult) => void;
   /** CV text the parser read; enables the side-by-side CV pane. */
   cvRawText?: string | null;
@@ -58,6 +61,7 @@ export function CandidateMatchDetails({
   emptyMessage,
   candidateId = "",
   jobId = "",
+  fitAttemptId = "",
   onMatchUpdated,
   cvRawText,
   cvContentType,
@@ -110,6 +114,8 @@ export function CandidateMatchDetails({
   );
 
   useEffect(() => {
+    setClarificationDrafts({});
+    setProcessedAnswers([]);
     if (!unknownRequirementKey || !candidateId || !jobId) {
       setClarificationRequests([]);
       setClarificationAnalysis(null);
@@ -134,7 +140,34 @@ export function CandidateMatchDetails({
       setClarificationPhase("idle");
       setClarificationError(null);
       try {
-        const preparation = await prepareMatchClarifications({ candidateId, jobId });
+        // A reload used to re-run Jev and the question model and still show an
+        // empty form: two provider calls to re-ask the same requirements, in
+        // possibly different words, with every typed answer gone. Whatever was
+        // already asked and answered is restored first, and costs neither call.
+        //
+        // No analysis object is reconstructed from it. The server stores what
+        // it asked and recomputes the baseline from the canonical CV and JD, so
+        // a restored page submits answers without one rather than inventing a
+        // match result the backend would be right not to trust.
+        const stored = await fetchStoredClarificationSession({
+          candidateId,
+          jobId,
+          fitAttemptId,
+        });
+        if (cancelled) return;
+        if (stored.questions.length > 0) {
+          setClarificationCandidateIds(
+            new Set(stored.questions.map((item) => item.requirementId))
+          );
+          setClarificationRequests(stored.questions);
+          setClarificationAnalysis(null);
+          setClarificationDrafts((current) => ({ ...stored.answers, ...current }));
+          setProcessedAnswers(stored.processedAnswers);
+          setClarificationPhase("ready");
+          return;
+        }
+
+        const preparation = await prepareMatchClarifications({ candidateId, jobId, fitAttemptId });
         if (cancelled) return;
 
         const clarificationCandidates = preparation.clarificationCandidates ?? [];
@@ -153,6 +186,7 @@ export function CandidateMatchDetails({
         const analysis = await generateMatchClarificationQuestions({
           candidateId,
           jobId,
+          fitAttemptId,
           requirementIds: clarificationCandidates.map((item) => item.requirementId),
           clarificationToken: preparation.clarificationToken,
         });
@@ -189,22 +223,30 @@ export function CandidateMatchDetails({
     return () => {
       cancelled = true;
     };
-  }, [candidateId, jobId, unknownRequirementKey, clarificationReload]);
+  }, [candidateId, jobId, fitAttemptId, unknownRequirementKey, clarificationReload]);
 
   const submitClarificationAnswers = async (answers: CandidateClarificationAnswer[]) => {
-    if (!clarificationAnalysis || !candidateId || !jobId || answers.length === 0) return;
+    if (!candidateId || !jobId || answers.length === 0) return;
     setClarificationSubmitting(true);
     setClarificationSubmitError(null);
     try {
       const result = await rescoreMatchClarifications({
         candidateId,
         jobId,
-        initialAnalysis: clarificationAnalysis,
+        fitAttemptId,
+        ...(clarificationAnalysis ? { initialAnalysis: clarificationAnalysis } : {}),
         answers,
       });
+      // Keep what was typed. Once an outcome exists the panel stops rendering
+      // the textarea and prints the answer beside the verdict instead, so
+      // dropping the draft here left the candidate reading a verdict over an
+      // empty "your answer" box - their own words gone from the one place that
+      // explains the result.
       setClarificationDrafts((current) => {
         const next = { ...current };
-        answers.forEach(({ requirementId }) => delete next[requirementId]);
+        answers.forEach(({ requirementId, answerText }) => {
+          next[requirementId] = answerText;
+        });
         return next;
       });
       setProcessedAnswers(result.processedAnswers);

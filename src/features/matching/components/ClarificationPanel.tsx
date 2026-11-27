@@ -160,9 +160,21 @@ export function ClarificationPanel({
                 />
               )}
               {outcome && (
-                <p className="mt-2 text-xs text-[#607096]" role="status">
-                  {fmt(t("fit.clar.outcomeLine"), { status: t(STATUS_LABEL_KEYS[outcome.status]) })}
-                </p>
+                <div className="mt-2 space-y-1" role="status">
+                  <p className="text-xs text-[#607096]">
+                    {fmt(t("fit.clar.outcomeLine"), {
+                      status: t(STATUS_LABEL_KEYS[outcome.status]),
+                    })}
+                  </p>
+                  {/* An `unknown` outcome used to look exactly like having been
+                      ignored. Saying which fact was missing is the difference
+                      between "we could not use this" and silence. */}
+                  {outcome.status === "unknown" && outcome.explanation ? (
+                    <p className="rounded-lg bg-[#FFF8E8] px-3 py-2 text-xs text-[#79520A]">
+                      {outcome.explanation}
+                    </p>
+                  ) : null}
+                </div>
               )}
             </div>
           );

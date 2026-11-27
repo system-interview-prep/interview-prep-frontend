@@ -46,6 +46,13 @@ export type MatchClarificationAnalysis = {
 export type ClarificationMatchPayload = {
   candidateId: string;
   jobId: string;
+  /**
+   * The matching run these clarifications belong to - the fit attempt the
+   * assessment recorded. A second assessment of the same CV against the same
+   * posting is a different run, and asks afresh instead of restoring the
+   * previous run's questions and answers.
+   */
+  fitAttemptId?: string;
   matchingPolicy?: MatchingPolicy;
   candidatePreferences?: CandidatePreferences;
 };
@@ -60,6 +67,16 @@ export type ClarificationAnswerOutcome = {
   evidenceRef: string;
   evidenceSource: "candidate_self_report";
   status: RequirementStatus;
+  /** Why the answer landed where it did - an `unknown` outcome is not silence. */
+  reasonCode?: string;
+  explanation?: string;
+};
+
+/** What a reload reads back instead of regenerating the questions. */
+export type StoredClarificationSession = {
+  questions: ClarificationRequest[];
+  answers: Record<string, string>;
+  processedAnswers: ClarificationAnswerOutcome[];
 };
 
 export type MatchClarificationRescoreResult = {
@@ -180,11 +197,15 @@ export function normalizeClarificationRescoreResult(raw: unknown): MatchClarific
         const evidenceRef = normalizedText(item.evidenceRef ?? item.evidence_ref);
         const rawStatus = normalizedText(item.status) as RequirementStatus;
         if (!requirementId || !evidenceRef || !ALLOWED_STATUSES.has(rawStatus)) return [];
+        const reasonCode = normalizedText(item.reasonCode ?? item.reason_code);
+        const explanation = normalizedText(item.explanation);
         return [{
           requirementId,
           evidenceRef,
           evidenceSource: "candidate_self_report" as const,
           status: rawStatus,
+          ...(reasonCode ? { reasonCode } : {}),
+          ...(explanation ? { explanation } : {}),
         }];
       })
     : [];
@@ -222,10 +243,49 @@ export async function generateMatchClarificationQuestions(
 
 export async function rescoreMatchClarifications(
   payload: ClarificationMatchPayload & {
-    initialAnalysis: MatchClarificationAnalysis;
+    /** Omitted by a reloaded page: the server rebuilds it from what it asked. */
+    initialAnalysis?: MatchClarificationAnalysis;
     answers: CandidateClarificationAnswer[];
   }
 ): Promise<MatchClarificationRescoreResult> {
   const response = await api.post<unknown>("/api/v1/matching/clarifications/rescore-by-ids", payload);
   return normalizeClarificationRescoreResult(response.data);
+}
+
+export function normalizeStoredSession(raw: unknown): StoredClarificationSession {
+  const body = asRecord(raw);
+  const rawQuestions = body.questions;
+  const questions = Array.isArray(rawQuestions)
+    ? rawQuestions
+        .map(normalizeClarificationRequest)
+        .filter((item): item is ClarificationRequest => item !== null)
+    : [];
+  const rawAnswers = asRecord(body.answers);
+  const answers: Record<string, string> = {};
+  Object.entries(rawAnswers).forEach(([requirementId, value]) => {
+    const answerText = normalizedText(value);
+    if (requirementId && answerText) answers[requirementId] = answerText;
+  });
+  return {
+    questions,
+    answers,
+    processedAnswers: normalizeClarificationRescoreResult(body).processedAnswers,
+  };
+}
+
+/**
+ * The questions already asked for this CV/JD pair, and whatever was answered.
+ *
+ * A reload used to re-run Jev and the question model and still show an empty
+ * form; this costs no provider call and gives the candidate back exactly what
+ * they saw and typed.
+ */
+export async function fetchStoredClarificationSession(
+  payload: ClarificationMatchPayload
+): Promise<StoredClarificationSession> {
+  const response = await api.post<unknown>(
+    "/api/v1/matching/clarifications/session-by-ids",
+    payload
+  );
+  return normalizeStoredSession(response.data);
 }
