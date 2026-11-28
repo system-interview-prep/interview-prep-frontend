@@ -501,7 +501,8 @@ export default function AdminDashboardShell({ children }: { children: ReactNode 
 
   const handleLogout = () => {
     setShowLogoutModal(false);
-    performClientLogout("/admin/login");
+    // Each actor goes back to its own door.
+    performClientLogout(fullAdmin ? "/admin/login" : "/expert/login");
   };
 
   return (

@@ -45,6 +45,16 @@ export const adminEn: Record<string, string> = {
   "admin.login.error.invalidCredentials": "Invalid email or password.",
   "admin.login.error.emailRequired": "Please enter your administrator email.",
   "admin.login.error.passwordRequired": "Please enter your password.",
+  "admin.login.error.useExpertLogin": "This is an interview expert account. Please sign in at /expert/login.",
+
+  // ── Interview expert sign-in (/expert/login, same form as the admin one) ───
+  "expert.login.consoleBadge": "EXPERT CONSOLE",
+  "expert.login.title": "Interview Expert Sign-in",
+  "expert.login.subtitle": "For experts who write interview questions and rubrics",
+  "expert.login.emailPlaceholder": "expert@intervia.io",
+  "expert.login.submit": "Sign in as Expert",
+  "expert.login.error.notExpert": "This account does not have the interview expert role.",
+  "expert.login.error.emailRequired": "Please enter your expert email.",
 
   // ── Sidebar Navigation Groups & Items ──────────────────────────────────────
   "admin.sidebar.group.overview": "Overview",
@@ -573,6 +583,15 @@ export const adminVi: Record<string, string> = {
   "admin.login.error.invalidCredentials": "Email hoặc mật khẩu không chính xác.",
   "admin.login.error.emailRequired": "Vui lòng nhập email quản trị viên.",
   "admin.login.error.passwordRequired": "Vui lòng nhập mật khẩu.",
+  "admin.login.error.useExpertLogin": "Đây là tài khoản chuyên gia phỏng vấn. Vui lòng đăng nhập tại /expert/login.",
+
+  "expert.login.consoleBadge": "TRANG CHUYÊN GIA",
+  "expert.login.title": "Đăng nhập chuyên gia phỏng vấn",
+  "expert.login.subtitle": "Dành cho chuyên gia soạn câu hỏi và rubric phỏng vấn",
+  "expert.login.emailPlaceholder": "expert@intervia.io",
+  "expert.login.submit": "Đăng nhập Chuyên gia",
+  "expert.login.error.notExpert": "Tài khoản này không có vai trò chuyên gia phỏng vấn.",
+  "expert.login.error.emailRequired": "Vui lòng nhập email chuyên gia.",
 
   // ── Sidebar Navigation Groups & Items ──────────────────────────────────────
   "admin.sidebar.group.overview": "Tổng quan",

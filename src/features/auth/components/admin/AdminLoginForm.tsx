@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { BrandLogo } from "@components/shared/BrandLogo";
-import { adminHomePath } from "@features/admin/access";
+import { adminHomePath, hasQuestionBankRole, isFullAdmin } from "@features/admin/access";
 import {
   INTERNAL_ROLES,
   completeAuthSession,
@@ -24,7 +24,36 @@ import {
 } from "@features/auth/services/auth.service";
 import { authApi } from "@lib/apiClient";
 
-export default function AdminLoginForm() {
+/**
+ * One sign-in form, two doors: /admin/login for administrators and
+ * /expert/login for interview experts (QUESTION_AUTHOR). Both lead into the
+ * same console; each door only lets its own actor through.
+ */
+const VARIANTS = {
+  admin: {
+    home: "/admin/dashboard",
+    badge: "admin.login.consoleBadge",
+    title: "admin.login.title",
+    subtitle: "admin.login.subtitle",
+    emailPlaceholder: "admin.login.emailPlaceholder",
+    submit: "admin.login.submit",
+    emailRequired: "admin.login.error.emailRequired",
+    notAllowed: "admin.login.error.notAdmin",
+  },
+  expert: {
+    home: "/admin/question-bank",
+    badge: "expert.login.consoleBadge",
+    title: "expert.login.title",
+    subtitle: "expert.login.subtitle",
+    emailPlaceholder: "expert.login.emailPlaceholder",
+    submit: "expert.login.submit",
+    emailRequired: "expert.login.error.emailRequired",
+    notAllowed: "expert.login.error.notExpert",
+  },
+} as const;
+
+export default function AdminLoginForm({ variant = "admin" }: { variant?: keyof typeof VARIANTS }) {
+  const view = VARIANTS[variant];
   const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -38,15 +67,15 @@ export default function AdminLoginForm() {
 
   const nextUrl = useMemo(() => {
     const next = searchParams.get("next");
-    if (!next) return "/admin/dashboard";
-    // Avoid redirect loops back to /admin/login
-    if (next === "/admin/login" || next.startsWith("/admin/login?")) {
-      return "/admin/dashboard";
+    if (!next) return view.home;
+    // Avoid redirect loops back to a login page
+    if (/^\/(admin|expert)\/login(\?|$)/.test(next)) {
+      return view.home;
     }
     return next.startsWith("/") && !next.startsWith("//") ? next : "/" + next.replace(/^\/+/, "");
-  }, [searchParams]);
+  }, [searchParams, view.home]);
 
-  // If already authenticated as admin, redirect to admin dashboard immediately
+  // Already signed in to the console: skip the form
   useEffect(() => {
     const role = getCookie("role")?.toLowerCase();
     const token =
@@ -65,9 +94,7 @@ export default function AdminLoginForm() {
 
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail) {
-      setErrorMessage(
-        t("admin.login.error.emailRequired") || "Vui lòng nhập email quản trị viên."
-      );
+      setErrorMessage(t(view.emailRequired));
       return;
     }
 
@@ -82,19 +109,24 @@ export default function AdminLoginForm() {
       setLoading(true);
       const response = await authApi.login(trimmedEmail, password);
 
-      // Any internal actor (ADMIN or a question-bank role) may use the console;
-      // completeAuthSession rejects candidates before storing anything.
+      // Each door lets only its own actor through, and nothing is stored for
+      // anyone else: the expert door needs the expert role, and the admin door
+      // sends an expert-only account to /expert/login.
       const roles = response.data.user.roles;
-      if (!roles.some((role) => INTERNAL_ROLES.has(role.toUpperCase()))) {
+      const expertOnly = hasQuestionBankRole(roles) && !isFullAdmin(roles);
+      const allowed =
+        variant === "expert"
+          ? hasQuestionBankRole(roles)
+          : roles.some((role) => INTERNAL_ROLES.has(role.toUpperCase())) && !expertOnly;
+      if (!allowed) {
         setErrorMessage(
-          t("admin.login.error.notAdmin") ||
-          "Tài khoản này không có quyền truy cập hệ thống quản trị."
+          t(variant === "admin" && expertOnly ? "admin.login.error.useExpertLogin" : view.notAllowed)
         );
         return;
       }
 
       completeAuthSession(response.data, "ADMIN");
-      router.replace(searchParams.get("next") ? nextUrl : adminHomePath(roles));
+      router.replace(searchParams.get("next") ? nextUrl : variant === "expert" ? view.home : adminHomePath(roles));
     } catch (error) {
       const fallback =
         t("admin.login.error.invalidCredentials") ||
@@ -119,7 +151,7 @@ export default function AdminLoginForm() {
 
         <span className="inline-flex items-center gap-1 rounded-full border border-[#DCE4F3] bg-white px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-[#204195]">
           <Shield size={12} className="text-[#204195]" />
-          <span>{t("admin.login.consoleBadge") || "ADMIN CONSOLE"}</span>
+          <span>{t(view.badge)}</span>
         </span>
       </header>
 
@@ -136,12 +168,9 @@ export default function AdminLoginForm() {
             </div>
 
             <h1 className="font-headline text-xl font-bold tracking-tight text-[#14244B] sm:text-2xl">
-              {t("admin.login.title") || "Đăng nhập hệ thống quản trị"}
+              {t(view.title)}
             </h1>
-            <p className="mt-1 text-xs text-[#607096]">
-              {t("admin.login.subtitle") ||
-                "Truy cập giới hạn cho đội ngũ vận hành hệ thống"}
-            </p>
+            <p className="mt-1 text-xs text-[#607096]">{t(view.subtitle)}</p>
           </div>
 
           {/* Error Message Area */}
@@ -182,9 +211,7 @@ export default function AdminLoginForm() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={
-                    t("admin.login.emailPlaceholder") || "admin@intervia.io"
-                  }
+                  placeholder={t(view.emailPlaceholder)}
                   disabled={loading}
                   aria-invalid={!!errorMessage}
                   aria-describedby={errorMessage ? "admin-login-error" : undefined}
@@ -239,7 +266,7 @@ export default function AdminLoginForm() {
               <span>
                 {loading
                   ? t("admin.login.submitting") || "Đang đăng nhập..."
-                  : t("admin.login.submit") || "Đăng nhập Admin"}
+                  : t(view.submit)}
               </span>
             </button>
           </form>
@@ -249,8 +276,9 @@ export default function AdminLoginForm() {
             <button
               type="button"
               onClick={() => {
-                setEmail("admin@intervia.io");
-                setPassword("Admin@123456");
+                // Kept inside this dev-only branch so the build drops them in production.
+                setEmail(variant === "expert" ? "expert@intervia.io" : "admin@intervia.io");
+                setPassword(variant === "expert" ? "Expert@123456" : "Admin@123456");
                 setDemoFilled(true);
               }}
               className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-[#DCE4F3] bg-[#F7F9FD] p-3.5 text-left transition-colors hover:border-[#204195]/35 hover:bg-[#EEF3FC] cursor-pointer"
@@ -260,7 +288,7 @@ export default function AdminLoginForm() {
                   {t("admin.login.demoTitle") || "Tài khoản demo"}
                 </p>
                 <p className="mt-0.5 font-mono text-[13px] font-semibold text-[#204195]">
-                  admin@intervia.io
+                  {variant === "expert" ? "expert@intervia.io" : "admin@intervia.io"}
                 </p>
                 <p className={`mt-1.5 text-[11px] font-medium ${demoFilled ? "text-[#287A4B]" : "text-[#607096]"}`}>
                   {demoFilled ? (t("admin.login.demoFilled") || "✓ Đã điền tài khoản demo") : (t("admin.login.demoPrompt") || "Nhấn để tự động điền thông tin đăng nhập")}
