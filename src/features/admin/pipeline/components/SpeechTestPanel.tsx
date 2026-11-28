@@ -188,7 +188,7 @@ export default function SpeechTestPanel() {
         try { return match ? decodeURIComponent(match[1]) : ""; } catch { return ""; }
       })();
       if (!token) throw new Error(t("aiPipeline.speech.test.authRequired"));
-      const endpoint = new URL("/admin/ai/speech/test/speak/stream", API_BASE_URL);
+      const endpoint = new URL(`${API_BASE_URL.replace(/\/$/, "")}/admin/ai/speech/test/speak/stream`);
       endpoint.protocol = endpoint.protocol === "https:" ? "wss:" : "ws:";
       const socket = new WebSocket(endpoint, ["bearer", token]);
       socket.binaryType = "arraybuffer";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search } from "lucide-react";
+import { Filter, Search } from "lucide-react";
 import WorkspacePageHeader from "@features/resume/components/WorkspacePageHeader";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
@@ -48,6 +48,8 @@ export default function UserJobsBoard() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 400);
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [categories, setCategories] = useState<Map<string, string>>(new Map());
   const [cvModalJob, setCvModalJob] = useState<JobProfile | null>(null);
 
   // Saved jobs: shared with the overview page.
@@ -82,6 +84,7 @@ export default function UserJobsBoard() {
             limit: PAGE_SIZE,
             cursor,
             q: debouncedSearch.trim() || undefined,
+            taxonomyConceptId: categoryFilter || undefined,
             order: "desc",
           });
 
@@ -98,6 +101,14 @@ export default function UserJobsBoard() {
         }
 
         setProfiles(collected);
+        setCategories((current) => {
+          const next = new Map(current);
+          for (const item of collected) {
+            const taxonomy = item.primaryTaxonomy;
+            if (taxonomy?.conceptId && taxonomy.label) next.set(taxonomy.conceptId, taxonomy.label);
+          }
+          return next;
+        });
         setCurrentPageStart(start);
         if (bufferedActive.length > 0 || cursor) {
           setNextPageStart({ cursor, bufferedActive });
@@ -115,7 +126,7 @@ export default function UserJobsBoard() {
         setLoading(false);
       }
     },
-    [debouncedSearch, t]
+    [categoryFilter, debouncedSearch, t]
   );
 
   useEffect(() => {
@@ -161,6 +172,7 @@ export default function UserJobsBoard() {
 
   const handleClearFilters = () => {
     setSearch("");
+    setCategoryFilter("");
     setWorkplaceFilter("all");
     setShowSavedOnly(false);
   };
@@ -186,6 +198,22 @@ export default function UserJobsBoard() {
             className="h-10 w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-10 pr-4 text-sm text-[#14244B] outline-none transition placeholder:text-[#607096] focus:bg-white focus:ring-2 focus:ring-[#204195]"
             aria-label={t("fixApp.jobs.searchPlaceholder")}
           />
+        </div>
+
+        {/* Category filter backed by the active taxonomy concept ID. */}
+        <div className="relative shrink-0 sm:w-56">
+          <Filter className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#607096]" aria-hidden="true" />
+          <select
+            value={categoryFilter}
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            aria-label={t("userDash.jobProfiles.categoryFilter")}
+            className="h-10 w-full appearance-none rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] py-2 pl-10 pr-8 text-sm font-medium text-[#14244B] outline-none transition focus:bg-white focus:ring-2 focus:ring-[#204195]"
+          >
+            <option value="">{t("userDash.jobProfiles.allCategories")}</option>
+            {[...categories.entries()].sort((a, b) => a[1].localeCompare(b[1])).map(([id, label]) => (
+              <option key={id} value={id}>{label}</option>
+            ))}
+          </select>
         </div>
 
         {/* Quick filter pills */}
@@ -291,7 +319,7 @@ export default function UserJobsBoard() {
               />
             ) : (
               <JobCardEmptyState
-                onClearFilters={search || clientFilterActive ? handleClearFilters : undefined}
+                onClearFilters={search || categoryFilter || clientFilterActive ? handleClearFilters : undefined}
               />
             )
           ) : (
