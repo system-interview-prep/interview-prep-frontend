@@ -1,17 +1,6 @@
-import { Suspense } from "react";
-import AdminAiPromptsClient from "@features/admin/ai/components/AdminAiPromptsClient";
+import { redirect } from "next/navigation";
 
-export default function AdminAiPromptsPage() {
-  return (
-    <Suspense
-      fallback={
-        <div
-          className="h-80 animate-pulse rounded-2xl border border-[#DCE4F3] bg-white motion-reduce:animate-none"
-          aria-hidden="true"
-        />
-      }
-    >
-      <AdminAiPromptsClient />
-    </Suspense>
-  );
+/** Prompt versions (Langfuse Prompt Management) now lives in Langfuse; the "Đánh giá AI" page links to it. */
+export default function Page() {
+  redirect("/admin/evaluation");
 }

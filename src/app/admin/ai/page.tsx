@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import AdminAiOverviewClient from "@features/admin/ai/components/AdminAiOverviewClient";
+import AiHealthClient from "@features/admin/pipeline/components/AiHealthClient";
 
-export default function AdminAiOverviewPage() {
+export default function Page() {
   return (
     <Suspense
       fallback={
@@ -11,7 +11,7 @@ export default function AdminAiOverviewPage() {
         />
       }
     >
-      <AdminAiOverviewClient />
+      <AiHealthClient />
     </Suspense>
   );
 }

@@ -31,25 +31,11 @@ interface LanguageProviderProps {
 
 export function LanguageProvider({
   children,
-  initialLang = "vi",
 }: LanguageProviderProps) {
-  const [lang, setLangState] =
-    useState<Language>(initialLang);
+  // Sản phẩm chỉ dùng tiếng Việt: bỏ qua initialLang/cookie cũ và không cho đổi.
+  const [lang] = useState<Language>("vi");
 
-  const setLang = (nextLang: Language) => {
-    setLangState(nextLang);
-
-    // Lưu lại để server RootLayout đọc ở lần request sau
-    document.cookie = [
-      `lang=${nextLang}`,
-      "path=/",
-      "max-age=31536000",
-      "samesite=lax",
-    ].join("; ");
-
-    // Đồng bộ thuộc tính <html lang="">
-    document.documentElement.lang = nextLang;
-  };
+  const setLang = () => undefined;
 
   const t = useMemo(() => {
     const dict = getDictionary(lang);
@@ -76,16 +62,19 @@ export function LanguageProvider({
   );
 }
 
+// Outside a provider (unit tests, isolated renders) fall back to the app's
+// default language instead of crashing; the app always mounts the provider.
+const viDictionary = getDictionary("vi");
+const DEFAULT_CONTEXT: LanguageContextType = {
+  lang: "vi",
+  setLang: () => undefined,
+  t: (key: string) => viDictionary[key] ?? key,
+  language: "vi",
+  setLanguage: () => undefined,
+};
+
 export function useLanguage() {
-  const context = useContext(LanguageContext);
-
-  if (!context) {
-    throw new Error(
-      "useLanguage must be used within LanguageProvider",
-    );
-  }
-
-  return context;
+  return useContext(LanguageContext) ?? DEFAULT_CONTEXT;
 }
 
 /**

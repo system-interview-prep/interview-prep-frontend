@@ -19,12 +19,8 @@ export function JobCardEmptyState({
 }: JobCardEmptyStateProps) {
   const { t } = useLanguage();
 
-  const defaultTitle =
-    title || t("jobs.empty.title") || "Không tìm thấy công việc phù hợp với bộ lọc";
-  const defaultDesc =
-    description ||
-    t("jobs.empty.desc") ||
-    "Thử thay đổi từ khóa, địa điểm hoặc loại công việc.";
+  const defaultTitle = title || t("jobs.empty.title");
+  const defaultDesc = description || t("jobs.empty.desc");
 
   return (
     <div
@@ -50,7 +46,7 @@ export function JobCardEmptyState({
             className="inline-flex items-center gap-2 rounded-xl bg-[#204195] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#183275] active:scale-95"
           >
             <RotateCcw className="size-3.5" aria-hidden="true" />
-            <span>{t("jobs.empty.clear") || "Xóa bộ lọc"}</span>
+            <span>{t("jobs.empty.clear")}</span>
           </button>
         </div>
       )}

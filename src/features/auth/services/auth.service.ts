@@ -76,6 +76,7 @@ export function getAuthErrorMessage(error: unknown, fallback: string): string {
     if (value.response?.data?.detail) return value.response.data.detail;
     if (value.response?.data?.message) return value.response.data.message;
     if (value.code === "ERR_NETWORK") return "Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng.";
+    if (value.code === "ECONNABORTED" || value.code === "ETIMEDOUT") return "Máy chủ phản hồi quá lâu. Vui lòng thử lại.";
     return value.message || fallback;
   }
   return fallback;
@@ -114,11 +115,20 @@ export function clearAllAuthCookies(): void {
  * @param data AuthResponse from /auth/login or /auth/register or /auth/google
  * @param expectedRole Optional check. If "ADMIN", verifies the user has the ADMIN role.
  */
+export const INTERNAL_ROLES = new Set([
+  "ADMIN",
+  "QUESTION_AUTHOR",
+  "DATA_CURATOR",
+]);
+
 export function completeAuthSession(
   data: AuthResponse,
   expectedRole?: "ADMIN" | "USER"
 ): { user: AuthResponse["user"]; isAdmin: boolean } {
-  const isAdmin = data.user.roles.some((role) => role.toUpperCase() === "ADMIN");
+  // Internal actors (Core's INTERNAL_ACTORS) use the admin console. Core still
+  // enforces each endpoint's roles from the JWT; this only routes the UI, and a
+  // question author or reviewer was otherwise locked out of the question bank.
+  const isAdmin = data.user.roles.some((role) => INTERNAL_ROLES.has(role.toUpperCase()));
 
   if (expectedRole === "ADMIN" && !isAdmin) {
     throw new AuthError(

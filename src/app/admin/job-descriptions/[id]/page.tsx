@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import AdminJobProfileDetailView from "@features/admin/components/AdminJobProfileDetailView";
 
 export const metadata = {
-  title: "Job Description | INTERVIA",
+  title: "Chi tiết hồ sơ công việc",
 };
 
 export default function AdminJobDescriptionDetailPage() {

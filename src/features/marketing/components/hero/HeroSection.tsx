@@ -104,7 +104,7 @@ export function HeroSection({ onOpenVideo }: HeroSectionProps) {
                   font-sans font-extrabold
                   text-[#14244B]
                   tracking-[-0.05em]
-                  text-[clamp(2.7rem,3.95vw,4.45rem)]
+                  text-[clamp(2.2rem,1.35rem+2.4vw,4.45rem)]
                   leading-[0.97]
                 "
               >

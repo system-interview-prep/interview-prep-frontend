@@ -7,6 +7,7 @@ import JobCardHeader from "./JobCardHeader";
 import JobMetadata from "./JobMetadata";
 import JobSalary from "./JobSalary";
 import JobMatchSummary from "./JobMatchSummary";
+import JobFitBadge from "./JobFitBadge";
 import JobCardFooter from "./JobCardFooter";
 
 export function JobCard({
@@ -16,6 +17,7 @@ export function JobCard({
   onClick,
   href,
   className = "",
+  description,
 }: JobCardProps) {
   const targetHref = href || `/dashboard/jobs/${job.id}`;
 
@@ -32,7 +34,7 @@ export function JobCard({
   return (
     <article
       onClick={() => onClick?.(job.id)}
-      className={`group relative flex h-full flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#204195]/40 hover:shadow-md ${className}`}
+      className={`group relative flex h-full min-w-0 flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#204195]/40 hover:shadow-md ${className}`}
     >
       {/* Clickable Card Overlay */}
       <Link
@@ -42,7 +44,7 @@ export function JobCard({
       />
 
       {/* Main Content Area */}
-      <div className="relative z-[2] flex flex-1 flex-col space-y-3.5">
+      <div className="pointer-events-none relative z-[2] flex min-w-0 flex-1 flex-col space-y-3.5">
         {/* 1. Header: Logo, Title, Company, Category, Verified, Bookmark */}
         <JobCardHeader
           title={job.title}
@@ -60,11 +62,16 @@ export function JobCard({
           experience={job.experience}
         />
 
+        {description ? <p className="line-clamp-3 text-sm leading-relaxed text-[#52627D]">{description}</p> : null}
+
         {/* 3. Salary: Clean formatted range or null */}
         <JobSalary salary={job.salary} />
 
         {/* 4. AI Match Section: Clean compact panel or null */}
         <JobMatchSummary match={job.match} />
+
+        {/* 5. Last CV–JD analysis of this job, if the candidate ran one */}
+        <JobFitBadge jobId={job.id} fit={job.fit} />
       </div>
 
       {/* 5. Footer: Posted time, source, View Job */}

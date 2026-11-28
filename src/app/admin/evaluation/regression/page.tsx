@@ -1,17 +1,6 @@
-import { Suspense } from "react";
-import AdminEvaluationRegressionClient from "@features/admin/evaluation/components/AdminEvaluationRegressionClient";
+import { redirect } from "next/navigation";
 
-export default function AdminEvaluationRegressionPage() {
-  return (
-    <Suspense
-      fallback={
-        <div
-          className="h-80 animate-pulse rounded-2xl border border-[#DCE4F3] bg-white motion-reduce:animate-none"
-          aria-hidden="true"
-        />
-      }
-    >
-      <AdminEvaluationRegressionClient />
-    </Suspense>
-  );
+/** Regression checks (comparing Langfuse experiment runs) now lives in Langfuse; the "Đánh giá AI" page links to it. */
+export default function Page() {
+  redirect("/admin/evaluation");
 }

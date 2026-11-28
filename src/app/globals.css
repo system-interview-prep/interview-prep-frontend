@@ -21,6 +21,28 @@
   --color-success: #287A4B;
   --color-danger: #C43B3B;
 
+  /* Aliases for older Material-style class names (text-primary, bg-error-container…)
+     still used in admin/shared code; they map onto the brand palette above. */
+  --color-primary: #204195;
+  --color-primary-container: #2C52B5;
+  --color-on-primary: #FFFFFF;
+  --color-secondary: #607096;
+  --color-tertiary: #14244B;
+  --color-on-surface: #14244B;
+  --color-on-surface-variant: #607096;
+  --color-surface-container: #F0F4FC;
+  --color-surface-container-low: #F8FAFC;
+  --color-surface-container-high: #EAEFF8;
+  --color-outline: #9AA6C2;
+  --color-outline-variant: #DCE4F3;
+  --color-error: #C43B3B;
+  --color-on-error: #FFFFFF;
+  --color-error-container: #FDF2F2;
+  --color-on-error-container: #8F2A2A;
+
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, "Segoe UI", Arial, sans-serif;
+  --font-display: "Fraunces", "Be Vietnam Pro", Georgia, serif;
+
   --font-headline: var(--font-sans);
   --font-body: var(--font-sans);
   --font-serif: var(--font-serif);
@@ -43,7 +65,13 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  h1, h2, h3, .font-headline {
+  h1, .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-variation-settings: "SOFT" 60, "WONK" 0;
+    letter-spacing: -0.015em;
+  }
+  h2, h3, .font-headline {
     font-family: var(--font-sans), Arial, sans-serif;
     font-weight: 700;
     letter-spacing: -0.02em;
@@ -92,6 +120,70 @@
   @media (prefers-reduced-motion: reduce) { .animate-on-scroll { opacity: 1; transform: none; transition: none; } }
 }
 
+@keyframes mascot-pop {
+  from { opacity: 0; transform: translateY(6px) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+.mascot-pop { animation: mascot-pop .22s cubic-bezier(.16, 1, .3, 1) both; transform-origin: 100% 100%; }
+@media (prefers-reduced-motion: reduce) { .mascot-pop { animation: none; } }
+
+/* ── Product motion (transform + opacity only; ease-out in, short exits) ──
+   anim-rise    entrance: fade + 8px rise; stagger with style="--i: n" (capped)
+   anim-pop     popovers / bubbles: fade + slight scale from their origin
+   anim-grow-y  bars growing from the baseline (scaleY, bottom origin)
+   anim-grow-x  meters filling from the left (scaleX, left origin)
+   anim-shimmer skeleton placeholder sweep                                  */
+@keyframes anim-rise {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes anim-pop {
+  from { opacity: 0; transform: translate3d(0, 6px, 0) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes anim-grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes anim-grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes anim-shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+.anim-rise {
+  animation: anim-rise .32s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: calc(min(var(--i, 0), 5) * 55ms);
+}
+.anim-pop { animation: anim-pop .2s cubic-bezier(.16, 1, .3, 1) both; }
+.anim-grow-y {
+  transform-origin: 50% 100%;
+  animation: anim-grow-y .55s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: calc(min(var(--i, 0), 8) * 40ms + 120ms);
+}
+.anim-grow-x {
+  transform-origin: 0 50%;
+  animation: anim-grow-x .6s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: calc(min(var(--i, 0), 6) * 50ms + 120ms);
+}
+.anim-shimmer {
+  background: linear-gradient(100deg, #F0F4FC 30%, #F8FAFC 50%, #F0F4FC 70%) 0 0 / 200% 100%;
+  animation: anim-shimmer 1.4s ease-in-out infinite;
+}
+.press { transition: transform .12s ease-out; }
+.press:active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) {
+  .anim-rise, .anim-pop, .anim-grow-y, .anim-grow-x { animation: none; }
+  .anim-shimmer { animation: none; }
+  .press:active { transform: none; }
+}
+
+/* Interviewer presence (voice/video): the aura mirrors the real turn state.
+   Slow breathing while it listens, a livelier glow while it speaks, a turning
+   sheen while it reviews an answer. Transform/opacity only. */
+@keyframes presence-breathe { 0%, 100% { transform: scale(1); opacity: .55; } 50% { transform: scale(1.06); opacity: .8; } }
+@keyframes presence-speak { 0%, 100% { transform: scale(1.02); opacity: .75; } 50% { transform: scale(1.14); opacity: 1; } }
+@keyframes presence-turn { to { transform: rotate(360deg); } }
+.presence-aura { animation: presence-breathe 4.2s ease-in-out infinite; }
+.presence-aura[data-state="speaking"] { animation: presence-speak 1.4s ease-in-out infinite; }
+.presence-sheen { animation: presence-turn 3.2s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .presence-aura, .presence-aura[data-state="speaking"], .presence-sheen { animation: none; }
+}
+
 @keyframes float-star { 0%, 100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-7px) rotate(4deg); } }
 .float-star { animation: float-star 2.8s ease-in-out infinite; }
 
@@ -111,3 +203,40 @@
 }
 
 
+
+
+/* Printing a report: A4 margins, keep colours of score chips and highlights,
+   and never split a card across pages (cards opt in with print:break-inside-avoid). */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Admin sidebar menu: thin, quiet scrollbar that only shows on hover. */
+.admin-nav-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.admin-nav-scroll:hover,
+.admin-nav-scroll:focus-within {
+  scrollbar-color: #dce4f3 transparent;
+}
+.admin-nav-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.admin-nav-scroll::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: transparent;
+}
+.admin-nav-scroll:hover::-webkit-scrollbar-thumb,
+.admin-nav-scroll:focus-within::-webkit-scrollbar-thumb {
+  background: #dce4f3;
+}

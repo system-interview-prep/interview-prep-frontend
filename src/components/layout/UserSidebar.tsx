@@ -4,10 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import type { ChatSessionListItem } from "@features/interview/hooks/useChat";
 import { ChatInterviewBrand } from "@features/interview/components/ChatInterviewBrand";
 import { formatRelativeTime } from "@/utils/chatSessionMeta";
 import { Plus, Video, LogOut } from "lucide-react";
+
+export type ChatSessionListItem = {
+  id: string;
+  preview: string;
+  updatedAt: number;
+  messageCount: number;
+};
 
 export type UserSidebarProps = {
   sessionListItems: ChatSessionListItem[];

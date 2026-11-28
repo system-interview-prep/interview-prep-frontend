@@ -73,6 +73,9 @@ export type JobProfile = {
   structuredData?: Record<string, unknown> | null;
   /** extractor metadata retained for audit and troubleshooting */
   extractedMetadata?: Record<string, unknown> | null;
+  /** Raw text the parser read out of the uploaded document (BE field: sourceText). */
+  sourceText?: string | null;
+  /** @deprecated The backend sends `sourceText`; kept so older callers still compile. */
   rawJdText?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -443,6 +446,8 @@ export const jobProfileApi = {
   /** Khớp BE: GET /admin/job-descriptions/uploads/{id} */
   getUpload: (id: string) =>
     api.get<JobProfileUpload>(`/admin/job-descriptions/uploads/${encodeURIComponent(id)}`),
+  listUploads: (limit = 100, config?: { signal?: AbortSignal }) =>
+    api.get<{ items: JobProfileUpload[] }>("/admin/job-descriptions/uploads", { params: { limit }, ...config }),
   deleteUpload: (id: string) =>
     api.delete<void>(`/admin/job-descriptions/uploads/${encodeURIComponent(id)}`),
   /** Khớp BE: POST /admin/job-descriptions/uploads/{id}/reparse */

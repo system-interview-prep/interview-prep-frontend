@@ -2,7 +2,7 @@ import React from "react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "INTERVIA — Workspace",
+  title: { default: "Không gian luyện tập | INTERVIA", template: "%s | INTERVIA" },
   description: "Candidate interview prep workspace",
 };
 

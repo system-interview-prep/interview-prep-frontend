@@ -1,0 +1,283 @@
+"use client";
+
+import dynamic from "next/dynamic";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import type { HumanizedRequirement, RequirementStatus } from "../types/match-details.types";
+import { buildCvSegments, collectEvidenceMarks } from "../utils/cv-highlight";
+import { MatchStatusBadge } from "./MatchStatusBadge";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt } from "@/i18n/format";
+
+const PdfEvidenceVisualizer = dynamic(
+  () => import("@features/resume/components/PdfEvidenceVisualizer"),
+  { ssr: false }
+);
+
+export interface CvEvidencePaneProps {
+  requirements: HumanizedRequirement[];
+  selectedRequirementId: string | null;
+  onSelectRequirement: (id: string) => void;
+  /** Normalized text the parser read; evidence offsets point into it. */
+  rawText?: string | null;
+  cvId?: string;
+  contentType?: string;
+  fileName?: string;
+}
+
+type PaneTab = "text" | "original";
+
+const TINT: Record<RequirementStatus, string> = {
+  met: "bg-[#287A4B]/15 decoration-[#287A4B]",
+  unknown: "bg-[#FCB625]/20 decoration-[#E5A21D]",
+  not_met: "bg-[#C43B3B]/15 decoration-[#C43B3B]",
+  not_applicable: "bg-[#F0F4FC] decoration-[#9AA6C2]",
+};
+
+const ACTIVE: Record<RequirementStatus, string> = {
+  met: "bg-[#287A4B]/30 ring-2 ring-[#287A4B]",
+  unknown: "bg-[#FCB625]/45 ring-2 ring-[#E5A21D]",
+  not_met: "bg-[#C43B3B]/30 ring-2 ring-[#C43B3B]",
+  not_applicable: "bg-[#C9D7F1] ring-2 ring-[#607096]",
+};
+
+function evidenceOf(requirement: HumanizedRequirement | null) {
+  if (!requirement) return [];
+  const seen = new Map<string, { evidenceId: string; text: string }>();
+  const add = (evidenceId?: string, text?: string) => {
+    if (evidenceId && text && !seen.has(evidenceId)) seen.set(evidenceId, { evidenceId, text });
+  };
+  requirement.cvEvidence?.forEach((item) => add(item.evidenceId, item.text || item.snippet));
+  requirement.conceptResults?.forEach((concept) =>
+    concept.evidence.forEach((item) => add(item.evidenceId, item.text || item.snippet))
+  );
+  return [...seen.values()];
+}
+
+export function CvEvidencePane({
+  requirements,
+  selectedRequirementId,
+  onSelectRequirement,
+  rawText,
+  cvId,
+  contentType,
+  fileName,
+}: CvEvidencePaneProps) {
+  const { t } = useLanguage();
+  const isPdf = (contentType || "").includes("pdf") || /\.pdf$/i.test(fileName || "");
+  const hasText = Boolean(rawText && rawText.trim());
+  const [tab, setTab] = useState<PaneTab>(hasText ? "text" : "original");
+  // Which evidence span of the selected criterion is in focus; resets per criterion.
+  const [cursorState, setCursorState] = useState<{ id: string | null; index: number }>({ id: null, index: 0 });
+  const [located, setLocated] = useState<Set<string>>(new Set());
+  const textRef = useRef<HTMLDivElement>(null);
+
+  const byId = useMemo(() => new Map(requirements.map((item) => [item.id, item])), [requirements]);
+  const selected = selectedRequirementId ? byId.get(selectedRequirementId) ?? null : null;
+
+  const { marks, unplaced } = useMemo(() => collectEvidenceMarks(requirements), [requirements]);
+  const { segments, outOfRange } = useMemo(
+    () => buildCvSegments(rawText || "", marks),
+    [rawText, marks]
+  );
+
+  const selectedEvidence = useMemo(() => evidenceOf(selected), [selected]);
+  const selectedIds = useMemo(() => new Set(selectedEvidence.map((item) => item.evidenceId)), [selectedEvidence]);
+  const placedIds = useMemo(
+    () => new Set(marks.filter((mark) => !outOfRange.includes(mark)).map((mark) => mark.evidenceId)),
+    [marks, outOfRange]
+  );
+  const selectedPlaced = useMemo(
+    () => selectedEvidence.filter((item) => placedIds.has(item.evidenceId)),
+    [selectedEvidence, placedIds]
+  );
+
+  const cursor = cursorState.id === selectedRequirementId ? cursorState.index : 0;
+  const setCursor = (next: (value: number) => number) =>
+    setCursorState({ id: selectedRequirementId, index: next(cursor) });
+
+  // Scroll the text view to the current evidence span of the selected requirement.
+  useEffect(() => {
+    if (tab !== "text" || selectedPlaced.length === 0) return;
+    const target = selectedPlaced[Math.min(cursor, selectedPlaced.length - 1)];
+    const node = textRef.current?.querySelector<HTMLElement>(`[data-evidence~="${CSS.escape(target.evidenceId)}"]`);
+    node?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [tab, cursor, selectedPlaced]);
+
+  const pdfSnippets = useMemo(
+    () => selectedEvidence.map((item) => item.text.trim()).filter((text) => text.length >= 2),
+    [selectedEvidence]
+  );
+  const handleLocated = useCallback((next: Set<string>) => setLocated(next), []);
+  const notOnPdf = pdfSnippets.filter((text) => !located.has(text));
+
+  const labelsFor = (ids: string[]) =>
+    ids.map((id) => byId.get(id)?.label).filter(Boolean).join(" · ");
+
+  const onMarkClick = (requirementIds: string[]) => {
+    if (requirementIds.length === 0) return;
+    const index = selectedRequirementId ? requirementIds.indexOf(selectedRequirementId) : -1;
+    // Clicking a span cited by several criteria cycles through them.
+    onSelectRequirement(requirementIds[(index + 1) % requirementIds.length]);
+  };
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="border-b border-[#EAEFF8] px-4 py-3.5 sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0 flex-1 basis-48">
+            <h3 className="text-base font-semibold text-[#14244B]">{t("fit.evidence.cv")}</h3>
+            {fileName && <p className="mt-0.5 truncate text-xs text-[#8A99B8]" title={fileName}>{fileName}</p>}
+          </div>
+          <div className="flex shrink-0 rounded-full bg-[#F8FAFC] p-0.5 text-xs ring-1 ring-[#DCE4F3]" role="group" aria-label={t("fit.pane.viewAria")}>
+            <button
+              type="button"
+              aria-pressed={tab === "text"}
+              onClick={() => setTab("text")}
+              disabled={!hasText}
+              className={`h-9 rounded-full px-3 font-medium ${tab === "text" ? "bg-[#14244B] text-white" : "text-[#607096] hover:bg-[#F0F4FC] disabled:opacity-40"}`}
+            >
+              {t("fit.pane.tabText")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={tab === "original"}
+              onClick={() => setTab("original")}
+              disabled={!isPdf || !cvId}
+              title={!isPdf ? t("fit.pane.originalPdfOnly") : undefined}
+              className={`h-9 rounded-full px-3 font-medium ${tab === "original" ? "bg-[#14244B] text-white" : "text-[#607096] hover:bg-[#F0F4FC] disabled:opacity-40"}`}
+            >
+              {t("fit.pane.tabOriginal")}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Selected criterion */}
+      {selected && (
+        <div className="border-b border-[#EAEFF8] bg-[#F8FAFC] px-4 py-3 sm:px-5 lg:hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 flex-1 basis-48">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8A99B8]">{t("fit.pane.current")}</p>
+              <p className="mt-1 text-sm font-semibold leading-5 text-[#14244B] [overflow-wrap:anywhere]">{selected.label}</p>
+            </div>
+            <MatchStatusBadge status={selected.status} labelOverride={selected.statusLabel} />
+          </div>
+          {selectedEvidence.length > 0 ? (
+            <div className="mt-2 flex items-center justify-between gap-2 border-t border-[#E3E8F2] pt-2 text-xs text-[#607096]">
+              <span>
+                {selectedPlaced.length > 0
+                  ? fmt(t("fit.pane.evidenceCount"), {
+                      index: Math.min(cursor, selectedPlaced.length - 1) + 1,
+                      total: selectedPlaced.length,
+                    })
+                  : t("fit.pane.evidenceUnplaced")}
+              </span>
+              {selectedPlaced.length > 1 && tab === "text" && (
+                <span className="flex gap-1">
+                  <button
+                    type="button"
+                    aria-label={t("fit.pane.prev")}
+                    onClick={() => setCursor((value) => (value - 1 + selectedPlaced.length) % selectedPlaced.length)}
+                    className="grid size-9 place-items-center rounded-full bg-white ring-1 ring-[#DCE4F3] hover:bg-[#F0F4FC]"
+                  >
+                    <ChevronLeft className="size-3.5" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={t("fit.pane.next")}
+                    onClick={() => setCursor((value) => (value + 1) % selectedPlaced.length)}
+                    className="grid size-9 place-items-center rounded-full bg-white ring-1 ring-[#DCE4F3] hover:bg-[#F0F4FC]"
+                  >
+                    <ChevronRight className="size-3.5" aria-hidden="true" />
+                  </button>
+                </span>
+              )}
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* Body */}
+      <div className="min-h-[560px] flex-1">
+        {tab === "text" ? (
+          hasText ? (
+            <div
+              ref={textRef}
+              className="whitespace-pre-wrap px-4 py-5 [overflow-wrap:anywhere] sm:px-5 text-[13px] leading-6 text-[#455676]"
+            >
+              {segments.map((segment) => {
+                if (segment.evidenceIds.length === 0 || !segment.status) {
+                  return <React.Fragment key={segment.start}>{segment.text}</React.Fragment>;
+                }
+                const isActive = segment.evidenceIds.some((id) => selectedIds.has(id));
+                return (
+                  <mark
+                    key={segment.start}
+                    data-evidence={segment.evidenceIds.join(" ")}
+                    title={fmt(t("fit.pane.markTitle"), { labels: labelsFor(segment.requirementIds) })}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onMarkClick(segment.requirementIds)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onMarkClick(segment.requirementIds);
+                      }
+                    }}
+                    className={`cursor-pointer focus-visible:outline-2 focus-visible:outline-[#204195] rounded-sm px-0.5 text-[#14244B] underline decoration-2 underline-offset-2 transition-colors ${
+                      isActive ? ACTIVE[segment.status] : TINT[segment.status]
+                    }`}
+                  >
+                    {segment.text}
+                  </mark>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-6 text-center text-sm text-[#607096]">
+              {t("fit.pane.noText")}
+            </div>
+          )
+        ) : cvId && isPdf ? (
+          <div className="p-3">
+            {notOnPdf.length > 0 && (
+              <p className="mb-3 rounded-xl border border-[#F1D99A] bg-[#FFFBF0] px-3 py-2 text-xs leading-5 text-[#7A570D]">
+                {fmt(t("fit.pane.notOnPdfShort"), { count: notOnPdf.length })}
+              </p>
+            )}
+            <PdfEvidenceVisualizer
+              candidateId={cvId}
+              matchedSnippets={pdfSnippets}
+              onLocatedChange={handleLocated}
+              autoScrollToFirstHit
+            />
+          </div>
+        ) : null}
+
+        {tab === "text" && (unplaced.length > 0 || outOfRange.length > 0) && (
+          <div className="border-t border-[#EAEFF8] px-4 py-3">
+            <p className="text-xs font-semibold text-[#607096]">
+              {fmt(t("fit.pane.unplacedTitle"), { count: unplaced.length + outOfRange.length })}
+            </p>
+            <ul className="mt-1.5 space-y-1.5">
+              {[...unplaced, ...outOfRange].map((item) => (
+                <li key={item.evidenceId} className="text-xs leading-5 text-[#607096] [overflow-wrap:anywhere]">
+                  <button
+                    type="button"
+                    onClick={() => onSelectRequirement(item.requirementIds[0])}
+                    className="text-left hover:underline"
+                  >
+                    “{item.text}” <span className="text-[#9AA6C2]">· {labelsFor(item.requirementIds)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default CvEvidencePane;

@@ -68,7 +68,18 @@ export interface JobCardData {
     externalJobId?: string;
   };
   match?: JobCardMatch;
+  /** The candidate's last CV–JD analysis of this job (criteria met / applicable). */
+  fit?: JobCardFit;
   saved?: boolean;
+}
+
+export interface JobCardFit {
+  met: number;
+  total: number;
+  cvId: string;
+  cvName?: string | null;
+  analyzedAt: string;
+  attemptId?: string | null;
 }
 
 export interface JobCardProps {
@@ -78,4 +89,6 @@ export interface JobCardProps {
   onClick?: (jobId: string) => void;
   href?: string;
   className?: string;
+  /** Optional short JD excerpt for contexts that need to preview requirements. */
+  description?: string;
 }

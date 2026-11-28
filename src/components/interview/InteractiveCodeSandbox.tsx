@@ -14,19 +14,45 @@ import {
   Terminal,
   XCircle,
 } from 'lucide-react';
+import { ConfirmDialog } from '@components/shared/ConfirmDialog';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import { fmt } from '@/i18n/format';
+
+function EditorLoading() {
+  const { t } = useLanguage();
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-[#14244B] text-[#B8C4E0]">
+      <div className="flex items-center gap-2">
+        <Loader2 className="size-5 animate-spin text-[#8FA8E8]" aria-hidden="true" />
+        <span className="text-sm">{t('room.code.loadingEditor')}</span>
+      </div>
+    </div>
+  );
+}
 
 // Dynamic import Monaco Editor with SSR disabled
 const Editor = dynamic(() => import('@monaco-editor/react').then((m) => m.default || m.Editor), {
   ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-slate-900 text-slate-400">
-      <div className="flex items-center gap-2">
-        <Loader2 className="size-5 animate-spin text-indigo-400" />
-        <span className="text-sm">Đang tải trình soạn thảo Monaco...</span>
-      </div>
-    </div>
-  ),
+  loading: () => <EditorLoading />,
 });
+
+/** Badge text for the editor language; Python runs in the browser through Pyodide. */
+const LANGUAGE_LABEL: Record<string, string> = {
+  python: 'Python 3.12 · Pyodide',
+  javascript: 'JavaScript',
+  typescript: 'TypeScript',
+  java: 'Java',
+  go: 'Go',
+  cpp: 'C++',
+  csharp: 'C#',
+  sql: 'SQL',
+};
+
+function languageLabel(language: string): string {
+  const key = language.trim().toLowerCase();
+  if (LANGUAGE_LABEL[key]) return LANGUAGE_LABEL[key];
+  return key ? key.charAt(0).toUpperCase() + key.slice(1) : LANGUAGE_LABEL.python;
+}
 
 export interface InteractiveCodeSandboxProps {
   starterCode: string;
@@ -41,6 +67,7 @@ export interface InteractiveCodeSandboxProps {
  */
 function computeDiff(original: string, modified: string): string {
   if (original.trim() === modified.trim()) {
+    // Model-facing telemetry, not UI copy: keep it stable for the engine.
     return '(Không có thay đổi so với mã nguồn ban đầu)';
   }
 
@@ -77,11 +104,13 @@ export function InteractiveCodeSandbox({
   onSubmit,
   isSubmitting = false,
 }: InteractiveCodeSandboxProps) {
+  const { t } = useLanguage();
   const [code, setCode] = useState<string>(starterCode || '');
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [testOutput, setTestOutput] = useState<string | null>(null);
   const [testPassed, setTestPassed] = useState<boolean | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   const workerRef = useRef<Worker | null>(null);
 
@@ -112,11 +141,10 @@ export function InteractiveCodeSandbox({
   }, []);
 
   const handleReset = () => {
-    if (confirm('Bạn có chắc chắn muốn đặt lại code về trạng thái ban đầu?')) {
-      setCode(starterCode || '');
-      setTestOutput(null);
-      setTestPassed(null);
-    }
+    setConfirmReset(false);
+    setCode(starterCode || '');
+    setTestOutput(null);
+    setTestPassed(null);
   };
 
   const handleCopyCode = async () => {
@@ -131,7 +159,7 @@ export function InteractiveCodeSandbox({
 
   const handleRunTests = () => {
     setIsRunning(true);
-    setTestOutput('⏳ Đang khởi tạo môi trường WebAssembly (Pyodide) và chạy test cases...');
+    setTestOutput(t('room.code.starting'));
     setTestPassed(null);
 
     try {
@@ -140,14 +168,14 @@ export function InteractiveCodeSandbox({
       const onMessage = (e: MessageEvent<{ success: boolean; output: string }>) => {
         setIsRunning(false);
         setTestPassed(e.data.success);
-        setTestOutput(e.data.output || (e.data.success ? 'Test cases passed!' : 'Test failed'));
+        setTestOutput(e.data.output || t(e.data.success ? 'room.code.defaultPassed' : 'room.code.defaultFailed'));
         worker.removeEventListener('message', onMessage);
       };
 
       const onError = (err: ErrorEvent) => {
         setIsRunning(false);
         setTestPassed(false);
-        setTestOutput(`❌ Lỗi thực thi Worker: ${err.message || 'Không thể chạy Pyodide'}`);
+        setTestOutput(fmt(t('room.code.workerError'), { reason: err.message || t('room.code.workerFallback') }));
         worker.removeEventListener('error', onError);
       };
 
@@ -161,7 +189,7 @@ export function InteractiveCodeSandbox({
     } catch (err: unknown) {
       setIsRunning(false);
       setTestPassed(false);
-      setTestOutput(`❌ Không thể khởi tạo Web Worker: ${err instanceof Error ? err.message : String(err)}`);
+      setTestOutput(fmt(t('room.code.workerInit'), { reason: err instanceof Error ? err.message : String(err) }));
     }
   };
 
@@ -171,38 +199,29 @@ export function InteractiveCodeSandbox({
     onSubmit(code, diff, passed);
   };
 
+  const pillButton =
+    'inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/85 transition-colors hover:bg-white/20 hover:text-white';
+
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900 shadow-2xl">
+    <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-[#1C3270] bg-[#14244B] shadow-[0_28px_60px_-36px_rgba(20,36,75,0.6)]">
       {/* Top Header Bar */}
-      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/80 px-4 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[#101D3F] px-4 py-2.5">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-lg bg-indigo-500/10 px-2.5 py-1 text-xs font-semibold text-indigo-400 ring-1 ring-indigo-500/20">
-            <Code2 className="size-3.5" />
-            <span>Python 3.12 (Pyodide WASM)</span>
+          <div className="flex items-center gap-2 rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/85 ring-1 ring-white/15">
+            <Code2 className="size-3.5" aria-hidden="true" />
+            <span>{languageLabel(language)}</span>
           </div>
-          <span className="text-xs text-slate-400 hidden sm:inline">
-            Interactive Code Sandbox
-          </span>
+          <span className="hidden text-xs text-[#B8C4E0] sm:inline">{t('room.code.title')}</span>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleCopyCode}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700/60 bg-slate-800/80 px-2.5 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
-            title="Sao chép code"
-          >
-            <Copy className="size-3" />
-            <span>{copied ? 'Đã chép' : 'Chép'}</span>
+          <button type="button" onClick={handleCopyCode} className={pillButton} aria-label={t('room.code.copyAria')}>
+            <Copy className="size-3" aria-hidden="true" />
+            <span>{copied ? t('room.code.copied') : t('room.code.copy')}</span>
           </button>
-          <button
-            type="button"
-            onClick={handleReset}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700/60 bg-slate-800/80 px-2.5 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-rose-300"
-            title="Đặt lại code ban đầu"
-          >
-            <RotateCcw className="size-3" />
-            <span>Đặt lại</span>
+          <button type="button" onClick={() => setConfirmReset(true)} className={pillButton} aria-label={t('room.code.resetAria')}>
+            <RotateCcw className="size-3" aria-hidden="true" />
+            <span>{t('room.code.reset')}</span>
           </button>
         </div>
       </div>
@@ -231,21 +250,21 @@ export function InteractiveCodeSandbox({
       </div>
 
       {/* Terminal Output Panel */}
-      <div className="flex h-44 flex-col border-t border-slate-800 bg-slate-950">
-        <div className="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 px-3 py-1.5">
+      <div className="flex h-44 flex-col border-t border-white/10 bg-[#0E1A38]">
+        <div className="flex items-center justify-between border-b border-white/10 bg-[#101D3F] px-3 py-1.5">
           <div className="flex items-center gap-2">
-            <Terminal className="size-3.5 text-slate-400" />
-            <span className="text-xs font-semibold text-slate-300">Terminal Output</span>
+            <Terminal className="size-3.5 text-[#B8C4E0]" aria-hidden="true" />
+            <span className="text-xs font-semibold text-white/85">{t('room.code.output')}</span>
             {testPassed === true && (
-              <span className="inline-flex items-center gap-1 rounded bg-emerald-500/20 px-1.5 py-0.5 text-[11px] font-medium text-emerald-400">
-                <CheckCircle2 className="size-3" />
-                Passed
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#287A4B]/30 px-2 py-0.5 text-[11px] font-medium text-[#9FD3B4]">
+                <CheckCircle2 className="size-3" aria-hidden="true" />
+                {t('room.code.passed')}
               </span>
             )}
             {testPassed === false && (
-              <span className="inline-flex items-center gap-1 rounded bg-rose-500/20 px-1.5 py-0.5 text-[11px] font-medium text-rose-400">
-                <XCircle className="size-3" />
-                Failed
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#C43B3B]/30 px-2 py-0.5 text-[11px] font-medium text-[#F5C2C2]">
+                <XCircle className="size-3" aria-hidden="true" />
+                {t('room.code.failed')}
               </span>
             )}
           </div>
@@ -256,63 +275,61 @@ export function InteractiveCodeSandbox({
                 setTestOutput(null);
                 setTestPassed(null);
               }}
-              className="text-[11px] text-slate-500 hover:text-slate-300"
+              className="rounded-full px-2 text-[11px] text-[#B8C4E0] hover:text-white"
             >
-              Xóa log
+              {t('room.code.clearLog')}
             </button>
           )}
         </div>
 
-        <div className="flex-1 overflow-auto p-3 font-mono text-xs text-slate-200">
+        <div className="flex-1 overflow-auto p-3 font-mono text-xs text-[#E4EAF7]" role="status" aria-live="polite">
           {testOutput ? (
             <pre className="whitespace-pre-wrap leading-relaxed">{testOutput}</pre>
           ) : (
-            <div className="flex h-full items-center justify-center text-slate-500 italic">
-              Bấm [Chạy thử] để kiểm tra code với test cases tự động.
-            </div>
+            <div className="flex h-full items-center justify-center italic text-[#8D9BBE]">{t('room.code.emptyOutput')}</div>
           )}
         </div>
       </div>
 
       {/* Footer Action Bar */}
-      <div className="flex items-center justify-between border-t border-slate-800 bg-slate-950 px-4 py-3">
-        <div className="flex items-center gap-2 text-xs text-slate-400">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-[#0E1A38] px-4 py-3">
+        <div className="flex items-center gap-2 text-xs text-[#B8C4E0]">
           {testPassed === null && (
-            <span className="flex items-center gap-1.5 text-amber-400/90">
-              <AlertTriangle className="size-3.5" />
-              Chưa chạy test cases
+            <span className="flex items-center gap-1.5 text-[#FCB625]">
+              <AlertTriangle className="size-3.5" aria-hidden="true" />
+              {t('room.code.notRun')}
             </span>
           )}
           {testPassed === true && (
-            <span className="flex items-center gap-1.5 text-emerald-400">
-              <CheckCircle2 className="size-3.5" />
-              Sẵn sàng nộp bài cho AI
+            <span className="flex items-center gap-1.5 text-[#9FD3B4]">
+              <CheckCircle2 className="size-3.5" aria-hidden="true" />
+              {t('room.code.ready')}
             </span>
           )}
           {testPassed === false && (
-            <span className="flex items-center gap-1.5 text-rose-400">
-              <XCircle className="size-3.5" />
-              Test chưa đạt, bạn có thể sửa lại và chạy tiếp
+            <span className="flex items-center gap-1.5 text-[#F5C2C2]">
+              <XCircle className="size-3.5" aria-hidden="true" />
+              {t('room.code.notPassed')}
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={handleRunTests}
             disabled={isRunning}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 shadow-sm transition-all hover:border-slate-600 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isRunning ? (
               <>
-                <Loader2 className="size-3.5 animate-spin text-indigo-400" />
-                <span>Đang chạy test...</span>
+                <Loader2 className="size-3.5 animate-spin text-[#8FA8E8]" aria-hidden="true" />
+                <span>{t('room.code.running')}</span>
               </>
             ) : (
               <>
-                <Play className="size-3.5 text-emerald-400 fill-emerald-400" />
-                <span>Chạy thử (Run Test)</span>
+                <Play className="size-3.5 fill-[#FCB625] text-[#FCB625]" aria-hidden="true" />
+                <span>{t('room.code.run')}</span>
               </>
             )}
           </button>
@@ -321,22 +338,33 @@ export function InteractiveCodeSandbox({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || isRunning}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:from-indigo-500 hover:to-violet-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full bg-[#204195] px-4 py-2 text-xs font-semibold text-white ring-1 ring-white/20 transition-colors hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="size-3.5 animate-spin" />
-                <span>Đang nộp...</span>
+                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                <span>{t('room.code.submitting')}</span>
               </>
             ) : (
               <>
-                <Send className="size-3.5" />
-                <span>Nộp bài cho AI</span>
+                <Send className="size-3.5" aria-hidden="true" />
+                <span>{t('room.code.submit')}</span>
               </>
             )}
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmReset}
+        title={t('room.code.resetConfirmTitle')}
+        body={t('room.code.resetConfirmBody')}
+        confirmLabel={t('room.code.reset')}
+        cancelLabel={t('room.code.keep')}
+        tone="danger"
+        onConfirm={handleReset}
+        onCancel={() => setConfirmReset(false)}
+      />
     </div>
   );
 }

@@ -2,8 +2,9 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { VideoOff, RotateCcw } from "lucide-react";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
+/** Covers every fullscreen interview page (select, chat, practice, results). */
 export default function InterviewError({
   error,
   reset,
@@ -11,36 +12,30 @@ export default function InterviewError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const { t } = useLanguage();
+
   useEffect(() => {
     console.error("Interview Fullscreen Error Boundary Caught Exception:", error);
   }, [error]);
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-slate-950 px-4 text-white">
-      <div className="max-w-md rounded-2xl border border-red-500/20 bg-slate-900/90 p-8 text-center shadow-2xl backdrop-blur-xl">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
-          <VideoOff className="w-8 h-8 text-red-400" />
-        </div>
-        <h2 className="mb-2 font-headline text-xl font-bold text-white">
-          Sự cố kết nối phòng phỏng vấn
-        </h2>
-        <p className="mb-6 text-sm leading-relaxed text-slate-400">
-          Không thể khởi tạo hoặc duy trì kết nối âm thanh/hình ảnh. Vui lòng kiểm tra quyền truy cập Microphone/Camera và kết nối mạng.
-        </p>
+    <div className="flex min-h-dvh w-full items-center justify-center bg-[#F7F9FD] px-4 text-[#14244B]">
+      <div className="anim-rise w-full max-w-md rounded-3xl border border-[#DCE4F3] bg-white p-8 text-center shadow-[0_28px_60px_-36px_rgba(20,36,75,0.35)]">
+        <h2 className="mb-2 font-display text-2xl font-semibold text-[#14244B]">{t("room.boundary.title")}</h2>
+        <p className="mb-6 text-sm leading-relaxed text-[#607096]">{t("room.boundary.body")}</p>
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <button
             type="button"
             onClick={() => reset()}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-amber-400"
+            className="inline-flex h-11 items-center justify-center rounded-full bg-[#204195] px-6 text-sm font-semibold text-white transition hover:bg-[#183275]"
           >
-            <RotateCcw className="w-4 h-4" />
-            Thử kết nối lại
+            {t("room.common.retry")}
           </button>
           <Link
-            href="/dashboard"
-            className="inline-flex items-center justify-center rounded-xl border border-slate-700 bg-slate-800 px-5 py-2.5 text-sm font-bold text-slate-200 transition hover:bg-slate-700"
+            href="/interview/select"
+            className="inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-sm font-semibold text-[#14244B] ring-1 ring-[#DCE4F3] transition hover:bg-[#EEF2FD]"
           >
-            Quay lại Workspace
+            {t("uxInterview.error.back")}
           </Link>
         </div>
       </div>

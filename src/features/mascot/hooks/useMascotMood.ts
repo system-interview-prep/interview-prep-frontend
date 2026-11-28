@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
@@ -8,6 +9,8 @@ import type { MascotMood } from "../types";
 export interface MascotSceneConfig {
   mood: MascotMood;
   speechKey?: string;
+  /** Extra lines the fox says when clicked, cycled in order. */
+  tipKeys?: string[];
   hidden?: boolean;
 }
 
@@ -18,10 +21,71 @@ export interface TriggerMascotOptions {
   durationMs?: number;
 }
 
+export interface MascotLine {
+  id: number;
+  text: string;
+}
+
 export function triggerMascot(options: TriggerMascotOptions) {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("mascot:trigger", { detail: options }));
   }
+}
+
+const tips = (scene: string, count: number) =>
+  Array.from({ length: count }, (_, i) => `mascot.tips.${scene}.${i + 1}`);
+
+function greetingKey(): string {
+  const hour = new Date().getHours();
+  if (hour < 11) return "mascot.speech.dashboardMorning";
+  if (hour < 18) return "mascot.speech.dashboardAfternoon";
+  return "mascot.speech.dashboardEvening";
+}
+
+// Rooms run their own interviewer; the fox must never get in the way there.
+const SILENT_PATHS = ["/admin", "/interview/room", "/practice/room", "/login", "/signup", "/logout"];
+
+export function resolveRouteScene(path: string): MascotSceneConfig {
+  if (SILENT_PATHS.some((prefix) => path.startsWith(prefix))) {
+    return { mood: "idle", hidden: true };
+  }
+  if (path.startsWith("/interview/results")) {
+    return { mood: "celebrating", speechKey: "mascot.speech.resultsComplete", tipKeys: tips("results", 3) };
+  }
+  if (path.startsWith("/interview/select")) {
+    return { mood: "coaching", speechKey: "mascot.speech.interviewSelect", tipKeys: tips("select", 3) };
+  }
+  if (path.startsWith("/interview/cv-score")) {
+    return { mood: "thinking", speechKey: "mascot.speech.cvScore", tipKeys: tips("cvScore", 3) };
+  }
+  if (path.startsWith("/dashboard/cvs")) {
+    return { mood: "coaching", speechKey: "mascot.speech.cvEmpty", tipKeys: tips("cvs", 3) };
+  }
+  if (path.startsWith("/dashboard/jobs")) {
+    return { mood: "thinking", speechKey: "mascot.speech.jobsEmpty", tipKeys: tips("jobs", 3) };
+  }
+  if (path.startsWith("/dashboard/history")) {
+    return { mood: "encouraging", speechKey: "mascot.speech.history", tipKeys: tips("history", 2) };
+  }
+  if (path.startsWith("/dashboard/settings") || path.startsWith("/dashboard/profile")) {
+    return { mood: "idle", tipKeys: tips("dashboard", 3) };
+  }
+  if (path.startsWith("/dashboard")) {
+    return { mood: "happy", speechKey: greetingKey(), tipKeys: tips("dashboard", 3) };
+  }
+  if (path.startsWith("/solutions")) {
+    return { mood: "idle", speechKey: "mascot.speech.solutionsHero", tipKeys: tips("landing", 3) };
+  }
+  if (path.startsWith("/pricing")) {
+    return { mood: "idle", speechKey: "mascot.speech.pricingHelp", tipKeys: tips("landing", 3) };
+  }
+  if (path.startsWith("/resources")) {
+    return { mood: "idle", speechKey: "mascot.speech.resourcesCoach", tipKeys: tips("landing", 3) };
+  }
+  if (path === "/" || path === "") {
+    return { mood: "happy", speechKey: "mascot.speech.hero", tipKeys: tips("landing", 3) };
+  }
+  return { mood: "idle" };
 }
 
 export function useMascotMood(initialMood: MascotMood = "idle") {
@@ -29,139 +93,81 @@ export function useMascotMood(initialMood: MascotMood = "idle") {
   const pathname = usePathname();
 
   const [mood, setMood] = useState<MascotMood>(initialMood);
-  const [speechText, setSpeechText] = useState<string | null>(null);
-  const [isHidden, setIsHidden] = useState<boolean>(false);
+  const [line, setLine] = useState<MascotLine | null>(null);
+  // Derived during render (not in an effect) so the corner fox never flashes
+  // on silent routes such as /admin or /login before it hides.
+  const isHidden = !!resolveRouteScene(pathname || "").hidden;
 
-  // Quiet mode count (quiet mode suppresses bubble after 3 auto speeches)
-  const autoSpeechCount = useRef<number>(0);
+  const lineId = useRef(0);
+  const tipIndex = useRef(0);
+  const resetTimer = useRef<number | null>(null);
 
-  const resolveRouteScene = useCallback(
-    (path: string): MascotSceneConfig => {
-      if (path.startsWith("/admin")) {
-        return { mood: "idle", hidden: true };
-      }
-      if (path.includes("/interview/room")) {
-        return { mood: "idle", hidden: true };
-      }
-      if (path.includes("/interview/results")) {
-        return { mood: "happy", speechKey: "mascot.speech.resultsComplete" };
-      }
-      if (path.includes("/interview/select")) {
-        return { mood: "coaching", speechKey: "mascot.speech.interviewSelect" };
-      }
-      if (path.includes("/practice")) {
-        return { mood: "happy", speechKey: "mascot.speech.practiceStart" };
-      }
-      if (path.includes("/dashboard/cvs")) {
-        return { mood: "coaching", speechKey: "mascot.speech.cvEmpty" };
-      }
-      if (path.includes("/dashboard/jobs")) {
-        return { mood: "thinking", speechKey: "mascot.speech.jobsEmpty" };
-      }
-      if (path.startsWith("/dashboard")) {
-        return { mood: "idle", speechKey: "mascot.speech.dashboardWelcome" };
-      }
-      if (path.includes("/solutions")) {
-        return { mood: "idle", speechKey: "mascot.speech.solutionsHero" };
-      }
-      if (path.includes("/pricing")) {
-        return { mood: "idle", speechKey: "mascot.speech.pricingHelp" };
-      }
-      if (path.includes("/resources")) {
-        return { mood: "idle", speechKey: "mascot.speech.resourcesCoach" };
-      }
-      if (path.includes("/login") || path.includes("/signup") || path.includes("/logout")) {
-        return { mood: "idle", hidden: true };
-      }
-      if (path === "/" || path === "") {
-        return { mood: "idle", speechKey: "mascot.speech.hero" };
-      }
-      return { mood: "idle", speechKey: undefined };
+  const say = useCallback((text: string | null) => {
+    lineId.current += 1;
+    setLine(text ? { id: lineId.current, text } : null);
+  }, []);
+
+  const restoreScene = useCallback(() => {
+    const scene = resolveRouteScene(pathname || "");
+    setMood(scene.mood);
+    say(null);
+  }, [pathname, say]);
+
+  const scheduleRestore = useCallback(
+    (durationMs?: number) => {
+      if (resetTimer.current) window.clearTimeout(resetTimer.current);
+      if (durationMs) resetTimer.current = window.setTimeout(restoreScene, durationMs);
     },
-    []
+    [restoreScene],
   );
 
   useEffect(() => {
     if (!pathname) return;
-
     const scene = resolveRouteScene(pathname);
+    tipIndex.current = 0;
     queueMicrotask(() => {
-      setIsHidden(!!scene.hidden);
       setMood(scene.mood);
-
-      if (scene.hidden) {
-        setSpeechText(null);
+      if (scene.hidden || !scene.speechKey) {
+        say(null);
         return;
       }
-
-      // Apply quiet mode check
-      if (autoSpeechCount.current >= 3) {
-        setSpeechText(null);
-      } else if (scene.speechKey) {
-        autoSpeechCount.current += 1;
-        setSpeechText(t(scene.speechKey));
-      } else {
-        setSpeechText(null);
-      }
+      say(t(scene.speechKey));
     });
-  }, [pathname, resolveRouteScene, t]);
+  }, [pathname, say, t]);
 
   useEffect(() => {
     const handleCustomTrigger = (e: Event) => {
       const detail = (e as CustomEvent<TriggerMascotOptions>).detail;
       if (!detail) return;
       const { mood: newMood = "idle", speechKey, speechText: customText, durationMs } = detail;
-
       setMood(newMood);
-
-      if (customText) {
-        setSpeechText(customText);
-      } else if (speechKey) {
-        setSpeechText(t(speechKey));
-      }
-
-      if (durationMs) {
-        setTimeout(() => {
-          const scene = resolveRouteScene(pathname || "");
-          setMood(scene.mood);
-          if (scene.speechKey) {
-            setSpeechText(t(scene.speechKey));
-          } else {
-            setSpeechText(null);
-          }
-        }, durationMs);
-      }
+      const text = customText ?? (speechKey ? t(speechKey) : null);
+      if (text) say(text);
+      scheduleRestore(durationMs);
     };
 
     window.addEventListener("mascot:trigger", handleCustomTrigger);
     return () => window.removeEventListener("mascot:trigger", handleCustomTrigger);
-  }, [pathname, resolveRouteScene, t]);
+  }, [say, scheduleRestore, t]);
 
-  const triggerMood = useCallback(
-    (newMood: MascotMood, durationMs?: number, customTextOrKey?: string) => {
-      setMood(newMood);
-      if (customTextOrKey) {
-        const translated = customTextOrKey.startsWith("mascot.speech.")
-          ? t(customTextOrKey)
-          : customTextOrKey;
-        setSpeechText(translated);
-      }
-      if (durationMs) {
-        setTimeout(() => {
-          const scene = resolveRouteScene(pathname || "");
-          setMood(scene.mood);
-          if (scene.speechKey) {
-            setSpeechText(t(scene.speechKey));
-          } else {
-            setSpeechText(null);
-          }
-        }, durationMs);
-      }
+  useEffect(
+    () => () => {
+      if (resetTimer.current) window.clearTimeout(resetTimer.current);
     },
-    [pathname, resolveRouteScene, t]
+    [],
   );
 
-  return { mood, setMood, speechText, setSpeechText, triggerMood, isHidden };
+  /** Called when the user pokes the fox: say the next tip for this page. */
+  const nextTip = useCallback(() => {
+    const scene = resolveRouteScene(pathname || "");
+    const keys = scene.tipKeys?.length ? scene.tipKeys : tips("dashboard", 3);
+    const key = keys[tipIndex.current % keys.length];
+    tipIndex.current += 1;
+    setMood("coaching");
+    say(t(key));
+  }, [pathname, say, t]);
+
+  return { mood, line, isHidden, nextTip };
 }
 
 export default useMascotMood;

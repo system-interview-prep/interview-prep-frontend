@@ -12,17 +12,48 @@ import {
   Mail,
   Shield,
   ShieldAlert,
-  Sparkles,
 } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { BrandLogo } from "@components/shared/BrandLogo";
+import { adminHomePath, hasQuestionBankRole, isFullAdmin } from "@features/admin/access";
 import {
+  INTERNAL_ROLES,
   completeAuthSession,
   getAuthErrorMessage,
   getCookie,
 } from "@features/auth/services/auth.service";
 import { authApi } from "@lib/apiClient";
 
-export default function AdminLoginForm() {
+/**
+ * One sign-in form, two doors: /admin/login for administrators and
+ * /expert/login for interview experts (QUESTION_AUTHOR). Both lead into the
+ * same console; each door only lets its own actor through.
+ */
+const VARIANTS = {
+  admin: {
+    home: "/admin/dashboard",
+    badge: "admin.login.consoleBadge",
+    title: "admin.login.title",
+    subtitle: "admin.login.subtitle",
+    emailPlaceholder: "admin.login.emailPlaceholder",
+    submit: "admin.login.submit",
+    emailRequired: "admin.login.error.emailRequired",
+    notAllowed: "admin.login.error.notAdmin",
+  },
+  expert: {
+    home: "/admin/question-bank",
+    badge: "expert.login.consoleBadge",
+    title: "expert.login.title",
+    subtitle: "expert.login.subtitle",
+    emailPlaceholder: "expert.login.emailPlaceholder",
+    submit: "expert.login.submit",
+    emailRequired: "expert.login.error.emailRequired",
+    notAllowed: "expert.login.error.notExpert",
+  },
+} as const;
+
+export default function AdminLoginForm({ variant = "admin" }: { variant?: keyof typeof VARIANTS }) {
+  const view = VARIANTS[variant];
   const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -36,15 +67,15 @@ export default function AdminLoginForm() {
 
   const nextUrl = useMemo(() => {
     const next = searchParams.get("next");
-    if (!next) return "/admin/dashboard";
-    // Avoid redirect loops back to /admin/login
-    if (next === "/admin/login" || next.startsWith("/admin/login?")) {
-      return "/admin/dashboard";
+    if (!next) return view.home;
+    // Avoid redirect loops back to a login page
+    if (/^\/(admin|expert)\/login(\?|$)/.test(next)) {
+      return view.home;
     }
     return next.startsWith("/") && !next.startsWith("//") ? next : "/" + next.replace(/^\/+/, "");
-  }, [searchParams]);
+  }, [searchParams, view.home]);
 
-  // If already authenticated as admin, redirect to admin dashboard immediately
+  // Already signed in to the console: skip the form
   useEffect(() => {
     const role = getCookie("role")?.toLowerCase();
     const token =
@@ -63,9 +94,7 @@ export default function AdminLoginForm() {
 
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail) {
-      setErrorMessage(
-        t("admin.login.error.emailRequired") || "Vui lòng nhập email quản trị viên."
-      );
+      setErrorMessage(t(view.emailRequired));
       return;
     }
 
@@ -80,19 +109,24 @@ export default function AdminLoginForm() {
       setLoading(true);
       const response = await authApi.login(trimmedEmail, password);
 
-      // Verify that this user has ADMIN role
-      const isAdmin = response.data.user.roles.some((role) => role.toUpperCase() === "ADMIN");
-      if (!isAdmin) {
+      // Each door lets only its own actor through, and nothing is stored for
+      // anyone else: the expert door needs the expert role, and the admin door
+      // sends an expert-only account to /expert/login.
+      const roles = response.data.user.roles;
+      const expertOnly = hasQuestionBankRole(roles) && !isFullAdmin(roles);
+      const allowed =
+        variant === "expert"
+          ? hasQuestionBankRole(roles)
+          : roles.some((role) => INTERNAL_ROLES.has(role.toUpperCase())) && !expertOnly;
+      if (!allowed) {
         setErrorMessage(
-          t("admin.login.error.notAdmin") ||
-          "Tài khoản này không có quyền truy cập hệ thống quản trị."
+          t(variant === "admin" && expertOnly ? "admin.login.error.useExpertLogin" : view.notAllowed)
         );
         return;
       }
 
-      // Complete session as ADMIN
       completeAuthSession(response.data, "ADMIN");
-      router.replace(nextUrl);
+      router.replace(searchParams.get("next") ? nextUrl : variant === "expert" ? view.home : adminHomePath(roles));
     } catch (error) {
       const fallback =
         t("admin.login.error.invalidCredentials") ||
@@ -112,47 +146,43 @@ export default function AdminLoginForm() {
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#607096] hover:text-[#204195] transition-colors"
         >
           <ArrowLeft size={14} />
-          <span>{t("admin.login.backToIntervia") || "Trở về INTERVIA"}</span>
+          <span>{t("fixAdmin.login.backToIntervia")}</span>
         </Link>
 
         <span className="inline-flex items-center gap-1 rounded-full border border-[#DCE4F3] bg-white px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-[#204195]">
           <Shield size={12} className="text-[#204195]" />
-          <span>{t("admin.login.consoleBadge") || "ADMIN CONSOLE"}</span>
+          <span>{t(view.badge)}</span>
         </span>
       </header>
 
       {/* Main card */}
       <main className="mx-auto my-auto w-full max-w-[420px]">
-        <div className="rounded-[20px] border border-[#DCE4F3] bg-white p-7 shadow-[0_12px_40px_rgba(20,36,75,0.06)] sm:p-8">
+        <div className="rounded-3xl border border-[#DCE4F3] bg-white p-7 shadow-[0_12px_40px_rgba(20,36,75,0.06)] sm:p-8">
           {/* Logo & Header */}
           <div className="text-center">
             <div className="mx-auto inline-flex items-center justify-center gap-2 mb-3">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#204195] text-[#FCB625] shadow-2xs">
-                <Sparkles size={16} />
-              </span>
-              <span className="font-headline text-lg font-extrabold tracking-tight text-[#14244B]">
+              <BrandLogo size={38} />
+              <span className="font-display text-lg font-bold tracking-[0.08em] text-[#14244B]">
                 INTERVIA
               </span>
             </div>
 
             <h1 className="font-headline text-xl font-bold tracking-tight text-[#14244B] sm:text-2xl">
-              {t("admin.login.title") || "Đăng nhập hệ thống quản trị"}
+              {t(view.title)}
             </h1>
-            <p className="mt-1 text-xs text-[#607096]">
-              {t("admin.login.subtitle") ||
-                "Truy cập giới hạn cho đội ngũ vận hành hệ thống"}
-            </p>
+            <p className="mt-1 text-xs text-[#607096]">{t(view.subtitle)}</p>
           </div>
 
           {/* Error Message Area */}
           <div className="min-h-[20px] mt-3">
             {errorMessage && (
               <div
+                id="admin-login-error"
                 role="alert"
                 aria-live="polite"
-                className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700"
+                className="flex items-start gap-2.5 rounded-2xl border border-[#C43B3B]/25 bg-[#FDF2F2] p-3 text-xs font-semibold text-[#C43B3B]"
               >
-                <ShieldAlert size={16} className="mt-0.5 shrink-0 text-red-600" />
+                <ShieldAlert size={16} className="mt-0.5 shrink-0 text-[#C43B3B]" />
                 <span className="leading-relaxed">{errorMessage}</span>
               </div>
             )}
@@ -181,11 +211,11 @@ export default function AdminLoginForm() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={
-                    t("admin.login.emailPlaceholder") || "admin@intervia.io"
-                  }
+                  placeholder={t(view.emailPlaceholder)}
                   disabled={loading}
-                  className="h-[44px] w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] pl-10 pr-4 text-xs font-medium text-[#14244B] placeholder-[#8A98B8] focus:border-[#204195] focus:bg-white focus:outline-none transition-all disabled:opacity-60"
+                  aria-invalid={!!errorMessage}
+                  aria-describedby={errorMessage ? "admin-login-error" : undefined}
+                  className="h-[44px] w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] pl-10 pr-4 text-xs font-medium text-[#14244B] placeholder-[#8A98B8] transition-all focus:border-[#204195] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]/20 disabled:opacity-60"
                 />
               </div>
             </div>
@@ -211,14 +241,16 @@ export default function AdminLoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t("admin.login.passwordPlaceholder") || "••••••••"}
                   disabled={loading}
-                  className="h-[44px] w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] pl-10 pr-10 text-xs font-medium text-[#14244B] placeholder-[#8A98B8] focus:border-[#204195] focus:bg-white focus:outline-none transition-all disabled:opacity-60"
+                  aria-invalid={!!errorMessage}
+                  aria-describedby={errorMessage ? "admin-login-error" : undefined}
+                  className="h-[44px] w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] pl-10 pr-12 text-xs font-medium text-[#14244B] placeholder-[#8A98B8] transition-all focus:border-[#204195] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]/20 disabled:opacity-60"
                 />
                 <button
                   type="button"
-                  tabIndex={-1}
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8A98B8] hover:text-[#14244B] cursor-pointer"
+                  aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                  aria-pressed={showPassword}
+                  className="absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-full text-[#607096] hover:bg-[#F0F4FC] hover:text-[#14244B] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#204195]/30"
                 >
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -228,13 +260,13 @@ export default function AdminLoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-2 flex h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-[#204195] px-6 text-xs font-bold text-white shadow-xs hover:bg-[#183377] transition-all disabled:opacity-60 cursor-pointer"
+              className="mt-2 flex h-[44px] w-full items-center justify-center gap-2 rounded-full bg-[#204195] px-6 text-xs font-bold text-white shadow-xs hover:bg-[#183275] transition-all disabled:opacity-60 cursor-pointer"
             >
               {loading && <LoaderCircle className="animate-spin" size={16} />}
               <span>
                 {loading
                   ? t("admin.login.submitting") || "Đang đăng nhập..."
-                  : t("admin.login.submit") || "Đăng nhập Admin"}
+                  : t(view.submit)}
               </span>
             </button>
           </form>
@@ -244,20 +276,21 @@ export default function AdminLoginForm() {
             <button
               type="button"
               onClick={() => {
-                setEmail("admin@intervia.io");
-                setPassword("Admin@123456");
+                // Kept inside this dev-only branch so the build drops them in production.
+                setEmail(variant === "expert" ? "expert@intervia.io" : "admin@intervia.io");
+                setPassword(variant === "expert" ? "Expert@123456" : "Admin@123456");
                 setDemoFilled(true);
               }}
-              className="mt-4 flex w-full items-center justify-between gap-3 rounded-[14px] border border-[#DCE4F3] bg-[#F7F9FD] p-3.5 text-left transition-colors hover:border-[#204195]/35 hover:bg-[#EEF3FC] cursor-pointer"
+              className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-[#DCE4F3] bg-[#F7F9FD] p-3.5 text-left transition-colors hover:border-[#204195]/35 hover:bg-[#EEF3FC] cursor-pointer"
             >
               <div>
                 <p className="text-[13px] font-bold text-[#14244B]">
                   {t("admin.login.demoTitle") || "Tài khoản demo"}
                 </p>
                 <p className="mt-0.5 font-mono text-[13px] font-semibold text-[#204195]">
-                  admin@intervia.io
+                  {variant === "expert" ? "expert@intervia.io" : "admin@intervia.io"}
                 </p>
-                <p className={`mt-1.5 text-[11px] font-medium ${demoFilled ? "text-emerald-600" : "text-[#607096]"}`}>
+                <p className={`mt-1.5 text-[11px] font-medium ${demoFilled ? "text-[#287A4B]" : "text-[#607096]"}`}>
                   {demoFilled ? (t("admin.login.demoFilled") || "✓ Đã điền tài khoản demo") : (t("admin.login.demoPrompt") || "Nhấn để tự động điền thông tin đăng nhập")}
                 </p>
               </div>

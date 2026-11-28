@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { cookies } from "next/headers";
 
 import {
@@ -23,12 +24,15 @@ export async function generateMetadata(): Promise<Metadata> {
       "Resources | INTERVIA",
 
     description:
-      lang === "vi"
-        ? "Cẩm nang thực hành về CV, ATS, đối soát bằng chứng và luyện phỏng vấn cùng INTERVIA."
-        : "Practical resources for CVs, ATS, evidence matching and interview preparation with INTERVIA.",
+      "Thư viện hướng dẫn về CV, ATS và luyện phỏng vấn của INTERVIA đang được biên soạn. Xem trước các chủ đề sắp ra mắt.",
   };
 }
 
 export default function ResourcesPage() {
-  return <ResourcesPageClient />;
+  // ResourcesPageClient reads useSearchParams(), which needs a Suspense boundary.
+  return (
+    <Suspense fallback={null}>
+      <ResourcesPageClient />
+    </Suspense>
+  );
 }

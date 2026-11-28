@@ -31,13 +31,32 @@ export type ResumeEvidence = {
 };
 
 export type ParsedCvData = {
+  profile?: Record<string, unknown>;
+  skills?: Record<string, unknown>[];
+  employment?: Record<string, unknown>[];
+  education?: Record<string, unknown>[];
+  projects?: Record<string, unknown>[];
+  certifications?: Record<string, unknown>[];
+  languages?: Record<string, unknown>[];
   careerClassifications: CareerClassification[];
   evidence: ResumeEvidence[];
   metadata?: { parserVersion?: string };
+  [key: string]: unknown;
 };
 
 function recordOf(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function camelize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(camelize);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, child]) => [
+      key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase()),
+      camelize(child),
+    ]),
+  );
 }
 
 function dimensionOf(value: unknown): CareerDimension | null {
@@ -76,11 +95,22 @@ export function normalizeResumeEvidence(value: unknown): ResumeEvidence | null {
 
 export function normalizeParsedCvData(value: unknown): ParsedCvData | undefined {
   if (!value || typeof value !== "object") return undefined;
-  const data = recordOf(value);
+  // Older API responses may wrap the canonical resume in ParsedResume.resume;
+  // current user-CV responses store the canonical resume at the root.
+  const envelope = recordOf(value);
+  const data = recordOf(camelize(envelope.resume ?? envelope));
   const rawClassifications = data.careerClassifications ?? data.career_classifications;
   const rawEvidence = data.evidence;
   const rawMetadata = recordOf(data.metadata);
   return {
+    ...data,
+    profile: Object.keys(recordOf(data.profile)).length ? recordOf(data.profile) : undefined,
+    skills: Array.isArray(data.skills) ? data.skills.map(recordOf) : undefined,
+    employment: Array.isArray(data.employment) ? data.employment.map(recordOf) : undefined,
+    education: Array.isArray(data.education) ? data.education.map(recordOf) : undefined,
+    projects: Array.isArray(data.projects) ? data.projects.map(recordOf) : undefined,
+    certifications: Array.isArray(data.certifications) ? data.certifications.map(recordOf) : undefined,
+    languages: Array.isArray(data.languages) ? data.languages.map(recordOf) : undefined,
     careerClassifications: Array.isArray(rawClassifications)
       ? rawClassifications.map(normalizeCareerClassification).filter((item): item is CareerClassification => Boolean(item))
       : [],

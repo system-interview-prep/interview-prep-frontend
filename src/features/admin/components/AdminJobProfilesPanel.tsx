@@ -2,25 +2,58 @@
 
 import Link from "next/link";
 import axios from "axios";
-import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { taxonomyApi, type TaxonomyConcept } from "@/lib/api/taxonomyApi";
+import { taxonomyApi, type TaxonomyConcept } from "@features/admin/services/taxonomy.service";
 import {
-  fetchJobProfileListAggregates,
   jobProfileApi,
   jobProfileListTaxonomyParams,
   type JobProfile,
+  type JobProfileUpload,
 } from "@features/admin/services/jobProfile.service";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { ConfirmDialog } from "@components/shared/ConfirmDialog";
+import AdminRowAction from "./primitives/AdminRowAction";
+import AdminJobCard from "./AdminJobCard";
+import { Pagination } from "@components/shared/Pagination";
+import AdminPageHeader from "./primitives/AdminPageHeader";
 
-import { Plus, Search, Briefcase, Edit, Trash2, Archive, ChevronLeft, ChevronRight, Terminal, Palette, Layers, BarChart2, Sliders, Megaphone } from "lucide-react";
+import { Plus, Search, Briefcase, Edit, Trash2, Terminal, Palette, Layers, BarChart2, Sliders, Megaphone, FileText } from "lucide-react";
 
 export type { JobProfile } from "@features/admin/services/jobProfile.service";
 
 type SortKey = "newest" | "oldest" | "titleAsc" | "titleDesc";
+type EntryFilter = "all" | "saved" | "drafts";
+type AdminJobListEntry =
+  | { kind: "profile"; id: string; title: string; createdAt: string; updatedAt: string; profile: JobProfile }
+  | { kind: "upload"; id: string; title: string; createdAt: string; updatedAt: string; upload: JobProfileUpload };
 
-const PAGE_SIZE = 12;
+/** Cards per page in grid view and rows per page in list view. */
+const GRID_PAGE_SIZE = 12;
+const LIST_PAGE_SIZE = 20;
+/** Backend max page size, used to walk the cursor pages. */
+const FETCH_LIMIT = 100;
+/** Safety cap on cursor walking (FETCH_LIMIT * MAX_FETCH_PAGES items). */
+const MAX_FETCH_PAGES = 50;
+
+function uploadDraftTitle(upload: JobProfileUpload): string {
+  const data = upload.structuredData;
+  if (data && typeof data === "object") {
+    for (const candidate of ["jobtitle", "title"]) {
+      const entry = Object.entries(data).find(([key]) => key.toLowerCase().replace(/[_-]/g, "") === candidate)?.[1];
+      const value = entry && typeof entry === "object" && "value" in entry ? entry.value : entry;
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+  }
+  return upload.filename.replace(/\.[^.]+$/, "") || upload.filename;
+}
+
+function uploadStatusLabel(status: JobProfileUpload["status"], t: (key: string) => string): string {
+  const key = `fixAdmin.jp.uploadStatus.${status}`;
+  const translated = t(key);
+  return translated === key ? status : translated;
+}
 
 function formatDate(iso: string, locale: string) {
   try {
@@ -59,25 +92,46 @@ function CategoryIcon({ name, className = "size-5" }: { name: string; className?
   return <Briefcase className={className} />;
 }
 
+/** Plain-text preview of a (markdown or HTML) JD description for the card body. */
+function descriptionPreview(value: unknown): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "—";
+  const isHtml = /^\s*<[a-z][\w-]*(\s[^>]*)?>/i.test(raw);
+  const text = isHtml ? raw.replace(/<[^>]*>/g, " ") : raw;
+  const cleaned = text
+    .replace(/^\s*#{1,6}\s*/gm, "")
+    .replace(/^\s*(?:[-*+]|\d+\.)\s+/gm, "")
+    .replace(/\*\*|__|`/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || "—";
+}
+
 function keywordChips(keywords: string[] | null | undefined): string[] {
   if (!keywords?.length) return [];
   return keywords.slice(0, 8);
 }
 
-function normalizeStatus(status: JobProfile["status"]): "ACTIVE" | "DRAFT" | "ARCHIVED" {
+function normalizeStatus(status: JobProfile["status"] | JobProfile["listingStatus"]): "ACTIVE" | "DRAFT" | "ARCHIVED" {
   if (status === "DRAFT" || status === "ARCHIVED") return status;
   return "ACTIVE";
 }
 
-function statusBadgeClass(status: JobProfile["status"]): string {
+const STATUS_LABEL_KEY: Record<"ACTIVE" | "DRAFT" | "ARCHIVED", string> = {
+  ACTIVE: "fixAdmin.jp.status.active",
+  DRAFT: "fixAdmin.jp.status.draft",
+  ARCHIVED: "fixAdmin.jp.status.archived",
+};
+
+function statusBadgeClass(status: JobProfile["status"] | JobProfile["listingStatus"]): string {
   const normalized = normalizeStatus(status);
   if (normalized === "DRAFT") {
-    return "bg-amber-50 text-amber-800 border border-amber-200";
+    return "bg-[#FCB625]/15 text-[#7A5600] border border-[#FCB625]/40";
   }
   if (normalized === "ARCHIVED") {
-    return "bg-slate-50 text-slate-700 border border-slate-200";
+    return "bg-[#F0F4FC] text-[#607096] border border-[#DCE4F3]";
   }
-  return "bg-emerald-50 text-emerald-800 border border-emerald-200";
+  return "bg-[#287A4B]/10 text-[#287A4B] border border-[#287A4B]/25";
 }
 
 export default function AdminJobProfilesPanel() {
@@ -87,33 +141,24 @@ export default function AdminJobProfilesPanel() {
   const searchParams = useSearchParams();
 
   const [profiles, setProfiles] = useState<JobProfile[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | undefined>();
-  const [page, setPage] = useState(1);
-  const [pageCursors, setPageCursors] = useState<Record<number, string | undefined>>({ 1: undefined });
+  const [uploadDrafts, setUploadDrafts] = useState<JobProfileUpload[]>([]);
+  const [page, setPage] = useState(() => {
+    const requested = Number.parseInt(searchParams.get("page") ?? "1", 10);
+    return Number.isFinite(requested) && requested > 0 ? requested : 1;
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 400);
+  const [entryFilter, setEntryFilter] = useState<EntryFilter>("all");
   const [sort, setSort] = useState<SortKey>("newest");
   const initialTaxonomyConcept = searchParams.get("taxonomyConceptId");
   const [taxonomyFilter, setTaxonomyFilter] = useState<"all" | string>(initialTaxonomyConcept || "all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [taxonomyConcepts, setTaxonomyConcepts] = useState<TaxonomyConcept[]>([]);
+  const [reloadTick, setReloadTick] = useState(0);
 
-  useEffect(() => {
-    const fromUrl = searchParams.get("taxonomyConceptId");
-    if (fromUrl) {
-      setTaxonomyFilter(fromUrl);
-    }
-  }, [searchParams]);
-
-  const [listAggregate, setListAggregate] = useState<{
-    total: number;
-    withDescription: number;
-    withRequirements: number;
-  } | null>(null);
-  const [aggregateLoading, setAggregateLoading] = useState(false);
-  const [aggregateTick, setAggregateTick] = useState(0);
+  const pageSize = viewMode === "grid" ? GRID_PAGE_SIZE : LIST_PAGE_SIZE;
 
   const handleEdit = useCallback(
     (id: string) => {
@@ -127,7 +172,7 @@ export default function AdminJobProfilesPanel() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await taxonomyApi.getActive();
+        const { data } = await taxonomyApi.active();
         if (!cancelled) setTaxonomyConcepts(data.concepts ?? []);
       } catch {
         if (!cancelled) setTaxonomyConcepts([]);
@@ -140,103 +185,84 @@ export default function AdminJobProfilesPanel() {
 
   const resolveTaxonomyLabel = (p: JobProfile) => p.primaryTaxonomy?.label ?? t("userDash.jobProfiles.uncategorized");
 
+  /**
+   * The backend only offers cursor pagination without a total count, so we walk all cursor pages
+   * for the current filters and paginate on the client (numbered pages, global title sort, exact total).
+   */
   useEffect(() => {
     const ac = new AbortController();
     let cancelled = false;
-
     (async () => {
-      setAggregateLoading(true);
-      setListAggregate(null);
+      setLoading(true);
+      setError(null);
       try {
         const order: "asc" | "desc" = sort === "oldest" ? "asc" : "desc";
-        const agg = await fetchJobProfileListAggregates(
-          {
-            q: debouncedSearch.trim() || undefined,
-            ...(taxonomyFilter !== "all" ? jobProfileListTaxonomyParams(taxonomyFilter) : {}),
-            order,
-          },
-          { signal: ac.signal }
-        );
-        if (!cancelled) setListAggregate(agg);
-      } catch {
-        if (!cancelled) setListAggregate(null);
-      } finally {
-        if (!cancelled) setAggregateLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      ac.abort();
-    };
-  }, [debouncedSearch, taxonomyFilter, sort, aggregateTick]);
-
-  const loadPage = useCallback(
-    async (cursor: string | undefined, pageNumber: number) => {
-      try {
-        setLoading(true);
-        setError(null);
-        const order: "asc" | "desc" = sort === "oldest" ? "asc" : "desc";
-        const { data } = await jobProfileApi.list({
-          limit: PAGE_SIZE,
-          cursor,
-          q: debouncedSearch.trim() || undefined,
-          ...(taxonomyFilter !== "all" ? jobProfileListTaxonomyParams(taxonomyFilter) : {}),
-          order,
-        });
-        const items = data.items ?? [];
-        setProfiles(items);
-        setNextCursor(data.nextCursor);
-        setPageCursors((prev) => ({
-          ...prev,
-          [pageNumber]: cursor,
-          ...(data.nextCursor ? { [pageNumber + 1]: data.nextCursor } : {}),
-        }));
+        const all: JobProfile[] = [];
+        let cursor: string | undefined;
+        for (let i = 0; i < MAX_FETCH_PAGES; i += 1) {
+          const { data } = await jobProfileApi.list(
+            {
+              limit: FETCH_LIMIT,
+              cursor,
+              q: debouncedSearch.trim() || undefined,
+              ...(taxonomyFilter !== "all" ? jobProfileListTaxonomyParams(taxonomyFilter) : {}),
+              order,
+            },
+            { signal: ac.signal }
+          );
+          all.push(...(data.items ?? []));
+          cursor = data.nextCursor;
+          if (!cursor) break;
+        }
+        if (!cancelled) setProfiles(all);
+        try {
+          const { data } = await jobProfileApi.listUploads(100, { signal: ac.signal });
+          if (!cancelled) setUploadDrafts(data.items ?? []);
+        } catch (uploadError: unknown) {
+          if (cancelled || axios.isCancel(uploadError)) return;
+          // The listing remains usable if the uploads endpoint is unavailable.
+          if (!cancelled) setUploadDrafts([]);
+        }
       } catch (e: unknown) {
+        if (cancelled || axios.isCancel(e)) return;
         const msg = axios.isAxiosError(e)
           ? String((e.response?.data as { message?: string })?.message ?? e.message)
           : t("admin.jobProfile.error.load");
         setError(msg);
         setProfiles([]);
-        setNextCursor(undefined);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    },
-    [debouncedSearch, taxonomyFilter, sort, t]
-  );
+    })();
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [debouncedSearch, taxonomyFilter, sort, reloadTick, t]);
 
-  useEffect(() => {
-    // This API uses cursor-based pagination. Jumping directly to page>1 isn't possible without
-    // walking cursors, so we clamp to page 1 on initial load.
-    const requested = Number.parseInt(searchParams.get("page") ?? "1", 10);
-    const safePage = Number.isFinite(requested) && requested > 0 ? requested : 1;
-    if (safePage !== 1) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("page", "1");
-      const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    }
-    setPage(1);
-    setPageCursors({ 1: undefined });
-    loadPage(undefined, 1);
-  }, [loadPage]);
-
-  // Reset pagination when filters change.
-  useEffect(() => {
-    setPage(1);
-    setPageCursors({ 1: undefined });
-    setNextCursor(undefined);
-    loadPage(undefined, 1);
-    startTransition(() => {
-      if (searchParams.get("page") && searchParams.get("page") !== "1") {
+  const syncPageParam = useCallback(
+    (nextPage: number) => {
+      startTransition(() => {
         const params = new URLSearchParams(searchParams.toString());
-        params.delete("page");
+        if (nextPage === 1) params.delete("page");
+        else params.set("page", String(nextPage));
+        if (params.toString() === searchParams.toString()) return;
         const qs = params.toString();
         router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-      }
-    });
-  }, [debouncedSearch, taxonomyFilter, sort]);
+      });
+    },
+    [pathname, router, searchParams]
+  );
+
+  // Reset to page 1 when filters, sort or view mode change (skip the first render so ?page= is honoured).
+  const filterKey = `${debouncedSearch.trim()}|${taxonomyFilter}|${entryFilter}|${sort}|${viewMode}`;
+  const lastFilterKey = useRef(filterKey);
+  useEffect(() => {
+    if (lastFilterKey.current === filterKey) return;
+    lastFilterKey.current = filterKey;
+    setPage(1);
+    syncPageParam(1);
+  }, [filterKey, syncPageParam]);
 
   useEffect(() => {
     if (searchParams.get("action") !== "create") return;
@@ -245,121 +271,123 @@ export default function AdminJobProfilesPanel() {
     });
   }, [searchParams, router]);
 
+  const taxonomyParam = searchParams.get("taxonomyConceptId");
   useEffect(() => {
-    setTaxonomyFilter(searchParams.get("taxonomyConceptId") || "all");
-  }, [searchParams]);
+    setTaxonomyFilter(taxonomyParam || "all");
+  }, [taxonomyParam]);
 
-  const displayItems = useMemo(() => {
-    if (sort === "titleAsc") {
-      return [...profiles].sort((a, b) =>
-        a.title.localeCompare(b.title, lang === "vi" ? "vi" : "en")
-      );
-    }
-    if (sort === "titleDesc") {
-      return [...profiles].sort((a, b) =>
-        b.title.localeCompare(a.title, lang === "vi" ? "vi" : "en")
-      );
-    }
-    return profiles;
-  }, [profiles, sort, lang]);
+  const visibleUploadDrafts = useMemo(() => {
+    const query = debouncedSearch.trim().toLocaleLowerCase();
+    if (!query) return uploadDrafts;
+    return uploadDrafts.filter((upload) =>
+      `${uploadDraftTitle(upload)} ${upload.filename}`.toLocaleLowerCase().includes(query),
+    );
+  }, [uploadDrafts, debouncedSearch]);
 
-  const stats = useMemo(() => {
-    if (listAggregate) {
-      const total = listAggregate.total;
-      const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
-      return {
-        total,
-        pctDesc: pct(listAggregate.withDescription),
-        pctReq: pct(listAggregate.withRequirements),
-        hasGlobal: true as const,
-      };
-    }
-    const total = profiles.length;
-    const withDesc = 0;
-    const withReq = 0;
-    const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
-    return {
-      total,
-      pctDesc: pct(withDesc),
-      pctReq: pct(withReq),
-      hasGlobal: false as const,
-    };
-  }, [listAggregate, profiles]);
+  const sortedItems = useMemo<AdminJobListEntry[]>(() => {
+    const entries: AdminJobListEntry[] = [
+      ...profiles.map((profile) => ({
+        kind: "profile" as const,
+        id: profile.id,
+        title: profile.title,
+        createdAt: profile.createdAt,
+        updatedAt: profile.updatedAt ?? profile.createdAt,
+        profile,
+      })),
+      ...(taxonomyFilter === "all" ? visibleUploadDrafts.map((upload) => ({
+        kind: "upload" as const,
+        id: upload.id,
+        title: uploadDraftTitle(upload),
+        createdAt: upload.createdAt,
+        updatedAt: upload.updatedAt ?? upload.createdAt,
+        upload,
+      })) : []),
+    ].filter((entry) => {
+      if (entryFilter === "all") return true;
+      const isDraft = entry.kind === "upload" || String(entry.profile.listingStatus ?? entry.profile.status ?? "").toUpperCase() === "DRAFT";
+      return entryFilter === "drafts" ? isDraft : !isDraft;
+    });
 
-  const handleDelete = async (id: string) => {
-    if (typeof window !== "undefined" && !window.confirm(t("admin.jobProfile.card.confirmDelete"))) return;
+    return entries.sort((left, right) => {
+      if (sort === "titleAsc" || sort === "titleDesc") {
+        const comparison = left.title.localeCompare(right.title, lang === "vi" ? "vi" : "en");
+        return sort === "titleAsc" ? comparison : -comparison;
+      }
+      const comparison = new Date(left.updatedAt || left.createdAt).getTime() - new Date(right.updatedAt || right.createdAt).getTime();
+      return sort === "oldest" ? comparison : -comparison;
+    });
+  }, [profiles, visibleUploadDrafts, taxonomyFilter, entryFilter, sort, lang]);
+
+  const total = sortedItems.length;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const displayItems = useMemo(
+    () => sortedItems.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [sortedItems, currentPage, pageSize]
+  );
+
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; kind: "profile" | "upload" } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = (id: string) => {
+    if (!id?.trim()) return;
+    setPendingDelete({ id, kind: "profile" });
+  };
+
+  const handleDeleteUpload = (id: string) => {
+    if (!id?.trim()) return;
+    setPendingDelete({ id, kind: "upload" });
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
     try {
-      await jobProfileApi.delete(id);
-      setPage(1);
-      setPageCursors({ 1: undefined });
-      await loadPage(undefined, 1);
-      setAggregateTick((n) => n + 1);
+      if (pendingDelete.kind === "upload") await jobProfileApi.deleteUpload(pendingDelete.id);
+      else await jobProfileApi.delete(pendingDelete.id);
+      setReloadTick((n) => n + 1);
     } catch {
       setError(t("admin.jobProfile.error.save"));
+    } finally {
+      setDeleting(false);
+      setPendingDelete(null);
     }
   };
 
   const goToPage = (nextPage: number) => {
-    if (nextPage < 1) return;
-    const cursor = pageCursors[nextPage];
-    if (nextPage > page && !nextCursor) return;
+    if (nextPage < 1 || nextPage > pageCount) return;
     setPage(nextPage);
-    void loadPage(cursor, nextPage);
-    startTransition(() => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (nextPage === 1) {
-        params.delete("page");
-      } else {
-        params.set("page", String(nextPage));
-      }
-      const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    });
+    syncPageParam(nextPage);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const pagerText = useMemo(() => {
-    const vi = lang === "vi";
-    return {
-      prev: vi ? "Trước" : "Prev",
-      next: vi ? "Sau" : "Next",
-      page: vi ? "Trang" : "Page",
-      items: vi ? "mục" : "items", 
-    };
-  }, [lang]);
+  const isFiltered = Boolean(debouncedSearch.trim()) || taxonomyFilter !== "all" || entryFilter !== "all";
 
   return (
-    <div className="mx-auto min-w-0 max-w-[1440px] space-y-6">
-      {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-xs" role="alert">
-          {error}
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#204195]/8 border border-[#204195]/15 px-3 py-1 text-xs font-semibold text-[#204195]">
-            <Briefcase className="size-3.5" />
-            {t("admin.sidebar.jobBoard")}
-          </span>
-          <h1 className="mt-2.5 font-headline text-2xl font-bold tracking-tight text-[#14244B] md:text-3xl">
-            {t("admin.dashboard.title")}
-          </h1>
-          <p className="mt-1 max-w-xl text-xs text-[#607096]">{t("admin.dashboard.subtitle")}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
+    <div className="min-w-0 space-y-6">
+      <AdminPageHeader
+        title={t("adminUiJd.list.title")}
+        description={t("adminUiJd.list.subtitle")}
+        breadcrumbs={[
+          { label: t("adminUiJd.breadcrumb.admin"), href: "/admin/dashboard" },
+          { label: t("adminUiJd.list.title") },
+        ]}
+        primaryAction={
           <Link
             href="/admin/job-descriptions/create"
-            className="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] hover:bg-[#183275] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:shadow-sm active:scale-[0.99]"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[#204195] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#183275] hover:shadow-sm active:scale-[0.99]"
           >
             <Plus className="size-4" aria-hidden="true" />
-            {t("admin.sidebar.createProfile")}
+            {t("adminUiJd.create.action")}
           </Link>
-          <div className="inline-flex shrink-0 rounded-xl border border-[#DCE4F3] bg-white p-1 shadow-xs">
+        }
+        secondaryAction={
+          <div className="inline-flex shrink-0 rounded-xl border border-[#DCE4F3] bg-white p-1 shadow-xs" role="group" aria-label={t("adminUiJd.list.viewMode")}>
             <button
               type="button"
               onClick={() => setViewMode("grid")}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+              aria-pressed={viewMode === "grid"}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                 viewMode === "grid"
                   ? "bg-[#EEF2FD] text-[#204195] font-bold"
                   : "text-[#607096] hover:bg-[#F2F5FC] hover:text-[#204195]"
@@ -370,7 +398,8 @@ export default function AdminJobProfilesPanel() {
             <button
               type="button"
               onClick={() => setViewMode("list")}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+              aria-pressed={viewMode === "list"}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                 viewMode === "list"
                   ? "bg-[#EEF2FD] text-[#204195] font-bold"
                   : "text-[#607096] hover:bg-[#F2F5FC] hover:text-[#204195]"
@@ -379,12 +408,18 @@ export default function AdminJobProfilesPanel() {
               {t("admin.jobProfile.view.list")}
             </button>
           </div>
+        }
+      />
+
+      {error && (
+        <div className="break-words rounded-2xl border border-[#C43B3B]/30 bg-[#FDF2F2] px-4 py-3 text-sm text-[#C43B3B] shadow-xs" role="alert">
+          {error}
         </div>
-      </div>
+      )}
 
       {/* Filter and Search Bar */}
-      <div className="grid gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-3.5 shadow-xs sm:grid-cols-2 xl:grid-cols-[minmax(18rem,1fr)_auto_auto]">
-        <div className="relative min-w-[min(100%,320px)] flex-1">
+      <div className="grid gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-3.5 shadow-xs sm:grid-cols-2 xl:grid-cols-[minmax(18rem,1fr)_auto_auto_auto]">
+        <div className="relative min-w-0 sm:col-span-2 xl:col-span-1">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#8A9ABA]" />
           <input
             type="search"
@@ -395,6 +430,16 @@ export default function AdminJobProfilesPanel() {
             aria-label={t("admin.jobProfile.searchPlaceholder")}
           />
         </div>
+        <select
+          value={entryFilter}
+          onChange={(e) => setEntryFilter(e.target.value as EntryFilter)}
+          className="h-11 w-full rounded-xl border border-[#DCE4F3] bg-[#F8FAFC] px-3.5 py-2 text-xs font-semibold text-[#14244B] shadow-xs focus:bg-white focus:border-[#204195] focus:outline-none"
+          aria-label={t("fixAdmin.jp.list.entryType")}
+        >
+          <option value="all">{t("fixAdmin.jp.list.entryAll")}</option>
+          <option value="saved">{t("fixAdmin.jp.list.entrySaved")}</option>
+          <option value="drafts">{t("fixAdmin.jp.list.entryDrafts")}</option>
+        </select>
         <select
           value={taxonomyFilter}
           onChange={(e) => setTaxonomyFilter(e.target.value as "all" | string)}
@@ -429,101 +474,77 @@ export default function AdminJobProfilesPanel() {
         </div>
       )}
 
-      {!loading && profiles.length === 0 && (
+      {!loading && sortedItems.length === 0 && (
         <div className="rounded-2xl border border-dashed border-[#DCE4F3] bg-white px-6 py-20 text-center flex flex-col items-center shadow-xs">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0F4FC] text-[#204195] mb-3">
             <Briefcase className="size-7" />
           </div>
-          <p className="text-sm font-medium text-[#607096]">{t("admin.jobProfile.empty")}</p>
-        </div>
-      )}
-
-      {!loading && profiles.length > 0 && displayItems.length > 0 && viewMode === "grid" && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            {displayItems.map((p) => (
-              <article
-                key={p.id}
-                className="group flex min-h-0 flex-col rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs transition-all duration-200 hover:border-[#204195]/40 hover:shadow-md motion-reduce:transition-none"
+          {isFiltered ? (
+            <>
+              <p className="text-sm font-semibold text-[#14244B]">{t("fixAdmin.jp.emptyFiltered.title")}</p>
+              <p className="mt-1 text-xs text-[#607096]">{t("fixAdmin.jp.emptyFiltered.hint")}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setTaxonomyFilter("all");
+                  setEntryFilter("all");
+                }}
+                className="mt-4 inline-flex min-h-10 items-center justify-center rounded-full border border-[#DCE4F3] bg-white px-5 py-2 text-xs font-semibold text-[#14244B] shadow-xs transition-all hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195]"
               >
-                <div className="mb-4 flex items-start justify-between gap-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0F4FC] text-[#204195]">
-                    <CategoryIcon name={resolveTaxonomyLabel(p)} className="size-5" />
-                  </div>
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(
-                      p.status
-                    )}`}
-                  >
-                    {normalizeStatus(p.status)}
-                  </span>
-                </div>
-                <h2 className="mb-2 line-clamp-2 font-headline text-lg font-bold text-[#14244B] leading-snug transition-colors group-hover:text-[#204195]">
-                  <Link href={`/admin/job-descriptions/${p.id}`} className="hover:underline">
-                    {p.title}
-                  </Link>
-                </h2>
-                <p className="mb-5 line-clamp-3 flex-1 whitespace-pre-wrap text-xs leading-relaxed text-[#607096]">
-                  {(() => {
-                    const raw = String((p as Record<string, unknown>)?.description || "").trim();
-                    if (!raw) return "—";
-                    const isHtml = /^\s*<[a-z][\w-]*(\s[^>]*)?>/i.test(raw);
-                    const text = isHtml
-                      ? raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
-                      : raw;
-                    const cleaned = text.replace(/^\s*#{1,6}\s*/gm, "").trim();
-                    return cleaned || "—";
-                  })()}
-                </p>
-                <div className="mb-5 flex flex-wrap gap-1.5">
-                  <span
-                    className="inline-flex max-w-full truncate rounded-full bg-[#204195]/8 border border-[#204195]/15 px-2.5 py-0.5 text-[10px] font-semibold text-[#204195]"
-                    title={t("admin.jobProfile.form.category")}
-                  >
-                    {resolveTaxonomyLabel(p)}
-                  </span>
-                  {keywordChips(p.keywords)
-                    .slice(0, 3)
-                    .map((k) => (
-                      <span
-                        key={k}
-                        className="max-w-full truncate rounded-lg border border-[#DCE4F3] bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-medium text-[#607096]"
-                      >
-                        {k}
-                      </span>
-                    ))}
-                </div>
-                <div className="mt-auto flex items-center justify-between border-t border-[#EAEFF8] pt-4">
-                  <span className="text-[11px] text-[#607096]">
-                    {t("admin.jobProfile.card.updated")}:{" "}
-                    {formatRelativeShort(p.updatedAt ?? p.createdAt ?? "", lang)}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(p.id)}
-                      className="grid h-8 w-8 place-items-center rounded-lg text-[#607096] transition hover:bg-[#F0F4FC] hover:text-[#204195]"
-                      aria-label={t("admin.jobProfile.card.edit")}
-                    >
-                      <Edit className="size-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(p.id)}
-                      className="grid h-8 w-8 place-items-center rounded-lg text-red-500 transition hover:bg-red-50"
-                      aria-label={t("admin.jobProfile.card.delete")}
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
+                {t("fixAdmin.jp.emptyFiltered.clear")}
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-[#14244B]">{t("fixAdmin.jp.emptyNone.title")}</p>
+              <p className="mt-1 text-xs text-[#607096]">{t("fixAdmin.jp.emptyNone.hint")}</p>
+              <Link
+                href="/admin/job-descriptions/create"
+                className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[#204195] px-5 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#183275]"
+              >
+                <Plus className="size-4" aria-hidden="true" />
+                {t("admin.sidebar.createProfile")}
+              </Link>
+            </>
+          )}
         </div>
       )}
 
-      {!loading && profiles.length > 0 && displayItems.length > 0 && viewMode === "list" && (
+      {!loading && displayItems.length > 0 && viewMode === "grid" && (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {displayItems.map((entry) => entry.kind === "profile" ? (
+            <AdminJobCard key={`profile-${entry.id}`} profile={entry.profile} onEdit={handleEdit} onDelete={handleDelete} />
+          ) : (
+            <article key={`upload-${entry.id}`} className="flex h-full min-w-0 flex-col justify-between rounded-2xl border border-[#DCE4F3] bg-white p-5 shadow-2xs">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF2FD] text-[#204195]"><FileText className="size-5" /></span>
+                <div className="min-w-0">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-[#FCB625]/40 bg-[#FCB625]/15 px-2.5 py-1 text-[10px] font-bold text-[#7A5600]">{t("fixAdmin.jp.status.draft")}</span>
+                    <span className="text-[10px] font-medium text-[#8A98B8]">{uploadStatusLabel(entry.upload.status, t)}</span>
+                  </div>
+                  <h3 className="break-words text-sm font-bold text-[#14244B]">{entry.title}</h3>
+                  <p className="mt-1 truncate text-xs text-[#607096]" title={entry.upload.filename}>{entry.upload.filename}</p>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center justify-between gap-2 border-t border-[#EAEFF8] pt-3">
+                <span className="text-[10px] text-[#8A98B8]">{t("admin.jobProfile.card.updated")}: {formatRelativeShort(entry.updatedAt, lang)}</span>
+                <div className="flex items-center gap-2">
+                  <Link href={`/admin/job-descriptions/create?upload=${encodeURIComponent(entry.id)}`} className="rounded-full bg-[#204195] px-3 py-1.5 text-[11px] font-bold text-white hover:bg-[#183275]">
+                    {t("fixAdmin.jp.uploadDrafts.continue")}
+                  </Link>
+                  <button type="button" onClick={() => handleDeleteUpload(entry.id)} className="rounded-lg p-2 text-[#64748B] hover:bg-red-50 hover:text-red-600" aria-label={`${t("admin.jobProfile.card.delete")}: ${entry.title}`} title={t("admin.jobProfile.card.delete")}>
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {!loading && displayItems.length > 0 && viewMode === "list" && (
         <div className="overflow-x-auto rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
           <table className="w-full min-w-[760px] border-collapse text-left text-sm">
             <thead>
@@ -537,33 +558,38 @@ export default function AdminJobProfilesPanel() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EAEFF8] text-xs">
-              {displayItems.map((p) => (
-                <tr key={p.id} className="transition-colors hover:bg-[#F8FAFC]">
-                  <td className="px-5 py-3.5 font-semibold text-[#14244B]">
-                    <Link href={`/admin/job-descriptions/${p.id}`} className="hover:text-[#204195] hover:underline">
-                      {p.title}
+              {displayItems.map((entry) => entry.kind === "profile" ? (
+                <tr key={`profile-${entry.id}`} className="transition-colors hover:bg-[#F8FAFC]">
+                  <td className="max-w-xs px-5 py-3.5 font-semibold text-[#14244B]">
+                    <Link
+                      href={`/admin/job-descriptions/${entry.id}`}
+                      className="line-clamp-2 break-words hover:text-[#204195] hover:underline"
+                      title={entry.title}
+                    >
+                      {entry.title}
                     </Link>
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className="inline-flex max-w-[12rem] truncate rounded-full bg-[#204195]/8 border border-[#204195]/15 px-2 py-0.5 text-[10px] font-semibold text-[#204195]">
-                      {resolveTaxonomyLabel(p)}
+                    <span title={resolveTaxonomyLabel(entry.profile)} className="inline-block max-w-[12rem] truncate rounded-full bg-[#204195]/8 border border-[#204195]/15 px-2 py-0.5 text-[10px] font-semibold text-[#204195]">
+                      {resolveTaxonomyLabel(entry.profile)}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-5 py-3.5">
                     <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass(
-                        p.status
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide ${statusBadgeClass(
+                        entry.profile.listingStatus ?? entry.profile.status
                       )}`}
                     >
-                      {normalizeStatus(p.status)}
+                      {t(STATUS_LABEL_KEY[normalizeStatus(entry.profile.listingStatus ?? entry.profile.status)])}
                     </span>
                   </td>
                   <td className="max-w-md px-5 py-3.5">
-                    {keywordChips(p.keywords).length > 0 ? (
+                    {keywordChips(entry.profile.keywords).length > 0 ? (
                       <div className="flex flex-wrap gap-1">
-                        {keywordChips(p.keywords).map((k) => (
+                        {keywordChips(entry.profile.keywords).map((k) => (
                           <span
                             key={k}
+                            title={k}
                             className="inline-block max-w-[10rem] truncate rounded-lg border border-[#DCE4F3] bg-[#F8FAFC] px-1.5 py-0.5 text-[10px] font-medium text-[#607096]"
                           >
                             {k}
@@ -575,26 +601,32 @@ export default function AdminJobProfilesPanel() {
                     )}
                   </td>
                   <td className="whitespace-nowrap px-5 py-3.5 text-[#607096]">
-                    {formatDate(p.updatedAt ?? p.createdAt ?? "", lang)}
+                    {formatDate(entry.updatedAt || entry.createdAt, lang)}
                   </td>
                   <td className="whitespace-nowrap px-5 py-3.5 text-right align-middle">
                     <div className="inline-flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(p.id)}
-                        className="inline-flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[#607096] hover:bg-[#F0F4FC] hover:text-[#204195]"
-                        aria-label={t("admin.jobProfile.card.edit")}
-                      >
-                        <Edit className="size-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(p.id)}
-                        className="inline-flex shrink-0 items-center justify-center rounded-lg p-1.5 text-red-500 hover:bg-red-50"
-                        aria-label={t("admin.jobProfile.card.delete")}
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
+                      <AdminRowAction icon={Edit} iconOnly label={t("admin.jobProfile.card.edit")} onClick={() => handleEdit(entry.id)} />
+                      <AdminRowAction icon={Trash2} tone="danger" iconOnly label={t("admin.jobProfile.card.delete")} onClick={() => handleDelete(entry.id)} />
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                <tr key={`upload-${entry.id}`} className="transition-colors hover:bg-[#F8FAFC]">
+                  <td className="max-w-xs px-5 py-3.5 font-semibold text-[#14244B]">
+                    <Link href={`/admin/job-descriptions/create?upload=${encodeURIComponent(entry.id)}`} className="line-clamp-2 break-words hover:text-[#204195] hover:underline" title={entry.title}>{entry.title}</Link>
+                    <span className="mt-1 block truncate text-[10px] font-normal text-[#607096]" title={entry.upload.filename}>{entry.upload.filename}</span>
+                  </td>
+                  <td className="px-5 py-3.5 text-[#8A9ABA]">â€”</td>
+                  <td className="whitespace-nowrap px-5 py-3.5">
+                    <span className="inline-flex items-center rounded-full border border-[#FCB625]/40 bg-[#FCB625]/15 px-2.5 py-1 text-[10px] font-bold text-[#7A5600]">{t("fixAdmin.jp.status.draft")}</span>
+                    <span className="ml-2 text-[10px] text-[#8A98B8]">{uploadStatusLabel(entry.upload.status, t)}</span>
+                  </td>
+                  <td className="px-5 py-3.5 text-[#8A9ABA]">â€”</td>
+                  <td className="whitespace-nowrap px-5 py-3.5 text-[#607096]">{formatDate(entry.updatedAt || entry.createdAt, lang)}</td>
+                  <td className="whitespace-nowrap px-5 py-3.5 text-right align-middle">
+                    <div className="inline-flex items-center justify-end gap-1">
+                      <Link href={`/admin/job-descriptions/create?upload=${encodeURIComponent(entry.id)}`} className="rounded-full bg-[#204195] px-3 py-1.5 text-[10px] font-bold text-white hover:bg-[#183275]">{t("fixAdmin.jp.uploadDrafts.continue")}</Link>
+                      <AdminRowAction icon={Trash2} tone="danger" iconOnly label={t("admin.jobProfile.card.delete")} onClick={() => handleDeleteUpload(entry.id)} />
                     </div>
                   </td>
                 </tr>
@@ -604,41 +636,21 @@ export default function AdminJobProfilesPanel() {
         </div>
       )}
 
-      {/* Pagination */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE4F3] bg-white p-3.5 sm:flex-row sm:items-center sm:justify-between shadow-xs">
-        <p className="text-xs text-[#607096]">
-          <span className="inline-flex items-center gap-1.5 px-1">
-            <Archive className="size-4 text-[#204195]" />
-            <span className="font-bold text-[#14244B]">
-              {aggregateLoading && listAggregate === null ? "…" : listAggregate?.total ?? profiles.length}
-            </span>
-            <span>{pagerText.items}</span>
-          </span>
-        </p>
-        <div className="flex items-center justify-between gap-2 sm:justify-end">
-          <button
-            type="button"
-            onClick={() => goToPage(page - 1)}
-            disabled={loading || page <= 1}
-            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-xl border border-[#DCE4F3] bg-white px-3 text-xs font-semibold text-[#14244B] shadow-xs transition-all hover:border-[#204195] hover:bg-[#F0F4FC] hover:text-[#204195] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <ChevronLeft className="size-4" />
-            {pagerText.prev}
-          </button>
-          <span className="inline-flex min-h-9 min-w-[5rem] items-center justify-center px-2 text-xs font-bold text-[#14244B]">
-            {pagerText.page} {page}
-          </span>
-          <button
-            type="button"
-            onClick={() => goToPage(page + 1)}
-            disabled={loading || !nextCursor}
-            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-xl bg-[#204195] px-3 text-xs font-semibold text-white shadow-xs transition-all hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {pagerText.next}
-            <ChevronRight className="size-4" />
-          </button>
-        </div>
-      </div>
+      {!loading && total > 0 && (
+        <Pagination page={currentPage} pageSize={pageSize} total={total} onPageChange={goToPage} />
+      )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={t("fixAdmin.jp.deleteConfirm.title")}
+        body={t("admin.jobProfile.card.confirmDelete")}
+        confirmLabel={t("fixAdmin.jp.deleteConfirm.confirm")}
+        cancelLabel={t("fixAdmin.jp.cancel")}
+        tone="danger"
+        busy={deleting}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

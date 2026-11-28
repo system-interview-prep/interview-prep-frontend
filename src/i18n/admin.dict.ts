@@ -45,6 +45,16 @@ export const adminEn: Record<string, string> = {
   "admin.login.error.invalidCredentials": "Invalid email or password.",
   "admin.login.error.emailRequired": "Please enter your administrator email.",
   "admin.login.error.passwordRequired": "Please enter your password.",
+  "admin.login.error.useExpertLogin": "This is an interview expert account. Please sign in at /expert/login.",
+
+  // ── Interview expert sign-in (/expert/login, same form as the admin one) ───
+  "expert.login.consoleBadge": "EXPERT CONSOLE",
+  "expert.login.title": "Interview Expert Sign-in",
+  "expert.login.subtitle": "For experts who write interview questions and rubrics",
+  "expert.login.emailPlaceholder": "expert@intervia.io",
+  "expert.login.submit": "Sign in as Expert",
+  "expert.login.error.notExpert": "This account does not have the interview expert role.",
+  "expert.login.error.emailRequired": "Please enter your expert email.",
 
   // ── Sidebar Navigation Groups & Items ──────────────────────────────────────
   "admin.sidebar.group.overview": "Overview",
@@ -573,6 +583,15 @@ export const adminVi: Record<string, string> = {
   "admin.login.error.invalidCredentials": "Email hoặc mật khẩu không chính xác.",
   "admin.login.error.emailRequired": "Vui lòng nhập email quản trị viên.",
   "admin.login.error.passwordRequired": "Vui lòng nhập mật khẩu.",
+  "admin.login.error.useExpertLogin": "Đây là tài khoản chuyên gia phỏng vấn. Vui lòng đăng nhập tại /expert/login.",
+
+  "expert.login.consoleBadge": "TRANG CHUYÊN GIA",
+  "expert.login.title": "Đăng nhập chuyên gia phỏng vấn",
+  "expert.login.subtitle": "Dành cho chuyên gia soạn câu hỏi và rubric phỏng vấn",
+  "expert.login.emailPlaceholder": "expert@intervia.io",
+  "expert.login.submit": "Đăng nhập Chuyên gia",
+  "expert.login.error.notExpert": "Tài khoản này không có vai trò chuyên gia phỏng vấn.",
+  "expert.login.error.emailRequired": "Vui lòng nhập email chuyên gia.",
 
   // ── Sidebar Navigation Groups & Items ──────────────────────────────────────
   "admin.sidebar.group.overview": "Tổng quan",
@@ -593,7 +612,7 @@ export const adminVi: Record<string, string> = {
   "admin.sidebar.knowledgeBase": "Tri thức & Quan hệ",
   "admin.sidebar.interviews": "Phiên phỏng vấn",
   "admin.sidebar.users": "Người dùng & Ứng viên",
-  "admin.sidebar.aiOverview": "AI Overview",
+  "admin.sidebar.aiOverview": "Tình hình hoạt động AI",
   "admin.sidebar.aiModels": "Model Registry",
   "admin.sidebar.aiPrompts": "Quản lý Prompts",
   "admin.sidebar.aiTraces": "Traces & Logs",
@@ -959,7 +978,7 @@ export const adminVi: Record<string, string> = {
   "admin.eval.regression.subtitle": "Nhận diện và rà soát các trường hợp cụ thể bị giảm điểm sau khi cập nhật mô hình, prompt hoặc rubric mới",
 
   // ── Audit Logs & Settings ──────────────────────────────────────────────────
-  "admin.auditLogs.title": "Nhật ký kiểm toán hệ thống (Audit Logs)",
+  "admin.auditLogs.title": "Nhật ký thao tác quản trị",
   "admin.auditLogs.subtitle": "Ghi nhận lịch sử các thao tác trọng yếu: Thay đổi prompt, promote phiên bản, sửa rubric, cập nhật mô hình và xuất bản JD",
   "admin.auditLogs.stat.total": "Tổng sự kiện kiểm toán",
   "admin.auditLogs.stat.totalDesc": "Audit events toàn hệ thống",
@@ -978,7 +997,7 @@ export const adminVi: Record<string, string> = {
   "admin.auditLogs.emptyTitle": "Chưa kết nối API Nhật ký kiểm toán",
   "admin.auditLogs.emptyDesc": "Giao diện tra cứu nhật ký audit đã sẵn sàng. Core Backend cần triển khai endpoint GET /admin/audit-logs để lưu trữ và truy xuất các sự kiện thay đổi trên hệ thống.",
 
-  "admin.settings.title": "Cài đặt hệ thống (System Settings)",
+  "admin.settings.title": "Cài đặt hệ thống",
   "admin.settings.subtitle": "Quản lý tham số mô hình AI, hạ tầng giám sát Observability, quy chuẩn đánh giá và chính sách bảo mật",
   "admin.settings.badge": "Cấu hình an toàn",
   "admin.settings.tab.observability": "AI Observability",
@@ -1054,7 +1073,7 @@ export const adminVi: Record<string, string> = {
   "admin.insights.modesTitle": "Phân bổ theo chế độ phỏng vấn (Interview Modes)",
   "admin.insights.modesDesc": "Dữ liệu nhóm theo các hình thức phỏng vấn thực tế trong hệ thống",
   "admin.insights.emptyModesTitle": "Chưa có dữ liệu phân bổ theo chế độ",
-  "admin.insights.emptyModesDesc": "Khi người dùng thực hiện phỏng vấn theo các chế độ khác nhau (Practice, Mock Interview), hệ thống sẽ phân loại chi tiết tại đây.",
+  "admin.insights.emptyModesDesc": "Khi có buổi phỏng vấn chat, giọng nói hoặc video, số buổi theo từng hình thức sẽ hiện ở đây.",
 
   // ── Profile ────────────────────────────────────────────────────────────────
   "admin.profile.enabled": "Đã bật",

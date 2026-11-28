@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { downloadCvPdf } from "@/lib/aiService";
+import { useLanguage } from "@/i18n/LanguageProvider";
+
+// Canvas pixels per PDF point; the displayed page is then scaled to fit with CSS.
+const RENDER_SCALE = 1.35;
 
 interface HighlightBox {
   left: number;
@@ -17,9 +21,10 @@ interface PdfPageProps {
   matchedSnippets: string[];
   enableTextSelection: boolean;
   onPageRendered: (pageNum: number, textLayerElement: HTMLDivElement | null) => void;
+  onSnippetsFound?: (pageNum: number, found: string[]) => void;
 }
 
-const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRendered }: PdfPageProps) => {
+const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRendered, onSnippetsFound }: PdfPageProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,7 +39,7 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRen
         const page = await pdf.getPage(pageNum);
         if (!active) return;
 
-        const viewport = page.getViewport({ scale: 1.35 });
+        const viewport = page.getViewport({ scale: RENDER_SCALE });
         const canvas = canvasRef.current;
         if (!canvas) return;
 
@@ -57,8 +62,14 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRen
         if (textLayer) {
           textLayer.innerHTML = "";
           if (enableTextSelection) {
-            textLayer.style.height = `${viewport.height}px`;
-            textLayer.style.width = `${viewport.width}px`;
+            // pdf.js sizes and positions the layer from --total-scale-factor
+            // (CSS pixels per PDF point); the resize effect below keeps it equal
+            // to the canvas's displayed scale, so the layer never needs a
+            // transform of its own.
+            textLayer.style.setProperty(
+              "--total-scale-factor",
+              String((containerRef.current?.clientWidth || viewport.width) / viewport.rawDims.pageWidth),
+            );
 
             const pdfJS = await import("pdfjs-dist");
 
@@ -75,11 +86,13 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRen
 
         // Calculate highlights coordinates using viewport transformation matrix (1C & 2A)
         const foundHighlights: HighlightBox[] = [];
+        const foundSnippets: string[] = [];
         const items = textContent.items;
 
         for (const snippet of matchedSnippets) {
           const cleanSnippet = snippet.toLowerCase().trim();
           if (cleanSnippet.length < 2) continue;
+          const before = foundHighlights.length;
 
           for (const item of items) {
             if (!item.str) continue;
@@ -102,9 +115,11 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRen
               });
             }
           }
+          if (foundHighlights.length > before) foundSnippets.push(snippet);
         }
 
         setHighlights(foundHighlights);
+        onSnippetsFound?.(pageNum, foundSnippets);
 
         // Notify parent
         onPageRendered(pageNum, textLayerRef.current);
@@ -119,24 +134,47 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRen
     return () => {
       active = false;
     };
-  }, [pdf, pageNum, matchedSnippets, enableTextSelection, onPageRendered]);
+  }, [pdf, pageNum, matchedSnippets, enableTextSelection, onPageRendered, onSnippetsFound]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const textLayer = textLayerRef.current;
+    if (!container || !textLayer || !enableTextSelection || dimensions.width === 0) return;
+
+    // Scaling the layer with a transform on top of pdf.js's own sizing scaled
+    // it twice: the selectable text sat squeezed into the top-left corner,
+    // overlapping itself, so copying picked up jumbled words.
+    const pageWidthPoints = dimensions.width / RENDER_SCALE;
+    const syncTextLayerScale = () => {
+      textLayer.style.setProperty("--total-scale-factor", String(container.clientWidth / pageWidthPoints));
+    };
+    syncTextLayerScale();
+    const observer = new ResizeObserver(syncTextLayerScale);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [dimensions.width, enableTextSelection]);
 
   return (
     <div
       ref={containerRef}
-      className="relative mx-auto mb-6 shadow-lg border border-slate-200/60 bg-white rounded-xl overflow-hidden"
+      data-pdf-page={pageNum}
+      className="relative mx-auto mb-6 overflow-hidden rounded-2xl bg-white ring-1 ring-[#DCE4F3]"
       style={{
-        width: dimensions.width || "auto",
-        height: dimensions.height || "auto",
-        maxWidth: "max-content",
+        width: "100%",
+        maxWidth: dimensions.width || "100%",
+        aspectRatio: dimensions.width && dimensions.height ? `${dimensions.width} / ${dimensions.height}` : undefined,
       }}
     >
       {/* Canvas Layer */}
-      <canvas ref={canvasRef} className="block" />
+      <canvas ref={canvasRef} className="block h-auto w-full" />
 
       {/* SVG Highlight Overlay (1C & 2A) */}
       {dimensions.width > 0 && (
-        <svg className="absolute inset-0 pointer-events-none w-full h-full z-10">
+        <svg
+          className="pointer-events-none absolute inset-0 z-10 h-full w-full"
+          viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+          preserveAspectRatio="none"
+        >
           {highlights.map((h, idx) => (
             <rect
               key={idx}
@@ -144,9 +182,8 @@ const PdfPage = ({ pdf, pageNum, matchedSnippets, enableTextSelection, onPageRen
               y={h.top}
               width={h.width}
               height={h.height}
-              fill="rgba(16, 185, 129, 0.28)" // Soft Translucent Green
-              stroke="#10b981" // Green Border
-              strokeWidth="1.5"
+              fill="rgba(74, 222, 128, 0.28)"
+              stroke="none"
               rx="2"
             />
           ))}
@@ -169,6 +206,14 @@ interface PdfEvidenceVisualizerProps {
   matchedSnippets: string[];
   scrollToSnippet?: string | null;
   onScrollToSnippetEnd?: () => void;
+  /**
+   * Reports which snippets were located on at least one page. Snippets are
+   * matched against single PDF text items, so a span that wraps lines or was
+   * normalized by the parser may not be found; callers should say so.
+   */
+  onLocatedChange?: (located: Set<string>) => void;
+  /** Scroll to the first page holding a highlight whenever the snippets change. */
+  autoScrollToFirstHit?: boolean;
 }
 
 export default function PdfEvidenceVisualizer({
@@ -176,13 +221,16 @@ export default function PdfEvidenceVisualizer({
   matchedSnippets,
   scrollToSnippet,
   onScrollToSnippetEnd,
+  onLocatedChange,
+  autoScrollToFirstHit = false,
 }: PdfEvidenceVisualizerProps) {
+  const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const [pdf, setPdf] = useState<any>(null);
   const [numPages, setNumPages] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [enableTextSelection, setEnableTextSelection] = useState(false);
+  const enableTextSelection = true;
 
   useEffect(() => {
     if (!candidateId) return;
@@ -211,7 +259,8 @@ export default function PdfEvidenceVisualizer({
         setNumPages(pdfDoc.numPages);
       } catch (err: unknown) {
         console.error("Error rendering PDF:", err);
-        const errMsg = err instanceof Error ? err.message : "Failed to render PDF";
+        // An empty message falls back to a translated sentence at render time.
+        const errMsg = err instanceof Error ? err.message : "";
         if (isMounted) setError(errMsg);
       } finally {
         if (isMounted) setLoading(false);
@@ -265,61 +314,116 @@ export default function PdfEvidenceVisualizer({
     }
   }, [scrollToSnippet, onScrollToSnippetEnd]);
 
-  const handlePageRendered = (_pageNum: number, _el: HTMLDivElement | null) => {
+  const handlePageRendered = useCallback((_pageNum: number, _el: HTMLDivElement | null) => {
     // optional page logging
-  };
+  }, []);
+
+  // Which snippets each page located, reset whenever the snippet set changes.
+  const foundByPageRef = useRef<Map<number, string[]>>(new Map());
+  const scrolledForRef = useRef<string[] | null>(null);
+  useEffect(() => {
+    foundByPageRef.current = new Map();
+    scrolledForRef.current = null;
+    onLocatedChange?.(new Set());
+  }, [matchedSnippets, onLocatedChange]);
+
+  const handleSnippetsFound = useCallback(
+    (pageNum: number, found: string[]) => {
+      foundByPageRef.current.set(pageNum, found);
+      const located = new Set([...foundByPageRef.current.values()].flat());
+      onLocatedChange?.(located);
+      if (!autoScrollToFirstHit || scrolledForRef.current === matchedSnippets) return;
+      const pagesWithHits = [...foundByPageRef.current.entries()]
+        .filter(([, hits]) => hits.length > 0)
+        .map(([page]) => page);
+      if (pagesWithHits.length === 0) return;
+      const firstPage = Math.min(...pagesWithHits);
+      const target = containerRef.current?.querySelector(`[data-pdf-page="${firstPage}"]`);
+      if (target) {
+        scrolledForRef.current = matchedSnippets;
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    },
+    [autoScrollToFirstHit, matchedSnippets, onLocatedChange]
+  );
 
   return (
-    <div className="relative flex flex-col items-center w-full h-full min-h-[35rem] max-h-[45rem] overflow-y-auto bg-slate-100/70 p-4 rounded-3xl border border-slate-200/80">
+    <div className="relative flex min-h-[35rem] w-full min-w-0 flex-col items-center rounded-2xl border border-[#DCE4F3] bg-[#F0F4FC] p-2 sm:p-4">
       <style dangerouslySetInnerHTML={{
         __html: `
         .textLayer {
           position: absolute;
-          left: 0;
-          top: 0;
-          right: 0;
-          bottom: 0;
-          overflow: hidden;
-          opacity: 0.28;
-          line-height: 1.0;
+          inset: 0;
+          overflow: clip;
+          opacity: 1;
+          line-height: 1;
+          letter-spacing: normal;
+          word-spacing: normal;
+          text-align: initial;
+          text-size-adjust: none;
+          transform-origin: 0 0;
+          caret-color: currentColor;
+          /* Used by pdf.js 6 setLayerDimensions: without them the layer's
+             width/height were invalid and collapsed. */
+          --scale-round-x: 1px;
+          --scale-round-y: 1px;
+          --min-font-size: 1;
+          --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+          --min-font-size-inv: calc(1 / var(--min-font-size));
         }
-        .textLayer span {
+        .textLayer :is(span, br) {
           color: transparent;
           position: absolute;
           white-space: pre;
           cursor: text;
           transform-origin: 0% 0%;
+          user-select: text;
+        }
+        .textLayer > :not(.markedContent),
+        .textLayer .markedContent span:not(.markedContent) {
+          z-index: 1;
+          --font-height: 0;
+          font-size: calc(var(--text-scale-factor) * var(--font-height));
+          --scale-x: 1;
+          --rotate: 0deg;
+          transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+        }
+        .textLayer .markedContent {
+          display: contents;
         }
         .textLayer mark {
           color: transparent;
         }
+        .textLayer ::selection {
+          background: rgba(32, 65, 149, 0.28);
+          color: transparent;
+        }
+        .textLayer br::selection {
+          background: transparent;
+        }
+        /* Keeps a drag-selection from jumping to the end of the page. */
+        .textLayer .endOfContent {
+          display: block;
+          position: absolute;
+          inset: 100% 0 0;
+          z-index: 0;
+          cursor: default;
+          user-select: none;
+        }
+        .textLayer.selecting .endOfContent {
+          top: 0;
+        }
       `}} />
-
-      {/* Toolbar */}
-      {!loading && !error && (
-        <div className="w-full flex justify-end mb-4 px-2">
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-white shadow-sm border border-slate-200/60 rounded-full px-3 py-1.5 cursor-pointer hover:bg-slate-50 transition-colors">
-            <input
-              type="checkbox"
-              checked={enableTextSelection}
-              onChange={(e) => setEnableTextSelection(e.target.checked)}
-              className="accent-emerald-600"
-            />
-            <span>Cho phép chọn văn bản (Copy Text)</span>
-          </label>
-        </div>
-      )}
 
       {loading ? (
         <div className="my-auto flex flex-col items-center">
-          <Loader2 className="size-9 animate-spin text-slate-400" />
-          <p className="mt-3 text-sm font-semibold text-slate-500">Đang tải và highlight CV...</p>
+          <Loader2 className="size-9 animate-spin text-[#9AA6C2]" aria-hidden="true" />
+          <p className="mt-3 text-sm font-semibold text-[#607096]">{t("picker.pdf.loading")}</p>
         </div>
-      ) : error ? (
-        <div className="my-auto text-center p-6">
-          <AlertTriangle className="mx-auto size-10 text-amber-500" />
-          <p className="mt-2 text-sm font-bold text-slate-700">Không thể kết xuất PDF của CV</p>
-          <p className="mt-1 text-xs text-slate-500">{error}</p>
+      ) : error !== null ? (
+        <div className="my-auto max-w-sm rounded-2xl bg-[#FDF2F2] p-5 text-center">
+          <p className="text-sm font-semibold text-[#C43B3B]">{t("picker.pdf.renderError")}</p>
+          <p className="mt-1 text-xs text-[#607096] [overflow-wrap:anywhere]">{error || t("picker.pdf.renderErrorFallback")}</p>
         </div>
       ) : (
         <div ref={containerRef} className="w-full">
@@ -331,6 +435,7 @@ export default function PdfEvidenceVisualizer({
               matchedSnippets={matchedSnippets}
               enableTextSelection={enableTextSelection}
               onPageRendered={handlePageRendered}
+              onSnippetsFound={handleSnippetsFound}
             />
           ))}
         </div>

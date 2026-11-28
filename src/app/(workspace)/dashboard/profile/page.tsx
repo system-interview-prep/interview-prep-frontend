@@ -4,11 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AxiosError } from "axios";
 import { UserDashboardShell } from "@features/user-dashboard/components/UserDashboardShell";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { fmt, localeOf } from "@/i18n/format";
 import { formatUserRole } from "@/i18n/roles";
 import { userApi, type UserProfile } from "@lib/apiClient";
 import { readAuthProfile, writeAuthProfile } from "@features/auth/services/auth.service";
 import { API_BASE_URL } from "@/constants";
-import { AlertCircle, X, CheckCircle2, CloudOff, Loader2, Camera, Mail, Shield, Key, Calendar, User, Save, RotateCcw } from "lucide-react";
+import WorkspacePageHeader from "@features/resume/components/WorkspacePageHeader";
+import StatusNote from "@components/shared/StatusNote";
+import { Loader2, Camera } from "lucide-react";
 
 const ALLOWED_AVATAR_MIME = new Set([
   "image/jpeg",
@@ -39,29 +42,37 @@ function initialsFromName(name: string) {
   return name.slice(0, 2).toUpperCase() || "?";
 }
 
-function formatDate(value?: string) {
+function formatDate(value: string | undefined, lang: string) {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(localeOf(lang), {
     year: "numeric",
     month: "short",
     day: "2-digit",
   }).format(date);
 }
 
-function readApiError(error: unknown) {
+function readApiError(error: unknown, t: (key: string) => string) {
   if (error instanceof AxiosError) {
     const message = error.response?.data?.message;
     if (typeof message === "string") return message;
     if (Array.isArray(message) && message[0]) return String(message[0]);
-    if (error.response?.status) return `Request failed (${error.response.status})`;
+    if (error.response?.status) return fmt(t("fixApp.error.requestFailed"), { status: error.response.status });
   }
-  return "Something went wrong. Please try again.";
+  return t("fixApp.error.generic");
+}
+
+/** "Google" / "Email và mật khẩu" instead of the raw provider code. */
+function providerLabel(provider: string | undefined, t: (key: string) => string) {
+  const code = (provider || "LOCAL").toUpperCase();
+  if (code === "GOOGLE") return t("fixApp.profile.provider.google");
+  if (code === "LOCAL") return t("fixApp.profile.provider.local");
+  return code;
 }
 
 export default function UserProfilePage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const isAvatarPickerOpeningRef = useRef(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -158,7 +169,7 @@ export default function UserProfilePage() {
         picture: avatarUrl || local?.picture || null,
       });
     } catch (error) {
-      setErrorMessage(readApiError(error));
+      setErrorMessage(readApiError(error, t));
     } finally {
       setLoading(false);
     }
@@ -166,6 +177,8 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     loadProfile();
+    // Load once on mount; loadProfile only reads `t` for error text.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -178,6 +191,8 @@ export default function UserProfilePage() {
     }
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
+    // Subscribe once; the handler always calls the latest loadProfile via closure on re-mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function setField<K extends keyof EditState>(key: K, value: EditState[K]) {
@@ -214,30 +229,10 @@ export default function UserProfilePage() {
       setSuccessMessage(null);
       setUploadingAvatar(true);
 
-      let finalAvatarUrl: string | null = null;
-      let updatedUser: UserProfile | null = null;
-
-      try {
-        const response = await userApi.uploadProfilePicture(file);
-        updatedUser = response.data;
-        finalAvatarUrl = updatedUser.picture || updatedUser.avatar || null;
-      } catch (uploadErr) {
-        console.warn("Backend upload failed, converting to client-side data URI fallback:", uploadErr);
-        // Fallback convert sang base64 data URI để lưu giữ avatar ngay cả khi backend offline
-        const reader = new FileReader();
-        finalAvatarUrl = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        if (profile) {
-          updatedUser = {
-            ...profile,
-            picture: finalAvatarUrl,
-            avatar: finalAvatarUrl,
-          };
-        }
-      }
+      // A failed upload must not look saved: the error below says the old avatar stays.
+      const response = await userApi.uploadProfilePicture(file);
+      const updatedUser: UserProfile | null = response.data ?? null;
+      const finalAvatarUrl = updatedUser?.picture || updatedUser?.avatar || null;
 
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
@@ -255,7 +250,7 @@ export default function UserProfilePage() {
       writeAuthProfile({
         email: updatedUser?.email || profile?.email || null,
         name: updatedUser?.name || profile?.name || null,
-        picture: finalAvatarUrl || null,
+        picture: finalAvatarUrl || profile?.picture || null,
       });
 
       setSuccessMessage(t("profile.avatarSuccess"));
@@ -264,7 +259,7 @@ export default function UserProfilePage() {
         URL.revokeObjectURL(previewUrl);
       }
       setAvatarPreviewUrl(null);
-      setErrorMessage(readApiError(error));
+      setErrorMessage(`${t("fixApp.profile.avatarUploadFailed")} ${readApiError(error, t)}`);
     } finally {
       setUploadingAvatar(false);
       e.target.value = "";
@@ -306,7 +301,7 @@ export default function UserProfilePage() {
       });
       setSuccessMessage(t("profile.updateSuccess"));
     } catch (error) {
-      setErrorMessage(readApiError(error));
+      setErrorMessage(readApiError(error, t));
     } finally {
       setSaving(false);
     }
@@ -329,93 +324,56 @@ export default function UserProfilePage() {
 
   return (
     <UserDashboardShell>
-      <main className="min-h-screen bg-[#F8FAFC] px-4 pb-28 pt-6 text-[#14244B] sm:px-6 md:px-8 md:py-10 lg:px-10 xl:px-12">
-        <div className="mx-auto max-w-5xl">
-          <header className="mb-8 border-b border-[#EAEFF8] pb-6">
-            <div className="max-w-2xl">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#204195]">
-                {t("profile.badge")}
-              </span>
-              <h1 className="mt-3 text-2xl font-bold tracking-tight text-[#14244B] sm:text-3xl md:text-4xl">
-                {t("profile.title")}
-              </h1>
-              <p className="mt-2 text-sm leading-relaxed text-[#607096] sm:text-base">
-                {t("profile.subtitle")}
-              </p>
-            </div>
-          </header>
+      <main className="min-h-screen bg-[#F8FAFC] px-4 pb-16 pt-4 text-[#14244B] sm:px-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
+        <div className="mx-auto max-w-5xl space-y-8">
+          <WorkspacePageHeader
+            title={t("profile.title")}
+            subtitle={t("profile.subtitle")}
+          />
 
-          {/* Feedback alerts */}
-          {errorMessage && (
-            <div
-              className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50/80 p-4 text-sm text-red-700"
-              role="alert"
-            >
-              <AlertCircle className="shrink-0 size-5 text-red-600" aria-hidden="true" />
-              <div className="min-w-0 flex-1 font-medium">{errorMessage}</div>
-              <button
-                type="button"
-                onClick={() => setErrorMessage(null)}
-                className="shrink-0 text-red-600 transition-opacity hover:opacity-75"
-                aria-label="Dismiss error"
-              >
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-          )}
-
-          {successMessage && (
-            <div
-              className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 text-sm text-emerald-800"
-              role="status"
-            >
-              <CheckCircle2 className="shrink-0 size-5 text-emerald-600" aria-hidden="true" />
-              <div className="min-w-0 flex-1 font-medium">{successMessage}</div>
-              <button
-                type="button"
-                onClick={() => setSuccessMessage(null)}
-                className="shrink-0 text-emerald-700 transition-opacity hover:opacity-75"
-                aria-label="Dismiss success"
-              >
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            </div>
+          {/* Feedback from the fox (shown here until the profile form is available) */}
+          {!profile && errorMessage && (
+            <StatusNote
+              text={errorMessage}
+              tone="error"
+              onDismiss={() => setErrorMessage(null)}
+              dismissLabel={t("fixApp.common.dismissError")}
+            />
           )}
 
           {/* Main content area */}
           {loading ? (
             <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]" role="status" aria-label={t("profile.loading")}>
-              <div className="animate-pulse rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs">
-                <div className="mx-auto h-24 w-24 rounded-full bg-[#EAEFF8]" />
-                <div className="mx-auto mt-4 h-6 w-36 rounded-lg bg-[#EAEFF8]" />
-                <div className="mx-auto mt-2 h-4 w-24 rounded-lg bg-[#EAEFF8]" />
+              <div className="animate-pulse rounded-2xl bg-white p-6 border border-[#DCE4F3]">
+                <div className="mx-auto h-24 w-24 rounded-full bg-[#F0F4FC]" />
+                <div className="mx-auto mt-4 h-6 w-36 rounded-lg bg-[#F0F4FC]" />
+                <div className="mx-auto mt-2 h-4 w-24 rounded-lg bg-[#F0F4FC]" />
                 <div className="mt-8 space-y-4">
                   <div className="h-8 rounded-lg bg-[#F8FAFC]" />
                   <div className="h-8 rounded-lg bg-[#F8FAFC]" />
                   <div className="h-8 rounded-lg bg-[#F8FAFC]" />
                 </div>
               </div>
-              <div className="animate-pulse rounded-2xl border border-[#DCE4F3] bg-white p-6 shadow-xs">
-                <div className="h-7 w-40 rounded-lg bg-[#EAEFF8]" />
-                <div className="mt-2 h-4 w-64 rounded-lg bg-[#EAEFF8]" />
+              <div className="animate-pulse rounded-2xl bg-white p-6 border border-[#DCE4F3]">
+                <div className="h-7 w-40 rounded-lg bg-[#F0F4FC]" />
+                <div className="mt-2 h-4 w-64 max-w-full rounded-lg bg-[#F0F4FC]" />
                 <div className="mt-8 space-y-6">
-                  <div className="h-10 rounded-xl bg-[#F8FAFC]" />
-                  <div className="h-10 rounded-xl bg-[#F8FAFC]" />
-                  <div className="h-10 rounded-xl bg-[#F8FAFC]" />
-                  <div className="h-10 w-32 rounded-xl bg-[#EAEFF8]" />
+                  <div className="h-10 rounded-2xl bg-[#F8FAFC]" />
+                  <div className="h-10 rounded-2xl bg-[#F8FAFC]" />
+                  <div className="h-10 rounded-2xl bg-[#F8FAFC]" />
+                  <div className="h-10 w-32 rounded-xl bg-[#F0F4FC]" />
                 </div>
               </div>
             </section>
           ) : !profile ? (
             <section
-              className="rounded-2xl border border-red-200 bg-red-50/80 p-8 text-center text-red-700"
+              className="flex flex-col items-center rounded-2xl bg-white p-8 text-center border border-[#DCE4F3]"
               role="alert">
-              <CloudOff className="size-10 text-red-500 mx-auto" aria-hidden="true" />
-              <h2 className="mt-2 text-lg font-bold text-red-800">{t("profile.loadError")}</h2>
+              <h2 className="mt-3 text-xl font-semibold text-[#14244B]">{t("profile.loadError")}</h2>
               <button
                 type="button"
                 onClick={loadProfile}
-                className="mt-4 inline-flex items-center justify-center rounded-xl bg-[#204195] px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-[#183275]"
+                className="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275]"
               >
                 {t("profile.retry")}
               </button>
@@ -423,13 +381,13 @@ export default function UserProfilePage() {
           ) : (
             <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[0.9fr_1.1fr]">
               {/* Cột trái: Identity & Avatar Card */}
-              <section className="overflow-hidden rounded-2xl border border-[#DCE4F3] bg-white shadow-xs">
+              <section className="min-w-0 overflow-hidden rounded-2xl bg-white border border-[#DCE4F3]">
                 <div className="border-b border-[#EAEFF8] bg-[#F8FAFC] p-6 text-center sm:p-7">
                   <div className="relative mx-auto inline-block">
                     {/* Avatar Container 24x24 (96px) */}
                     <div
-                      className="group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-[#EAEFF8] shadow-sm"
-                      aria-label="User avatar"
+                      className="group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-[#F0F4FC] shadow-sm"
+                      aria-label={t("fixApp.profile.avatarAria")}
                     >
                       {displayedAvatar && !avatarLoadError ? (
                         <img
@@ -479,11 +437,11 @@ export default function UserProfilePage() {
                     />
                   </div>
 
-                  <h2 className="mt-4 truncate text-xl font-bold text-[#14244B]">
+                  <h2 className="mt-4 line-clamp-2 break-words text-lg font-bold text-[#14244B]" title={currentDisplayName}>
                     {currentDisplayName}
                   </h2>
                   <div className="mt-1 flex items-center justify-center gap-2">
-                    <span className="rounded-full border border-[#C9D7F1] bg-[#F0F4FC] px-2.5 py-0.5 text-[10px] font-semibold text-[#204195]">
+                    <span className="rounded-full bg-[#F0F4FC] px-2.5 py-0.5 text-xs font-semibold text-[#204195]">
                       {formattedRoles}
                     </span>
                   </div>
@@ -494,47 +452,43 @@ export default function UserProfilePage() {
 
                 {/* Key-Value Details */}
                 <div className="p-6">
-                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#607096]">
+                  <h3 className="mb-3 text-sm font-semibold text-[#204195]">
                     {t("profile.accountDetails")}
                   </h3>
-                  <div className="divide-y divide-[#EAEFF8] rounded-xl border border-[#EAEFF8] bg-[#F8FAFC]/50">
-                    <div className="flex items-center justify-between gap-4 p-3.5 text-sm">
-                      <span className="flex items-center gap-2 font-medium text-[#607096]">
-                        <Mail className="size-4 text-[#204195]" aria-hidden="true" />
+                  <div className="divide-y divide-[#EAEFF8] rounded-2xl bg-[#F8FAFC] border border-[#DCE4F3]">
+                    <div className="flex flex-col gap-1 p-3.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                      <span className="shrink-0 font-medium text-[#607096]">
                         {t("profile.field.email")}
                       </span>
-                      <span className="text-right font-semibold text-[#14244B] break-all">
+                      <span className="min-w-0 font-semibold text-[#14244B] [overflow-wrap:anywhere] sm:text-right">
                         {profile.email || "—"}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between gap-4 p-3.5 text-sm">
-                      <span className="flex items-center gap-2 font-medium text-[#607096]">
-                        <Shield className="size-4 text-[#204195]" aria-hidden="true" />
+                      <span className="shrink-0 font-medium text-[#607096]">
                         {t("profile.field.role")}
                       </span>
-                      <span className="text-right font-semibold text-[#14244B]">
+                      <span className="min-w-0 text-right font-semibold text-[#14244B]">
                         {formattedRoles}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between gap-4 p-3.5 text-sm">
-                      <span className="flex items-center gap-2 font-medium text-[#607096]">
-                        <Key className="size-4 text-[#204195]" aria-hidden="true" />
+                      <span className="shrink-0 font-medium text-[#607096]">
                         {t("profile.field.provider")}
                       </span>
-                      <span className="inline-flex items-center rounded-md border border-[#DCE4F3] bg-white px-2 py-0.5 text-xs font-semibold uppercase text-[#14244B]">
-                        {profile.provider || "LOCAL"}
+                      <span className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-xs font-semibold text-[#14244B] border border-[#DCE4F3]">
+                        {providerLabel(profile.provider, t)}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between gap-4 p-3.5 text-sm">
-                      <span className="flex items-center gap-2 font-medium text-[#607096]">
-                        <Calendar className="size-4 text-[#204195]" aria-hidden="true" />
+                      <span className="shrink-0 font-medium text-[#607096]">
                         {t("profile.field.joined")}
                       </span>
-                      <span className="text-right font-semibold text-[#14244B]">
-                        {formatDate(profile.created_at)}
+                      <span className="min-w-0 text-right font-semibold text-[#14244B]">
+                        {formatDate(profile.created_at, lang)}
                       </span>
                     </div>
                   </div>
@@ -542,9 +496,9 @@ export default function UserProfilePage() {
               </section>
 
               {/* Cột phải: Form cập nhật thông tin (Edit Profile Card) */}
-              <section className="rounded-2xl border border-[#DCE4F3] bg-white p-6 sm:p-7 shadow-xs">
+              <section className="min-w-0 rounded-2xl bg-white p-5 border border-[#DCE4F3] sm:p-6">
                 <div className="mb-6 border-b border-[#EAEFF8] pb-4">
-                  <h2 className="text-xl font-bold text-[#14244B]">
+                  <h2 className="text-lg font-bold text-[#14244B]">
                     {t("profile.editTitle")}
                   </h2>
                   <p className="mt-1 text-sm text-[#607096]">
@@ -555,15 +509,14 @@ export default function UserProfilePage() {
                 <form onSubmit={onSubmit} className="space-y-5">
                   {/* Họ và tên */}
                   <label className="block space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
+                    <span className="text-sm font-semibold text-[#14244B]">
                       {t("profile.field.name")}
                     </span>
                     <div className="relative flex items-center">
-                      <User className="pointer-events-none absolute left-3.5 size-4 text-[#607096]" aria-hidden="true" />
                       <input
                         id="profile-name-input"
                         type="text"
-                        className="h-10 w-full rounded-xl border border-[#DCE4F3] bg-white pl-10 pr-4 text-sm font-medium text-[#14244B] placeholder:text-[#607096]/50 transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
+                        className="h-11 w-full rounded-2xl border-0 bg-[#F8FAFC] px-4 text-sm font-medium text-[#14244B] border border-[#DCE4F3] placeholder:text-[#607096]/60 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]"
                         value={form.name}
                         onChange={(e) => setField("name", e.target.value)}
                         placeholder={t("profile.field.namePlaceholder")}
@@ -573,15 +526,14 @@ export default function UserProfilePage() {
 
                   {/* Ngày sinh */}
                   <label className="block space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-[#14244B]">
+                    <span className="text-sm font-semibold text-[#14244B]">
                       {t("profile.field.dob")}
                     </span>
                     <div className="relative flex items-center">
-                      <Calendar className="pointer-events-none absolute left-3.5 size-4 text-[#607096]" aria-hidden="true" />
                       <input
                         id="profile-dob-input"
                         type="date"
-                        className="h-10 w-full rounded-xl border border-[#DCE4F3] bg-white pl-10 pr-4 text-sm font-medium text-[#14244B] transition-colors focus:border-[#204195] focus:outline-none focus:ring-1 focus:ring-[#204195]"
+                        className="h-11 w-full rounded-2xl border-0 bg-[#F8FAFC] px-4 text-sm font-medium text-[#14244B] border border-[#DCE4F3] transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#204195]"
                         value={form.dob}
                         onChange={(e) => setField("dob", e.target.value)}
                       />
@@ -590,21 +542,20 @@ export default function UserProfilePage() {
 
                   {/* Email (Read-only) */}
                   <label className="block space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-[#607096]">
+                    <span className="text-sm font-semibold text-[#607096]">
                       {t("profile.field.emailReadonly")}
                     </span>
                     <div className="relative flex items-center">
-                      <Mail className="pointer-events-none absolute left-3.5 size-4 text-[#607096]" aria-hidden="true" />
                       <input
                         id="profile-email-input"
                         type="email"
-                        className="h-10 w-full cursor-not-allowed rounded-xl border border-[#EAEFF8] bg-[#F8FAFC] pl-10 pr-4 text-sm font-medium text-[#607096] select-none"
+                        className="h-11 w-full cursor-not-allowed rounded-2xl border-0 bg-[#F0F4FC] px-4 text-sm font-medium text-[#607096] border border-[#DCE4F3] select-none"
                         value={profile.email || ""}
                         readOnly
                         aria-readonly="true"
                       />
                     </div>
-                    <p className="text-[11px] text-[#607096]">
+                    <p className="text-xs text-[#607096]">
                       {t("profile.emailReadonlyNotice")}
                     </p>
                   </label>
@@ -614,7 +565,7 @@ export default function UserProfilePage() {
                     <button
                       type="submit"
                       disabled={saving || !isDirty}
-                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#204195] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#183275] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {saving ? (
                         <>
@@ -622,10 +573,7 @@ export default function UserProfilePage() {
                           <span>{t("profile.saving")}</span>
                         </>
                       ) : (
-                        <>
-                          <Save className="size-4" aria-hidden="true" />
-                          <span>{t("profile.save")}</span>
-                        </>
+                        <span>{t("profile.save")}</span>
                       )}
                     </button>
 
@@ -633,18 +581,35 @@ export default function UserProfilePage() {
                       type="button"
                       onClick={resetForm}
                       disabled={saving || !isDirty}
-                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#DCE4F3] bg-white px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#F8FAFC] px-5 text-sm font-semibold text-[#14244B] transition-colors hover:bg-[#F0F4FC] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <RotateCcw className="size-4" aria-hidden="true" />
                       <span>{t("profile.reset")}</span>
                     </button>
 
                     {isDirty && (
-                      <span className="ml-auto rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                      <span className="ml-auto rounded-full bg-[#FFF8E6] px-2.5 py-0.5 text-xs font-semibold text-[#8A5A00]">
                         {t("profile.unsavedChanges")}
                       </span>
                     )}
                   </div>
+
+                  {/* The fox reacts to save / avatar results right next to the actions */}
+                  {errorMessage && (
+                    <StatusNote
+                      text={errorMessage}
+                      tone="error"
+                      onDismiss={() => setErrorMessage(null)}
+                      dismissLabel={t("fixApp.common.dismissError")}
+                    />
+                  )}
+                  {successMessage && (
+                    <StatusNote
+                      text={successMessage}
+                      tone="success"
+                      onDismiss={() => setSuccessMessage(null)}
+                      dismissLabel={t("fixApp.common.dismissNotice")}
+                    />
+                  )}
                 </form>
               </section>
             </div>

@@ -1,18 +1,21 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Mascot } from "./Mascot";
+import { FOX_DIRECTIONS_SHEET, FOX_REACTIONS_SHEET } from "./FoxAvatar";
 import type { MascotMood } from "../types";
 
 export interface SpriteMascotProps {
   mood?: MascotMood;
   size?: number;
   className?: string;
+  /** Alternate expressions so the fox looks like it is talking. */
+  speaking?: boolean;
 }
 
-const MOOD_TO_REACTION: Record<
-  MascotMood,
-  "delighted" | "sparkle" | "surprised" | "wink" | "dizzy" | null
-> = {
+type Reaction = "delighted" | "sparkle" | "surprised" | "wink" | "dizzy" | "blink";
+
+const MOOD_TO_REACTION: Record<MascotMood, Reaction | null> = {
   idle: null,
   happy: "delighted",
   thinking: "sparkle",
@@ -24,20 +27,35 @@ const MOOD_TO_REACTION: Record<
   celebrating: "delighted",
 };
 
+// Open mouth, closed mouth, open mouth, look at you: reads as chatter.
+const TALK_FRAMES: (Reaction | null)[] = ["delighted", "blink", "delighted", null];
+const TALK_FRAME_MS = 170;
+
 export function SpriteMascot({
   mood = "idle",
   size = 96,
   className = "drop-shadow-md select-none pointer-events-auto",
+  speaking = false,
 }: SpriteMascotProps) {
-  const reaction = MOOD_TO_REACTION[mood] ?? null;
+  const [frame, setFrame] = useState(0);
+
+  useEffect(() => {
+    if (!speaking) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => setFrame((value) => (value + 1) % TALK_FRAMES.length), TALK_FRAME_MS);
+    return () => window.clearInterval(timer);
+  }, [speaking]);
+
+  const reaction = speaking ? TALK_FRAMES[frame] : (MOOD_TO_REACTION[mood] ?? null);
 
   return (
     <Mascot
-      directions="/mascot/intervia-fox-directions.webp?v=1"
-      reactions="/mascot/intervia-fox-reactions.webp?v=1"
+      directions={FOX_DIRECTIONS_SHEET}
+      reactions={FOX_REACTIONS_SHEET}
       reaction={reaction}
       size={size}
       className={className}
+      label="Intervia fox"
     />
   );
 }

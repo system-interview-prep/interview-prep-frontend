@@ -1,8 +1,10 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+// /admin/login (administrators) and /expert/login (interview experts) are the
+// two doors into the same console.
 function isAdminLoginRequest(req: NextRequest) {
-  return req.nextUrl.pathname === "/admin/login";
+  return req.nextUrl.pathname === "/admin/login" || req.nextUrl.pathname === "/expert/login";
 }
 
 function isAdminProtectedRequest(req: NextRequest) {
@@ -11,6 +13,8 @@ function isAdminProtectedRequest(req: NextRequest) {
 
 function isUserProtectedRequest(req: NextRequest) {
   const p = req.nextUrl.pathname;
+  // Allow unauthenticated guests to view the Dashboard demo/preview
+  if (p === "/dashboard") return false;
   return (
     p.startsWith("/dashboard") ||
     p.startsWith("/interview") ||
@@ -103,6 +107,7 @@ export const config = {
     "/login",
     "/signup",
     "/admin/:path*",
+    "/expert/login",
     "/dashboard",
     "/dashboard/:path*",
     "/interview/:path*",
