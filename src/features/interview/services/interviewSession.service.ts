@@ -80,6 +80,7 @@ export function describeStartInterviewError(error: unknown, t: Translate = trans
   if (status === 401) return t("picker.startError.sessionExpired");
   if (status === 404) return t("picker.startError.notFound");
   if (status === 422) return t("picker.startError.notReady");
+  if (status === 503) return t("picker.startError.aiUnavailable");
   if (code === "MISSING_SELECTION") return t("picker.startError.missingSelection");
   return t("picker.startError.generic");
 }
