@@ -9,6 +9,7 @@ import AdminPageHeader from "./primitives/AdminPageHeader";
 import ConceptPicker from "./ConceptPicker";
 import RubricEditor, { validateRubric } from "./RubricEditor";
 import { DIFFICULTY_BANDS, QUESTION_TYPES, questionBankApi, type CreateQuestionDraftPayload, type RubricCriterionInput } from "@features/admin/services/questionBank.service";
+import DifficultyHint from "./DifficultyHint";
 import { taxonomyApi, type ActiveTaxonomy, type TaxonomyConcept } from "@features/admin/services/taxonomy.service";
 import { RUBRIC_TEMPLATE } from "./questionRubricTemplate";
 
@@ -155,6 +156,7 @@ export default function AdminQuestionAuthoringClient() {
         {errors.targets && <p role="alert" className="-mt-2 text-xs text-[#C43B3B] sm:col-span-2">{errors.targets}</p>}
         <Select label={t("fixAdmin.ops.qb.author.questionType")} value={form.questionType} options={QUESTION_TYPES} label_={typeLabel} onChange={(v) => update("questionType", v)} />
         <Select label={t("fixAdmin.ops.qb.author.difficulty")} value={form.difficultyBand} options={DIFFICULTY_BANDS} label_={difficultyLabel} onChange={(v) => update("difficultyBand", v)} />
+        <div className="sm:col-span-2"><DifficultyHint band={form.difficultyBand} /></div>
         <Field label={t("fixAdmin.ops.qb.author.thinking")} type="number" value={form.thinking} onChange={(v) => update("thinking", v)} error={errors.thinking} />
         <Field label={t("fixAdmin.ops.qb.author.soft")} type="number" value={form.soft} onChange={(v) => update("soft", v)} error={errors.soft} />
         <Field label={t("fixAdmin.ops.qb.author.hard")} type="number" value={form.hard} onChange={(v) => update("hard", v)} error={errors.hard} />

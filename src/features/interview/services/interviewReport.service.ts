@@ -74,6 +74,8 @@ export interface EvaluationReport {
   nextRoundTopics?: string[];
   red_flags?: string[];
   redFlags?: string[];
+  /** Question Bank questions graded, and how many of them a person reviewed. */
+  questionTrustSummary?: { total: number; reviewed: number };
   evaluated_at?: string;
   evaluatedAt?: string;
 }

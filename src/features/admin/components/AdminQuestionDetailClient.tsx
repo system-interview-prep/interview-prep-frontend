@@ -5,19 +5,20 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { fmt } from "@/i18n/format";
 import AdminPageHeader from "@features/admin/components/primitives/AdminPageHeader";
 import AdminStatusBadge from "@features/admin/components/primitives/AdminStatusBadge";
-import { lifecycleTone } from "@features/admin/components/primitives/statusTone";
+import { questionBadge } from "@features/admin/components/primitives/statusTone";
 import AdminEmptyState from "@features/admin/components/primitives/AdminEmptyState";
 import { DIFFICULTY_BANDS, QUESTION_TYPES, questionBankApi, type ActionPermission, type QuestionAction, type QuestionDetail, type ReviewDecision, type RubricCriterionInput, type UpdateDraftPayload } from "@features/admin/services/questionBank.service";
 import RubricEditor, { validateRubric } from "./RubricEditor";
 import { RUBRIC_TEMPLATE } from "./questionRubricTemplate";
 import QuestionSuggestionsSection from "./QuestionSuggestionsSection";
+import DifficultyHint from "./DifficultyHint";
 
 const EDITABLE = new Set(["DRAFT", "NEEDS_REVISION"]);
 // Versions that are finished; a change needs a new revision.
 const REVISABLE = new Set(["APPROVED", "CALIBRATED", "REJECTED"]);
 const IN_REVIEW = new Set(["IN_REVIEW", "PILOT_READY"]);
 // Reasons that only mean "this step is not for now" (wrong status or role): hide the button.
-const HIDDEN_REASONS = new Set(["no_role", "not_editable", "not_in_review", "not_finished"]);
+const HIDDEN_REASONS = new Set(["no_role", "not_editable", "not_in_review", "not_finished", "not_approved", "already_reviewed"]);
 const copyRubricCriteria = (criteria: NonNullable<QuestionDetail["rubric"]>["criteria"]) => criteria.map((criterion) => ({
   ...criterion,
   anchors: ([0, 1, 2, 3] as const).map((level) => ({
@@ -38,8 +39,10 @@ export function actionPermission(question: Pick<QuestionDetail, "actions" | "cur
     action === "edit" ? EDITABLE.has(status)
       : action === "submit" ? EDITABLE.has(status) && Boolean(question.rubric)
         : action === "revise" ? REVISABLE.has(status)
-          : IN_REVIEW.has(status);
-  return { allowed, reason: allowed ? null : "not_in_review" };
+          // Only Core knows whether a person already reviewed this version.
+          : action === "verify" ? false
+            : IN_REVIEW.has(status);
+  return { allowed, reason: allowed ? null : action === "verify" ? "already_reviewed" : "not_in_review" };
 }
 
 /** Show the button (maybe disabled with a reason), or hide it because the step does not apply. */
@@ -98,7 +101,10 @@ export default function AdminQuestionDetailClient({ questionId }: { questionId: 
     finally { setBusy(false); }
   }
 
-  const header = (status?: string) => <AdminPageHeader title={t("fixAdmin.qd.detailTitle")} description={t("fixAdmin.qd.pageDesc")} breadcrumbs={[{ label: "Quản trị", href: "/admin/dashboard" }, { label: t("fixAdmin.qd.bankCrumb"), href: "/admin/question-bank" }, { label: t("fixAdmin.qd.detailTitle") }]} statusBadge={status ? <AdminStatusBadge status={lifecycleTone(status)} label={label("status", status)} /> : undefined} />;
+  const header = (status?: string, trust?: string) => {
+    const badge = questionBadge(status, trust);
+    return <AdminPageHeader title={t("fixAdmin.qd.detailTitle")} description={t("fixAdmin.qd.pageDesc")} breadcrumbs={[{ label: "Quản trị", href: "/admin/dashboard" }, { label: t("fixAdmin.qd.bankCrumb"), href: "/admin/question-bank" }, { label: t("fixAdmin.qd.detailTitle") }]} statusBadge={status ? <AdminStatusBadge status={badge.tone} label={badge.labelKey ? t(badge.labelKey) : label("status", status)} /> : undefined} />;
+  };
 
   if (state === "loading") return <div className="space-y-6">{header()}<p className="text-sm text-[#607096]">{t("fixAdmin.qd.loading")}</p></div>;
   if (state === "error" || !question) return <div className="space-y-6">{header()}<AdminEmptyState variant="error" title={t("fixAdmin.qd.loadErrorTitle")} description={t("fixAdmin.qd.loadErrorDesc")} /></div>;
@@ -108,7 +114,7 @@ export default function AdminQuestionDetailClient({ questionId }: { questionId: 
   const perm = (action: QuestionAction) => actionPermission(question, action);
   const editable = perm("edit").allowed;
   const canReview = perm("review").allowed;
-  const reasons = (["submit", "review", "approve", "revise"] as const)
+  const reasons = (["submit", "review", "approve", "revise", "verify"] as const)
     .map((action) => perm(action))
     .filter((p) => !p.allowed && actionVisible(p))
     .map((p) => t(`adminRoles.reason.${p.reason}`));
@@ -123,21 +129,23 @@ export default function AdminQuestionDetailClient({ questionId }: { questionId: 
     void run(() => questionBankApi.attachRubric(versionId, { criteria: rubricCriteria }), t("fixAdmin.qd.rubricAttached"));
   };
   const mappings = [
-    ...(question.taxonomy.primaryCompetency ? [["PRIMARY_COMPETENCY", question.taxonomy.primaryCompetency.conceptId]] : []),
-    ...question.taxonomy.skills.map((item) => ["TARGET_SKILL", item.conceptId]),
-    ...question.taxonomy.roles.map((item) => ["TARGET_ROLE", item.conceptId]),
+    ...(question.taxonomy.primaryCompetency ? [["PRIMARY_COMPETENCY", question.taxonomy.primaryCompetency] as const] : []),
+    ...question.taxonomy.skills.map((item) => ["TARGET_SKILL", item] as const),
+    ...question.taxonomy.roles.map((item) => ["TARGET_ROLE", item] as const),
   ];
   const button = "rounded-xl px-3.5 py-2 text-xs font-semibold disabled:opacity-60";
 
   return <div className="space-y-6">
-    {header(version.status)}
+    {header(version.status, version.trust)}
     <section className="min-w-0 space-y-3 rounded-2xl border border-[#DCE4F3] bg-white p-4 text-sm text-[#14244B] sm:p-6">
       <p className="text-xs text-[#607096]">{t("fixAdmin.qd.stableKey")}: <span className="font-mono font-semibold text-[#14244B] [overflow-wrap:anywhere]">{question.stableKey}</span></p>
-      <p className="text-base font-semibold break-words [overflow-wrap:anywhere]">{version.canonicalText}</p>
+      <p className="text-base font-semibold break-words [overflow-wrap:anywhere]">{version.localizedText || version.canonicalText}</p>
+      {version.localizedText && <p className="text-xs break-words text-[#607096] [overflow-wrap:anywhere]"><span className="font-semibold">{fmt(t("adminRoles.originalText"), { locale: version.canonicalLocale })}:</span> {version.canonicalText}</p>}
       <p className="break-words text-[#607096] [overflow-wrap:anywhere]"><span className="font-semibold text-[#14244B]">{t("fixAdmin.qd.objective")}:</span> {version.objective}</p>
       <p className="text-xs text-[#607096]">{t("adminRoles.author")}: <span className="font-semibold text-[#14244B]">{version.generated ? t("adminRoles.authorAi") : version.createdByName || version.createdBy}</span></p>
       <p className="text-xs text-[#607096]">v{version.version} · {label("type", version.questionType)} · {label("difficulty", version.difficultyBand)} · {version.canonicalLocale} · {fmt(t("fixAdmin.qd.softMeta"), { n: version.softAnswerSeconds })}</p>
-      {mappings.length > 0 && <div className="space-y-1.5"><p className="text-xs font-semibold text-[#607096]">{t("fixAdmin.qd.taxonomyMappings")}</p><div className="flex flex-wrap gap-2">{mappings.map(([purpose, conceptId]) => <span key={`${purpose}:${conceptId}`} className="min-w-0 max-w-full rounded-lg bg-[#EEF2FD] px-2 py-1 text-xs [overflow-wrap:anywhere]"><b>{label("purpose", purpose)}</b> · <span className="font-mono">{conceptId}</span></span>)}</div></div>}
+      {!editable && <DifficultyHint band={version.difficultyBand} />}
+      {mappings.length > 0 && <div className="space-y-1.5"><p className="text-xs font-semibold text-[#607096]">{t("fixAdmin.qd.taxonomyMappings")}</p><div className="flex flex-wrap gap-2">{mappings.map(([purpose, concept]) => <span key={`${purpose}:${concept.conceptId}`} title={concept.conceptId} className="min-w-0 max-w-full rounded-lg bg-[#EEF2FD] px-2 py-1 text-xs [overflow-wrap:anywhere]"><b>{label("purpose", purpose)}</b> · {concept.label || concept.conceptId}</span>)}</div></div>}
       {question.taxonomy.skills.length === 0 && question.taxonomy.roles.length === 0 && <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">{t("fixAdmin.qd.noTargets")}</p>}
       {editable && question.approvedVersionId && question.approvedVersionId !== versionId && <p className="rounded-xl bg-[#EEF2FD] p-3 text-xs">{t("fixAdmin.qd.revisionNote")}</p>}
       {editable && <DraftEditor key={versionId} version={version} busy={busy} onSave={(payload) => run(() => questionBankApi.updateDraft(versionId, payload), t("fixAdmin.qd.draftSaved"))} />}
@@ -188,6 +196,7 @@ export default function AdminQuestionDetailClient({ questionId }: { questionId: 
         {actionVisible(perm("review")) && <button type="button" disabled={busy || !canReview} onClick={() => review("REQUEST_CHANGES", t("fixAdmin.qd.changesRequested"))} className={`${button} border border-[#DCE4F3] text-[#14244B]`}>{t("fixAdmin.qd.reviewRequestChanges")}</button>}
         {actionVisible(perm("review")) && <button type="button" disabled={busy || !canReview} onClick={() => review("REJECT", t("adminRoles.rejected"))} className={`${button} border border-[#F3C9C9] text-[#C43B3B]`}>{t("adminRoles.reject")}</button>}
         {actionVisible(perm("approve")) && <button type="button" disabled={busy || !perm("approve").allowed} onClick={() => run(() => questionBankApi.approve(versionId), t("fixAdmin.qd.approved"))} className={`${button} bg-emerald-600 text-white`}>{t("fixAdmin.qd.finalApprove")}</button>}
+        {actionVisible(perm("verify")) && <button type="button" disabled={busy || !perm("verify").allowed} onClick={() => run(() => questionBankApi.verify(versionId, comment || undefined), t("adminRoles.verified"))} className={`${button} bg-emerald-600 text-white`}>{t("adminRoles.verify")}</button>}
         {actionVisible(perm("revise")) && <button type="button" disabled={busy || !perm("revise").allowed} onClick={() => run(() => questionBankApi.revise(versionId), t("fixAdmin.qd.revisionCreated"))} className={`${button} border border-[#DCE4F3] text-[#14244B]`}>{t("fixAdmin.qd.createRevision")}</button>}
       </div>
       {uniqueReasons.length > 0 && <ul className="space-y-1 text-xs text-[#8A5A00]">{uniqueReasons.map((reason) => <li key={reason}>• {reason}</li>)}</ul>}
@@ -232,6 +241,7 @@ function DraftEditor({ version, busy, onSave }: { version: QuestionDetail["curre
       <label className="block text-xs font-semibold">{t("fixAdmin.qd.softSeconds")}<input className={input} type="number" value={form.soft} onChange={(e) => update("soft", e.target.value)} /></label>
       <label className="block text-xs font-semibold">{t("fixAdmin.qd.hardSeconds")}<input className={input} type="number" value={form.hard} onChange={(e) => update("hard", e.target.value)} /></label>
     </div>
+    <DifficultyHint band={form.difficultyBand} />
     <button type="button" disabled={busy} onClick={save} className="rounded-xl border border-[#DCE4F3] px-3.5 py-2 text-xs font-semibold text-[#14244B] disabled:opacity-60">{t("fixAdmin.qd.saveChanges")}</button>
   </div>;
 }

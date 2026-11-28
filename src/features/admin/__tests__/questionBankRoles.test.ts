@@ -51,6 +51,16 @@ describe("question actions", () => {
     expect(actionPermission(detail("APPROVED"), "revise").allowed).toBe(true);
     expect(actionPermission(detail("APPROVED"), "review").allowed).toBe(false);
   });
+
+  it("offers verification only when the backend says nobody reviewed the version", () => {
+    const seeded = detail("APPROVED", { verify: { allowed: true, reason: null } } as QuestionDetail["actions"]);
+    expect(actionPermission(seeded, "verify").allowed).toBe(true);
+    // An older backend cannot tell, and a reviewed version needs no button.
+    const unknown = actionPermission(detail("APPROVED"), "verify");
+    expect(unknown.allowed).toBe(false);
+    expect(actionVisible(unknown)).toBe(false);
+    expect(actionVisible({ allowed: false, reason: "own_question" })).toBe(true);
+  });
 });
 
 describe("question list views", () => {
@@ -58,6 +68,8 @@ describe("question list views", () => {
     expect(viewParams("all")).toEqual({});
     expect(viewParams("ai")).toEqual({ source: "ai" });
     expect(viewParams("review")).toEqual({ mine: "review" });
+    // The verification queue lists what candidates meet most first.
+    expect(viewParams("initial")).toEqual({ trust: "initial", sort: "asked" });
   });
 
   it("offers adding and importing only to roles that can", () => {

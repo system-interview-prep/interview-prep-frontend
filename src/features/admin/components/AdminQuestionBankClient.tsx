@@ -12,16 +12,18 @@ import AdminEmptyState from "./primitives/AdminEmptyState";
 import AdminMetricCard from "./primitives/AdminMetricCard";
 import AdminPageHeader from "./primitives/AdminPageHeader";
 import AdminStatusBadge from "./primitives/AdminStatusBadge";
-import { lifecycleTone } from "./primitives/statusTone";
+import { questionBadge } from "./primitives/statusTone";
 
 const PAGE_SIZE = 20;
 
-/** "Tất cả", the signed-in person's work buckets, or the system-generated drafts. */
-export type BankView = "all" | WorkBucket | "ai";
+/** "Tất cả", the person's work buckets, the system-generated drafts, or approved questions nobody reviewed. */
+export type BankView = "all" | WorkBucket | "ai" | "initial";
 
-export function viewParams(view: BankView): { mine?: WorkBucket; source?: "ai" } {
+export function viewParams(view: BankView): { mine?: WorkBucket; source?: "ai"; trust?: "initial"; sort?: "asked" } {
   if (view === "all") return {};
   if (view === "ai") return { source: "ai" };
+  // The verification queue: what candidates are asked most comes first.
+  if (view === "initial") return { trust: "initial", sort: "asked" };
   return { mine: view };
 }
 
@@ -95,8 +97,13 @@ export default function AdminQuestionBankClient() {
     { key: "all", label: t("admin.common.all") },
     ...buckets.map((bucket) => ({ key: bucket, label: t(`adminRoles.work.${bucket}`), count: work?.buckets[bucket] })),
     { key: "ai", label: t("adminRoles.work.ai"), count: work?.generatedInReview },
+    ...(canRetire ? [{ key: "initial" as const, label: t("adminRoles.work.initial"), count: work?.unverified }] : []),
   ];
   const th = "px-4 py-4 first:pl-6 last:pr-6";
+  const badge = (question: QuestionBankItem) => {
+    const { tone, labelKey } = questionBadge(question.currentVersion.status, question.currentVersion.trust);
+    return { tone, label: labelKey ? t(labelKey) : label("status", question.currentVersion.status) };
+  };
   const toggleQuestion = (questionId: string) => setSelectedIds((current) => {
     const next = new Set(current);
     if (next.has(questionId)) next.delete(questionId);
@@ -194,12 +201,12 @@ export default function AdminQuestionBankClient() {
     <div className="overflow-hidden rounded-3xl border border-[#DCE4F3] bg-white shadow-xs">
       <div className="overflow-x-auto"><table className="w-full min-w-[940px] table-fixed text-left text-xs"><thead><tr className="border-b border-[#EAEFF8] bg-[#F8FAFC] text-[11px] font-bold uppercase text-[#607096]">
         {canExport && <th className="w-12 px-3 py-4 text-center"><input type="checkbox" checked={allVisibleSelected} onChange={toggleVisibleQuestions} disabled={visibleIds.length === 0} aria-label={t("fixAdmin.ops.qb.selectPage")} className="size-4 rounded border-[#CBD5E1] accent-[#9FB2D4]" /></th>}
-        <th className={`${th} w-[38%]`}>{t("fixAdmin.ops.qb.table.question")}</th>
+        <th className={`${th} w-[35%]`}>{t("fixAdmin.ops.qb.table.question")}</th>
         <th className={`${th} w-[18%]`}>{t("fixAdmin.ops.qb.table.competency")}</th>
         <th className={`${th} w-[10%] whitespace-nowrap text-center`}>{t("fixAdmin.ops.qb.table.difficulty")}</th>
         <th className={`${th} w-[12%] text-center`}>{t("fixAdmin.ops.qb.table.type")}</th>
         <th className={`${th} w-[10%] whitespace-nowrap text-center`}>{t("fixAdmin.ops.qb.table.duration")}</th>
-        <th className={`${th} w-[12%] whitespace-nowrap text-right`}>{t("fixAdmin.ops.qb.table.status")}</th>
+        <th className={`${th} w-[15%] whitespace-nowrap text-right`}>{t("fixAdmin.ops.qb.table.status")}</th>
       </tr></thead><tbody className="divide-y divide-[#EAEFF8]">
         {pending ? <tr><td colSpan={columnCount} className="p-8 text-center text-[#607096]">{t("fixAdmin.ops.qb.loading")}</td></tr>
           : state === "forbidden" ? <tr><td colSpan={columnCount} className="p-8 text-center text-[#C43B3B]">{t("fixAdmin.ops.qb.forbidden")}</td></tr>
@@ -212,14 +219,15 @@ export default function AdminQuestionBankClient() {
               <span className="flex flex-wrap gap-1.5">
                 <span className="inline-flex rounded-md bg-[#EEF2FD] px-1.5 py-0.5 text-[11px] font-semibold text-[#204195]" title={`${t("fixAdmin.ops.qb.versionPrefix")} ${question.currentVersion.version}`}>v{question.currentVersion.version}</span>
                 {question.currentVersion.generated && <span className="inline-flex rounded-md bg-[#FFF6E0] px-1.5 py-0.5 text-[11px] font-semibold text-[#8A5A00]">{t("adminRoles.aiBadge")}</span>}
+                {view === "initial" && Boolean(question.askedCount) && <span className="inline-flex rounded-md bg-[#F1F5F9] px-1.5 py-0.5 text-[11px] font-semibold text-[#33446B] tabular-nums">{fmt(t("adminRoles.askedCount"), { n: question.askedCount ?? 0 })}</span>}
               </span>
-              <p className="line-clamp-2 break-words text-[#607096]" title={question.currentVersion.canonicalText}>{question.currentVersion.canonicalText}</p>
+              <p className="line-clamp-2 break-words text-[#607096]" title={question.currentVersion.canonicalText}>{question.currentVersion.localizedText || question.currentVersion.canonicalText}</p>
             </div></td>
-            <td className="px-4 py-4 align-top text-[#14244B] [overflow-wrap:anywhere]">{question.taxonomy.primaryCompetency?.conceptId || "—"}</td>
+            <td className="px-4 py-4 align-top text-[#14244B] [overflow-wrap:anywhere]" title={question.taxonomy.primaryCompetency?.conceptId}>{question.taxonomy.primaryCompetency?.label || question.taxonomy.primaryCompetency?.conceptId || "—"}</td>
             <td className="whitespace-nowrap px-4 py-4 text-center align-top text-[#14244B]">{label("difficulty", question.currentVersion.difficultyBand)}</td>
             <td className="px-4 py-4 text-center align-top text-[#14244B]">{label("type", question.currentVersion.questionType)}</td>
             <td className="whitespace-nowrap px-4 py-4 text-center align-top text-[#14244B] tabular-nums">{question.currentVersion.softAnswerSeconds} giây</td>
-            <td className="px-4 py-4 text-right align-top"><AdminStatusBadge status={lifecycleTone(question.currentVersion.status)} label={label("status", question.currentVersion.status)} className="whitespace-nowrap" /></td>
+            <td className="px-4 py-4 text-right align-top"><AdminStatusBadge status={badge(question).tone} label={badge(question).label} className="whitespace-nowrap" /></td>
           </tr>)}
       </tbody></table></div>
       {state === "ready" && total !== null && total > PAGE_SIZE && (

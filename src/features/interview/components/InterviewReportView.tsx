@@ -212,6 +212,8 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
   const candidateFeedback = report.candidate_feedback ?? report.candidateFeedback ?? '';
   const nextRoundTopics = report.next_round_topics ?? report.nextRoundTopics ?? [];
   const redFlags = report.red_flags ?? report.redFlags ?? [];
+  // Of the Question Bank questions graded, how many a person reviewed.
+  const questionTrust = report.questionTrustSummary ?? null;
   const rawCompetencies = report.competency_scores ?? report.competencyScores ?? [];
   const rawTurns = useMemo(() => report.turn_evaluations ?? report.turnEvaluations ?? [], [report]);
 
@@ -446,6 +448,11 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
                   <div className="mt-4 flex flex-col items-center gap-1.5">
                     <LevelChip level={overallLevel} prefix={t('report.levelPrefix')} />
                     <span className="text-[11px] font-medium text-[#8A99B8]">{t('report.hero.overallRating')}</span>
+                    {questionTrust && questionTrust.total > 0 && (
+                      <span className="text-[11px] font-medium text-[#8A99B8]">
+                        {fmt(t('report.hero.questionTrust'), { reviewed: questionTrust.reviewed, total: questionTrust.total })}
+                      </span>
+                    )}
                   </div>
                 </>
               ) : (
