@@ -7,7 +7,7 @@ import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { BrandLogo } from "@components/shared/BrandLogo";
 import { StatusNote } from "@components/shared/StatusNote";
-import { useGoogleLogin } from "@react-oauth/google";
+import { GoogleSignInButton } from "@features/auth/components/user/GoogleSignInButton";
 import {
   completeAuthSession,
   getAuthErrorMessage,
@@ -17,22 +17,10 @@ import { authApi, type AuthResponse } from "@lib/apiClient";
 
 export type AuthMode = "login" | "signup";
 
-function GoogleMark() {
-  return (
-    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden>
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.07 5.07 0 0 1-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z" fill="#4285F4" />
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77a6.59 6.59 0 0 1-9.87-3.47H2.18v2.84A11 11 0 0 0 12 23Z" fill="#34A853" />
-      <path d="M5.84 14.09A6.5 6.5 0 0 1 5.49 12c0-.73.13-1.43.35-2.09V7.07H2.18A11 11 0 0 0 1 12c0 1.78.43 3.45 1.18 4.93l3.66-2.84Z" fill="#FBBC05" />
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A10.95 10.95 0 0 0 2.18 7.07l3.66 2.84A6.58 6.58 0 0 1 12 5.38Z" fill="#EA4335" />
-    </svg>
-  );
-}
-
 export default function UserAuthentication({ defaultMode = "login" }: { defaultMode?: AuthMode }) {
   const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const googleConfigured = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
   const [mode, setMode] = useState<AuthMode>(defaultMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -86,40 +74,24 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const startGoogleLogin = useGoogleLogin({
-    flow: "implicit",
-    onSuccess: async (token) => {
-      try {
-        setGoogleLoading(true);
-        setFormErrors({});
-        const response = await authApi.googleLogin(token.access_token);
-        await handleCompleteAuth(response.data);
-      } catch (error) {
-        setFormErrors({ form: getAuthErrorMessage(error, t("auth.error.googleFailed")) });
-      } finally {
-        setGoogleLoading(false);
-      }
-    },
-    onError: () => {
-      setFormErrors({ form: t("auth.error.googleFailed") });
+  async function handleGoogleToken(accessToken: string) {
+    try {
+      setGoogleLoading(true);
+      setFormErrors({});
+      const response = await authApi.googleLogin(accessToken);
+      await handleCompleteAuth(response.data);
+    } catch (error) {
+      setFormErrors({ form: getAuthErrorMessage(error, t("auth.error.googleFailed")) });
+    } finally {
       setGoogleLoading(false);
-    },
-  });
+    }
+  }
 
   function switchMode(next: AuthMode) {
     setMode(next);
     setFormErrors({});
     setShowForgotNote(false);
     window.history.replaceState(null, "", next === "login" ? "/login" : "/signup");
-  }
-
-  function onGoogleClick() {
-    if (!googleConfigured) {
-      setFormErrors({ form: t("auth.error.googleNotConfigured") });
-      return;
-    }
-    setGoogleLoading(true);
-    startGoogleLogin();
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -270,21 +242,13 @@ export default function UserAuthentication({ defaultMode = "login" }: { defaultM
           </p>
 
           {/* Google OAuth */}
-          <button
-            type="button"
-            onClick={onGoogleClick}
-            disabled={googleLoading || loading}
-            className="mt-6 flex h-12 w-full items-center justify-center gap-3 rounded-full bg-white px-4 text-sm font-semibold text-[#14244B] ring-1 ring-[#DCE4F3] transition-colors hover:bg-[#F7F9FD] disabled:opacity-60"
-          >
-            {googleLoading ? (
-              <LoaderCircle className="animate-spin text-[#204195]" size={18} />
-            ) : (
-              <GoogleMark />
-            )}
-            <span>
-              {mode === "login" ? t("auth.googleSignIn") : t("auth.googleSignUp")}
-            </span>
-          </button>
+          <GoogleSignInButton
+            label={mode === "login" ? t("auth.googleSignIn") : t("auth.googleSignUp")}
+            disabled={loading}
+            verifying={googleLoading}
+            onAccessToken={handleGoogleToken}
+            onProblem={(message) => setFormErrors(message ? { form: message } : {})}
+          />
 
           {/* Divider */}
           <div className="my-6 flex items-center gap-3">

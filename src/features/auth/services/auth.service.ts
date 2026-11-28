@@ -76,6 +76,7 @@ export function getAuthErrorMessage(error: unknown, fallback: string): string {
     if (value.response?.data?.detail) return value.response.data.detail;
     if (value.response?.data?.message) return value.response.data.message;
     if (value.code === "ERR_NETWORK") return "Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng.";
+    if (value.code === "ECONNABORTED" || value.code === "ETIMEDOUT") return "Máy chủ phản hồi quá lâu. Vui lòng thử lại.";
     return value.message || fallback;
   }
   return fallback;

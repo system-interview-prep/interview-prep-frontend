@@ -88,7 +88,8 @@ export const authApi = {
       phone: phone || undefined,
     }),
   googleLogin: (token: string) =>
-    apiClient.post<AuthResponse>('/auth/google', { accessToken: token, token }),
+    // The backend asks Google to verify the token (10s limit there); never wait on it forever.
+    apiClient.post<AuthResponse>('/auth/google', { accessToken: token, token }, { timeout: 20_000 }),
 };
 
 // ── Interview API ──────────────────────────────────────────────────────────────
