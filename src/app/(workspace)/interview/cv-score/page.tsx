@@ -37,7 +37,6 @@ import { buildHumanizedRequirementsAndGroups } from "@features/matching/utils/ma
 import { useInterviewEntryPolicy } from "@features/interview/hooks/useInterviewEntryPolicy";
 import { entryBlockMessageKey, evaluateEntry } from "@features/interview/utils/entryGate";
 import { EntryWarningDialog } from "@features/interview/components/EntryWarningDialog";
-import { PracticeTierNote } from "@features/interview/components/PracticeTierNote";
 import { asFocusArea } from "@features/interview/services/interviewRuntime.service";
 import { loadCandidateJobFitAttempt } from "@features/matching/utils/fitHistory";
 
@@ -897,7 +896,8 @@ function ScorePageContent() {
           </div>
 
           <WorkspacePageHeader
-            className="mb-6"
+            className="mb-6 gap-5 pb-6 sm:items-start sm:gap-8"
+            size="lg"
             title={t("fit.page.crumbReport")}
             subtitle={hasNoContext ? t("fit.page.emptyDesc") : t("uxWs.cvScore.subtitle")}
             aside={
@@ -987,9 +987,6 @@ function ScorePageContent() {
                   <p role="status" className="basis-full text-xs font-medium text-[#B45309]">
                     {entryBlockedText ?? t("fit.page.scoreRequired")}
                   </p>
-                )}
-                {entry?.allowed && (
-                  <PracticeTierNote className="basis-full sm:max-w-xl" decision={entry} policy={entryPolicy} />
                 )}
               </>
             )}

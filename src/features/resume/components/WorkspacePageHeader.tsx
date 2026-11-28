@@ -13,7 +13,10 @@ export function WorkspacePageHeader({
   children,
   aside,
   className,
+  size = "md",
 }: {
+  /** "lg" for report pages where the title is the main heading of a long page. */
+  size?: "md" | "lg";
   title: ReactNode;
   subtitle?: ReactNode;
   /** Primary page actions. */
@@ -30,9 +33,27 @@ export function WorkspacePageHeader({
     >
       <div className="flex min-w-0 items-start gap-4">
         <div className="min-w-0">
-          <h1 className="break-words text-xl font-black tracking-tight text-[#14244B] sm:text-2xl">{title}</h1>
-          {subtitle ? <p className="mt-1 max-w-3xl text-xs leading-5 text-[#607096] sm:text-sm">{subtitle}</p> : null}
-          {children ? <div className="mt-3 flex flex-wrap items-center gap-2.5">{children}</div> : null}
+          <h1
+            className={cn(
+              "break-words font-black tracking-tight text-[#14244B]",
+              size === "lg" ? "text-2xl leading-tight sm:text-3xl lg:text-4xl" : "text-xl sm:text-2xl",
+            )}
+          >
+            {title}
+          </h1>
+          {subtitle ? (
+            <p
+              className={cn(
+                "max-w-3xl text-[#607096]",
+                size === "lg" ? "mt-2 text-sm leading-6 sm:text-base" : "mt-1 text-xs leading-5 sm:text-sm",
+              )}
+            >
+              {subtitle}
+            </p>
+          ) : null}
+          {children ? (
+            <div className={cn("flex flex-wrap items-center gap-2.5", size === "lg" ? "mt-5" : "mt-3")}>{children}</div>
+          ) : null}
         </div>
       </div>
       {aside ? <div className="min-w-0 sm:max-w-sm sm:shrink-0">{aside}</div> : null}
